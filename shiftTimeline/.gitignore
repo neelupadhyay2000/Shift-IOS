@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Xcode User Data & State
+*.xcuserdata
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Xcode Build Output
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+
+# App Archives & Debug Symbols
+*.ipa
+*.app
+*.dSYM.zip
+*.dSYM
+
+# Crashlytics / Fastlane (Future-proofing)
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
