@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		5F21CF932F85C7FB00110808 /* shiftTimelineWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CF9E2F85CA0900110808 /* WidgetKit.framework */; };
+		5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
+		5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -17,6 +20,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 5F21CF882F85C7FA00110808;
 			remoteInfo = "shiftTimelineWatch Watch App";
+		};
+		5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F21CF9B2F85CA0900110808;
+			remoteInfo = shiftTimelineWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -32,11 +42,26 @@
 			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		5F21CF722F85C1B000110808 /* shiftTimeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shiftTimeline.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "shiftTimelineWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F21CF9E2F85CA0900110808 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -46,6 +71,13 @@
 				Info.plist,
 			);
 			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+		};
+		5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -61,6 +93,14 @@
 		5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "shiftTimelineWatch Watch App";
+			sourceTree = "<group>";
+		};
+		5F21CFA22F85CA0900110808 /* shiftTimelineWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */,
+			);
+			path = shiftTimelineWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -80,14 +120,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F21CF992F85CA0900110808 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */,
+				5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		5F21CF692F85C1B000110808 = {
 			isa = PBXGroup;
 			children = (
+				5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */,
 				5F21CF742F85C1B000110808 /* shiftTimeline */,
 				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
+				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
+				5F21CF9D2F85CA0900110808 /* Frameworks */,
 				5F21CF732F85C1B000110808 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -97,8 +149,18 @@
 			children = (
 				5F21CF722F85C1B000110808 /* shiftTimeline.app */,
 				5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */,
+				5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5F21CF9D2F85CA0900110808 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5F21CF9E2F85CA0900110808 /* WidgetKit.framework */,
+				5F21CFA02F85CA0900110808 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -112,11 +174,13 @@
 				5F21CF6F2F85C1B000110808 /* Frameworks */,
 				5F21CF702F85C1B000110808 /* Resources */,
 				5F21CF972F85C7FB00110808 /* Embed Watch Content */,
+				5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				5F21CF922F85C7FB00110808 /* PBXTargetDependency */,
+				5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				5F21CF742F85C1B000110808 /* shiftTimeline */,
@@ -150,6 +214,28 @@
 			productReference = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */;
 			productType = "com.apple.product-type.application";
 		};
+		5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */;
+			buildPhases = (
+				5F21CF982F85CA0900110808 /* Sources */,
+				5F21CF992F85CA0900110808 /* Frameworks */,
+				5F21CF9A2F85CA0900110808 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
+			);
+			name = shiftTimelineWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = shiftTimelineWidgetExtension;
+			productReference = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -164,6 +250,9 @@
 						CreatedOnToolsVersion = 26.4;
 					};
 					5F21CF882F85C7FA00110808 = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					5F21CF9B2F85CA0900110808 = {
 						CreatedOnToolsVersion = 26.4;
 					};
 				};
@@ -184,6 +273,7 @@
 			targets = (
 				5F21CF712F85C1B000110808 /* shiftTimeline */,
 				5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */,
+				5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -197,6 +287,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5F21CF872F85C7FA00110808 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5F21CF9A2F85CA0900110808 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -220,6 +317,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F21CF982F85CA0900110808 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -227,6 +331,11 @@
 			isa = PBXTargetDependency;
 			target = 5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */;
 			targetProxy = 5F21CF912F85C7FB00110808 /* PBXContainerItemProxy */;
+		};
+		5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
+			targetProxy = 5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -490,6 +599,68 @@
 			};
 			name = Release;
 		};
+		5F21CFB02F85CA0A00110808 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5F21CFB12F85CA0A00110808 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -516,6 +687,15 @@
 			buildConfigurations = (
 				5F21CF952F85C7FB00110808 /* Debug */,
 				5F21CF962F85C7FB00110808 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F21CFB02F85CA0A00110808 /* Debug */,
+				5F21CFB12F85CA0A00110808 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
