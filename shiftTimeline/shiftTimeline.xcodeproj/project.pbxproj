@@ -37,6 +37,13 @@
 			remoteGlobalIDString = 5F21CF9B2F85CA0900110808;
 			remoteInfo = shiftTimelineWidgetExtension;
 		};
+		5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F21CF712F85C1B000110808;
+			remoteInfo = shiftTimeline;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -71,6 +78,7 @@
 		5F21CF9E2F85CA0900110808 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
+		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -120,6 +128,11 @@
 			path = shiftTimelineWidget;
 			sourceTree = "<group>";
 		};
+		5F21CFF82F85F2BF00110808 /* shiftTimelineTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = shiftTimelineTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +168,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F21CFF42F85F2BF00110808 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -165,6 +185,7 @@
 				5F21CF742F85C1B000110808 /* shiftTimeline */,
 				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
 				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
+				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
 				5F21CF9D2F85CA0900110808 /* Frameworks */,
 				5F21CF732F85C1B000110808 /* Products */,
 			);
@@ -176,6 +197,7 @@
 				5F21CF722F85C1B000110808 /* shiftTimeline.app */,
 				5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */,
 				5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
+				5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -271,6 +293,29 @@
 			productReference = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		5F21CFF62F85F2BF00110808 /* shiftTimelineTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */;
+			buildPhases = (
+				5F21CFF32F85F2BF00110808 /* Sources */,
+				5F21CFF42F85F2BF00110808 /* Frameworks */,
+				5F21CFF52F85F2BF00110808 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
+			);
+			name = shiftTimelineTests;
+			packageProductDependencies = (
+			);
+			productName = shiftTimelineTests;
+			productReference = 5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -289,6 +334,10 @@
 					};
 					5F21CF9B2F85CA0900110808 = {
 						CreatedOnToolsVersion = 26.4;
+					};
+					5F21CFF62F85F2BF00110808 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 5F21CF712F85C1B000110808;
 					};
 				};
 			};
@@ -312,6 +361,7 @@
 				5F21CF712F85C1B000110808 /* shiftTimeline */,
 				5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */,
 				5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
+				5F21CFF62F85F2BF00110808 /* shiftTimelineTests */,
 			);
 		};
 /* End PBXProject section */
@@ -332,6 +382,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5F21CF9A2F85CA0900110808 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5F21CFF52F85F2BF00110808 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -362,6 +419,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F21CFF32F85F2BF00110808 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -374,6 +438,11 @@
 			isa = PBXTargetDependency;
 			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
 			targetProxy = 5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */;
+		};
+		5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+			targetProxy = 5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -701,6 +770,48 @@
 			};
 			name = Release;
 		};
+		5F21CFFE2F85F2BF00110808 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
+			};
+			name = Debug;
+		};
+		5F21CFFF2F85F2BF00110808 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -736,6 +847,15 @@
 			buildConfigurations = (
 				5F21CFB02F85CA0A00110808 /* Debug */,
 				5F21CFB12F85CA0A00110808 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F21CFFE2F85F2BF00110808 /* Debug */,
+				5F21CFFF2F85F2BF00110808 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
