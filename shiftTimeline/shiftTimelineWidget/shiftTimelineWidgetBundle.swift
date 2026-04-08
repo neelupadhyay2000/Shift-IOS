@@ -13,5 +13,6 @@ struct shiftTimelineWidgetBundle: WidgetBundle {
     var body: some Widget {
         shiftTimelineWidget()
         shiftTimelineWidgetControl()
+        ShiftLiveActivity()
     }
 }
