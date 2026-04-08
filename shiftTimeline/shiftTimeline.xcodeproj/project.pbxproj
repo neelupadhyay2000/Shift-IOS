@@ -17,6 +17,9 @@
 		5F21CFE82F85F0D600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE72F85F0D600110808 /* Engine */; };
 		5F21CFEA2F85F0D600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE92F85F0D600110808 /* Models */; };
 		5F21CFEC2F85F0D600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEB2F85F0D600110808 /* Services */; };
+		5F21CFEE2F85F1B600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFED2F85F1B600110808 /* Engine */; };
+		5F21CFF02F85F1B600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEF2F85F1B600110808 /* Models */; };
+		5F21CFF22F85F1B600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFF12F85F1B600110808 /* Services */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -144,8 +147,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5F21CFF22F85F1B600110808 /* Services in Frameworks */,
 				5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */,
 				5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */,
+				5F21CFF02F85F1B600110808 /* Models in Frameworks */,
+				5F21CFEE2F85F1B600110808 /* Engine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,6 +263,9 @@
 			);
 			name = shiftTimelineWidgetExtension;
 			packageProductDependencies = (
+				5F21CFED2F85F1B600110808 /* Engine */,
+				5F21CFEF2F85F1B600110808 /* Models */,
+				5F21CFF12F85F1B600110808 /* Services */,
 			);
 			productName = shiftTimelineWidgetExtension;
 			productReference = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */;
@@ -763,6 +772,21 @@
 		};
 		5F21CFEB2F85F0D600110808 /* Services */ = {
 			isa = XCSwiftPackageProductDependency;
+			productName = Services;
+		};
+		5F21CFED2F85F1B600110808 /* Engine */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+			productName = Engine;
+		};
+		5F21CFEF2F85F1B600110808 /* Models */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+			productName = Models;
+		};
+		5F21CFF12F85F1B600110808 /* Services */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
 			productName = Services;
 		};
 /* End XCSwiftPackageProductDependency section */

@@ -9,6 +9,7 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 import Foundation
+import Models
 
 // 1. The Data Model
 struct ShiftActivityAttributes: ActivityAttributes {
