@@ -15,4 +15,24 @@ struct shiftTimelineTests {
         // https://developer.apple.com/documentation/testing
     }
 
+    @Test func timelineTrackCanBeInstantiated() async throws {
+        let event = EventModel(
+            title: "Test Event",
+            date: Date(),
+            latitude: 0,
+            longitude: 0
+        )
+
+        let track = TimelineTrack(
+            name: "Main",
+            sortOrder: 0,
+            event: event
+        )
+
+        #expect(track.name == "Main")
+        #expect(track.sortOrder == 0)
+        #expect(track.event === event)
+        #expect(track.blocks.isEmpty)
+    }
+
 }
