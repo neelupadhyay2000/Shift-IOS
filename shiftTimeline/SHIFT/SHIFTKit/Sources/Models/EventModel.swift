@@ -13,9 +13,6 @@ public final class EventModel {
     public var goldenHourStart: Date?
     public var status: EventStatus
 
-    @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
-    public var tracks: [TimelineTrack] = []
-
     public init(
         id: UUID = UUID(),
         title: String,
