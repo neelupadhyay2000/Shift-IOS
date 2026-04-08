@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+import Models
+import Engine
+import Services
 
 @main
 struct shiftTimelineWatch_Watch_AppApp: App {
