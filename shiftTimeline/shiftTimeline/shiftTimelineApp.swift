@@ -7,6 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import Models
+import Engine
+import Services
 
 @main
 struct shiftTimelineApp: App {

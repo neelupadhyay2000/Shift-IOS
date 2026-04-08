@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "SHIFTKit",
     platforms: [
-        .iOS(.v18)
+        .iOS(.v17)
     ],
     products: [
         .library(name: "Models", targets: ["Models"]),
