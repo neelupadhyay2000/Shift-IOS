@@ -79,6 +79,13 @@
 			);
 			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
 		};
+		5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ShiftLiveActivity.swift,
+			);
+			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +105,7 @@
 		5F21CFA22F85CA0900110808 /* shiftTimelineWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */,
 				5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */,
 			);
 			path = shiftTimelineWidget;
@@ -353,6 +361,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimeline/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -389,6 +398,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimeline/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
