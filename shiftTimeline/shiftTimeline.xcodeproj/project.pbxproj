@@ -11,6 +11,9 @@
 		5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CF9E2F85CA0900110808 /* WidgetKit.framework */; };
 		5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
 		5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5F21CFE12F85EF6500110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE02F85EF6500110808 /* Engine */; };
+		5F21CFE32F85EF6500110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE22F85EF6500110808 /* Models */; };
+		5F21CFE52F85EF6500110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE42F85EF6500110808 /* Services */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -118,6 +121,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5F21CFE52F85EF6500110808 /* Services in Frameworks */,
+				5F21CFE32F85EF6500110808 /* Models in Frameworks */,
+				5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +201,9 @@
 			);
 			name = shiftTimeline;
 			packageProductDependencies = (
+				5F21CFE02F85EF6500110808 /* Engine */,
+				5F21CFE22F85EF6500110808 /* Models */,
+				5F21CFE42F85EF6500110808 /* Services */,
 			);
 			productName = shiftTimeline;
 			productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
@@ -274,6 +283,9 @@
 			);
 			mainGroup = 5F21CF692F85C1B000110808;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5F21CFDF2F85EF6500110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5F21CF732F85C1B000110808 /* Products */;
 			projectDirPath = "";
@@ -711,6 +723,28 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5F21CFDF2F85EF6500110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SHIFT/SHIFTKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5F21CFE02F85EF6500110808 /* Engine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Engine;
+		};
+		5F21CFE22F85EF6500110808 /* Models */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Models;
+		};
+		5F21CFE42F85EF6500110808 /* Services */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Services;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 5F21CF6A2F85C1B000110808 /* Project object */;
 }
