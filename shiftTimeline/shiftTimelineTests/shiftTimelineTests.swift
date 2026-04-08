@@ -5,6 +5,9 @@
 //  Created by Neel Upadhyay on 2026-04-07.
 //
 
+import Foundation
+import Models
+import SwiftData
 import Testing
 import Foundation
 import Models
