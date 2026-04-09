@@ -19,6 +19,9 @@ public final class EventModel {
     @Relationship(deleteRule: .cascade, inverse: \VendorModel.event)
     public var vendors: [VendorModel] = []
 
+    @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
+    public var shiftRecords: [ShiftRecord] = []
+
     public init(
         id: UUID = UUID(),
         title: String,

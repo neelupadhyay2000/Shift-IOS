@@ -18,6 +18,9 @@ public final class TimeBlockModel {
     public var requiresReview: Bool
     public var track: TimelineTrack?
 
+    @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
+    public var shiftRecords: [ShiftRecord] = []
+
     public init(
         id: UUID = UUID(),
         title: String,
