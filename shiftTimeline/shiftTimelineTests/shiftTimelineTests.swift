@@ -7,11 +7,9 @@
 
 import Foundation
 import Models
+import Services
 import SwiftData
 import Testing
-import Foundation
-import Models
-import SwiftData
 
 struct shiftTimelineTests {
 
@@ -35,11 +33,7 @@ struct shiftTimelineTests {
     }
 
     @Test @MainActor func timeBlockModelPersistsInSwiftDataContainer() async throws {
-        let container = try ModelContainer(
-            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self, ShiftRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        )
+        let container = try PersistenceController.forTesting()
         let context = container.mainContext
 
         let event = EventModel(
@@ -93,11 +87,7 @@ struct shiftTimelineTests {
     // MARK: - VendorModel CRUD
 
     @Test @MainActor func vendorModelCreateAndRead() async throws {
-        let container = try ModelContainer(
-            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self, ShiftRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        )
+        let container = try PersistenceController.forTesting()
         let context = container.mainContext
 
         let event = EventModel(
@@ -136,11 +126,7 @@ struct shiftTimelineTests {
     }
 
     @Test @MainActor func vendorModelUpdate() async throws {
-        let container = try ModelContainer(
-            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self, ShiftRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        )
+        let container = try PersistenceController.forTesting()
         let context = container.mainContext
 
         let event = EventModel(
@@ -177,11 +163,7 @@ struct shiftTimelineTests {
     }
 
     @Test @MainActor func vendorModelDelete() async throws {
-        let container = try ModelContainer(
-            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self, ShiftRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        )
+        let container = try PersistenceController.forTesting()
         let context = container.mainContext
 
         let event = EventModel(
@@ -210,11 +192,7 @@ struct shiftTimelineTests {
     // MARK: - ShiftRecord
 
     @Test @MainActor func shiftRecordPersistsWithRelationships() async throws {
-        let container = try ModelContainer(
-            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self, ShiftRecord.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        )
+        let container = try PersistenceController.forTesting()
         let context = container.mainContext
 
         let event = EventModel(
