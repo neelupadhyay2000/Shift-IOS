@@ -15,7 +15,10 @@ import Services
 struct shiftTimelineApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            EventModel.self,
+            TimeBlockModel.self,
+            TimelineTrack.self,
+            VendorModel.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
