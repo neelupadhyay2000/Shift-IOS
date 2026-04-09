@@ -37,7 +37,7 @@ struct shiftTimelineTests {
     @Test @MainActor func timeBlockModelPersistsInSwiftDataContainer() async throws {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self,
+                 VendorModel.self, ShiftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
@@ -95,7 +95,7 @@ struct shiftTimelineTests {
     @Test @MainActor func vendorModelCreateAndRead() async throws {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self,
+                 VendorModel.self, ShiftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
@@ -138,7 +138,7 @@ struct shiftTimelineTests {
     @Test @MainActor func vendorModelUpdate() async throws {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self,
+                 VendorModel.self, ShiftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
@@ -157,7 +157,7 @@ struct shiftTimelineTests {
         try context.save()
 
         vendor.name = "DJ Mike V2"
-        vendor.role = .mc
+        vendor.role = .custom
         vendor.phone = "555-0200"
         vendor.email = "mike@example.com"
         vendor.notificationThreshold = 900
@@ -169,7 +169,7 @@ struct shiftTimelineTests {
         let result = try #require(fetched.first)
 
         #expect(result.name == "DJ Mike V2")
-        #expect(result.role == .mc)
+        #expect(result.role == .custom)
         #expect(result.phone == "555-0200")
         #expect(result.email == "mike@example.com")
         #expect(result.notificationThreshold == 900)
@@ -179,7 +179,7 @@ struct shiftTimelineTests {
     @Test @MainActor func vendorModelDelete() async throws {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
-                 VendorModel.self,
+                 VendorModel.self, ShiftRecord.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
@@ -205,6 +205,60 @@ struct shiftTimelineTests {
 
         let afterDelete = try context.fetch(FetchDescriptor<VendorModel>())
         #expect(afterDelete.count == 0)
+    }
+
+    // MARK: - ShiftRecord
+
+    @Test @MainActor func shiftRecordPersistsWithRelationships() async throws {
+        let container = try ModelContainer(
+            for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
+                 VendorModel.self, ShiftRecord.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+        )
+        let context = container.mainContext
+
+        let event = EventModel(
+            title: "Wedding",
+            date: Date(),
+            latitude: 40.7128,
+            longitude: -74.0060
+        )
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(
+            title: "Ceremony",
+            scheduledStart: Date(),
+            duration: 1800
+        )
+        block.track = track
+        context.insert(block)
+
+        let timestamp = Date()
+        let record = ShiftRecord(
+            timestamp: timestamp,
+            deltaMinutes: 15,
+            triggeredBy: .manual,
+            sourceBlock: block,
+            event: event
+        )
+        context.insert(record)
+        try context.save()
+
+        let descriptor = FetchDescriptor<ShiftRecord>()
+        let fetched = try context.fetch(descriptor)
+
+        #expect(fetched.count == 1)
+
+        let result = try #require(fetched.first)
+        #expect(result.timestamp == timestamp)
+        #expect(result.deltaMinutes == 15)
+        #expect(result.triggeredBy == .manual)
+        #expect(result.sourceBlock === block)
+        #expect(result.event === event)
+        #expect(event.shiftRecords.contains(where: { $0.id == record.id }))
     }
 
 }

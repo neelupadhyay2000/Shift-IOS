@@ -19,6 +19,7 @@ struct shiftTimelineApp: App {
             TimeBlockModel.self,
             TimelineTrack.self,
             VendorModel.self,
+            ShiftRecord.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .none)
 
