@@ -38,7 +38,7 @@ struct shiftTimelineTests {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
                  VendorModel.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
 
@@ -96,7 +96,7 @@ struct shiftTimelineTests {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
                  VendorModel.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
 
@@ -139,7 +139,7 @@ struct shiftTimelineTests {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
                  VendorModel.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
 
@@ -180,7 +180,7 @@ struct shiftTimelineTests {
         let container = try ModelContainer(
             for: EventModel.self, TimelineTrack.self, TimeBlockModel.self,
                  VendorModel.self,
-            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
         )
         let context = container.mainContext
 

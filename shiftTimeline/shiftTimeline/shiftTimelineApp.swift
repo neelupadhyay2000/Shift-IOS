@@ -20,12 +20,22 @@ struct shiftTimelineApp: App {
             TimelineTrack.self,
             VendorModel.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .none)
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // During development, if the schema changed, delete the old store and retry
+            let url = modelConfiguration.url
+            let relatedFiles = [url, url.deletingPathExtension().appendingPathExtension("store-shm"), url.deletingPathExtension().appendingPathExtension("store-wal")]
+            for file in relatedFiles {
+                try? FileManager.default.removeItem(at: file)
+            }
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer: \(error)")
+            }
         }
     }()
 
