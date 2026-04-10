@@ -41,11 +41,14 @@ struct ShiftLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.trailing) { Text("Live") }
                 DynamicIslandExpandedRegion(.bottom) { Text(context.state.currentBlockName) }
             } compactLeading: {
-                Text("S")
+                Image(systemName: "clock.fill")
+                    .foregroundColor(.blue)
             } compactTrailing: {
-                Text("Live")
+                Text("00:00")
+                    .font(.caption2)
             } minimal: {
-                Text("S")
+                Image(systemName: "clock")
+                    .foregroundColor(.blue)
             }
         }
     }
