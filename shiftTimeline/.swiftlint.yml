@@ -1,0 +1,38 @@
+only_rules:
+  # DoD rules
+  - line_length
+  - force_cast
+  - force_try
+  - trailing_whitespace
+  # Bug prevention
+  - duplicate_imports
+  - unused_closure_parameter
+  - implicit_optional_initialization
+  # Consistent formatting
+  - colon
+  - comma
+  - return_arrow_whitespace
+  - vertical_whitespace
+  - opening_brace
+  - statement_position
+  # Swift idioms
+  - syntactic_sugar
+  - control_statement
+  - trailing_semicolon
+  - mark
+
+line_length:
+  warning: 120
+  error: 200
+
+force_cast: error
+
+force_try: warning
+
+trailing_whitespace:
+  ignores_empty_lines: false
+
+excluded:
+  - .build
+  - DerivedData
+  - Pods
