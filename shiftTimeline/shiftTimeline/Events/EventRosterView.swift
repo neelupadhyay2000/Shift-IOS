@@ -12,7 +12,15 @@ struct EventRosterView: View {
     @Query(sort: \EventModel.date, order: .reverse)
     private var events: [EventModel]
 
-    @Environment(\.modelContext) private var modelContext
+    @State private var isShowingCreateSheet = false
+    @State private var searchText = ""
+
+    private var filteredEvents: [EventModel] {
+        guard !searchText.isEmpty else { return events }
+        return events.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         Group {
@@ -22,24 +30,28 @@ struct EventRosterView: View {
                 eventList
             }
         }
+        .searchable(text: $searchText, prompt: String(localized: "Search events"))
         .navigationTitle(String(localized: "Events"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    addEvent()
+                    isShowingCreateSheet = true
                 } label: {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel(String(localized: "Add Event"))
             }
         }
+        .sheet(isPresented: $isShowingCreateSheet) {
+            CreateEventSheet()
+        }
     }
 
     // MARK: - Subviews
 
     private var eventList: some View {
-        List(events) { event in
+        List(filteredEvents) { event in
             EventRowView(
                 title: event.title,
                 date: event.date,
@@ -53,21 +65,9 @@ struct EventRosterView: View {
             Label(String(localized: "No events yet"), systemImage: "calendar")
         } actions: {
             Button(String(localized: "Create Event")) {
-                addEvent()
+                isShowingCreateSheet = true
             }
         }
-    }
-
-    // MARK: - Actions
-
-    private func addEvent() {
-        let event = EventModel(
-            title: "New Event",
-            date: .now,
-            latitude: 0,
-            longitude: 0
-        )
-        modelContext.insert(event)
     }
 }
 

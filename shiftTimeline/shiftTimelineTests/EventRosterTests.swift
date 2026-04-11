@@ -40,4 +40,31 @@ struct EventRosterTests {
         #expect(EventStatus.live.rawValue == "live")
         #expect(EventStatus.completed.rawValue == "completed")
     }
+
+    /// AC: 5 events, search "wed" → only matching events returned.
+    ///
+    /// Mirrors the case-insensitive filter logic used by `EventRosterView.filteredEvents`.
+    @Test @MainActor func searchFilterReturnsCaseInsensitiveMatches() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let now = Date.now
+        let titles = ["Summer Wedding", "Winter Wedding", "Corporate Gala", "Birthday Bash", "Wednesday Meetup"]
+        for (i, title) in titles.enumerated() {
+            context.insert(EventModel(title: title, date: now.addingTimeInterval(Double(-i * 100)), latitude: 0, longitude: 0))
+        }
+        try context.save()
+
+        let all = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(all.count == 5)
+
+        let query = "wed"
+        let filtered = all.filter { $0.title.localizedCaseInsensitiveContains(query) }
+        #expect(filtered.count == 3)
+
+        let matchedTitles = Set(filtered.map(\.title))
+        #expect(matchedTitles.contains("Summer Wedding"))
+        #expect(matchedTitles.contains("Winter Wedding"))
+        #expect(matchedTitles.contains("Wednesday Meetup"))
+    }
 }
