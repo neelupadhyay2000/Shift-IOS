@@ -21,9 +21,12 @@ struct TimelineBuilderView: View {
         )
     }
 
+    @Environment(\.modelContext) private var modelContext
+
     @State private var isShowingCreateSheet = false
     @State private var blockToInspect: TimeBlockModel?
     @State private var orderedBlocks: [TimeBlockModel] = []
+    @State private var blockPendingDeletion: TimeBlockModel?
 
     private let rippleEngine = RippleEngine()
 
@@ -89,9 +92,47 @@ struct TimelineBuilderView: View {
                 }
                 .tint(.primary)
                 .moveDisabled(block.isPinned)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(String(localized: "Delete"), role: .destructive) {
+                        if block.isPinned {
+                            blockPendingDeletion = block
+                        } else {
+                            deleteBlock(block)
+                        }
+                    }
+                }
             }
             .onMove(perform: moveBlocks)
         }
+        .alert(
+            String(localized: "Delete Pinned Block"),
+            isPresented: Binding(
+                get: { blockPendingDeletion != nil },
+                set: { if !$0 { blockPendingDeletion = nil } }
+            )
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                if let block = blockPendingDeletion {
+                    deleteBlock(block)
+                    blockPendingDeletion = nil
+                }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {
+                blockPendingDeletion = nil
+            }
+        } message: {
+            if let block = blockPendingDeletion {
+                Text(String(localized: "This block is pinned. Deleting it may affect the timeline. Are you sure?"))
+            }
+        }
+    }
+
+    // MARK: - Delete
+
+    private func deleteBlock(_ block: TimeBlockModel) {
+        orderedBlocks.removeAll { $0.id == block.id }
+        modelContext.delete(block)
+        recalculateStartTimes()
     }
 
     // MARK: - Reorder

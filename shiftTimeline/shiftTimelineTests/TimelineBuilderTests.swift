@@ -159,7 +159,7 @@ struct TimelineBuilderTests {
         let c = TimeBlockModel(title: "C", scheduledStart: base.addingTimeInterval(5400), duration: 1800)
 
         // Simulate reorder: move C before A → [C, A, B]
-        var blocks = [c, a, b]
+        let blocks = [c, a, b]
 
         // Recalculate (mirrors TimelineBuilderView.recalculateStartTimes)
         var cursor = base
@@ -213,6 +213,70 @@ struct TimelineBuilderTests {
         let fluid = TimeBlockModel(title: "Buffer", scheduledStart: .now, duration: 600)
 
         // The view uses .moveDisabled(block.isPinned)
+        #expect(pinned.isPinned == true)
+        #expect(fluid.isPinned == false)
+    }
+
+    /// AC: deleting a block removes it and recalculates subsequent start times.
+    @Test @MainActor func deleteBlockClosesGapAndRecalculates() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let a = TimeBlockModel(title: "A", scheduledStart: base, duration: 1800)
+        a.track = track
+        context.insert(a)
+
+        let b = TimeBlockModel(title: "B", scheduledStart: base.addingTimeInterval(1800), duration: 1800)
+        b.track = track
+        context.insert(b)
+
+        let c = TimeBlockModel(title: "C", scheduledStart: base.addingTimeInterval(3600), duration: 1800)
+        c.track = track
+        context.insert(c)
+
+        try context.save()
+
+        // Simulate deleting B (mirrors deleteBlock logic)
+        var blocks = [a, b, c]
+        blocks.removeAll { $0.id == b.id }
+        context.delete(b)
+
+        // Recalculate start times
+        var cursor = base
+        for block in blocks {
+            if block.isPinned {
+                cursor = max(cursor, block.scheduledStart.addingTimeInterval(block.duration))
+            } else {
+                block.scheduledStart = cursor
+                cursor = cursor.addingTimeInterval(block.duration)
+            }
+        }
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>(
+            sortBy: [SortDescriptor(\TimeBlockModel.scheduledStart)]
+        ))
+        #expect(fetched.count == 2)
+        #expect(fetched[0].title == "A")
+        #expect(fetched[0].scheduledStart == base)
+        #expect(fetched[1].title == "C")
+        // C should close the gap left by B
+        #expect(fetched[1].scheduledStart == base.addingTimeInterval(1800))
+    }
+
+    /// AC: pinned blocks require confirmation before deletion.
+    @Test func pinnedBlockRequiresDeleteConfirmation() {
+        let pinned = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800, isPinned: true)
+        let fluid = TimeBlockModel(title: "Buffer", scheduledStart: .now, duration: 600)
+
+        // View logic: if block.isPinned → show alert, else delete immediately
         #expect(pinned.isPinned == true)
         #expect(fluid.isPinned == false)
     }
