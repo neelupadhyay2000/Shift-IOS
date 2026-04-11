@@ -6,10 +6,15 @@ import Models
 /// A stateless engine that propagates a time-delta change across a set of
 /// time blocks.
 ///
-/// Currently handles forward/backward shifting of Fluid blocks and pinned-block
-/// rejection. Collision detection and compression are planned for future iterations
-/// and will use the injected ``DependencyResolver``, ``CollisionDetector``, and
-/// ``CompressionCalculator``.
+/// ## Pipeline
+/// 1. **Dependency resolution** — determines which blocks are downstream of the
+///    changed block (via temporal ordering or an explicit adjacency list).
+/// 2. **Shift propagation** — shifts the changed block and all downstream Fluid
+///    blocks by `delta`.
+///
+/// Collision detection and compression are handled by the injected
+/// ``CollisionDetector`` and ``CompressionCalculator`` (used by callers after
+/// this method returns).
 public struct RippleEngine: Sendable {
     private let dependencyResolver: DependencyResolver
     private let collisionDetector: CollisionDetector
@@ -31,8 +36,10 @@ public struct RippleEngine: Sendable {
     ///   - blocks: All time blocks in the timeline.
     ///   - changedBlockID: The ID of the block whose time changed.
     ///   - delta: The time shift in seconds (positive = later, negative = earlier).
+    ///   - adjacency: An optional explicit forward adjacency list. When provided,
+    ///     dependency resolution uses this graph instead of temporal ordering.
     /// - Returns: A ``RippleResult`` whose blocks are always sorted by
-    ///   `scheduledStart` (enforced by ``RippleResult/init``).
+    ///   `scheduledStart`.
     ///
     /// ## Mutation Semantics
     ///
@@ -44,17 +51,12 @@ public struct RippleEngine: Sendable {
     ///
     /// Callers that need undo/redo support should **snapshot** the relevant
     /// properties (e.g. via `BlockSnapshot`) *before* calling this method.
-    ///
-    /// - Note: The method pre-sorts `blocks` so the shift algorithm can rely on
-    ///   positional indexing. ``RippleResult`` applies its own sort on
-    ///   construction, guaranteeing the ordering contract even if a future code
-    ///   path skips the local sort.
     public func recalculate(
         blocks: [TimeBlockModel],
         changedBlockID: UUID,
-        delta: TimeInterval
+        delta: TimeInterval,
+        adjacency: [UUID: [UUID]]? = nil
     ) -> RippleResult {
-        // Pre-sort so the algorithm can address blocks by positional index.
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
 
         guard delta != 0 else {
@@ -70,7 +72,32 @@ public struct RippleEngine: Sendable {
             return RippleResult(blocks: sorted, status: .pinnedBlockCannotShift)
         }
 
-        // Shift the changed block itself, clamped to originalStart for negative delta.
+        // --- Stage 1: Dependency Resolution ---
+        let depResult: Result<Set<UUID>, SHIFTError>
+        if let adjacency {
+            depResult = dependencyResolver.resolve(adjacency: adjacency, from: changedBlockID)
+        } else {
+            depResult = dependencyResolver.resolve(blocks: blocks, shiftedBlockID: changedBlockID)
+        }
+
+        let dependentIDs: Set<UUID>
+        switch depResult {
+        case .success(let ids):
+            dependentIDs = ids
+        case .failure:
+            return RippleResult(blocks: sorted, status: .circularDependency)
+        }
+
+        // Merge: blocks that should shift are subsequent Fluid blocks OR
+        // explicit dependents (that are also Fluid).
+        let subsequentFluidIDs: Set<UUID> = Set(
+            sorted[(changedIndex + 1)...].filter { !$0.isPinned }.map(\.id)
+        )
+        let shiftableIDs = subsequentFluidIDs.union(dependentIDs)
+
+        // --- Stage 2: Shift Propagation ---
+
+        // Shift the changed block itself.
         let changedBlock = sorted[changedIndex]
         if delta > 0 {
             changedBlock.scheduledStart = changedBlock.scheduledStart.addingTimeInterval(delta)
@@ -81,9 +108,8 @@ public struct RippleEngine: Sendable {
             )
         }
 
-        // Shift all subsequent Fluid (non-pinned) blocks by delta.
-        for index in (changedIndex + 1)..<sorted.count where !sorted[index].isPinned {
-            let block = sorted[index]
+        // Shift all shiftable blocks (skipping pinned).
+        for block in sorted where shiftableIDs.contains(block.id) && !block.isPinned {
             if delta > 0 {
                 block.scheduledStart = block.scheduledStart.addingTimeInterval(delta)
             } else {

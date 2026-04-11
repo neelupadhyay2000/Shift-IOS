@@ -374,4 +374,126 @@ struct RippleEngineTests {
         #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600))
         #expect(result.collisions.isEmpty)
     }
+
+    // MARK: - Dependency Resolution (Stage 1)
+
+    /// 8-block timeline with explicit deps: block2 depends on block1,
+    /// block6 depends on block2. Shift block1 → blocks 2 and 6 also shift
+    /// (plus intervening fluid blocks after block1).
+    @Test @MainActor func explicitDependencyCascade() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 5 * 60
+
+        let blocks = (0..<8).map { i in
+            TimeBlockModel(
+                title: "Block\(i + 1)",
+                scheduledStart: start.addingTimeInterval(Double(i) * 600),
+                duration: 600
+            )
+        }
+
+        // Explicit adjacency: block1→block2, block2→block6
+        let adjacency: [UUID: [UUID]] = [
+            blocks[0].id: [blocks[1].id],
+            blocks[1].id: [blocks[5].id]
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta,
+            adjacency: adjacency
+        )
+
+        #expect(result.status == .clean)
+
+        let resultByID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Changed block shifts
+        #expect(resultByID[blocks[0].id]!.scheduledStart == start.addingTimeInterval(delta))
+
+        // Blocks 2–8 are subsequent Fluid blocks, so they all shift
+        for i in 1..<8 {
+            #expect(
+                resultByID[blocks[i].id]!.scheduledStart ==
+                start.addingTimeInterval(Double(i) * 600 + delta)
+            )
+        }
+
+        // Explicit dependents (block2, block6) are in the shifted set
+        #expect(resultByID[blocks[1].id]!.scheduledStart == start.addingTimeInterval(600 + delta))
+        #expect(resultByID[blocks[5].id]!.scheduledStart == start.addingTimeInterval(3000 + delta))
+    }
+
+    /// Non-adjacent dependency: block8 depends on block1, with pinned blocks
+    /// between them. Only block8 shifts (via dependency) plus fluid blocks after block1.
+    @Test @MainActor func nonAdjacentDependencyShifts() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 5 * 60
+
+        // Block1 (fluid), Block2 (pinned), Block3 (pinned), Block4 (fluid)
+        let block1 = TimeBlockModel(title: "Block1", scheduledStart: start, duration: 600)
+        let block2 = TimeBlockModel(title: "Block2", scheduledStart: start.addingTimeInterval(600), duration: 600, isPinned: true)
+        let block3 = TimeBlockModel(title: "Block3", scheduledStart: start.addingTimeInterval(1200), duration: 600, isPinned: true)
+        let block4 = TimeBlockModel(title: "Block4", scheduledStart: start.addingTimeInterval(1800), duration: 600)
+
+        // Explicit: block1→block4 (non-adjacent dependency)
+        let adjacency: [UUID: [UUID]] = [
+            block1.id: [block4.id]
+        ]
+
+        let result = engine.recalculate(
+            blocks: [block1, block2, block3, block4],
+            changedBlockID: block1.id,
+            delta: delta,
+            adjacency: adjacency
+        )
+
+        #expect(result.status == .clean)
+
+        let resultByID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Block1 shifts
+        #expect(resultByID[block1.id]!.scheduledStart == start.addingTimeInterval(delta))
+        // Block2 pinned — unchanged
+        #expect(resultByID[block2.id]!.scheduledStart == start.addingTimeInterval(600))
+        // Block3 pinned — unchanged
+        #expect(resultByID[block3.id]!.scheduledStart == start.addingTimeInterval(1200))
+        // Block4 shifts (it's a subsequent fluid block AND an explicit dependent)
+        #expect(resultByID[block4.id]!.scheduledStart == start.addingTimeInterval(1800 + delta))
+    }
+
+    /// Circular dependency → .circularDependency, blocks unchanged.
+    @Test @MainActor func circularDependencyReturnsError() {
+        let engine = RippleEngine()
+        let start = Date()
+
+        let blocks = [
+            TimeBlockModel(title: "A", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "B", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "C", scheduledStart: start.addingTimeInterval(1200), duration: 600)
+        ]
+
+        // Cycle: A→B→C→A
+        let adjacency: [UUID: [UUID]] = [
+            blocks[0].id: [blocks[1].id],
+            blocks[1].id: [blocks[2].id],
+            blocks[2].id: [blocks[0].id]
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: 300,
+            adjacency: adjacency
+        )
+
+        #expect(result.status == .circularDependency)
+        // Blocks unchanged
+        #expect(result.blocks[0].scheduledStart == start)
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600))
+        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200))
+    }
 }
