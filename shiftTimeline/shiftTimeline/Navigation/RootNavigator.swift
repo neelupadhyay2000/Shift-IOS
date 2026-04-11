@@ -190,7 +190,7 @@ struct RootNavigator: View {
     private func eventDestinationView(for destination: EventDestination) -> some View {
         switch destination {
         case .eventDetail(let id):
-            ContentPlaceholderView(label: "Event Detail — \(id.uuidString.prefix(8))")
+            EventDetailView(eventID: id)
         case .timelineBuilder(let eventID):
             ContentPlaceholderView(label: "Timeline Builder — \(eventID.uuidString.prefix(8))")
         }

@@ -88,11 +88,13 @@ struct EventRosterView: View {
             .listRowBackground(Color.clear)
 
             ForEach(filteredEvents) { event in
-                EventRowView(
-                    title: event.title,
-                    date: event.date,
-                    status: event.status
-                )
+                NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
+                    EventRowView(
+                        title: event.title,
+                        date: event.date,
+                        status: event.status
+                    )
+                }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(String(localized: "Delete"), role: .destructive) {
                         eventPendingDeletion = event
