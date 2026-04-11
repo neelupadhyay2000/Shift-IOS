@@ -176,6 +176,11 @@ public struct ShiftPreviewGenerator: Sendable {
         let sorted = preview.sorted { $0.scheduledStart < $1.scheduledStart }
         preview = sorted
 
+        // Zero diffs: every block present with value 0 (nothing moved).
+        let zeroDiffs = preview.reduce(into: [UUID: TimeInterval]()) { dict, pb in
+            dict[pb.id] = 0
+        }
+
         guard delta != 0,
               let changedIndex = preview.firstIndex(where: { $0.id == blockID }) else {
             return ShiftPreview(
@@ -183,7 +188,7 @@ public struct ShiftPreviewGenerator: Sendable {
                 collisions: [],
                 compressedBlockIDs: [],
                 status: .clean,
-                diffs: [:]
+                diffs: zeroDiffs
             )
         }
 
@@ -193,7 +198,7 @@ public struct ShiftPreviewGenerator: Sendable {
                 collisions: [],
                 compressedBlockIDs: [],
                 status: .pinnedBlockCannotShift,
-                diffs: [:]
+                diffs: zeroDiffs
             )
         }
 
@@ -215,7 +220,7 @@ public struct ShiftPreviewGenerator: Sendable {
                 collisions: [],
                 compressedBlockIDs: [],
                 status: .circularDependency,
-                diffs: [:]
+                diffs: zeroDiffs
             )
         }
 
@@ -292,14 +297,13 @@ public struct ShiftPreviewGenerator: Sendable {
         }
         finalPreview.sort { $0.scheduledStart < $1.scheduledStart }
 
-        // --- Diffs: only blocks whose start changed ---
+        // --- Diffs: every block gets an entry; value = previewStart − originalStart.
+        // Blocks that didn't move have diff = 0. Callers can use this to
+        // determine movement for every block without having to handle absent keys.
         var diffs = [UUID: TimeInterval]()
         for pb in finalPreview {
             if let original = originalStarts[pb.id] {
-                let delta = pb.scheduledStart.timeIntervalSince(original)
-                if delta != 0 {
-                    diffs[pb.id] = delta
-                }
+                diffs[pb.id] = pb.scheduledStart.timeIntervalSince(original)
             }
         }
 

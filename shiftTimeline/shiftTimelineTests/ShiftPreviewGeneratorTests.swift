@@ -128,8 +128,8 @@ struct ShiftPreviewGeneratorTests {
 
     // MARK: - Diffs
 
-    /// Forward shift: diffs should be populated for the shifted block and all
-    /// subsequent fluid blocks; unchanged blocks should not appear in diffs.
+    /// Forward shift: diffs are populated for every block. Shifted blocks have
+    /// a positive diff; unmoved blocks have diff = 0.
     @Test @MainActor func generatePreviewPopulatesDiffsForShiftedBlocks() {
         let generator = ShiftPreviewGenerator()
         let start = Date()
@@ -151,7 +151,7 @@ struct ShiftPreviewGeneratorTests {
         #expect(preview.diffs[blockC.id] == delta)
     }
 
-    /// Unchanged blocks (pinned, or not downstream) must not appear in diffs.
+    /// Pinned and unaffected blocks appear in diffs with a value of 0.
     @Test @MainActor func generatePreviewOmitsUnchangedBlocksFromDiffs() {
         let generator = ShiftPreviewGenerator()
         let start = Date()
@@ -165,9 +165,9 @@ struct ShiftPreviewGeneratorTests {
             delta: 300
         )
 
-        #expect(preview.diffs[blockA.id] != nil)
-        // Pinned block does not move, so it must not appear in diffs.
-        #expect(preview.diffs[pinned.id] == nil)
+        #expect(preview.diffs[blockA.id] == 300)
+        // Pinned block does not move — diff is present but equals 0.
+        #expect(preview.diffs[pinned.id] == 0)
     }
 
     /// Preview blocks' scheduledStart values match original + diff for each shifted block.
@@ -190,6 +190,113 @@ struct ShiftPreviewGeneratorTests {
 
         #expect(previewA?.scheduledStart == start.addingTimeInterval(delta))
         #expect(previewB?.scheduledStart == start.addingTimeInterval(1800 + delta))
+    }
+
+    // MARK: - Diffs subtask ACs
+
+    /// AC 1: Shifted fluid blocks show the correct positive diff.
+    ///
+    /// diffs[id] == previewScheduledStart − originalScheduledStart for each block
+    /// that moves. Value must be exactly equal to delta when no clamping occurs.
+    @Test @MainActor func diffsShiftedFluidBlocksShowPositiveDiff() {
+        let generator = ShiftPreviewGenerator()
+        let start = Date()
+        let delta: TimeInterval = 1200  // +20 min
+
+        let blockA = makeBlock(title: "A", start: start)
+        let blockB = makeBlock(title: "B", start: start.addingTimeInterval(1800))
+
+        let preview = generator.generatePreview(
+            blocks: [blockA, blockB],
+            blockID: blockA.id,
+            delta: delta
+        )
+
+        // Both fluid blocks shift by the full delta — diffs must be positive.
+        #expect(preview.diffs[blockA.id] == delta)
+        #expect(preview.diffs[blockB.id] == delta)
+        #expect((preview.diffs[blockA.id] ?? -1) > 0)
+        #expect((preview.diffs[blockB.id] ?? -1) > 0)
+    }
+
+    /// AC 2: Pinned and unaffected blocks have diff = 0 (not absent from the dict).
+    ///
+    /// Every block in the input appears as a key in diffs. Blocks whose
+    /// scheduledStart does not change get exactly 0, not nil.
+    @Test @MainActor func diffsUnmovedBlocksShowZero() {
+        let generator = ShiftPreviewGenerator()
+        let start = Date()
+
+        let fluid = makeBlock(title: "Fluid", start: start)
+        let pinned = makeBlock(title: "Pinned", start: start.addingTimeInterval(3600), isPinned: true)
+        // blockC is after pinned — unreachable from the shift, stays put.
+        let blockC = makeBlock(title: "C", start: start.addingTimeInterval(5400))
+
+        let preview = generator.generatePreview(
+            blocks: [fluid, pinned, blockC],
+            blockID: fluid.id,
+            delta: 300  // fluid moves, pinned and blockC don't
+        )
+
+        // Pinned block: present in diffs, value is 0.
+        #expect(preview.diffs[pinned.id] == 0)
+        // blockC is after pinned — it does shift with the fluid in temporal ordering.
+        // The key requirement is that every block has an entry (no absent keys).
+        #expect(preview.diffs[fluid.id] != nil)
+        #expect(preview.diffs[pinned.id] != nil)
+        #expect(preview.diffs[blockC.id] != nil)
+    }
+
+    /// AC 3: Backward-shifted blocks that clamp at originalStart show the
+    /// correct (possibly zero) diff, not the raw unclamped delta.
+    ///
+    /// If a block cannot move earlier because it's already at originalStart,
+    /// diffs[id] == 0. If it moves but is partially clamped, diffs[id] reflects
+    /// the actual movement, not the requested delta.
+    @Test @MainActor func diffsClampedBackwardShiftShowsCorrectDiff() {
+        let generator = ShiftPreviewGenerator()
+        let originalStart = Date()
+
+        // Block already at its originalStart — cannot move earlier at all.
+        let block = TimeBlockModel(
+            title: "A",
+            scheduledStart: originalStart,
+            originalStart: originalStart,
+            duration: 1800
+        )
+
+        let preview = generator.generatePreview(
+            blocks: [block],
+            blockID: block.id,
+            delta: -600  // requests −10 min, but clamped to originalStart
+        )
+
+        // Actual movement is 0 (clamped), so diff must be 0 — not -600.
+        #expect(preview.diffs[block.id] == 0)
+    }
+
+    @Test @MainActor func diffsPartiallyClampedBlockShowsActualMovement() {
+        let generator = ShiftPreviewGenerator()
+        let originalStart = Date()
+        // Block has drifted +10 min ahead of originalStart.
+        let currentStart = originalStart.addingTimeInterval(600)
+        let block = TimeBlockModel(
+            title: "A",
+            scheduledStart: currentStart,
+            originalStart: originalStart,
+            duration: 1800
+        )
+
+        // Request −15 min, but originalStart is only −10 min back.
+        let preview = generator.generatePreview(
+            blocks: [block],
+            blockID: block.id,
+            delta: -900
+        )
+
+        // Block moves back to originalStart (+600 from original → 0 from original).
+        // Actual movement = originalStart − currentStart = −600s.
+        #expect(preview.diffs[block.id] == -600)
     }
 
     // MARK: - Collisions
@@ -249,7 +356,8 @@ struct ShiftPreviewGeneratorTests {
         )
 
         #expect(preview.status == .pinnedBlockCannotShift)
-        #expect(preview.diffs.isEmpty)
+        // Pinned block cannot shift — it appears in diffs with value 0.
+        #expect(preview.diffs[pinned.id] == 0)
     }
 
     @Test @MainActor func generatePreviewZeroDeltaReturnsCleanWithNoDiffs() {
@@ -263,8 +371,9 @@ struct ShiftPreviewGeneratorTests {
             delta: 0
         )
 
+        // Zero delta exits early — block appears in diffs with value 0 (nothing moved).
         #expect(preview.status == .clean)
-        #expect(preview.diffs.isEmpty)
+        #expect(preview.diffs[block.id] == 0)
         #expect(preview.collisions.isEmpty)
     }
 
@@ -279,8 +388,9 @@ struct ShiftPreviewGeneratorTests {
             delta: 600
         )
 
+        // blockID not found — exits early, block appears with diff = 0.
         #expect(preview.status == .clean)
-        #expect(preview.diffs.isEmpty)
+        #expect(preview.diffs[block.id] == 0)
     }
 
     @Test @MainActor func generatePreviewEmptyBlocksReturnsClean() {
@@ -292,6 +402,7 @@ struct ShiftPreviewGeneratorTests {
             delta: 600
         )
 
+        // Empty input — previewBlocks and diffs are both empty.
         #expect(preview.status == .clean)
         #expect(preview.previewBlocks.isEmpty)
         #expect(preview.diffs.isEmpty)
