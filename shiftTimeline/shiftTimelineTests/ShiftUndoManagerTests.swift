@@ -477,4 +477,62 @@ struct ShiftUndoManagerTests {
         let result = manager.redo()
         #expect(result == nil)
     }
+
+    // MARK: - recordShift clears redo stack
+
+    /// AC 1: record → undo → recordShift NEW → canRedo = false.
+    ///
+    /// Verifies that committing a brand-new shift via the two-phase API
+    /// wipes the redo stack, not just the low-level record(before:after:) path.
+    @Test @MainActor func recordShiftAfterUndoClearsRedoStack() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let block = makeBlock(start: start)
+
+        // Op 1 via low-level record
+        let before1 = [snapshot(block)]
+        block.scheduledStart = start.addingTimeInterval(600)
+        manager.record(before: before1, after: [snapshot(block)])
+
+        // Undo → redo stack now has 1 entry
+        _ = manager.undo()
+        #expect(manager.canRedo == true)
+
+        // New shift via two-phase API
+        block.scheduledStart = start.addingTimeInterval(300)
+        manager.recordShift(blocks: [block])
+        block.scheduledStart = start.addingTimeInterval(900)
+        manager.commitShift(blocks: [block])
+
+        #expect(manager.canRedo == false)
+        #expect(manager.canUndo == true)
+    }
+
+    /// AC 2: 5 undos → 1 new shift → all 5 redo entries are gone.
+    @Test @MainActor func newShiftAfter5UndosClearsAllRedoEntries() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let block = makeBlock(start: start)
+
+        // Push 5 operations onto the undo stack
+        for i in 1...5 {
+            let before = [snapshot(block)]
+            block.scheduledStart = start.addingTimeInterval(Double(i) * 600)
+            manager.record(before: before, after: [snapshot(block)])
+        }
+
+        // Undo all 5 → redo stack has 5 entries
+        for _ in 1...5 { _ = manager.undo() }
+        #expect(manager.canRedo == true)
+        #expect(manager.canUndo == false)
+
+        // Commit a brand-new shift via the two-phase API
+        manager.recordShift(blocks: [block])
+        block.scheduledStart = start.addingTimeInterval(300)
+        manager.commitShift(blocks: [block])
+
+        // All redo entries must be gone
+        #expect(manager.canRedo == false)
+        #expect(manager.canUndo == true)
+    }
 }
