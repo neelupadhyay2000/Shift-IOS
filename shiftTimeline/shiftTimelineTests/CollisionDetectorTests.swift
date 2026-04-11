@@ -258,6 +258,36 @@ struct CollisionDetectorTests {
         #expect(collisionB?.first?.overlapMinutes == 90)
     }
 
+    // MARK: - Sort Tie-Breaker
+
+    /// A Fluid block and a Pinned block share the same scheduledStart.
+    /// The Fluid block has non-zero duration so its end exceeds the shared
+    /// start — this is a valid collision and must be reported regardless of
+    /// input order.
+    @Test @MainActor func detect_fluidAndPinnedSameStart_collisionDetected() {
+        let detector = CollisionDetector()
+        let start = Date()
+
+        // Both blocks start at the same time; fluid ends 30 min later.
+        let fluid = TimeBlockModel(title: "Fluid", scheduledStart: start, duration: 1800)
+        let pinned = TimeBlockModel(title: "Pinned", scheduledStart: start, duration: 1800, isPinned: true)
+
+        // Test both orderings to confirm the tie-breaker makes the result
+        // independent of input order.
+        let resultA = detector.detect(blocks: [fluid, pinned])
+        let resultB = detector.detect(blocks: [pinned, fluid])
+
+        #expect(resultA.count == 1)
+        #expect(resultA[0].fluidBlockID == fluid.id)
+        #expect(resultA[0].pinnedBlockID == pinned.id)
+        #expect(resultA[0].overlapMinutes == 30)
+
+        #expect(resultB.count == 1)
+        #expect(resultB[0].fluidBlockID == fluid.id)
+        #expect(resultB[0].pinnedBlockID == pinned.id)
+        #expect(resultB[0].overlapMinutes == 30)
+    }
+
     // MARK: - requiresReview Stamping
     /// non-colliding Fluid blocks (and all Pinned blocks) must have it false.
     @Test @MainActor func detect_stampsRequiresReview_onCollidingFluidBlocksOnly() {

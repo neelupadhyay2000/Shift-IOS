@@ -32,26 +32,37 @@ public struct CollisionDetector: Sendable {
     /// - Returns: One ``Collision`` per (Fluid, Pinned) overlapping pair,
     ///   sorted in the order the Fluid blocks appear in the timeline.
     public func detect(blocks: [TimeBlockModel]) -> [Collision] {
-        let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        // Primary sort: scheduledStart ascending.
+        // Tie-breaker: Fluid (isPinned == false) before Pinned for equal start
+        // times, so a Pinned block that shares a start with a Fluid block is
+        // always visited after it and is never skipped by the inner loop.
+        let sorted = blocks.sorted {
+            if $0.scheduledStart != $1.scheduledStart {
+                return $0.scheduledStart < $1.scheduledStart
+            }
+            return !$0.isPinned && $1.isPinned  // Fluid before Pinned on tie
+        }
         var collisions: [Collision] = []
         var collidingFluidIDs = Set<UUID>()
 
         for (index, block) in sorted.enumerated() where !block.isPinned {
             let fluidEnd = block.scheduledStart.addingTimeInterval(block.duration)
 
-            for pinned in sorted[(index + 1)...] where pinned.isPinned {
+            for pinned in sorted[(index + 1)...] {
+                // Early exit: sorted by start, so nothing further can overlap.
+                guard pinned.scheduledStart < fluidEnd else { break }
+                guard pinned.isPinned else { continue }
+
                 let overlapSeconds = fluidEnd.timeIntervalSince(pinned.scheduledStart)
-                if overlapSeconds > 0 {
-                    let overlapMinutes = Int(overlapSeconds / 60)
-                    collisions.append(
-                        Collision(
-                            fluidBlockID: block.id,
-                            pinnedBlockID: pinned.id,
-                            overlapMinutes: overlapMinutes
-                        )
+                let overlapMinutes = Int(overlapSeconds / 60)
+                collisions.append(
+                    Collision(
+                        fluidBlockID: block.id,
+                        pinnedBlockID: pinned.id,
+                        overlapMinutes: overlapMinutes
                     )
-                    collidingFluidIDs.insert(block.id)
-                }
+                )
+                collidingFluidIDs.insert(block.id)
             }
         }
 
