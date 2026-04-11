@@ -39,7 +39,7 @@ struct RippleEngineTests {
         _ = engine
     }
 
-    @Test @MainActor func recalculateReturnsUnchangedBlocks() {
+    @Test @MainActor func recalculateReturnsUnchangedBlocksForZeroDelta() {
         let engine = RippleEngine()
         let start = Date()
 
@@ -51,12 +51,96 @@ struct RippleEngineTests {
         let result = engine.recalculate(
             blocks: blocks,
             changedBlockID: blocks[0].id,
-            delta: 600
+            delta: 0
         )
 
         #expect(result.status == .clean)
         #expect(result.blocks.count == 2)
-        #expect(result.blocks[0].title == "Setup")
-        #expect(result.blocks[1].title == "Ceremony")
+        #expect(result.blocks[0].scheduledStart == start)
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(900))
+    }
+
+    // MARK: - Forward Shift Tests
+
+    @Test @MainActor func forwardShiftFluidBlocksAfterChanged() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 15 * 60 // +15 minutes
+
+        // 5 blocks: Fluid, Fluid, Fluid, Pinned, Pinned
+        let blocks = [
+            TimeBlockModel(title: "Block1", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Block2", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "Block3", scheduledStart: start.addingTimeInterval(1200), duration: 600),
+            TimeBlockModel(title: "Block4", scheduledStart: start.addingTimeInterval(1800), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Block5", scheduledStart: start.addingTimeInterval(2400), duration: 600, isPinned: true)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        // Changed block shifts by delta
+        #expect(result.blocks[0].scheduledStart == start.addingTimeInterval(delta))
+        // Fluid blocks after changed block shift by delta
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600 + delta))
+        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200 + delta))
+        // Pinned blocks remain unchanged
+        #expect(result.blocks[3].scheduledStart == start.addingTimeInterval(1800))
+        #expect(result.blocks[4].scheduledStart == start.addingTimeInterval(2400))
+    }
+
+    @Test @MainActor func forwardShiftMiddleBlockOnlyAffectsSubsequent() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 10 * 60 // +10 minutes
+
+        let blocks = [
+            TimeBlockModel(title: "Before", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Changed", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "After", scheduledStart: start.addingTimeInterval(1200), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[1].id,
+            delta: delta
+        )
+
+        // Block before changed is unaffected
+        #expect(result.blocks[0].scheduledStart == start)
+        // Changed block shifts by delta
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600 + delta))
+        // Block after changed shifts by delta
+        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200 + delta))
+    }
+
+    @Test @MainActor func forwardShiftAllPinnedExceptChangedOnlyMovesChanged() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 5 * 60 // +5 minutes
+
+        let blocks = [
+            TimeBlockModel(title: "Pinned1", scheduledStart: start, duration: 600, isPinned: true),
+            TimeBlockModel(title: "Changed", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "Pinned2", scheduledStart: start.addingTimeInterval(1200), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Pinned3", scheduledStart: start.addingTimeInterval(1800), duration: 600, isPinned: true)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[1].id,
+            delta: delta
+        )
+
+        // All pinned blocks unchanged
+        #expect(result.blocks[0].scheduledStart == start)
+        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200))
+        #expect(result.blocks[3].scheduledStart == start.addingTimeInterval(1800))
+        // Only the changed block moves
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600 + delta))
     }
 }
