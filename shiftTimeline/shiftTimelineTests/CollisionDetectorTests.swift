@@ -179,4 +179,71 @@ struct CollisionDetectorTests {
         // 1 second overlap truncates to 0 whole minutes
         #expect(result[0].overlapMinutes == 0)
     }
+
+    // MARK: - requiresReview Stamping
+
+    /// Colliding Fluid blocks must have requiresReview = true;
+    /// non-colliding Fluid blocks (and all Pinned blocks) must have it false.
+    @Test @MainActor func detect_stampsRequiresReview_onCollidingFluidBlocksOnly() {
+        let detector = CollisionDetector()
+        let start = Date()
+
+        // clear — ends before pinned starts
+        let safe = TimeBlockModel(title: "Safe", scheduledStart: start, duration: 600)
+        // colliding — ends 30 min into pinned
+        let colliding = TimeBlockModel(
+            title: "Colliding",
+            scheduledStart: start.addingTimeInterval(600),
+            duration: 3600  // ends at start + 4200, pinned starts at start + 2400
+        )
+        let pinned = TimeBlockModel(
+            title: "Pinned",
+            scheduledStart: start.addingTimeInterval(2400),
+            duration: 1800,
+            isPinned: true
+        )
+
+        // Pre-condition: requiresReview starts false on all blocks
+        #expect(safe.requiresReview == false)
+        #expect(colliding.requiresReview == false)
+
+        _ = detector.detect(blocks: [safe, colliding, pinned])
+
+        // Colliding fluid block flagged
+        #expect(colliding.requiresReview == true)
+        // Non-colliding fluid block cleared
+        #expect(safe.requiresReview == false)
+        // Pinned block never touched
+        #expect(pinned.requiresReview == false)
+    }
+
+    /// After a second pass where the collision is resolved, requiresReview
+    /// must be cleared back to false (no stale flags left behind).
+    @Test @MainActor func detect_clearsRequiresReview_whenCollisionResolved() {
+        let detector = CollisionDetector()
+        let start = Date()
+
+        let fluid = TimeBlockModel(
+            title: "Fluid",
+            scheduledStart: start,
+            duration: 3600  // initially overlaps pinned
+        )
+        let pinned = TimeBlockModel(
+            title: "Pinned",
+            scheduledStart: start.addingTimeInterval(1800),
+            duration: 1800,
+            isPinned: true
+        )
+
+        // First pass — collision exists, flag set
+        _ = detector.detect(blocks: [fluid, pinned])
+        #expect(fluid.requiresReview == true)
+
+        // Resolve collision: shorten fluid so it ends exactly at pinned start
+        fluid.duration = 1800
+
+        // Second pass — no collision, flag must be cleared
+        _ = detector.detect(blocks: [fluid, pinned])
+        #expect(fluid.requiresReview == false)
+    }
 }
