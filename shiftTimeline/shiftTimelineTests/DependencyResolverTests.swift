@@ -22,7 +22,7 @@ struct DependencyResolverTests {
 
         switch result {
         case .success(let ids):
-            #expect(ids == [blocks[1].id, blocks[2].id])
+            #expect(ids == Set([blocks[1].id, blocks[2].id]))
         case .failure(let error):
             Issue.record("Expected success but got error: \(error)")
         }
