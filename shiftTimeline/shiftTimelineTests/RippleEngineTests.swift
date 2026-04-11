@@ -329,4 +329,44 @@ struct RippleEngineTests {
         // Only the last block shifts
         #expect(result.blocks[4].scheduledStart == start.addingTimeInterval(2400 + delta))
     }
+
+    // MARK: - Edge Cases
+
+    @Test func emptyBlocksReturnsClean() {
+        let engine = RippleEngine()
+
+        let result = engine.recalculate(
+            blocks: [],
+            changedBlockID: UUID(),
+            delta: 300
+        )
+
+        #expect(result.status == .clean)
+        #expect(result.blocks.isEmpty)
+        #expect(result.collisions.isEmpty)
+        #expect(result.compressedBlockIDs.isEmpty)
+    }
+
+    @Test @MainActor func unknownBlockIDReturnsClean() {
+        let engine = RippleEngine()
+        let start = Date()
+
+        let blocks = [
+            TimeBlockModel(title: "Block1", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Block2", scheduledStart: start.addingTimeInterval(600), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: UUID(), // ID not in array
+            delta: 300
+        )
+
+        #expect(result.status == .clean)
+        #expect(result.blocks.count == 2)
+        // Blocks unchanged
+        #expect(result.blocks[0].scheduledStart == start)
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600))
+        #expect(result.collisions.isEmpty)
+    }
 }
