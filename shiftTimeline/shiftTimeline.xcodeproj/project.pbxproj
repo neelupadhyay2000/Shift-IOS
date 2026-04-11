@@ -99,6 +99,7 @@
 		5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				ShiftActivityAttributes.swift,
 				ShiftLiveActivity.swift,
 			);
 			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;

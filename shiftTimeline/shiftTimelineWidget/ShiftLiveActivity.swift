@@ -9,19 +9,12 @@ import WidgetKit
 import SwiftUI
 import ActivityKit
 import Foundation
-import Models
 
-// 1. The Data Model
-struct ShiftActivityAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        // Dynamic data that updates (e.g., time remaining)
-        var currentBlockName: String
-    }
-    // Static data that doesn't change (e.g., Event Name)
-    var eventName: String
-}
+// ShiftActivityAttributes is compiled directly by both the main app and
+// widget extension targets (see ShiftActivityAttributes.swift), ensuring
+// type identity across processes on real devices.
 
-// 2. The Widget UI Configuration
+// The Widget UI Configuration
 struct ShiftLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ShiftActivityAttributes.self) { context in

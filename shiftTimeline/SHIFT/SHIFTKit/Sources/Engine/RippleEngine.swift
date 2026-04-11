@@ -8,11 +8,6 @@ public struct DependencyResolver: Sendable {
     public init() {}
 }
 
-/// Calculates how blocks can be compressed toward their minimum duration.
-public struct CompressionCalculator: Sendable {
-    public init() {}
-}
-
 // MARK: - RippleEngine
 
 /// A stateless engine that propagates a time-delta change across a set of
