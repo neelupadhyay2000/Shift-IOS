@@ -64,4 +64,43 @@ struct TimelineBuilderTests {
         let blocks = event.tracks.flatMap(\.blocks)
         #expect(blocks.isEmpty)
     }
+
+    /// AC: saving creates TimeBlockModel in SwiftData, block appears at correct chronological position.
+    @Test @MainActor func newBlockInsertedAppearsInChronologicalOrder() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        // Existing blocks
+        let early = TimeBlockModel(title: "Ceremony", scheduledStart: base, duration: 1800, isPinned: true)
+        early.track = track
+        context.insert(early)
+
+        let late = TimeBlockModel(title: "Dinner", scheduledStart: base.addingTimeInterval(7200), duration: 5400)
+        late.track = track
+        context.insert(late)
+
+        try context.save()
+
+        // Simulate creating a new block (as CreateBlockSheet does)
+        let newBlock = TimeBlockModel(title: "Cocktails", scheduledStart: base.addingTimeInterval(1800), duration: 3600)
+        newBlock.track = track
+        context.insert(newBlock)
+        try context.save()
+
+        let sorted = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        #expect(sorted.count == 3)
+        #expect(sorted[0].title == "Ceremony")
+        #expect(sorted[1].title == "Cocktails")
+        #expect(sorted[2].title == "Dinner")
+    }
 }

@@ -20,6 +20,8 @@ struct TimelineBuilderView: View {
         )
     }
 
+    @State private var isShowingCreateSheet = false
+
     private var event: EventModel? { results.first }
 
     private var sortedBlocks: [TimeBlockModel] {
@@ -39,6 +41,19 @@ struct TimelineBuilderView: View {
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingCreateSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(String(localized: "Add Block"))
+            }
+        }
+        .sheet(isPresented: $isShowingCreateSheet) {
+            CreateBlockSheet(eventID: eventID)
+        }
     }
 
     // MARK: - Subviews
@@ -58,6 +73,10 @@ struct TimelineBuilderView: View {
     private var emptyState: some View {
         ContentUnavailableView {
             Label(String(localized: "Add your first block"), systemImage: "clock.badge.plus")
+        } actions: {
+            Button(String(localized: "Add Block")) {
+                isShowingCreateSheet = true
+            }
         }
     }
 }
