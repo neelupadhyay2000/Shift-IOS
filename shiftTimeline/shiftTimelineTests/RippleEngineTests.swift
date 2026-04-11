@@ -33,7 +33,10 @@ struct RippleEngineTests {
             compressionCalculator: CompressionCalculator()
         )
 
-        #expect(engine is Sendable)
+        // Sendable conformance is enforced at compile time;
+        // this assignment proves the type satisfies the constraint.
+        let _: any Sendable = engine
+        _ = engine
     }
 
     @Test @MainActor func recalculateReturnsUnchangedBlocks() {
