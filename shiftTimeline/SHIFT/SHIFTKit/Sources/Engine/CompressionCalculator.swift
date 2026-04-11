@@ -43,14 +43,53 @@ public struct CompressionCalculator: Sendable {
         let totalDuration = trappedBlocks.reduce(0.0) { $0 + $1.duration }
         guard totalDuration > 0 else { return sorted }
 
-        // Proportionally compress durations and lay out contiguously.
+        // Two-pass compression: first proportional, then enforce minimums
+        // and redistribute remaining time.
+        var newDurations = [TimeInterval](repeating: 0, count: trappedRange.count)
+
+        // Pass 1: proportional compression.
+        for (i, index) in trappedRange.enumerated() {
+            newDurations[i] = (sorted[index].duration / totalDuration) * availableTime
+        }
+
+        // Pass 2: clamp to minimumDuration, redistribute deficit.
+        var changed = true
+        while changed {
+            changed = false
+            var deficit: TimeInterval = 0
+            var flexibleDuration: TimeInterval = 0
+
+            // Find blocks that fall below minimum and accumulate deficit.
+            for (i, index) in trappedRange.enumerated() {
+                let minDur = sorted[index].minimumDuration
+                if newDurations[i] < minDur {
+                    deficit += minDur - newDurations[i]
+                    newDurations[i] = minDur
+                    changed = true
+                } else if newDurations[i] > sorted[index].minimumDuration {
+                    flexibleDuration += newDurations[i]
+                }
+            }
+
+            // Redistribute deficit proportionally among flexible blocks.
+            if changed && flexibleDuration > 0 {
+                for (i, index) in trappedRange.enumerated() {
+                    let minDur = sorted[index].minimumDuration
+                    if newDurations[i] > minDur {
+                        let share = (newDurations[i] / flexibleDuration) * deficit
+                        newDurations[i] -= share
+                    }
+                }
+            }
+        }
+
+        // Lay out contiguously.
         var cursor = gapStart
-        for index in trappedRange {
+        for (i, index) in trappedRange.enumerated() {
             let block = sorted[index]
-            let newDuration = (block.duration / totalDuration) * availableTime
             block.scheduledStart = cursor
-            block.duration = newDuration
-            cursor = cursor.addingTimeInterval(newDuration)
+            block.duration = newDurations[i]
+            cursor = cursor.addingTimeInterval(newDurations[i])
         }
 
         return sorted

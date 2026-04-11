@@ -152,6 +152,67 @@ struct CompressionCalculatorTests {
         #expect(result[2].duration == pinnedDuration)
     }
 
+    // MARK: - Minimum Duration Protection
+
+    /// Block A (30 min, min 25) + Block B (30 min, min 10) in 40-min gap → A=25, B=15
+    @Test @MainActor func minimumDurationProtection() {
+        let calculator = CompressionCalculator()
+        let start = Date()
+        let thirtyMin: TimeInterval = 30 * 60
+        let fortyMin: TimeInterval = 40 * 60
+
+        let blocks = [
+            TimeBlockModel(title: "A", scheduledStart: start, duration: thirtyMin, minimumDuration: 25 * 60),
+            TimeBlockModel(title: "B", scheduledStart: start.addingTimeInterval(thirtyMin), duration: thirtyMin, minimumDuration: 10 * 60),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(fortyMin), duration: 1800, isPinned: true)
+        ]
+
+        let collision = Collision(
+            fluidBlockID: blocks[1].id,
+            pinnedBlockID: blocks[2].id,
+            overlapMinutes: 20
+        )
+
+        let result = calculator.compress(blocks: blocks, collision: collision)
+
+        // A clamped to minimum 25 min, B gets remaining 15 min
+        #expect(result[0].duration == 25 * 60)
+        #expect(result[1].duration == 15 * 60)
+
+        // No block below its minimum
+        #expect(result[0].duration >= 25 * 60)
+        #expect(result[1].duration >= 10 * 60)
+
+        // Total equals available gap
+        #expect(result[0].duration + result[1].duration == fortyMin)
+    }
+
+    /// No block ever has duration < minimumDuration after compression.
+    @Test @MainActor func noBlockBelowMinimumDuration() {
+        let calculator = CompressionCalculator()
+        let start = Date()
+
+        // 3 blocks with high minimums in a tight gap
+        let blocks = [
+            TimeBlockModel(title: "A", scheduledStart: start, duration: 40 * 60, minimumDuration: 15 * 60),
+            TimeBlockModel(title: "B", scheduledStart: start.addingTimeInterval(40 * 60), duration: 30 * 60, minimumDuration: 15 * 60),
+            TimeBlockModel(title: "C", scheduledStart: start.addingTimeInterval(70 * 60), duration: 20 * 60, minimumDuration: 10 * 60),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(60 * 60), duration: 1800, isPinned: true)
+        ]
+
+        let collision = Collision(
+            fluidBlockID: blocks[2].id,
+            pinnedBlockID: blocks[3].id,
+            overlapMinutes: 30
+        )
+
+        let result = calculator.compress(blocks: blocks, collision: collision)
+
+        for block in result where !block.isPinned {
+            #expect(block.duration >= block.minimumDuration)
+        }
+    }
+
     // MARK: - Sendable
 
     @Test func compressionCalculatorIsSendable() {
