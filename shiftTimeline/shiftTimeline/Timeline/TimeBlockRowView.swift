@@ -11,35 +11,54 @@ struct TimeBlockRowView: View {
     let isPinned: Bool
     let colorTag: String
 
+    private var accentColor: Color {
+        isPinned ? .red : .blue
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(Color(hex: colorTag))
-                .frame(width: 12, height: 12)
+        HStack(spacing: 0) {
+            // Left accent bar
+            RoundedRectangle(cornerRadius: 2)
+                .fill(accentColor)
+                .frame(width: 4)
+                .padding(.vertical, 2)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.headline)
-                HStack(spacing: 8) {
-                    Text(scheduledStart, format: .dateTime.hour().minute())
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(formattedDuration)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color(hex: colorTag))
+                    .frame(width: 12, height: 12)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                    HStack(spacing: 8) {
+                        Text(scheduledStart, format: .dateTime.hour().minute())
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text(formattedDuration)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                Spacer()
+
+                if isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(accentColor.opacity(0.15))
+                    .foregroundStyle(accentColor)
+                    .clipShape(Capsule())
             }
-
-            Spacer()
-
-            Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isPinned ? Color.red.opacity(0.15) : Color.gray.opacity(0.15))
-                .foregroundStyle(isPinned ? .red : .secondary)
-                .clipShape(Capsule())
+            .padding(.leading, 8)
         }
         .accessibilityElement(children: .combine)
     }
