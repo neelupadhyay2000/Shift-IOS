@@ -298,4 +298,35 @@ struct RippleEngineTests {
         }
         #expect(result.collisions.isEmpty)
     }
+
+    // MARK: - Last Block Shift
+
+    @Test @MainActor func shiftLastBlockOnlyMovesItself() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 20 * 60 // +20 minutes
+
+        let blocks = [
+            TimeBlockModel(title: "Block1", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Block2", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "Block3", scheduledStart: start.addingTimeInterval(1200), duration: 600),
+            TimeBlockModel(title: "Block4", scheduledStart: start.addingTimeInterval(1800), duration: 600),
+            TimeBlockModel(title: "Block5", scheduledStart: start.addingTimeInterval(2400), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[4].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        // All preceding blocks unchanged
+        #expect(result.blocks[0].scheduledStart == start)
+        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600))
+        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200))
+        #expect(result.blocks[3].scheduledStart == start.addingTimeInterval(1800))
+        // Only the last block shifts
+        #expect(result.blocks[4].scheduledStart == start.addingTimeInterval(2400 + delta))
+    }
 }
