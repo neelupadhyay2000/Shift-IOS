@@ -16,6 +16,6 @@ let package = Package(
     targets: [
         .target(name: "Models"),
         .target(name: "Engine", dependencies: ["Models"]),
-        .target(name: "Services", dependencies: ["Engine"]),
+        .target(name: "Services", dependencies: ["Models", "Engine"]),
     ]
 )

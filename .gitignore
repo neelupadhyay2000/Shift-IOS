@@ -1,0 +1,20 @@
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# Swift Package Manager — auto-generated, never commit
+.build/
+.swiftpm/xcode/
+**/.swiftpm/xcode/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Derived Data
+DerivedData/
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
