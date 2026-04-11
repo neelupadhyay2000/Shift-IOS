@@ -52,6 +52,80 @@ struct ShiftPreviewGeneratorTests {
         #expect(blockA.duration == originalDurationA)
     }
 
+    /// AC 1: Original blocks retain pre-preview scheduledStart values after preview.
+    ///
+    /// Runs the full pipeline (shift + collision + compression) and checks every
+    /// mutable field — scheduledStart, duration, requiresReview — on every live
+    /// block remains exactly as it was before the call.
+    @Test @MainActor func originalsRetainPrePreviewScheduledStartValues() {
+        let generator = ShiftPreviewGenerator()
+        let start = Date()
+
+        // Three fluid blocks + one pinned — exercises shift, collision, and compression.
+        let blockA = makeBlock(title: "A", start: start, duration: 1800, minimumDuration: 300)
+        let blockB = makeBlock(title: "B", start: start.addingTimeInterval(1800), duration: 1800, minimumDuration: 300)
+        let pinned = makeBlock(title: "Pinned", start: start.addingTimeInterval(3600), isPinned: true)
+
+        // Capture every mutable field before preview.
+        let preA = (start: blockA.scheduledStart, duration: blockA.duration, review: blockA.requiresReview)
+        let preB = (start: blockB.scheduledStart, duration: blockB.duration, review: blockB.requiresReview)
+        let prePinned = (start: pinned.scheduledStart, duration: pinned.duration, review: pinned.requiresReview)
+
+        // Large delta forces collision + compression on the copies.
+        _ = generator.generatePreview(
+            blocks: [blockA, blockB, pinned],
+            blockID: blockA.id,
+            delta: 2400
+        )
+
+        // Every field must be exactly as captured — nothing touched.
+        #expect(blockA.scheduledStart == preA.start)
+        #expect(blockA.duration == preA.duration)
+        #expect(blockA.requiresReview == preA.review)
+
+        #expect(blockB.scheduledStart == preB.start)
+        #expect(blockB.duration == preB.duration)
+        #expect(blockB.requiresReview == preB.review)
+
+        #expect(pinned.scheduledStart == prePinned.start)
+        #expect(pinned.duration == prePinned.duration)
+        #expect(pinned.requiresReview == prePinned.review)
+    }
+
+    /// AC 2: Mutating a PreviewBlock returned in ShiftPreview does not affect
+    /// the original TimeBlockModel.
+    ///
+    /// PreviewBlock is a value type (struct). Modifying a copy in the caller's
+    /// scope must have zero effect on the live block the copy was made from.
+    @Test @MainActor func mutatingPreviewBlockDoesNotAffectOriginal() {
+        let generator = ShiftPreviewGenerator()
+        let start = Date()
+        let block = makeBlock(title: "A", start: start, duration: 1800)
+
+        let originalStart = block.scheduledStart
+        let originalDuration = block.duration
+
+        var preview = generator.generatePreview(
+            blocks: [block],
+            blockID: block.id,
+            delta: 600
+        )
+
+        // Mutate the first preview block's mutable fields.
+        guard var previewBlock = preview.previewBlocks.first else {
+            Issue.record("Expected at least one preview block")
+            return
+        }
+        previewBlock.scheduledStart = start.addingTimeInterval(99_999)
+        previewBlock.duration = 1
+        previewBlock.requiresReview = true
+
+        // The live TimeBlockModel must be completely unaffected.
+        #expect(block.scheduledStart == originalStart)
+        #expect(block.duration == originalDuration)
+        #expect(block.requiresReview == false)
+    }
+
     // MARK: - Diffs
 
     /// Forward shift: diffs should be populated for the shifted block and all
