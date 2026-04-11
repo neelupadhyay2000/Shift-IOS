@@ -105,7 +105,7 @@ struct ShiftPreviewGeneratorTests {
         let originalStart = block.scheduledStart
         let originalDuration = block.duration
 
-        var preview = generator.generatePreview(
+        let preview = generator.generatePreview(
             blocks: [block],
             blockID: block.id,
             delta: 600
