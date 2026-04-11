@@ -213,30 +213,55 @@ public final class ShiftUndoManager {
 
    // MARK: Undo / Redo
 
-   /// Undoes the most recent operation by restoring the `before` snapshots
-   /// onto the live block references supplied by `blocks`.
+   /// Pops the most recent undo entry, pushes it onto the redo stack, and
+   /// returns the **before** snapshots so the caller can apply them.
+   ///
+   /// Use this overload when the caller manages its own SwiftData context or
+   /// wants to inspect the snapshots before applying them.
+   ///
+   /// - Returns: The before-snapshots for every block that was part of the
+   ///   undone operation, or `nil` if the undo stack is empty.
+   public func undo() -> [BlockSnapshot]? {
+       guard let entry = stack.popUndo() else { return nil }
+       return entry.before
+   }
+
+   /// Pops the most recent redo entry, pushes it back onto the undo stack,
+   /// and returns the **after** snapshots so the caller can apply them.
+   ///
+   /// - Returns: The after-snapshots for every block that was part of the
+   ///   redone operation, or `nil` if the redo stack is empty.
+   public func redo() -> [BlockSnapshot]? {
+       guard let entry = stack.popRedo() else { return nil }
+       return entry.after
+   }
+
+   /// Undoes the most recent operation and immediately applies the before-
+   /// snapshots onto the live block references supplied by `blocks`.
+   ///
+   /// Convenience wrapper around ``undo()`` for callers that hold a reference
+   /// to the live SwiftData objects.
    ///
    /// - Parameter blocks: All live `TimeBlockModel` instances in the current
-   ///   SwiftData context. The manager looks up each block by its `id` and
-   ///   writes the snapshot values back.
+   ///   SwiftData context.
    /// - Returns: `true` if an undo entry was available and applied.
    @discardableResult
    public func undo(applying blocks: [TimeBlockModel]) -> Bool {
-       guard let entry = stack.popUndo() else { return false }
-       apply(snapshots: entry.before, to: blocks)
+       guard let snapshots = undo() else { return false }
+       apply(snapshots: snapshots, to: blocks)
        return true
    }
 
-   /// Redoes the most recently undone operation by restoring the `after`
-   /// snapshots onto the live block references supplied by `blocks`.
+   /// Redoes the most recently undone operation and immediately applies the
+   /// after-snapshots onto the live block references supplied by `blocks`.
    ///
    /// - Parameter blocks: All live `TimeBlockModel` instances in the current
    ///   SwiftData context.
    /// - Returns: `true` if a redo entry was available and applied.
    @discardableResult
    public func redo(applying blocks: [TimeBlockModel]) -> Bool {
-       guard let entry = stack.popRedo() else { return false }
-       apply(snapshots: entry.after, to: blocks)
+       guard let snapshots = redo() else { return false }
+       apply(snapshots: snapshots, to: blocks)
        return true
    }
 

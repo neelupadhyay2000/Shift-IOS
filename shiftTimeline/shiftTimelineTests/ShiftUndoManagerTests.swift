@@ -405,4 +405,76 @@ struct ShiftUndoManagerTests {
         manager.undo(applying: [block])
         #expect(block.scheduledStart == start.addingTimeInterval(300))
     }
+
+    // MARK: - undo() -> [BlockSnapshot]?
+
+    /// AC 1: Returned snapshots contain the pre-shift (before) values.
+    @Test @MainActor func undoReturnsPreShiftSnapshots() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let block = makeBlock(start: start, duration: 1800)
+
+        let beforeSnapshot = snapshot(block)
+        block.scheduledStart = start.addingTimeInterval(600)
+        block.duration = 900
+        manager.record(before: [beforeSnapshot], after: [snapshot(block)])
+
+        let returned = manager.undo()
+
+        let s = try! #require(returned?.first)
+        #expect(s.blockID == block.id)
+        #expect(s.scheduledStart == start)
+        #expect(s.duration == 1800)
+    }
+
+    /// AC 2: After undo() on a single entry — canUndo = false, canRedo = true.
+    @Test @MainActor func undoSingleEntryLeavesCanUndoFalseCanRedoTrue() {
+        let manager = ShiftUndoManager()
+        let block = makeBlock()
+
+        let before = [snapshot(block)]
+        block.scheduledStart = block.scheduledStart.addingTimeInterval(600)
+        manager.record(before: before, after: [snapshot(block)])
+
+        _ = manager.undo()
+
+        #expect(manager.canUndo == false)
+        #expect(manager.canRedo == true)
+    }
+
+    /// AC 3: undo() on an empty stack returns nil.
+    @Test @MainActor func undoOnEmptyStackReturnsNil() {
+        let manager = ShiftUndoManager()
+        let result = manager.undo()
+        #expect(result == nil)
+    }
+
+    /// redo() returns after-snapshots and leaves canRedo=false, canUndo=true.
+    @Test @MainActor func redoReturnsPostShiftSnapshots() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let shiftedStart = start.addingTimeInterval(600)
+        let block = makeBlock(start: start)
+
+        manager.record(before: [snapshot(block)],
+                       after: [BlockSnapshot(blockID: block.id,
+                                             scheduledStart: shiftedStart,
+                                             duration: block.duration,
+                                             status: block.status)])
+
+        _ = manager.undo()                  // populate redo stack
+        let returned = manager.redo()
+
+        let s = try! #require(returned?.first)
+        #expect(s.scheduledStart == shiftedStart)
+        #expect(manager.canRedo == false)
+        #expect(manager.canUndo == true)
+    }
+
+    /// redo() on an empty redo stack returns nil.
+    @Test @MainActor func redoOnEmptyStackReturnsNil() {
+        let manager = ShiftUndoManager()
+        let result = manager.redo()
+        #expect(result == nil)
+    }
 }
