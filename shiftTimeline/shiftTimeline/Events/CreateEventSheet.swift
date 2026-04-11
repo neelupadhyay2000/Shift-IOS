@@ -49,9 +49,8 @@ struct CreateEventSheet: View {
 
     private func createEvent() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        let venueNames = venueName.trimmingCharacters(in: .whitespaces).isEmpty
-            ? []
-            : [venueName.trimmingCharacters(in: .whitespaces)]
+        let trimmedVenue = venueName.trimmingCharacters(in: .whitespaces)
+        let venueNames = trimmedVenue.isEmpty ? [] : [trimmedVenue]
 
         let event = EventModel(
             title: trimmedTitle,

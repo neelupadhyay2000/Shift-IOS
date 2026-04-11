@@ -22,7 +22,11 @@ struct EventRosterView: View {
     private var filteredEvents: [EventModel] {
         events.filter { event in
             let matchesSearch = searchText.isEmpty || event.title.localizedCaseInsensitiveContains(searchText)
-            let matchesStatus = statusFilter == .all || event.status == statusFilter.eventStatus
+            let matchesStatus: Bool = if let requiredStatus = statusFilter.eventStatus {
+                event.status == requiredStatus
+            } else {
+                true
+            }
             return matchesSearch && matchesStatus
         }
     }
@@ -69,7 +73,7 @@ struct EventRosterView: View {
             }
         } message: {
             if let event = eventPendingDeletion {
-                Text("Are you sure you want to delete \"\(event.title)\"? This will also remove all tracks, blocks, and vendors.")
+                Text(String(localized: "Are you sure you want to delete \"\(event.title)\"? This will also remove all tracks, blocks, and vendors."))
             }
         }
     }
