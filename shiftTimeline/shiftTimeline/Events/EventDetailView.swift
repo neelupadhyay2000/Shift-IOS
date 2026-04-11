@@ -77,6 +77,11 @@ struct EventDetailView: View {
             }
 
             Section(String(localized: "Summary")) {
+                NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
+                    LabeledContent(String(localized: "Timeline")) {
+                        Text("\(event.tracks.flatMap(\.blocks).count) blocks")
+                    }
+                }
                 LabeledContent(String(localized: "Tracks")) {
                     Text("\(event.tracks.count)")
                 }

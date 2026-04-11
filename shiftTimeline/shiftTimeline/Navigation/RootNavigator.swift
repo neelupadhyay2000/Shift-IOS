@@ -191,7 +191,7 @@ struct RootNavigator: View {
         case .eventDetail(let id):
             EventDetailView(eventID: id)
         case .timelineBuilder(let eventID):
-            ContentPlaceholderView(label: "Timeline Builder — \(eventID.uuidString.prefix(8))")
+            TimelineBuilderView(eventID: eventID)
         }
     }
 
