@@ -292,4 +292,117 @@ struct ShiftUndoManagerTests {
         #expect(stack1.canUndo == true)
         #expect(stack2.canUndo == false)
     }
+
+    // MARK: - recordShift / commitShift / cancelShift
+
+    /// AC 1: canUndo is true after a recordShift + commitShift pair.
+    @Test @MainActor func recordShiftThenCommitMakesCanUndoTrue() {
+        let manager = ShiftUndoManager()
+        let block = makeBlock()
+
+        manager.recordShift(blocks: [block])
+        block.scheduledStart = block.scheduledStart.addingTimeInterval(600)
+        manager.commitShift(blocks: [block])
+
+        #expect(manager.canUndo == true)
+        #expect(manager.canRedo == false)
+    }
+
+    /// AC 2: 51 recordShift+commitShift calls produce exactly 50 undo entries;
+    /// the oldest (first) entry is evicted.
+    @Test @MainActor func recordShift51TimesKeepsOnly50Entries() {
+        let manager = ShiftUndoManager()
+        let block = makeBlock()
+        let firstStart = block.scheduledStart
+
+        for i in 1...51 {
+            manager.recordShift(blocks: [block])
+            block.scheduledStart = block.scheduledStart.addingTimeInterval(Double(i) * 60)
+            manager.commitShift(blocks: [block])
+        }
+
+        // Count available undos
+        var undoCount = 0
+        while manager.canUndo {
+            manager.undo(applying: [block])
+            undoCount += 1
+        }
+        #expect(undoCount == UndoStack.maxDepth)
+
+        // After 50 undos the block should NOT be back at firstStart because
+        // the very first entry (which would restore firstStart) was evicted.
+        #expect(block.scheduledStart != firstStart)
+    }
+
+    /// AC 3: The before-snapshot values captured by recordShift match the
+    /// block's properties at call time, and are correctly restored by undo.
+    @Test @MainActor func recordShiftSnapshotValuesMatchBlockProperties() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let block = makeBlock(start: start, duration: 3600)
+
+        // Capture before-state via recordShift
+        manager.recordShift(blocks: [block])
+
+        // Mutate the block (simulating what the ripple engine would do)
+        let shiftedStart = start.addingTimeInterval(900)
+        block.scheduledStart = shiftedStart
+        block.duration = 2700
+
+        manager.commitShift(blocks: [block])
+
+        // Undo should restore the values that were present at recordShift time
+        manager.undo(applying: [block])
+
+        #expect(block.scheduledStart == start)
+        #expect(block.duration == 3600)
+    }
+
+    /// commitShift without a prior recordShift is a no-op — no entry pushed.
+    @Test @MainActor func commitShiftWithoutRecordShiftIsNoop() {
+        let manager = ShiftUndoManager()
+        let block = makeBlock()
+
+        manager.commitShift(blocks: [block])
+
+        #expect(manager.canUndo == false)
+    }
+
+    /// cancelShift discards the pending before-state; commitShift after cancel is a no-op.
+    @Test @MainActor func cancelShiftDiscardsBeforeState() {
+        let manager = ShiftUndoManager()
+        let block = makeBlock()
+
+        manager.recordShift(blocks: [block])
+        manager.cancelShift()
+
+        block.scheduledStart = block.scheduledStart.addingTimeInterval(600)
+        manager.commitShift(blocks: [block])  // should be ignored
+
+        #expect(manager.canUndo == false)
+    }
+
+    /// A second recordShift before commit replaces the pending before-state.
+    @Test @MainActor func secondRecordShiftReplacesPending() {
+        let manager = ShiftUndoManager()
+        let start = Date()
+        let block = makeBlock(start: start)
+
+        // First recordShift — captures start
+        manager.recordShift(blocks: [block])
+
+        // Move block before calling commit (simulating rapid re-drag)
+        block.scheduledStart = start.addingTimeInterval(300)
+
+        // Second recordShift — should replace the pending before with +5 min state
+        manager.recordShift(blocks: [block])
+
+        // Now mutate to final position and commit
+        block.scheduledStart = start.addingTimeInterval(900)
+        manager.commitShift(blocks: [block])
+
+        // Undo should restore to the second recordShift's snapshot (+5 min), not original start
+        manager.undo(applying: [block])
+        #expect(block.scheduledStart == start.addingTimeInterval(300))
+    }
 }
