@@ -92,4 +92,41 @@ struct EventRosterTests {
         #expect(filtered.count == 2)
         #expect(filtered.allSatisfy { $0.status == .completed })
     }
+
+    /// AC: delete event → removed from list and SwiftData; cascade removes tracks, blocks, vendors.
+    @Test @MainActor func deleteEventCascadesToRelatedObjects() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+
+        let vendor = VendorModel(name: "Photographer", role: .photographer)
+        vendor.event = event
+        context.insert(vendor)
+
+        try context.save()
+
+        // Verify everything was inserted
+        #expect(try context.fetch(FetchDescriptor<EventModel>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<VendorModel>()).count == 1)
+
+        // Delete the event — cascade should remove tracks, blocks, vendors
+        context.delete(event)
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<EventModel>()).count == 0)
+        #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).count == 0)
+        #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).count == 0)
+        #expect(try context.fetch(FetchDescriptor<VendorModel>()).count == 0)
+    }
 }

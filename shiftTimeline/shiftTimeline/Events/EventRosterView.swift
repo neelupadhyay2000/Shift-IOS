@@ -12,9 +12,12 @@ struct EventRosterView: View {
     @Query(sort: \EventModel.date, order: .reverse)
     private var events: [EventModel]
 
+    @Environment(\.modelContext) private var modelContext
+
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
     @State private var statusFilter: EventStatusFilter = .all
+    @State private var eventPendingDeletion: EventModel?
 
     private var filteredEvents: [EventModel] {
         events.filter { event in
@@ -48,6 +51,27 @@ struct EventRosterView: View {
         .sheet(isPresented: $isShowingCreateSheet) {
             CreateEventSheet()
         }
+        .alert(
+            String(localized: "Delete Event"),
+            isPresented: Binding(
+                get: { eventPendingDeletion != nil },
+                set: { if !$0 { eventPendingDeletion = nil } }
+            )
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                if let event = eventPendingDeletion {
+                    modelContext.delete(event)
+                    eventPendingDeletion = nil
+                }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {
+                eventPendingDeletion = nil
+            }
+        } message: {
+            if let event = eventPendingDeletion {
+                Text("Are you sure you want to delete \"\(event.title)\"? This will also remove all tracks, blocks, and vendors.")
+            }
+        }
     }
 
     // MARK: - Subviews
@@ -69,6 +93,11 @@ struct EventRosterView: View {
                     date: event.date,
                     status: event.status
                 )
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(String(localized: "Delete"), role: .destructive) {
+                        eventPendingDeletion = event
+                    }
+                }
             }
         }
     }
