@@ -37,7 +37,7 @@ struct CompressionCalculatorTests {
 
         let totalCompressed = result.blocks[0].duration + result.blocks[1].duration + result.blocks[2].duration
         #expect(totalCompressed == sixtyMin)
-        #expect(result.status == .hasCollisions)
+        #expect(result.status == .clean)
     }
 
     // MARK: - Contiguous Scheduled Starts
@@ -77,30 +77,31 @@ struct CompressionCalculatorTests {
         let start = Date()
         let availableGap: TimeInterval = 60 * 60
 
-        let blocks2 = [
+        let blocks = [
             TimeBlockModel(title: "Long", scheduledStart: start, duration: 60 * 60),
             TimeBlockModel(title: "Short", scheduledStart: start.addingTimeInterval(60 * 60), duration: 30 * 60),
             TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(availableGap), duration: 1800, isPinned: true)
         ]
 
-        let collision2 = Collision(
-            fluidBlockID: blocks2[1].id,
-            pinnedBlockID: blocks2[2].id,
+        let collision = Collision(
+            fluidBlockID: blocks[1].id,
+            pinnedBlockID: blocks[2].id,
             overlapMinutes: 30
         )
 
-        let result2 = calculator.compress(blocks: blocks2, collision: collision2)
+        let result = calculator.compress(blocks: blocks, collision: collision)
 
         let expectedLong: TimeInterval = 40 * 60
         let expectedShort: TimeInterval = 20 * 60
 
-        #expect(result2.blocks[0].duration == expectedLong)
-        #expect(result2.blocks[1].duration == expectedShort)
+        #expect(result.blocks[0].duration == expectedLong)
+        #expect(result.blocks[1].duration == expectedShort)
 
-        let total = result2.blocks[0].duration + result2.blocks[1].duration
+        let total = result.blocks[0].duration + result.blocks[1].duration
         #expect(total == availableGap)
 
-        #expect(result2.blocks[1].scheduledStart == result2.blocks[0].scheduledStart.addingTimeInterval(result2.blocks[0].duration))
+        #expect(result.blocks[1].scheduledStart == result.blocks[0].scheduledStart.addingTimeInterval(result.blocks[0].duration))
+        #expect(result.status == .clean)
     }
 
     // MARK: - Pinned Block Unchanged
@@ -157,6 +158,7 @@ struct CompressionCalculatorTests {
         #expect(result.blocks[0].duration >= 25 * 60)
         #expect(result.blocks[1].duration >= 10 * 60)
         #expect(result.blocks[0].duration + result.blocks[1].duration == fortyMin)
+        #expect(result.status == .clean)
     }
 
     /// No block ever has duration < minimumDuration after compression.
@@ -211,7 +213,6 @@ struct CompressionCalculatorTests {
 
         #expect(result.status == .impossible)
 
-        // All trapped blocks set to minimumDuration
         for block in result.blocks where !block.isPinned {
             #expect(block.duration == block.minimumDuration)
             #expect(block.requiresReview == true)
@@ -239,11 +240,64 @@ struct CompressionCalculatorTests {
 
         let result = calculator.compress(blocks: blocks, collision: collision)
 
-        #expect(result.status == .hasCollisions)
-        // Both blocks should fit — no block needs review
+        #expect(result.status == .clean)
         for block in result.blocks where !block.isPinned {
             #expect(block.duration >= block.minimumDuration)
         }
+    }
+
+    // MARK: - No Expansion When Blocks Already Fit
+
+    /// When totalDuration < availableTime, durations stay the same, only gaps close.
+    @Test @MainActor func noExpansionWhenBlocksFit() {
+        let calculator = CompressionCalculator()
+        let start = Date()
+
+        // Two 10-min blocks with a gap between them, 60-min available
+        let blocks = [
+            TimeBlockModel(title: "A", scheduledStart: start, duration: 10 * 60),
+            TimeBlockModel(title: "B", scheduledStart: start.addingTimeInterval(30 * 60), duration: 10 * 60),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(60 * 60), duration: 1800, isPinned: true)
+        ]
+
+        let collision = Collision(
+            fluidBlockID: blocks[1].id,
+            pinnedBlockID: blocks[2].id,
+            overlapMinutes: 0
+        )
+
+        let result = calculator.compress(blocks: blocks, collision: collision)
+
+        // Durations unchanged — not expanded
+        #expect(result.blocks[0].duration == 10 * 60)
+        #expect(result.blocks[1].duration == 10 * 60)
+        // Laid out contiguously from gap start
+        #expect(result.blocks[1].scheduledStart == result.blocks[0].scheduledStart.addingTimeInterval(result.blocks[0].duration))
+        #expect(result.status == .clean)
+    }
+
+    // MARK: - Zero Available Time Is Impossible
+
+    @Test @MainActor func zeroAvailableTimeIsImpossible() {
+        let calculator = CompressionCalculator()
+        let start = Date()
+
+        // Fluid block starts at same time as pinned block
+        let blocks = [
+            TimeBlockModel(title: "A", scheduledStart: start, duration: 30 * 60, minimumDuration: 10 * 60),
+            TimeBlockModel(title: "Pinned", scheduledStart: start, duration: 1800, isPinned: true)
+        ]
+
+        let collision = Collision(
+            fluidBlockID: blocks[0].id,
+            pinnedBlockID: blocks[1].id,
+            overlapMinutes: 30
+        )
+
+        let result = calculator.compress(blocks: blocks, collision: collision)
+
+        #expect(result.status == .impossible)
+        #expect(result.blocks[0].requiresReview == true)
     }
 
     // MARK: - Sendable
