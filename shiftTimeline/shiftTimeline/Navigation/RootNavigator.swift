@@ -6,15 +6,15 @@ import Services
 
 /// Top-level tab destinations for the iPhone tab bar and iPad sidebar.
 enum Tab: String, Hashable, CaseIterable {
-    case events   = "Events"
-    case vendors  = "Vendors"
-    case settings = "Settings"
+    case events    = "Events"
+    case templates = "Templates"
+    case settings  = "Settings"
 
     var systemImage: String {
         switch self {
-        case .events:   "calendar"
-        case .vendors:  "person.2"
-        case .settings: "gearshape"
+        case .events:    "calendar"
+        case .templates: "square.grid.2x2"
+        case .settings:  "gearshape"
         }
     }
 }
@@ -28,9 +28,9 @@ enum EventDestination: Hashable {
     case timelineBuilder(eventID: UUID)
 }
 
-/// Typed push destinations for the Vendors stack.
-enum VendorDestination: Hashable {
-    case vendorDetail(id: UUID)
+/// Typed push destinations for the Templates stack.
+enum TemplateDestination: Hashable {
+    case templatePreview(name: String)
 }
 
 /// Typed push destinations for the Settings stack.
@@ -65,7 +65,7 @@ struct RootNavigator: View {
     // MARK: Per-tab @State path arrays (AC: navigation state via @State path arrays)
 
     @State private var eventPath: [EventDestination] = []
-    @State private var vendorPath: [VendorDestination] = []
+    @State private var templatePath: [TemplateDestination] = []
     @State private var settingsPath: [SettingsDestination] = []
 
     // iPad detail stack path — driven by whichever sidebar tab is active.
@@ -97,15 +97,15 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
             .tag(Tab.events)
 
-            // Vendors tab
-            NavigationStack(path: $vendorPath) {
-                ContentPlaceholderView(tab: .vendors)
-                    .navigationDestination(for: VendorDestination.self) { destination in
-                        vendorDestinationView(for: destination)
+            // Templates tab
+            NavigationStack(path: $templatePath) {
+                ContentPlaceholderView(tab: .templates)
+                    .navigationDestination(for: TemplateDestination.self) { destination in
+                        templateDestinationView(for: destination)
                     }
             }
-            .tabItem { Label(Tab.vendors.rawValue, systemImage: Tab.vendors.systemImage) }
-            .tag(Tab.vendors)
+            .tabItem { Label(Tab.templates.rawValue, systemImage: Tab.templates.systemImage) }
+            .tag(Tab.templates)
 
             // Settings tab
             NavigationStack(path: $settingsPath) {
@@ -159,10 +159,10 @@ struct RootNavigator: View {
     }
 
     @ViewBuilder
-    private func vendorDestinationView(for destination: VendorDestination) -> some View {
+    private func templateDestinationView(for destination: TemplateDestination) -> some View {
         switch destination {
-        case .vendorDetail(let id):
-            ContentPlaceholderView(label: "Vendor — \(id.uuidString.prefix(8))")
+        case .templatePreview(let name):
+            ContentPlaceholderView(label: "Template: \(name)")
         }
     }
 
