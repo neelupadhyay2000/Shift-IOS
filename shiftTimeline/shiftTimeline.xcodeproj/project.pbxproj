@@ -1,934 +1,934 @@
 // !$*UTF8*$!
 {
-	archiveVersion = 1;
-	classes = {
-	};
-	objectVersion = 77;
-	objects = {
+    archiveVersion = 1;
+    classes = {
+    };
+    objectVersion = 77;
+    objects = {
 
 /* Begin PBXBuildFile section */
-		5F21CF932F85C7FB00110808 /* shiftTimelineWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CF9E2F85CA0900110808 /* WidgetKit.framework */; };
-		5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
-		5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		5F21CFE12F85EF6500110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE02F85EF6500110808 /* Engine */; };
-		5F21CFE32F85EF6500110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE22F85EF6500110808 /* Models */; };
-		5F21CFE52F85EF6500110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE42F85EF6500110808 /* Services */; };
-		5F21CFE82F85F0D600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE72F85F0D600110808 /* Engine */; };
-		5F21CFEA2F85F0D600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE92F85F0D600110808 /* Models */; };
-		5F21CFEC2F85F0D600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEB2F85F0D600110808 /* Services */; };
-		5F21CFEE2F85F1B600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFED2F85F1B600110808 /* Engine */; };
-		5F21CFF02F85F1B600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEF2F85F1B600110808 /* Models */; };
-		5F21CFF22F85F1B600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFF12F85F1B600110808 /* Services */; };
+        5F21CF932F85C7FB00110808 /* shiftTimelineWatch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+        5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CF9E2F85CA0900110808 /* WidgetKit.framework */; };
+        5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
+        5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+        5F21CFE12F85EF6500110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE02F85EF6500110808 /* Engine */; };
+        5F21CFE32F85EF6500110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE22F85EF6500110808 /* Models */; };
+        5F21CFE52F85EF6500110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE42F85EF6500110808 /* Services */; };
+        5F21CFE82F85F0D600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE72F85F0D600110808 /* Engine */; };
+        5F21CFEA2F85F0D600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFE92F85F0D600110808 /* Models */; };
+        5F21CFEC2F85F0D600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEB2F85F0D600110808 /* Services */; };
+        5F21CFEE2F85F1B600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFED2F85F1B600110808 /* Engine */; };
+        5F21CFF02F85F1B600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEF2F85F1B600110808 /* Models */; };
+        5F21CFF22F85F1B600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFF12F85F1B600110808 /* Services */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		5F21CF912F85C7FB00110808 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5F21CF882F85C7FA00110808;
-			remoteInfo = "shiftTimelineWatch Watch App";
-		};
-		5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5F21CF9B2F85CA0900110808;
-			remoteInfo = shiftTimelineWidgetExtension;
-		};
-		5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5F21CF712F85C1B000110808;
-			remoteInfo = shiftTimeline;
-		};
+        5F21CF912F85C7FB00110808 /* PBXContainerItemProxy */ = {
+            isa = PBXContainerItemProxy;
+            containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+            proxyType = 1;
+            remoteGlobalIDString = 5F21CF882F85C7FA00110808;
+            remoteInfo = "shiftTimelineWatch Watch App";
+        };
+        5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */ = {
+            isa = PBXContainerItemProxy;
+            containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+            proxyType = 1;
+            remoteGlobalIDString = 5F21CF9B2F85CA0900110808;
+            remoteInfo = shiftTimelineWidgetExtension;
+        };
+        5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */ = {
+            isa = PBXContainerItemProxy;
+            containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+            proxyType = 1;
+            remoteGlobalIDString = 5F21CF712F85C1B000110808;
+            remoteInfo = shiftTimeline;
+        };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		5F21CF972F85C7FB00110808 /* Embed Watch Content */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
-			dstSubfolderSpec = 16;
-			files = (
-				5F21CF932F85C7FB00110808 /* shiftTimelineWatch Watch App.app in Embed Watch Content */,
-			);
-			name = "Embed Watch Content";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+        5F21CF972F85C7FB00110808 /* Embed Watch Content */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+            dstSubfolderSpec = 16;
+            files = (
+                5F21CF932F85C7FB00110808 /* shiftTimelineWatch Watch App.app in Embed Watch Content */,
+            );
+            name = "Embed Watch Content";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = "";
+            dstSubfolderSpec = 13;
+            files = (
+                5F21CFAE2F85CA0A00110808 /* shiftTimelineWidgetExtension.appex in Embed Foundation Extensions */,
+            );
+            name = "Embed Foundation Extensions";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		5F21CF722F85C1B000110808 /* shiftTimeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shiftTimeline.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "shiftTimelineWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F21CF9E2F85CA0900110808 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
-		5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
-		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+        5F21CF722F85C1B000110808 /* shiftTimeline.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = shiftTimeline.app; sourceTree = BUILT_PRODUCTS_DIR; };
+        5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "shiftTimelineWatch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+        5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+        5F21CF9E2F85CA0900110808 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+        5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+        5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
+        5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		5F21CF7F2F85C1B000110808 /* Exceptions for "shiftTimeline" folder in "shiftTimeline" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
-		};
-		5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
-		};
-		5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				ShiftActivityAttributes.swift,
-				ShiftLiveActivity.swift,
-			);
-			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
-		};
+        5F21CF7F2F85C1B000110808 /* Exceptions for "shiftTimeline" folder in "shiftTimeline" target */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+                Info.plist,
+            );
+            target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+        };
+        5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+                Info.plist,
+            );
+            target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
+        };
+        5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */ = {
+            isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+            membershipExceptions = (
+                ShiftActivityAttributes.swift,
+                ShiftLiveActivity.swift,
+            );
+            target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+        };
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		5F21CF742F85C1B000110808 /* shiftTimeline */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				5F21CF7F2F85C1B000110808 /* Exceptions for "shiftTimeline" folder in "shiftTimeline" target */,
-			);
-			path = shiftTimeline;
-			sourceTree = "<group>";
-		};
-		5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "shiftTimelineWatch Watch App";
-			sourceTree = "<group>";
-		};
-		5F21CFA22F85CA0900110808 /* shiftTimelineWidget */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */,
-				5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */,
-			);
-			path = shiftTimelineWidget;
-			sourceTree = "<group>";
-		};
-		5F21CFF82F85F2BF00110808 /* shiftTimelineTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = shiftTimelineTests;
-			sourceTree = "<group>";
-		};
+        5F21CF742F85C1B000110808 /* shiftTimeline */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            exceptions = (
+                5F21CF7F2F85C1B000110808 /* Exceptions for "shiftTimeline" folder in "shiftTimeline" target */,
+            );
+            path = shiftTimeline;
+            sourceTree = "<group>";
+        };
+        5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            path = "shiftTimelineWatch Watch App";
+            sourceTree = "<group>";
+        };
+        5F21CFA22F85CA0900110808 /* shiftTimelineWidget */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            exceptions = (
+                5F21CFBA2F85E5BA00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimeline" target */,
+                5F21CFB22F85CA0A00110808 /* Exceptions for "shiftTimelineWidget" folder in "shiftTimelineWidgetExtension" target */,
+            );
+            path = shiftTimelineWidget;
+            sourceTree = "<group>";
+        };
+        5F21CFF82F85F2BF00110808 /* shiftTimelineTests */ = {
+            isa = PBXFileSystemSynchronizedRootGroup;
+            path = shiftTimelineTests;
+            sourceTree = "<group>";
+        };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		5F21CF6F2F85C1B000110808 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5F21CFE52F85EF6500110808 /* Services in Frameworks */,
-				5F21CFE32F85EF6500110808 /* Models in Frameworks */,
-				5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF862F85C7FA00110808 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5F21CFEC2F85F0D600110808 /* Services in Frameworks */,
-				5F21CFEA2F85F0D600110808 /* Models in Frameworks */,
-				5F21CFE82F85F0D600110808 /* Engine in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF992F85CA0900110808 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5F21CFF22F85F1B600110808 /* Services in Frameworks */,
-				5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */,
-				5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */,
-				5F21CFF02F85F1B600110808 /* Models in Frameworks */,
-				5F21CFEE2F85F1B600110808 /* Engine in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CFF42F85F2BF00110808 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+        5F21CF6F2F85C1B000110808 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+                5F21CFE52F85EF6500110808 /* Services in Frameworks */,
+                5F21CFE32F85EF6500110808 /* Models in Frameworks */,
+                5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF862F85C7FA00110808 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+                5F21CFEC2F85F0D600110808 /* Services in Frameworks */,
+                5F21CFEA2F85F0D600110808 /* Models in Frameworks */,
+                5F21CFE82F85F0D600110808 /* Engine in Frameworks */,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF992F85CA0900110808 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+                5F21CFF22F85F1B600110808 /* Services in Frameworks */,
+                5F21CFA12F85CA0900110808 /* SwiftUI.framework in Frameworks */,
+                5F21CF9F2F85CA0900110808 /* WidgetKit.framework in Frameworks */,
+                5F21CFF02F85F1B600110808 /* Models in Frameworks */,
+                5F21CFEE2F85F1B600110808 /* Engine in Frameworks */,
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CFF42F85F2BF00110808 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		5F21CF692F85C1B000110808 = {
-			isa = PBXGroup;
-			children = (
-				5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */,
-				5F21CF742F85C1B000110808 /* shiftTimeline */,
-				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
-				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
-				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
-				5F21CF9D2F85CA0900110808 /* Frameworks */,
-				5F21CF732F85C1B000110808 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		5F21CF732F85C1B000110808 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				5F21CF722F85C1B000110808 /* shiftTimeline.app */,
-				5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */,
-				5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
-				5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		5F21CF9D2F85CA0900110808 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				5F21CF9E2F85CA0900110808 /* WidgetKit.framework */,
-				5F21CFA02F85CA0900110808 /* SwiftUI.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
+        5F21CF692F85C1B000110808 = {
+            isa = PBXGroup;
+            children = (
+                5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */,
+                5F21CF742F85C1B000110808 /* shiftTimeline */,
+                5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
+                5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
+                5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
+                5F21CF9D2F85CA0900110808 /* Frameworks */,
+                5F21CF732F85C1B000110808 /* Products */,
+            );
+            sourceTree = "<group>";
+        };
+        5F21CF732F85C1B000110808 /* Products */ = {
+            isa = PBXGroup;
+            children = (
+                5F21CF722F85C1B000110808 /* shiftTimeline.app */,
+                5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */,
+                5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
+                5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */,
+            );
+            name = Products;
+            sourceTree = "<group>";
+        };
+        5F21CF9D2F85CA0900110808 /* Frameworks */ = {
+            isa = PBXGroup;
+            children = (
+                5F21CF9E2F85CA0900110808 /* WidgetKit.framework */,
+                5F21CFA02F85CA0900110808 /* SwiftUI.framework */,
+            );
+            name = Frameworks;
+            sourceTree = "<group>";
+        };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5F21CF712F85C1B000110808 /* shiftTimeline */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5F21CF802F85C1B000110808 /* Build configuration list for PBXNativeTarget "shiftTimeline" */;
-			buildPhases = (
-				5F21CF6E2F85C1B000110808 /* Sources */,
-				5F21CF6F2F85C1B000110808 /* Frameworks */,
-				5F21CF702F85C1B000110808 /* Resources */,
-				5F21CF972F85C7FB00110808 /* Embed Watch Content */,
-				5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				5F21CF922F85C7FB00110808 /* PBXTargetDependency */,
-				5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				5F21CF742F85C1B000110808 /* shiftTimeline */,
-			);
-			name = shiftTimeline;
-			packageProductDependencies = (
-				5F21CFE02F85EF6500110808 /* Engine */,
-				5F21CFE22F85EF6500110808 /* Models */,
-				5F21CFE42F85EF6500110808 /* Services */,
-			);
-			productName = shiftTimeline;
-			productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
-			productType = "com.apple.product-type.application";
-		};
-		5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5F21CF942F85C7FB00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWatch Watch App" */;
-			buildPhases = (
-				5F21CF852F85C7FA00110808 /* Sources */,
-				5F21CF862F85C7FA00110808 /* Frameworks */,
-				5F21CF872F85C7FA00110808 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
-			);
-			name = "shiftTimelineWatch Watch App";
-			packageProductDependencies = (
-				5F21CFE72F85F0D600110808 /* Engine */,
-				5F21CFE92F85F0D600110808 /* Models */,
-				5F21CFEB2F85F0D600110808 /* Services */,
-			);
-			productName = "shiftTimelineWatch Watch App";
-			productReference = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */;
-			productType = "com.apple.product-type.application";
-		};
-		5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */;
-			buildPhases = (
-				5F21CF982F85CA0900110808 /* Sources */,
-				5F21CF992F85CA0900110808 /* Frameworks */,
-				5F21CF9A2F85CA0900110808 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
-			);
-			name = shiftTimelineWidgetExtension;
-			packageProductDependencies = (
-				5F21CFED2F85F1B600110808 /* Engine */,
-				5F21CFEF2F85F1B600110808 /* Models */,
-				5F21CFF12F85F1B600110808 /* Services */,
-			);
-			productName = shiftTimelineWidgetExtension;
-			productReference = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		5F21CFF62F85F2BF00110808 /* shiftTimelineTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */;
-			buildPhases = (
-				5F21CFF32F85F2BF00110808 /* Sources */,
-				5F21CFF42F85F2BF00110808 /* Frameworks */,
-				5F21CFF52F85F2BF00110808 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
-			);
-			name = shiftTimelineTests;
-			packageProductDependencies = (
-			);
-			productName = shiftTimelineTests;
-			productReference = 5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
+        5F21CF712F85C1B000110808 /* shiftTimeline */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 5F21CF802F85C1B000110808 /* Build configuration list for PBXNativeTarget "shiftTimeline" */;
+            buildPhases = (
+                5F21CF6E2F85C1B000110808 /* Sources */,
+                5F21CF6F2F85C1B000110808 /* Frameworks */,
+                5F21CF702F85C1B000110808 /* Resources */,
+                5F21CF972F85C7FB00110808 /* Embed Watch Content */,
+                5F21CFB32F85CA0A00110808 /* Embed Foundation Extensions */,
+            );
+            buildRules = (
+            );
+            dependencies = (
+                5F21CF922F85C7FB00110808 /* PBXTargetDependency */,
+                5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */,
+            );
+            fileSystemSynchronizedGroups = (
+                5F21CF742F85C1B000110808 /* shiftTimeline */,
+            );
+            name = shiftTimeline;
+            packageProductDependencies = (
+                5F21CFE02F85EF6500110808 /* Engine */,
+                5F21CFE22F85EF6500110808 /* Models */,
+                5F21CFE42F85EF6500110808 /* Services */,
+            );
+            productName = shiftTimeline;
+            productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
+            productType = "com.apple.product-type.application";
+        };
+        5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 5F21CF942F85C7FB00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWatch Watch App" */;
+            buildPhases = (
+                5F21CF852F85C7FA00110808 /* Sources */,
+                5F21CF862F85C7FA00110808 /* Frameworks */,
+                5F21CF872F85C7FA00110808 /* Resources */,
+            );
+            buildRules = (
+            );
+            dependencies = (
+            );
+            fileSystemSynchronizedGroups = (
+                5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
+            );
+            name = "shiftTimelineWatch Watch App";
+            packageProductDependencies = (
+                5F21CFE72F85F0D600110808 /* Engine */,
+                5F21CFE92F85F0D600110808 /* Models */,
+                5F21CFEB2F85F0D600110808 /* Services */,
+            );
+            productName = "shiftTimelineWatch Watch App";
+            productReference = 5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */;
+            productType = "com.apple.product-type.application";
+        };
+        5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */;
+            buildPhases = (
+                5F21CF982F85CA0900110808 /* Sources */,
+                5F21CF992F85CA0900110808 /* Frameworks */,
+                5F21CF9A2F85CA0900110808 /* Resources */,
+            );
+            buildRules = (
+            );
+            dependencies = (
+            );
+            fileSystemSynchronizedGroups = (
+                5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
+            );
+            name = shiftTimelineWidgetExtension;
+            packageProductDependencies = (
+                5F21CFED2F85F1B600110808 /* Engine */,
+                5F21CFEF2F85F1B600110808 /* Models */,
+                5F21CFF12F85F1B600110808 /* Services */,
+            );
+            productName = shiftTimelineWidgetExtension;
+            productReference = 5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */;
+            productType = "com.apple.product-type.app-extension";
+        };
+        5F21CFF62F85F2BF00110808 /* shiftTimelineTests */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = 5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */;
+            buildPhases = (
+                5F21CFF32F85F2BF00110808 /* Sources */,
+                5F21CFF42F85F2BF00110808 /* Frameworks */,
+                5F21CFF52F85F2BF00110808 /* Resources */,
+            );
+            buildRules = (
+            );
+            dependencies = (
+                5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */,
+            );
+            fileSystemSynchronizedGroups = (
+                5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
+            );
+            name = shiftTimelineTests;
+            packageProductDependencies = (
+            );
+            productName = shiftTimelineTests;
+            productReference = 5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */;
+            productType = "com.apple.product-type.bundle.unit-test";
+        };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		5F21CF6A2F85C1B000110808 /* Project object */ = {
-			isa = PBXProject;
-			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2640;
-				LastUpgradeCheck = 2640;
-				TargetAttributes = {
-					5F21CF712F85C1B000110808 = {
-						CreatedOnToolsVersion = 26.4;
-					};
-					5F21CF882F85C7FA00110808 = {
-						CreatedOnToolsVersion = 26.4;
-					};
-					5F21CF9B2F85CA0900110808 = {
-						CreatedOnToolsVersion = 26.4;
-					};
-					5F21CFF62F85F2BF00110808 = {
-						CreatedOnToolsVersion = 26.4;
-						TestTargetID = 5F21CF712F85C1B000110808;
-					};
-				};
-			};
-			buildConfigurationList = 5F21CF6D2F85C1B000110808 /* Build configuration list for PBXProject "shiftTimeline" */;
-			developmentRegion = en;
-			hasScannedForEncodings = 0;
-			knownRegions = (
-				en,
-				Base,
-			);
-			mainGroup = 5F21CF692F85C1B000110808;
-			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */,
-			);
-			preferredProjectObjectVersion = 77;
-			productRefGroup = 5F21CF732F85C1B000110808 /* Products */;
-			projectDirPath = "";
-			projectRoot = "";
-			targets = (
-				5F21CF712F85C1B000110808 /* shiftTimeline */,
-				5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */,
-				5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
-				5F21CFF62F85F2BF00110808 /* shiftTimelineTests */,
-			);
-		};
+        5F21CF6A2F85C1B000110808 /* Project object */ = {
+            isa = PBXProject;
+            attributes = {
+                BuildIndependentTargetsInParallel = 1;
+                LastSwiftUpdateCheck = 2640;
+                LastUpgradeCheck = 2640;
+                TargetAttributes = {
+                    5F21CF712F85C1B000110808 = {
+                        CreatedOnToolsVersion = 26.4;
+                    };
+                    5F21CF882F85C7FA00110808 = {
+                        CreatedOnToolsVersion = 26.4;
+                    };
+                    5F21CF9B2F85CA0900110808 = {
+                        CreatedOnToolsVersion = 26.4;
+                    };
+                    5F21CFF62F85F2BF00110808 = {
+                        CreatedOnToolsVersion = 26.4;
+                        TestTargetID = 5F21CF712F85C1B000110808;
+                    };
+                };
+            };
+            buildConfigurationList = 5F21CF6D2F85C1B000110808 /* Build configuration list for PBXProject "shiftTimeline" */;
+            developmentRegion = en;
+            hasScannedForEncodings = 0;
+            knownRegions = (
+                en,
+                Base,
+            );
+            mainGroup = 5F21CF692F85C1B000110808;
+            minimizedProjectReferenceProxies = 1;
+            packageReferences = (
+                5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */,
+            );
+            preferredProjectObjectVersion = 77;
+            productRefGroup = 5F21CF732F85C1B000110808 /* Products */;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (
+                5F21CF712F85C1B000110808 /* shiftTimeline */,
+                5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */,
+                5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
+                5F21CFF62F85F2BF00110808 /* shiftTimelineTests */,
+            );
+        };
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		5F21CF702F85C1B000110808 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF872F85C7FA00110808 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF9A2F85CA0900110808 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CFF52F85F2BF00110808 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+        5F21CF702F85C1B000110808 /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF872F85C7FA00110808 /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF9A2F85CA0900110808 /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CFF52F85F2BF00110808 /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		5F21CF6E2F85C1B000110808 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF852F85C7FA00110808 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CF982F85CA0900110808 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5F21CFF32F85F2BF00110808 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+        5F21CF6E2F85C1B000110808 /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF852F85C7FA00110808 /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CF982F85CA0900110808 /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+        5F21CFF32F85F2BF00110808 /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (
+            );
+            runOnlyForDeploymentPostprocessing = 0;
+        };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		5F21CF922F85C7FB00110808 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */;
-			targetProxy = 5F21CF912F85C7FB00110808 /* PBXContainerItemProxy */;
-		};
-		5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
-			targetProxy = 5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */;
-		};
-		5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
-			targetProxy = 5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */;
-		};
+        5F21CF922F85C7FB00110808 /* PBXTargetDependency */ = {
+            isa = PBXTargetDependency;
+            target = 5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */;
+            targetProxy = 5F21CF912F85C7FB00110808 /* PBXContainerItemProxy */;
+        };
+        5F21CFAD2F85CA0A00110808 /* PBXTargetDependency */ = {
+            isa = PBXTargetDependency;
+            target = 5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */;
+            targetProxy = 5F21CFAC2F85CA0A00110808 /* PBXContainerItemProxy */;
+        };
+        5F21CFFC2F85F2BF00110808 /* PBXTargetDependency */ = {
+            isa = PBXTargetDependency;
+            target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+            targetProxy = 5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */;
+        };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		5F21CF812F85C1B000110808 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = shiftTimeline/Info.plist;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		5F21CF822F85C1B000110808 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = shiftTimeline/Info.plist;
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		5F21CF832F85C1B000110808 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-			};
-			name = Debug;
-		};
-		5F21CF842F85C1B000110808 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				SDKROOT = iphoneos;
-				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
-		5F21CF952F85C7FB00110808 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatch;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.neelsoftwaresolutions.shiftTimeline;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.6;
-			};
-			name = Debug;
-		};
-		5F21CF962F85C7FB00110808 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatch;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.neelsoftwaresolutions.shiftTimeline;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.6;
-			};
-			name = Release;
-		};
-		5F21CFB02F85CA0A00110808 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		5F21CFB12F85CA0A00110808 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
-				DEVELOPMENT_TEAM = 23WXR2JP8Z;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				SKIP_INSTALL = YES;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
-		5F21CFFE2F85F2BF00110808 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
-			};
-			name = Debug;
-		};
-		5F21CFFF2F85F2BF00110808 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_IDENTITY = "Apple Development";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
-			};
-			name = Release;
-		};
+        5F21CF812F85C1B000110808 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_PREVIEWS = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = shiftTimeline/Info.plist;
+                INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+                INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Debug;
+        };
+        5F21CF822F85C1B000110808 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_PREVIEWS = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = shiftTimeline/Info.plist;
+                INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+                INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+                INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+                INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+                INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+                IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Release;
+        };
+        5F21CF832F85C1B000110808 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+                CLANG_ANALYZER_NONNULL = YES;
+                CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+                CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+                CLANG_ENABLE_MODULES = YES;
+                CLANG_ENABLE_OBJC_ARC = YES;
+                CLANG_ENABLE_OBJC_WEAK = YES;
+                CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+                CLANG_WARN_BOOL_CONVERSION = YES;
+                CLANG_WARN_COMMA = YES;
+                CLANG_WARN_CONSTANT_CONVERSION = YES;
+                CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+                CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+                CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+                CLANG_WARN_EMPTY_BODY = YES;
+                CLANG_WARN_ENUM_CONVERSION = YES;
+                CLANG_WARN_INFINITE_RECURSION = YES;
+                CLANG_WARN_INT_CONVERSION = YES;
+                CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+                CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+                CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+                CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+                CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+                CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+                CLANG_WARN_STRICT_PROTOTYPES = YES;
+                CLANG_WARN_SUSPICIOUS_MOVE = YES;
+                CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+                CLANG_WARN_UNREACHABLE_CODE = YES;
+                CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+                COPY_PHASE_STRIP = NO;
+                DEBUG_INFORMATION_FORMAT = dwarf;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                ENABLE_TESTABILITY = YES;
+                ENABLE_USER_SCRIPT_SANDBOXING = YES;
+                GCC_C_LANGUAGE_STANDARD = gnu17;
+                GCC_DYNAMIC_NO_PIC = NO;
+                GCC_NO_COMMON_BLOCKS = YES;
+                GCC_OPTIMIZATION_LEVEL = 0;
+                GCC_PREPROCESSOR_DEFINITIONS = (
+                    "DEBUG=1",
+                    "$(inherited)",
+                );
+                GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+                GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+                GCC_WARN_UNDECLARED_SELECTOR = YES;
+                GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+                GCC_WARN_UNUSED_FUNCTION = YES;
+                GCC_WARN_UNUSED_VARIABLE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+                LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+                MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+                MTL_FAST_MATH = YES;
+                ONLY_ACTIVE_ARCH = YES;
+                SDKROOT = iphoneos;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+            };
+            name = Debug;
+        };
+        5F21CF842F85C1B000110808 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+                CLANG_ANALYZER_NONNULL = YES;
+                CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+                CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+                CLANG_ENABLE_MODULES = YES;
+                CLANG_ENABLE_OBJC_ARC = YES;
+                CLANG_ENABLE_OBJC_WEAK = YES;
+                CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+                CLANG_WARN_BOOL_CONVERSION = YES;
+                CLANG_WARN_COMMA = YES;
+                CLANG_WARN_CONSTANT_CONVERSION = YES;
+                CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+                CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+                CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+                CLANG_WARN_EMPTY_BODY = YES;
+                CLANG_WARN_ENUM_CONVERSION = YES;
+                CLANG_WARN_INFINITE_RECURSION = YES;
+                CLANG_WARN_INT_CONVERSION = YES;
+                CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+                CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+                CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+                CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+                CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+                CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+                CLANG_WARN_STRICT_PROTOTYPES = YES;
+                CLANG_WARN_SUSPICIOUS_MOVE = YES;
+                CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+                CLANG_WARN_UNREACHABLE_CODE = YES;
+                CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+                COPY_PHASE_STRIP = NO;
+                DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_NS_ASSERTIONS = NO;
+                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                ENABLE_USER_SCRIPT_SANDBOXING = YES;
+                GCC_C_LANGUAGE_STANDARD = gnu17;
+                GCC_NO_COMMON_BLOCKS = YES;
+                GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+                GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+                GCC_WARN_UNDECLARED_SELECTOR = YES;
+                GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+                GCC_WARN_UNUSED_FUNCTION = YES;
+                GCC_WARN_UNUSED_VARIABLE = YES;
+                IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+                LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+                MTL_ENABLE_DEBUG_INFO = NO;
+                MTL_FAST_MATH = YES;
+                SDKROOT = iphoneos;
+                SWIFT_COMPILATION_MODE = wholemodule;
+                VALIDATE_PRODUCT = YES;
+            };
+            name = Release;
+        };
+        5F21CF952F85C7FB00110808 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_PREVIEWS = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatch;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+                INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.neelsoftwaresolutions.shiftTimeline;
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                SDKROOT = watchos;
+                SKIP_INSTALL = YES;
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = 4;
+                WATCHOS_DEPLOYMENT_TARGET = 10.6;
+            };
+            name = Debug;
+        };
+        5F21CF962F85C7FB00110808 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                ENABLE_PREVIEWS = YES;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatch;
+                INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+                INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.neelsoftwaresolutions.shiftTimeline;
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                SDKROOT = watchos;
+                SKIP_INSTALL = YES;
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = 4;
+                WATCHOS_DEPLOYMENT_TARGET = 10.6;
+            };
+            name = Release;
+        };
+        5F21CFB02F85CA0A00110808 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+                CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
+                INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
+                INFOPLIST_KEY_NSHumanReadableCopyright = "";
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                    "@executable_path/../../Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                SKIP_INSTALL = YES;
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Debug;
+        };
+        5F21CFB12F85CA0A00110808 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+                ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+                CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 3;
+                DEVELOPMENT_TEAM = 23WXR2JP8Z;
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
+                INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
+                INFOPLIST_KEY_NSHumanReadableCopyright = "";
+                LD_RUNPATH_SEARCH_PATHS = (
+                    "$(inherited)",
+                    "@executable_path/Frameworks",
+                    "@executable_path/../../Frameworks",
+                );
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineWidget;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                SKIP_INSTALL = YES;
+                STRING_CATALOG_GENERATE_SYMBOLS = YES;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Release;
+        };
+        5F21CFFE2F85F2BF00110808 /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                GENERATE_INFOPLIST_FILE = YES;
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                STRING_CATALOG_GENERATE_SYMBOLS = NO;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_EMIT_LOC_STRINGS = NO;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1";
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
+            };
+            name = Debug;
+        };
+        5F21CFFF2F85F2BF00110808 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                BUNDLE_LOADER = "$(TEST_HOST)";
+                CODE_SIGN_IDENTITY = "Apple Development";
+                CODE_SIGN_STYLE = Automatic;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                GENERATE_INFOPLIST_FILE = YES;
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                PROVISIONING_PROFILE_SPECIFIER = "";
+                STRING_CATALOG_GENERATE_SYMBOLS = NO;
+                SWIFT_APPROACHABLE_CONCURRENCY = YES;
+                SWIFT_EMIT_LOC_STRINGS = NO;
+                SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1";
+                TEST_HOST = "$(BUILT_PRODUCTS_DIR)/shiftTimeline.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/shiftTimeline";
+            };
+            name = Release;
+        };
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5F21CF6D2F85C1B000110808 /* Build configuration list for PBXProject "shiftTimeline" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5F21CF832F85C1B000110808 /* Debug */,
-				5F21CF842F85C1B000110808 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5F21CF802F85C1B000110808 /* Build configuration list for PBXNativeTarget "shiftTimeline" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5F21CF812F85C1B000110808 /* Debug */,
-				5F21CF822F85C1B000110808 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5F21CF942F85C7FB00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWatch Watch App" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5F21CF952F85C7FB00110808 /* Debug */,
-				5F21CF962F85C7FB00110808 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5F21CFB02F85CA0A00110808 /* Debug */,
-				5F21CFB12F85CA0A00110808 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5F21CFFE2F85F2BF00110808 /* Debug */,
-				5F21CFFF2F85F2BF00110808 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
+        5F21CF6D2F85C1B000110808 /* Build configuration list for PBXProject "shiftTimeline" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                5F21CF832F85C1B000110808 /* Debug */,
+                5F21CF842F85C1B000110808 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        5F21CF802F85C1B000110808 /* Build configuration list for PBXNativeTarget "shiftTimeline" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                5F21CF812F85C1B000110808 /* Debug */,
+                5F21CF822F85C1B000110808 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        5F21CF942F85C7FB00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWatch Watch App" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                5F21CF952F85C7FB00110808 /* Debug */,
+                5F21CF962F85C7FB00110808 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        5F21CFAF2F85CA0A00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineWidgetExtension" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                5F21CFB02F85CA0A00110808 /* Debug */,
+                5F21CFB12F85CA0A00110808 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        5F21CFFD2F85F2BF00110808 /* Build configuration list for PBXNativeTarget "shiftTimelineTests" */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (
+                5F21CFFE2F85F2BF00110808 /* Debug */,
+                5F21CFFF2F85F2BF00110808 /* Release */,
+            );
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = SHIFT/SHIFTKit;
-		};
+        5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */ = {
+            isa = XCLocalSwiftPackageReference;
+            relativePath = SHIFT/SHIFTKit;
+        };
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		5F21CFE02F85EF6500110808 /* Engine */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Engine;
-		};
-		5F21CFE22F85EF6500110808 /* Models */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Models;
-		};
-		5F21CFE42F85EF6500110808 /* Services */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Services;
-		};
-		5F21CFE72F85F0D600110808 /* Engine */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Engine;
-		};
-		5F21CFE92F85F0D600110808 /* Models */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Models;
-		};
-		5F21CFEB2F85F0D600110808 /* Services */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Services;
-		};
-		5F21CFED2F85F1B600110808 /* Engine */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
-			productName = Engine;
-		};
-		5F21CFEF2F85F1B600110808 /* Models */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
-			productName = Models;
-		};
-		5F21CFF12F85F1B600110808 /* Services */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
-			productName = Services;
-		};
+        5F21CFE02F85EF6500110808 /* Engine */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Engine;
+        };
+        5F21CFE22F85EF6500110808 /* Models */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Models;
+        };
+        5F21CFE42F85EF6500110808 /* Services */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Services;
+        };
+        5F21CFE72F85F0D600110808 /* Engine */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Engine;
+        };
+        5F21CFE92F85F0D600110808 /* Models */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Models;
+        };
+        5F21CFEB2F85F0D600110808 /* Services */ = {
+            isa = XCSwiftPackageProductDependency;
+            productName = Services;
+        };
+        5F21CFED2F85F1B600110808 /* Engine */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+            productName = Engine;
+        };
+        5F21CFEF2F85F1B600110808 /* Models */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+            productName = Models;
+        };
+        5F21CFF12F85F1B600110808 /* Services */ = {
+            isa = XCSwiftPackageProductDependency;
+            package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+            productName = Services;
+        };
 /* End XCSwiftPackageProductDependency section */
-	};
-	rootObject = 5F21CF6A2F85C1B000110808 /* Project object */;
+    };
+    rootObject = 5F21CF6A2F85C1B000110808 /* Project object */;
 }

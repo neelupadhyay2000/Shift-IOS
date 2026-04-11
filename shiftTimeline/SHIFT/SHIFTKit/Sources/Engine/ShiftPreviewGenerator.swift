@@ -87,10 +87,17 @@ public struct ShiftPreview: Sendable {
     /// Overall status of the projected timeline.
     public let status: RippleStatus
 
-    /// Per-block start-time delta: `previewStart − originalStart` in seconds.
+    /// Per-block start-time delta relative to the block's `scheduledStart` at
+    /// the time `generatePreview` was called.
     ///
-    /// Only blocks whose `scheduledStart` would change are included. A
-    /// positive value means the block moves later; negative means earlier.
+    /// **Every** input block has an entry in this dictionary — including pinned
+    /// blocks and blocks that would not move. Blocks whose `scheduledStart`
+    /// would not change receive the value `0`.
+    ///
+    /// A positive value means the block moves later; a negative value means
+    /// it moves earlier (partial backward clamp). Use this to drive visual
+    /// indicators without needing to compare `previewBlocks` against your own
+    /// snapshot of the original state.
     public let diffs: [UUID: TimeInterval]
 
     public init(
@@ -158,9 +165,11 @@ public struct ShiftPreviewGenerator: Sendable {
     ///   - blockID: The ID of the block whose start time is being proposed.
     ///   - delta: The proposed time shift in seconds (positive = later,
     ///     negative = earlier).
-    /// - Returns: A ``ShiftPreview`` describing the projected state, or a
-    ///   preview with `.clean` status and empty diffs if `blockID` is not
-    ///   found or `delta` is zero.
+    /// - Returns: A ``ShiftPreview`` describing the projected state.
+    ///   Early-exit paths (unknown `blockID`, `delta == 0`, pinned block shifted,
+    ///   circular dependency) return a preview whose `diffs` dictionary contains
+    ///   every input block mapped to `0` — **not** an empty dictionary — so
+    ///   callers can always subscript `diffs` without checking for absent keys.
     public func generatePreview(
         blocks: [TimeBlockModel],
         blockID: UUID,

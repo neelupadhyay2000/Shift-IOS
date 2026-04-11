@@ -23,9 +23,19 @@ final class RippleEnginePerformanceTests: XCTestCase {
     /// no pinned blocks so no collision or compression stage is triggered.
     /// This gives a clean baseline measurement of dependency resolution +
     /// shift propagation only.
-    private func makeFluidBlocks(count: Int, startingAt base: Date) -> [TimeBlockModel] {
+    ///
+    /// - Parameter fixedIDs: When provided, the UUID at position `i` is used
+    ///   for block `i` instead of a random UUID. Pass a pre-created array of
+    ///   UUIDs outside `measure {}` so every iteration uses the same IDs and
+    ///   `changedBlockID` is guaranteed to match a real block in the fresh array.
+    private func makeFluidBlocks(
+        count: Int,
+        startingAt base: Date,
+        fixedIDs: [UUID]? = nil
+    ) -> [TimeBlockModel] {
         (0..<count).map { i in
             TimeBlockModel(
+                id: fixedIDs?[i] ?? UUID(),
                 title: "Block \(i)",
                 scheduledStart: base.addingTimeInterval(Double(i) * 1800),
                 duration: 1800,
@@ -48,18 +58,20 @@ final class RippleEnginePerformanceTests: XCTestCase {
     func test_recalculate_200FluidBlocks_forward15Min_under50ms() {
         let engine = RippleEngine()
         let base = Date()
-        let blocks = makeFluidBlocks(count: 200, startingAt: base)
-        let shiftedID = blocks[0].id
         let delta: TimeInterval = 900  // +15 min
 
-        // XCTMeasureOptions: 5 iterations (default), clock time metric.
+        // Pre-create stable UUIDs so shiftedID matches freshBlocks[0] in every
+        // iteration. Without this, each makeFluidBlocks call generates new UUIDs
+        // and changedBlockID would never be found, making the benchmark measure
+        // the early-exit path rather than the full pipeline.
+        let fixedIDs = (0..<200).map { _ in UUID() }
+        let shiftedID = fixedIDs[0]
+
         let options = XCTMeasureOptions()
         options.iterationCount = 5
 
         measure(options: options) {
-            // Re-create blocks each iteration so mutations from one run
-            // don't carry over into the next.
-            let freshBlocks = self.makeFluidBlocks(count: 200, startingAt: base)
+            let freshBlocks = self.makeFluidBlocks(count: 200, startingAt: base, fixedIDs: fixedIDs)
             _ = engine.recalculate(
                 blocks: freshBlocks,
                 changedBlockID: shiftedID,
@@ -104,15 +116,18 @@ final class RippleEnginePerformanceTests: XCTestCase {
     func test_recalculate_200FluidBlocks_shiftFromMiddle_under50ms() {
         let engine = RippleEngine()
         let base = Date()
-        let blocks = makeFluidBlocks(count: 200, startingAt: base)
-        let shiftedID = blocks[100].id
         let delta: TimeInterval = 900
+
+        // Pre-create stable UUIDs so shiftedID = fixedIDs[100] matches
+        // freshBlocks[100].id in every iteration (CR2 fix).
+        let fixedIDs = (0..<200).map { _ in UUID() }
+        let shiftedID = fixedIDs[100]
 
         let options = XCTMeasureOptions()
         options.iterationCount = 5
 
         measure(options: options) {
-            let freshBlocks = self.makeFluidBlocks(count: 200, startingAt: base)
+            let freshBlocks = self.makeFluidBlocks(count: 200, startingAt: base, fixedIDs: fixedIDs)
             _ = engine.recalculate(
                 blocks: freshBlocks,
                 changedBlockID: shiftedID,
@@ -207,7 +222,10 @@ final class RippleEnginePerformanceTests: XCTestCase {
     ///
     /// Result: exactly **1 collision per group × 50 groups = 50 collisions**.
     /// Each collision triggers one compression pass → Stage 4 is exercised 50 ×.
-    private func makeHeavyLoadBlocks(startingAt base: Date) -> [TimeBlockModel] {
+    private func makeHeavyLoadBlocks(
+        startingAt base: Date,
+        fixedFirstID: UUID? = nil
+    ) -> [TimeBlockModel] {
         // 50 groups × 4 blocks = 200 blocks total.
         let groupCount = 50
         let groupSpan: TimeInterval = 18_000    // 5 h — keeps groups well-separated
@@ -224,8 +242,12 @@ final class RippleEnginePerformanceTests: XCTestCase {
             let groupBase = base.addingTimeInterval(Double(g) * groupSpan)
 
             // 3 fluid blocks placed contiguously starting at groupBase.
+            // G0F0 uses fixedFirstID when provided so shiftedID is stable
+            // across measure {} iterations (CR3 fix).
             for f in 0..<3 {
+                let id: UUID = (g == 0 && f == 0) ? (fixedFirstID ?? UUID()) : UUID()
                 blocks.append(TimeBlockModel(
+                    id: id,
                     title: "G\(g)F\(f)",
                     scheduledStart: groupBase.addingTimeInterval(Double(f) * fluidDuration),
                     duration: fluidDuration,
@@ -235,8 +257,6 @@ final class RippleEnginePerformanceTests: XCTestCase {
             }
 
             // 1 pinned block at groupBase + 7800 s.
-            // Before shift: well after all 3 fluid blocks (F2 ends at groupBase+5400).
-            // After +7200 s shift: F0 (7200–9000) overlaps pinned (7800) by 1200 s = 20 min.
             blocks.append(TimeBlockModel(
                 title: "G\(g)P",
                 scheduledStart: groupBase.addingTimeInterval(pinnedOffset),
@@ -262,17 +282,19 @@ final class RippleEnginePerformanceTests: XCTestCase {
     func test_fullPipeline_200Blocks_50CollisionZones_120MinShift_under100ms() {
         let generator = ShiftPreviewGenerator()
         let base = Date()
-        let shiftedID = makeHeavyLoadBlocks(startingAt: base)[0].id
+        // Pre-create a stable UUID for G0F0 so blockID matches freshBlocks[0]
+        // in every iteration (CR3 fix).
+        let fixedFirstID = UUID()
         let delta: TimeInterval = 7200  // +120 min
 
         let options = XCTMeasureOptions()
         options.iterationCount = 5
 
         measure(options: options) {
-            let freshBlocks = self.makeHeavyLoadBlocks(startingAt: base)
+            let freshBlocks = self.makeHeavyLoadBlocks(startingAt: base, fixedFirstID: fixedFirstID)
             _ = generator.generatePreview(
                 blocks: freshBlocks,
-                blockID: shiftedID,
+                blockID: fixedFirstID,
                 delta: delta
             )
         }

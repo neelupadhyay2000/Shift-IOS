@@ -223,25 +223,30 @@ struct ShiftPreviewGeneratorTests {
     ///
     /// Every block in the input appears as a key in diffs. Blocks whose
     /// scheduledStart does not change get exactly 0, not nil.
-    @Test @MainActor func diffsUnmovedBlocksShowZero() {
+    @Test @MainActor func unchangedBlocksAreIncludedInDiffsWithZero() {
         let generator = ShiftPreviewGenerator()
         let start = Date()
 
         let fluid = makeBlock(title: "Fluid", start: start)
         let pinned = makeBlock(title: "Pinned", start: start.addingTimeInterval(3600), isPinned: true)
-        // blockC is after pinned — unreachable from the shift, stays put.
+        // blockC is a fluid block scheduled after the pinned block.
+        // The generator shifts all subsequent fluid blocks in the sorted order,
+        // including those after a pinned block, so blockC DOES move by delta.
         let blockC = makeBlock(title: "C", start: start.addingTimeInterval(5400))
 
         let preview = generator.generatePreview(
             blocks: [fluid, pinned, blockC],
             blockID: fluid.id,
-            delta: 300  // fluid moves, pinned and blockC don't
+            delta: 300
         )
 
-        // Pinned block: present in diffs, value is 0.
+        // Fluid block moves by delta.
+        #expect(preview.diffs[fluid.id] == 300)
+        // Pinned block does not move — diff is present and equals 0.
         #expect(preview.diffs[pinned.id] == 0)
-        // blockC is after pinned — it does shift with the fluid in temporal ordering.
-        // The key requirement is that every block has an entry (no absent keys).
+        // blockC is a fluid block downstream of the shift; it also moves by delta.
+        #expect(preview.diffs[blockC.id] == 300)
+        // All three blocks are present as keys.
         #expect(preview.diffs[fluid.id] != nil)
         #expect(preview.diffs[pinned.id] != nil)
         #expect(preview.diffs[blockC.id] != nil)
