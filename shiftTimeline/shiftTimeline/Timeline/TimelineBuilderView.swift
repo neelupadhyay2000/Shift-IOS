@@ -76,33 +76,62 @@ struct TimelineBuilderView: View {
 
     // MARK: - Subviews
 
+    private var rulerLayout: TimeRulerLayout {
+        .adaptive(blocks: orderedBlocks)
+    }
+
     private var blockList: some View {
-        List {
-            ForEach(orderedBlocks) { block in
-                Button {
-                    blockToInspect = block
-                } label: {
-                    TimeBlockRowView(
-                        title: block.title,
-                        scheduledStart: block.scheduledStart,
-                        duration: block.duration,
-                        isPinned: block.isPinned,
-                        colorTag: block.colorTag
-                    )
-                }
-                .tint(.primary)
-                .moveDisabled(block.isPinned)
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(String(localized: "Delete"), role: .destructive) {
-                        if block.isPinned {
-                            blockPendingDeletion = block
-                        } else {
-                            deleteBlock(block)
+        ScrollView {
+            let layout = rulerLayout
+
+            ZStack(alignment: .topLeading) {
+                // Hour ruler on the left
+                TimeRulerView(layout: layout)
+
+                // Block cards positioned by time
+                ForEach(orderedBlocks) { block in
+                    let yOffset = layout.yOffset(for: block.scheduledStart)
+                    let height = max(layout.height(for: block.duration), 44)
+
+                    Button {
+                        blockToInspect = block
+                    } label: {
+                        TimeBlockRowView(
+                            title: block.title,
+                            scheduledStart: block.scheduledStart,
+                            duration: block.duration,
+                            isPinned: block.isPinned,
+                            colorTag: block.colorTag
+                        )
+                        .frame(height: height)
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                    }
+                    .tint(.primary)
+                    .contextMenu {
+                        Button {
+                            blockToInspect = block
+                        } label: {
+                            Label(String(localized: "Edit"), systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            if block.isPinned {
+                                blockPendingDeletion = block
+                            } else {
+                                deleteBlock(block)
+                            }
+                        } label: {
+                            Label(String(localized: "Delete"), systemImage: "trash")
                         }
                     }
+                    .padding(.leading, 56)
+                    .padding(.trailing, 16)
+                    .offset(y: yOffset)
                 }
             }
-            .onMove(perform: moveBlocks)
+            .frame(height: layout.totalHeight)
+            .padding(.vertical, 16)
         }
         .alert(
             String(localized: "Delete Pinned Block"),
@@ -121,7 +150,7 @@ struct TimelineBuilderView: View {
                 blockPendingDeletion = nil
             }
         } message: {
-            if let block = blockPendingDeletion {
+            if blockPendingDeletion != nil {
                 Text(String(localized: "This block is pinned. Deleting it may affect the timeline. Are you sure?"))
             }
         }

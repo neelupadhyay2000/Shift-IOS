@@ -3,6 +3,7 @@ import Models
 import Services
 import SwiftData
 import Testing
+@testable import shiftTimeline
 
 struct TimelineBuilderTests {
 
@@ -280,4 +281,72 @@ struct TimelineBuilderTests {
         #expect(pinned.isPinned == true)
         #expect(fluid.isPinned == false)
     }
+
+    // MARK: - Time Ruler
+
+    /// AC: ruler adapts to event's time range (first block start → last block end).
+    @Test func rulerLayoutAdaptsToBlockTimeRange() {
+        let calendar = Calendar.current
+        // 2:15 PM start
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14, minute: 15))!
+        // End at 4:45 PM (start + 2.5h)
+        let end = start.addingTimeInterval(9000)
+
+        let blocks = [
+            TestBlock(blockStart: start, blockEnd: start.addingTimeInterval(1800)),
+            TestBlock(blockStart: start.addingTimeInterval(1800), blockEnd: end),
+        ]
+
+        let layout = TimeRulerLayout.adaptive(blocks: blocks)
+
+        // Should round start down to 2 PM
+        let expected2PM = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14))!
+        #expect(layout.rulerStart == expected2PM)
+
+        // Should round end up to 5 PM (next hour after 4:45)
+        let expected5PM = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 17))!
+        #expect(layout.rulerEnd == expected5PM)
+    }
+
+    /// AC: hour markers cover the ruler range.
+    @Test func rulerGeneratesCorrectHourMarkers() {
+        let calendar = Calendar.current
+        let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14))!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 17))!
+
+        let layout = TimeRulerLayout(rulerStart: start, rulerEnd: end, pointsPerMinute: 1.5)
+        let markers = layout.hourMarkers
+
+        #expect(markers.count == 4) // 2PM, 3PM, 4PM, 5PM
+
+        let hours = markers.map { calendar.component(.hour, from: $0) }
+        #expect(hours == [14, 15, 16, 17])
+    }
+
+    /// AC: blocks positioned relative to ruler (correct Y offset and height).
+    @Test func rulerLayoutPositionsBlocksCorrectly() {
+        let calendar = Calendar.current
+        let rulerStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14))!
+        let rulerEnd = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 17))!
+
+        let layout = TimeRulerLayout(rulerStart: rulerStart, rulerEnd: rulerEnd, pointsPerMinute: 2.0)
+
+        // Block at 2:30 PM, 45 min duration
+        let blockStart = rulerStart.addingTimeInterval(1800) // 30 min after ruler start
+        let blockDuration: TimeInterval = 2700 // 45 min
+
+        let yOffset = layout.yOffset(for: blockStart)
+        let height = layout.height(for: blockDuration)
+
+        #expect(yOffset == 60.0)  // 30 min * 2.0 ppm
+        #expect(height == 90.0)   // 45 min * 2.0 ppm
+        #expect(layout.totalHeight == 360.0) // 180 min * 2.0 ppm
+    }
+}
+
+// MARK: - Test helper
+
+private struct TestBlock: TimeRulerBlock {
+    let blockStart: Date
+    let blockEnd: Date
 }
