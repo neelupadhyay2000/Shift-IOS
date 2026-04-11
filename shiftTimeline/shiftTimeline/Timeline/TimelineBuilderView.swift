@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Models
+import Engine
 import Services
 
 /// Displays a vertical list of time blocks for a given event, sorted chronologically.
@@ -22,6 +23,9 @@ struct TimelineBuilderView: View {
 
     @State private var isShowingCreateSheet = false
     @State private var blockToInspect: TimeBlockModel?
+    @State private var orderedBlocks: [TimeBlockModel] = []
+
+    private let rippleEngine = RippleEngine()
 
     private var event: EventModel? { results.first }
 
@@ -34,7 +38,7 @@ struct TimelineBuilderView: View {
 
     var body: some View {
         Group {
-            if sortedBlocks.isEmpty {
+            if orderedBlocks.isEmpty {
                 emptyState
             } else {
                 blockList
@@ -59,24 +63,70 @@ struct TimelineBuilderView: View {
             BlockInspectorView(block: block)
                 .presentationDetents([.medium, .large])
         }
+        .onChange(of: sortedBlocks.map(\.id)) {
+            orderedBlocks = sortedBlocks
+        }
+        .onAppear {
+            orderedBlocks = sortedBlocks
+        }
     }
 
     // MARK: - Subviews
 
     private var blockList: some View {
-        List(sortedBlocks) { block in
-            Button {
-                blockToInspect = block
-            } label: {
-                TimeBlockRowView(
-                    title: block.title,
-                    scheduledStart: block.scheduledStart,
-                    duration: block.duration,
-                    isPinned: block.isPinned,
-                    colorTag: block.colorTag
-                )
+        List {
+            ForEach(orderedBlocks) { block in
+                Button {
+                    blockToInspect = block
+                } label: {
+                    TimeBlockRowView(
+                        title: block.title,
+                        scheduledStart: block.scheduledStart,
+                        duration: block.duration,
+                        isPinned: block.isPinned,
+                        colorTag: block.colorTag
+                    )
+                }
+                .tint(.primary)
+                .moveDisabled(block.isPinned)
             }
-            .tint(.primary)
+            .onMove(perform: moveBlocks)
+        }
+    }
+
+    // MARK: - Reorder
+
+    private func moveBlocks(from source: IndexSet, to destination: Int) {
+        // Reject if any source block is pinned (extra safety beyond .moveDisabled)
+        if source.contains(where: { orderedBlocks[$0].isPinned }) {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.error)
+            return
+        }
+
+        orderedBlocks.move(fromOffsets: source, toOffset: destination)
+        recalculateStartTimes()
+    }
+
+    /// Recalculates `scheduledStart` for fluid blocks after reorder.
+    ///
+    /// Pinned blocks keep their original start time. Fluid blocks are placed
+    /// sequentially: each starts when the previous block ends.
+    private func recalculateStartTimes() {
+        guard let firstBlock = orderedBlocks.first else { return }
+
+        var cursor = firstBlock.isPinned
+            ? firstBlock.scheduledStart
+            : (event?.date ?? firstBlock.scheduledStart)
+
+        for block in orderedBlocks {
+            if block.isPinned {
+                // Pinned blocks stay at their scheduled time; advance cursor past them
+                cursor = max(cursor, block.scheduledStart.addingTimeInterval(block.duration))
+            } else {
+                block.scheduledStart = cursor
+                cursor = cursor.addingTimeInterval(block.duration)
+            }
         }
     }
 
