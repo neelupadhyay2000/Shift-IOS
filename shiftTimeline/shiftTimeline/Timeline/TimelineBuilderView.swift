@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import Models
-import Engine
 import Services
 
 /// Displays a vertical list of time blocks for a given event, sorted chronologically.
@@ -27,8 +26,6 @@ struct TimelineBuilderView: View {
     @State private var blockToInspect: TimeBlockModel?
     @State private var orderedBlocks: [TimeBlockModel] = []
     @State private var blockPendingDeletion: TimeBlockModel?
-
-    private let rippleEngine = RippleEngine()
 
     private var event: EventModel? { results.first }
 
@@ -66,7 +63,7 @@ struct TimelineBuilderView: View {
             BlockInspectorView(block: block)
                 .presentationDetents([.medium, .large])
         }
-        .onChange(of: sortedBlocks.map(\.id)) {
+        .onChange(of: sortedBlocks.map { "\($0.id)-\($0.scheduledStart.timeIntervalSinceReferenceDate)" }) {
             orderedBlocks = sortedBlocks
         }
         .onAppear {
@@ -161,28 +158,11 @@ struct TimelineBuilderView: View {
     private func deleteBlock(_ block: TimeBlockModel) {
         orderedBlocks.removeAll { $0.id == block.id }
         modelContext.delete(block)
-        recalculateStartTimes()
+        recalculateStartTimesAfterDelete()
     }
 
-    // MARK: - Reorder
-
-    private func moveBlocks(from source: IndexSet, to destination: Int) {
-        // Reject if any source block is pinned (extra safety beyond .moveDisabled)
-        if source.contains(where: { orderedBlocks[$0].isPinned }) {
-            let generator = UINotificationFeedbackGenerator()
-            generator.notificationOccurred(.error)
-            return
-        }
-
-        orderedBlocks.move(fromOffsets: source, toOffset: destination)
-        recalculateStartTimes()
-    }
-
-    /// Recalculates `scheduledStart` for fluid blocks after reorder.
-    ///
-    /// Pinned blocks keep their original start time. Fluid blocks are placed
-    /// sequentially: each starts when the previous block ends.
-    private func recalculateStartTimes() {
+    /// Recalculates `scheduledStart` for fluid blocks after a deletion to close gaps.
+    private func recalculateStartTimesAfterDelete() {
         guard let firstBlock = orderedBlocks.first else { return }
 
         var cursor = firstBlock.isPinned
@@ -191,7 +171,6 @@ struct TimelineBuilderView: View {
 
         for block in orderedBlocks {
             if block.isPinned {
-                // Pinned blocks stay at their scheduled time; advance cursor past them
                 cursor = max(cursor, block.scheduledStart.addingTimeInterval(block.duration))
             } else {
                 block.scheduledStart = cursor

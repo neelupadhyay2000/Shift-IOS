@@ -19,7 +19,7 @@ struct CreateBlockSheet: View {
     @State private var isPinned = false
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && fetchEvent() != nil
     }
 
     static let durationOptions: [(String, TimeInterval)] = [
@@ -72,11 +72,19 @@ struct CreateBlockSheet: View {
         }
     }
 
-    private func saveBlock() {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+    private func fetchEvent() -> EventModel? {
+        var descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate { $0.id == eventID }
+        )
+        descriptor.fetchLimit = 1
+        return try? modelContext.fetch(descriptor).first
+    }
 
-        // Find or create a default track for this event
-        let track = findOrCreateTrack()
+    private func saveBlock() {
+        guard let event = fetchEvent() else { return }
+
+        let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
+        let track = event.tracks.first ?? createTrack(for: event)
 
         let block = TimeBlockModel(
             title: trimmedTitle,
@@ -89,23 +97,9 @@ struct CreateBlockSheet: View {
         dismiss()
     }
 
-    private func findOrCreateTrack() -> TimelineTrack {
-        // Fetch the event to check for existing tracks
-        var descriptor = FetchDescriptor<EventModel>(
-            predicate: #Predicate { $0.id == eventID }
-        )
-        descriptor.fetchLimit = 1
-
-        if let event = try? modelContext.fetch(descriptor).first,
-           let existingTrack = event.tracks.first {
-            return existingTrack
-        }
-
-        // Create a default track attached to the event
+    private func createTrack(for event: EventModel) -> TimelineTrack {
         let track = TimelineTrack(name: "Main", sortOrder: 0)
-        if let event = try? modelContext.fetch(descriptor).first {
-            track.event = event
-        }
+        track.event = event
         modelContext.insert(track)
         return track
     }

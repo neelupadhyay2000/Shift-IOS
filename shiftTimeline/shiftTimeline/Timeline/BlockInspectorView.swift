@@ -60,9 +60,9 @@ struct BlockInspectorView: View {
                     }
 
                     Picker(String(localized: "Icon"), selection: $icon) {
-                        ForEach(Self.iconOptions, id: \.value) { option in
+                        ForEach(Self.iconOptions, id: \.systemImage) { option in
                             Label(option.label, systemImage: option.systemImage)
-                                .tag(option.value)
+                                .tag(option.systemImage)
                         }
                     }
                 }
