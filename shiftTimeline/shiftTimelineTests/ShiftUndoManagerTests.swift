@@ -185,7 +185,8 @@ struct ShiftUndoManagerTests {
                 blockID: block.id,
                 scheduledStart: block.scheduledStart,
                 duration: block.duration,
-                status: block.status
+                status: block.status,
+                requiresReview: block.requiresReview
             )]
             block.scheduledStart = block.scheduledStart.addingTimeInterval(Double(i) * 60)
             let after = [BlockSnapshot(capturing: block)]
@@ -249,7 +250,8 @@ struct ShiftUndoManagerTests {
             blockID: UUID(),
             scheduledStart: start.addingTimeInterval(9999),
             duration: 3600,
-            status: .upcoming
+            status: .upcoming,
+            requiresReview: false
         )
         let realBefore = [snapshot(block)]
         block.scheduledStart = start.addingTimeInterval(600)
@@ -281,8 +283,8 @@ struct ShiftUndoManagerTests {
     @Test func undoStackIsValueType() {
         var stack1 = UndoStack()
         let entry = UndoEntry(
-            before: [BlockSnapshot(blockID: UUID(), scheduledStart: Date(), duration: 600, status: .upcoming)],
-            after:  [BlockSnapshot(blockID: UUID(), scheduledStart: Date(), duration: 600, status: .upcoming)]
+            before: [BlockSnapshot(blockID: UUID(), scheduledStart: Date(), duration: 600, status: .upcoming, requiresReview: false)],
+            after:  [BlockSnapshot(blockID: UUID(), scheduledStart: Date(), duration: 600, status: .upcoming, requiresReview: false)]
         )
         stack1.record(entry)
         var stack2 = stack1   // copy
@@ -409,7 +411,7 @@ struct ShiftUndoManagerTests {
     // MARK: - undo() -> [BlockSnapshot]?
 
     /// AC 1: Returned snapshots contain the pre-shift (before) values.
-    @Test @MainActor func undoReturnsPreShiftSnapshots() {
+    @Test @MainActor func undoReturnsPreShiftSnapshots() throws {
         let manager = ShiftUndoManager()
         let start = Date()
         let block = makeBlock(start: start, duration: 1800)
@@ -421,7 +423,7 @@ struct ShiftUndoManagerTests {
 
         let returned = manager.undo()
 
-        let s = try! #require(returned?.first)
+        let s = try #require(returned?.first)
         #expect(s.blockID == block.id)
         #expect(s.scheduledStart == start)
         #expect(s.duration == 1800)
@@ -450,7 +452,7 @@ struct ShiftUndoManagerTests {
     }
 
     /// redo() returns after-snapshots and leaves canRedo=false, canUndo=true.
-    @Test @MainActor func redoReturnsPostShiftSnapshots() {
+    @Test @MainActor func redoReturnsPostShiftSnapshots() throws {
         let manager = ShiftUndoManager()
         let start = Date()
         let shiftedStart = start.addingTimeInterval(600)
@@ -460,12 +462,13 @@ struct ShiftUndoManagerTests {
                        after: [BlockSnapshot(blockID: block.id,
                                              scheduledStart: shiftedStart,
                                              duration: block.duration,
-                                             status: block.status)])
+                                             status: block.status,
+                                             requiresReview: block.requiresReview)])
 
         _ = manager.undo()                  // populate redo stack
         let returned = manager.redo()
 
-        let s = try! #require(returned?.first)
+        let s = try #require(returned?.first)
         #expect(s.scheduledStart == shiftedStart)
         #expect(manager.canRedo == false)
         #expect(manager.canUndo == true)
