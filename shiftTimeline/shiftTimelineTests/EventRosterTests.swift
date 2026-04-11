@@ -67,4 +67,29 @@ struct EventRosterTests {
         #expect(matchedTitles.contains("Winter Wedding"))
         #expect(matchedTitles.contains("Wednesday Meetup"))
     }
+
+    /// AC: 3 planning + 2 completed → filter "completed" → 2 shown.
+    ///
+    /// Mirrors the status filter logic used by `EventRosterView.filteredEvents`.
+    @Test @MainActor func statusFilterReturnsOnlyMatchingStatus() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let now = Date.now
+        for i in 0..<3 {
+            context.insert(EventModel(title: "Planning \(i)", date: now.addingTimeInterval(Double(-i * 100)), latitude: 0, longitude: 0, status: .planning))
+        }
+        for i in 0..<2 {
+            context.insert(EventModel(title: "Done \(i)", date: now.addingTimeInterval(Double(-i * 100 - 300)), latitude: 0, longitude: 0, status: .completed))
+        }
+        try context.save()
+
+        let all = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(all.count == 5)
+
+        let completedFilter: EventStatus = .completed
+        let filtered = all.filter { $0.status == completedFilter }
+        #expect(filtered.count == 2)
+        #expect(filtered.allSatisfy { $0.status == .completed })
+    }
 }

@@ -14,11 +14,13 @@ struct EventRosterView: View {
 
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
+    @State private var statusFilter: EventStatusFilter = .all
 
     private var filteredEvents: [EventModel] {
-        guard !searchText.isEmpty else { return events }
-        return events.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText)
+        events.filter { event in
+            let matchesSearch = searchText.isEmpty || event.title.localizedCaseInsensitiveContains(searchText)
+            let matchesStatus = statusFilter == .all || event.status == statusFilter.eventStatus
+            return matchesSearch && matchesStatus
         }
     }
 
@@ -51,12 +53,23 @@ struct EventRosterView: View {
     // MARK: - Subviews
 
     private var eventList: some View {
-        List(filteredEvents) { event in
-            EventRowView(
-                title: event.title,
-                date: event.date,
-                status: event.status
-            )
+        List {
+            Picker(String(localized: "Status"), selection: $statusFilter) {
+                ForEach(EventStatusFilter.allCases) { filter in
+                    Text(filter.label).tag(filter)
+                }
+            }
+            .pickerStyle(.segmented)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+
+            ForEach(filteredEvents) { event in
+                EventRowView(
+                    title: event.title,
+                    date: event.date,
+                    status: event.status
+                )
+            }
         }
     }
 
@@ -67,6 +80,35 @@ struct EventRosterView: View {
             Button(String(localized: "Create Event")) {
                 isShowingCreateSheet = true
             }
+        }
+    }
+}
+
+// MARK: - EventStatusFilter
+
+enum EventStatusFilter: String, CaseIterable, Identifiable {
+    case all
+    case planning
+    case live
+    case completed
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .all:       String(localized: "All")
+        case .planning:  String(localized: "Planning")
+        case .live:      String(localized: "Live")
+        case .completed: String(localized: "Completed")
+        }
+    }
+
+    var eventStatus: EventStatus? {
+        switch self {
+        case .all:       nil
+        case .planning:  .planning
+        case .live:      .live
+        case .completed: .completed
         }
     }
 }
