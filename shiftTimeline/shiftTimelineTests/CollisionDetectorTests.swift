@@ -180,9 +180,85 @@ struct CollisionDetectorTests {
         #expect(result[0].overlapMinutes == 0)
     }
 
-    // MARK: - requiresReview Stamping
+    // MARK: - Multiple Collisions (large shift)
 
-    /// Colliding Fluid blocks must have requiresReview = true;
+    /// 10-block timeline alternating Fluid / Pinned.
+    /// Two Fluid blocks have been shifted +90 min so each spills into its
+    /// immediately following Pinned block by exactly 90 min.
+    /// Asserts that detect() returns exactly 2 separate Collision entries,
+    /// one per (Fluid, Pinned) pair, each with overlapMinutes == 90.
+    @Test @MainActor func detect_multipleFluidsPastMultiplePinned_returnsOneCollisionEach() {
+        let detector = CollisionDetector()
+        let base = Date(timeIntervalSinceReferenceDate: 0) // fixed for determinism
+
+        // Pair 1:
+        // FluidA starts at base+0, duration = 5400+5400 = 10800 s
+        //   → ends at base+10800
+        // PinnedA starts at base+5400
+        //   → overlap = 10800 - 5400 = 5400 s = 90 min ✓
+        let fluidA = TimeBlockModel(
+            title: "FluidA",
+            scheduledStart: base,
+            duration: 10_800   // 3 hr — ends 90 min past pinnedA
+        )
+        let pinnedA = TimeBlockModel(
+            title: "PinnedA",
+            scheduledStart: base.addingTimeInterval(5_400),  // 90 min after base
+            duration: 1_800,
+            isPinned: true
+        )
+
+        // Pair 2 — same geometry, offset 36 000 s (10 hr) so the pairs
+        // never interact with each other or the fillers.
+        let offset: TimeInterval = 36_000
+        let fluidB = TimeBlockModel(
+            title: "FluidB",
+            scheduledStart: base.addingTimeInterval(offset),
+            duration: 10_800
+        )
+        let pinnedB = TimeBlockModel(
+            title: "PinnedB",
+            scheduledStart: base.addingTimeInterval(offset + 5_400),
+            duration: 1_800,
+            isPinned: true
+        )
+
+        // 6 filler blocks (3 fluid, 3 pinned) with no overlaps.
+        // Each fluid ends exactly at its paired pinned start (boundary = no collision).
+        let fillerBase = base.addingTimeInterval(80_000)
+        let fillers: [TimeBlockModel] = [
+            TimeBlockModel(title: "F1", scheduledStart: fillerBase,                         duration: 600),
+            TimeBlockModel(title: "P1", scheduledStart: fillerBase.addingTimeInterval(600),  duration: 600, isPinned: true),
+            TimeBlockModel(title: "F2", scheduledStart: fillerBase.addingTimeInterval(2400), duration: 600),
+            TimeBlockModel(title: "P2", scheduledStart: fillerBase.addingTimeInterval(3000), duration: 600, isPinned: true),
+            TimeBlockModel(title: "F3", scheduledStart: fillerBase.addingTimeInterval(4800), duration: 600),
+            TimeBlockModel(title: "P3", scheduledStart: fillerBase.addingTimeInterval(5400), duration: 600, isPinned: true),
+        ]
+
+        let allBlocks = [fluidA, pinnedA, fluidB, pinnedB] + fillers
+        #expect(allBlocks.count == 10)
+
+        let result = detector.detect(blocks: allBlocks)
+
+        // Exactly 2 collisions — one per shifted Fluid block
+        #expect(result.count == 2)
+
+        let byFluid = Dictionary(grouping: result, by: \.fluidBlockID)
+
+        // Collision from Fluid A
+        let collisionA = byFluid[fluidA.id]
+        #expect(collisionA?.count == 1)
+        #expect(collisionA?.first?.pinnedBlockID == pinnedA.id)
+        #expect(collisionA?.first?.overlapMinutes == 90)
+
+        // Collision from Fluid B
+        let collisionB = byFluid[fluidB.id]
+        #expect(collisionB?.count == 1)
+        #expect(collisionB?.first?.pinnedBlockID == pinnedB.id)
+        #expect(collisionB?.first?.overlapMinutes == 90)
+    }
+
+    // MARK: - requiresReview Stamping
     /// non-colliding Fluid blocks (and all Pinned blocks) must have it false.
     @Test @MainActor func detect_stampsRequiresReview_onCollidingFluidBlocksOnly() {
         let detector = CollisionDetector()
