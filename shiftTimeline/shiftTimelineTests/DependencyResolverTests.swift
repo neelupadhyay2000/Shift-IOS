@@ -30,22 +30,23 @@ struct DependencyResolverTests {
 
     // MARK: - Branching
 
-    /// A→B, A→C (B and C share the same scheduledStart after A): shift A returns {B, C}
+    /// A→B, A→C (B and C are both direct dependents of A): shift A returns {B, C}
     @Test @MainActor func branchingReturnsAllDownstream() {
         let resolver = DependencyResolver()
-        let start = Date()
 
-        let a = TimeBlockModel(title: "A", scheduledStart: start, duration: 600)
-        let b = TimeBlockModel(title: "B", scheduledStart: start.addingTimeInterval(600), duration: 600)
-        let c = TimeBlockModel(title: "C", scheduledStart: start.addingTimeInterval(1200), duration: 600)
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
 
-        let result = resolver.resolve(blocks: [a, b, c], shiftedBlockID: a.id)
+        let adjacency: [UUID: [UUID]] = [
+            a: [b, c]
+        ]
+
+        let result = resolver.resolve(adjacency: adjacency, from: a)
 
         switch result {
         case .success(let ids):
-            #expect(ids.contains(b.id))
-            #expect(ids.contains(c.id))
-            #expect(ids.count == 2)
+            #expect(ids == Set([b, c]))
         case .failure(let error):
             Issue.record("Expected success but got error: \(error)")
         }
@@ -217,7 +218,7 @@ struct DependencyResolverTests {
 
         switch result {
         case .success(let ids):
-            #expect(ids == [b, c])
+            #expect(ids == Set([b, c]))
         case .failure(let error):
             Issue.record("Expected success but got error: \(error)")
         }

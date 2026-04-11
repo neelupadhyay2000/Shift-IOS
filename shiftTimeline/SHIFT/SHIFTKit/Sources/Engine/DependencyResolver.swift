@@ -47,9 +47,11 @@ public struct DependencyResolver: Sendable {
     public func resolve(adjacency: [UUID: [UUID]], from shiftedBlockID: UUID) -> Result<Set<UUID>, SHIFTError> {
         var visited = Set<UUID>()
         var queue = adjacency[shiftedBlockID] ?? []
+        var i = 0
 
-        while !queue.isEmpty {
-            let current = queue.removeFirst()
+        while i < queue.count {
+            let current = queue[i]
+            i += 1
 
             // Cycle: BFS reached the origin node.
             if current == shiftedBlockID {

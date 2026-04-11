@@ -77,7 +77,7 @@ public struct RippleEngine: Sendable {
         if let adjacency {
             depResult = dependencyResolver.resolve(adjacency: adjacency, from: changedBlockID)
         } else {
-            depResult = dependencyResolver.resolve(blocks: blocks, shiftedBlockID: changedBlockID)
+            depResult = dependencyResolver.resolve(blocks: sorted, shiftedBlockID: changedBlockID)
         }
 
         let dependentIDs: Set<UUID>
