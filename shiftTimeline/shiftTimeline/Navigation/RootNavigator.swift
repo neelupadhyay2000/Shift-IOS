@@ -1,12 +1,10 @@
 import SwiftUI
 import SwiftData
+import Services
 
 // MARK: - Tab
 
-/// Top-level tab destinations for the iPhone tab bar.
-///
-/// Each case becomes a `TabView` tab on compact (iPhone) and a sidebar row
-/// on regular (iPad). Additional cases will be added as E2 stories land.
+/// Top-level tab destinations for the iPhone tab bar and iPad sidebar.
 enum Tab: String, Hashable, CaseIterable {
     case events   = "Events"
     case vendors  = "Vendors"
@@ -21,45 +19,57 @@ enum Tab: String, Hashable, CaseIterable {
     }
 }
 
-// MARK: - EventDestination
+// MARK: - Navigation destination enums
 
-/// Typed navigation destinations pushed onto the event `NavigationStack` path.
-///
-/// Using a typed enum + `navigationDestination(for:)` instead of
-/// `NavigationLink(destination:)` keeps navigation state serialisable and
-/// testable. Additional cases will be added as timeline / inspector stories land.
+/// Typed push destinations for the Events stack.
+/// Add cases here as timeline / inspector stories land.
 enum EventDestination: Hashable {
     case eventDetail(id: UUID)
     case timelineBuilder(eventID: UUID)
 }
 
+/// Typed push destinations for the Vendors stack.
+enum VendorDestination: Hashable {
+    case vendorDetail(id: UUID)
+}
+
+/// Typed push destinations for the Settings stack.
+enum SettingsDestination: Hashable {
+    case licences
+    case about
+}
+
 // MARK: - RootNavigator
 
-/// Adaptive root navigator: `NavigationStack` + `TabView` on iPhone (compact),
-/// `NavigationSplitView` on iPad (regular).
+/// Adaptive root navigator.
 ///
-/// Layout selection uses `horizontalSizeClass` from the environment — never
-/// a device-model check — so the same binary adapts correctly to all form factors
-/// including slide-over and split-screen multitasking.
+/// - **Compact (iPhone):** `TabView` where every tab owns a `NavigationStack`
+///   backed by its own `@State` path array.
+/// - **Regular (iPad):** `NavigationSplitView` with a sidebar tab list and a
+///   detail `NavigationStack` driven by `detailPath`.
 ///
-/// **Placeholder state (Subtask 1):**
-/// Navigation chrome is fully wired; individual destination views are stubs
-/// (`ContentPlaceholderView`) that will be replaced in subsequent E2 stories.
+/// Layout is chosen via `@Environment(\.horizontalSizeClass)` — never a
+/// device-model check — so the same binary handles iPhone, iPad, slide-over,
+/// and split-screen correctly.
 struct RootNavigator: View {
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
-    // MARK: Navigation state
+    // MARK: Shared selection state
 
-    /// Active tab on iPhone / active sidebar selection on iPad.
     @State private var selectedTab: Tab = .events
 
-    /// iPad sidebar selection — `List(selection:)` requires an optional binding.
-    /// Kept in sync with `selectedTab` via `.onChange`.
+    // iPad List requires an optional binding.
     @State private var sidebarSelection: Tab? = .events
 
-    /// Push path for the Events stack on iPhone.
+    // MARK: Per-tab @State path arrays (AC: navigation state via @State path arrays)
+
     @State private var eventPath: [EventDestination] = []
+    @State private var vendorPath: [VendorDestination] = []
+    @State private var settingsPath: [SettingsDestination] = []
+
+    // iPad detail stack path — driven by whichever sidebar tab is active.
+    @State private var detailPath: [EventDestination] = []
 
     // MARK: Body
 
@@ -72,21 +82,40 @@ struct RootNavigator: View {
     }
 
     // MARK: - iPhone layout
+    // Each tab has its own NavigationStack + path so every tab can
+    // programmatically push/pop independently.
 
     private var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
-            ForEach(Tab.allCases, id: \.self) { tab in
-                NavigationStack(path: tab == .events ? $eventPath : .constant([])) {
-                    ContentPlaceholderView(tab: tab)
-                        .navigationDestination(for: EventDestination.self) { destination in
-                            destinationView(for: destination)
-                        }
-                }
-                .tabItem {
-                    Label(tab.rawValue, systemImage: tab.systemImage)
-                }
-                .tag(tab)
+            // Events tab
+            NavigationStack(path: $eventPath) {
+                ContentPlaceholderView(tab: .events)
+                    .navigationDestination(for: EventDestination.self) { destination in
+                        eventDestinationView(for: destination)
+                    }
             }
+            .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
+            .tag(Tab.events)
+
+            // Vendors tab
+            NavigationStack(path: $vendorPath) {
+                ContentPlaceholderView(tab: .vendors)
+                    .navigationDestination(for: VendorDestination.self) { destination in
+                        vendorDestinationView(for: destination)
+                    }
+            }
+            .tabItem { Label(Tab.vendors.rawValue, systemImage: Tab.vendors.systemImage) }
+            .tag(Tab.vendors)
+
+            // Settings tab
+            NavigationStack(path: $settingsPath) {
+                ContentPlaceholderView(tab: .settings)
+                    .navigationDestination(for: SettingsDestination.self) { destination in
+                        settingsDestinationView(for: destination)
+                    }
+            }
+            .tabItem { Label(Tab.settings.rawValue, systemImage: Tab.settings.systemImage) }
+            .tag(Tab.settings)
         }
     }
 
@@ -102,13 +131,16 @@ struct RootNavigator: View {
             }
             .navigationTitle(String(localized: "SHIFT"))
             .onChange(of: sidebarSelection) { _, newValue in
-                if let tab = newValue { selectedTab = tab }
+                if let tab = newValue {
+                    selectedTab = tab
+                    detailPath = []  // reset detail stack on tab switch
+                }
             }
         } detail: {
-            NavigationStack(path: $eventPath) {
+            NavigationStack(path: $detailPath) {
                 ContentPlaceholderView(tab: selectedTab)
                     .navigationDestination(for: EventDestination.self) { destination in
-                        destinationView(for: destination)
+                        eventDestinationView(for: destination)
                     }
             }
         }
@@ -117,7 +149,7 @@ struct RootNavigator: View {
     // MARK: - Destination routing
 
     @ViewBuilder
-    private func destinationView(for destination: EventDestination) -> some View {
+    private func eventDestinationView(for destination: EventDestination) -> some View {
         switch destination {
         case .eventDetail(let id):
             ContentPlaceholderView(label: "Event Detail — \(id.uuidString.prefix(8))")
@@ -125,30 +157,40 @@ struct RootNavigator: View {
             ContentPlaceholderView(label: "Timeline Builder — \(eventID.uuidString.prefix(8))")
         }
     }
+
+    @ViewBuilder
+    private func vendorDestinationView(for destination: VendorDestination) -> some View {
+        switch destination {
+        case .vendorDetail(let id):
+            ContentPlaceholderView(label: "Vendor — \(id.uuidString.prefix(8))")
+        }
+    }
+
+    @ViewBuilder
+    private func settingsDestinationView(for destination: SettingsDestination) -> some View {
+        switch destination {
+        case .licences:
+            ContentPlaceholderView(label: "Licences")
+        case .about:
+            ContentPlaceholderView(label: "About SHIFT")
+        }
+    }
 }
 
 // MARK: - ContentPlaceholderView
 
-/// Placeholder shown while downstream E2 stories are not yet implemented.
-///
-/// Replace each usage with the real destination view as stories land:
-/// - `.events`  → `EventRosterView`
-/// - `.vendors` → `VendorManagerView`
-/// - `.settings` → `SettingsView`
+/// Placeholder root content for each tab.
+/// Replaced by real views as E2 stories land:
+///   `.events`   → EventRosterView
+///   `.vendors`  → VendorManagerView
+///   `.settings` → SettingsView
 private struct ContentPlaceholderView: View {
 
     var tab: Tab?
     var label: String?
 
-    init(tab: Tab) {
-        self.tab = tab
-        self.label = nil
-    }
-
-    init(label: String) {
-        self.tab = nil
-        self.label = label
-    }
+    init(tab: Tab) { self.tab = tab }
+    init(label: String) { self.label = label }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -169,14 +211,16 @@ private struct ContentPlaceholderView: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Previews
 
-#Preview("iPhone") {
+#Preview("iPhone — compact") {
     RootNavigator()
         .environment(\.horizontalSizeClass, .compact)
+        .modelContainer(try! PersistenceController.forTesting())
 }
 
-#Preview("iPad") {
+#Preview("iPad — regular") {
     RootNavigator()
         .environment(\.horizontalSizeClass, .regular)
+        .modelContainer(try! PersistenceController.forTesting())
 }
