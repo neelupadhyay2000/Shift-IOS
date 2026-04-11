@@ -89,7 +89,7 @@ struct RootNavigator: View {
         TabView(selection: $selectedTab) {
             // Events tab
             NavigationStack(path: $eventPath) {
-                ContentPlaceholderView(tab: .events)
+                EventRosterView()
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
                     }
@@ -161,7 +161,7 @@ struct RootNavigator: View {
         switch selectedTab {
         case .events:
             NavigationStack(path: $eventPath) {
-                ContentPlaceholderView(tab: .events)
+                EventRosterView()
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
                     }
@@ -189,7 +189,7 @@ struct RootNavigator: View {
     private func eventDestinationView(for destination: EventDestination) -> some View {
         switch destination {
         case .eventDetail(let id):
-            ContentPlaceholderView(label: "Event Detail — \(id.uuidString.prefix(8))")
+            EventDetailView(eventID: id)
         case .timelineBuilder(let eventID):
             ContentPlaceholderView(label: "Timeline Builder — \(eventID.uuidString.prefix(8))")
         }
@@ -218,7 +218,7 @@ struct RootNavigator: View {
 
 /// Placeholder root content for each tab.
 /// Replaced by real views as E2 stories land:
-///   `.events`    → EventRosterView
+///   `.events`    → EventRosterView  (done)
 ///   `.templates` → TemplateGalleryView
 ///   `.settings`  → SettingsView
 private struct ContentPlaceholderView: View {
