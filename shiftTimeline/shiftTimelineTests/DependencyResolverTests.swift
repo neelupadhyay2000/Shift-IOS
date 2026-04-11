@@ -134,6 +134,95 @@ struct DependencyResolverTests {
         }
     }
 
+    // MARK: - Cycle Detection: Direct (A→B→A)
+
+    @Test func directCycleDetected() {
+        let resolver = DependencyResolver()
+        let a = UUID()
+        let b = UUID()
+
+        let adjacency: [UUID: [UUID]] = [
+            a: [b],
+            b: [a]
+        ]
+
+        let result = resolver.resolve(adjacency: adjacency, from: a)
+
+        switch result {
+        case .success:
+            Issue.record("Expected circularDependency error")
+        case .failure(let error):
+            #expect(error == .circularDependency(blockID: a))
+        }
+    }
+
+    // MARK: - Cycle Detection: Indirect (A→B→C→A)
+
+    @Test func indirectCycleDetected() {
+        let resolver = DependencyResolver()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+
+        let adjacency: [UUID: [UUID]] = [
+            a: [b],
+            b: [c],
+            c: [a]
+        ]
+
+        let result = resolver.resolve(adjacency: adjacency, from: a)
+
+        switch result {
+        case .success:
+            Issue.record("Expected circularDependency error")
+        case .failure(let error):
+            #expect(error == .circularDependency(blockID: a))
+        }
+    }
+
+    // MARK: - Cycle Detection: Self-dependency (A→A)
+
+    @Test func selfDependencyCycleDetected() {
+        let resolver = DependencyResolver()
+        let a = UUID()
+
+        let adjacency: [UUID: [UUID]] = [
+            a: [a]
+        ]
+
+        let result = resolver.resolve(adjacency: adjacency, from: a)
+
+        switch result {
+        case .success:
+            Issue.record("Expected circularDependency error")
+        case .failure(let error):
+            #expect(error == .circularDependency(blockID: a))
+        }
+    }
+
+    // MARK: - No Cycle With Explicit Adjacency
+
+    @Test func noCycleReturnsCorrectIDs() {
+        let resolver = DependencyResolver()
+        let a = UUID()
+        let b = UUID()
+        let c = UUID()
+
+        let adjacency: [UUID: [UUID]] = [
+            a: [b],
+            b: [c]
+        ]
+
+        let result = resolver.resolve(adjacency: adjacency, from: a)
+
+        switch result {
+        case .success(let ids):
+            #expect(ids == [b, c])
+        case .failure(let error):
+            Issue.record("Expected success but got error: \(error)")
+        }
+    }
+
     // MARK: - Sendable
 
     @Test func dependencyResolverIsSendable() {
