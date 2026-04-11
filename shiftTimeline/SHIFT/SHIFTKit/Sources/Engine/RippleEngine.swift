@@ -8,11 +8,6 @@ public struct DependencyResolver: Sendable {
     public init() {}
 }
 
-/// Detects temporal collisions (overlaps) between time blocks.
-public struct CollisionDetector: Sendable {
-    public init() {}
-}
-
 /// Calculates how blocks can be compressed toward their minimum duration.
 public struct CompressionCalculator: Sendable {
     public init() {}
