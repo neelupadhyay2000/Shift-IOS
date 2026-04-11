@@ -103,4 +103,50 @@ struct TimelineBuilderTests {
         #expect(sorted[1].title == "Cocktails")
         #expect(sorted[2].title == "Dinner")
     }
+
+    /// AC: editing a block via the inspector saves changes to SwiftData.
+    @Test @MainActor func editingBlockFieldsPersistsToSwiftData() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(
+            title: "Ceremony",
+            scheduledStart: base,
+            duration: 1800,
+            isPinned: true,
+            notes: "",
+            colorTag: "#007AFF",
+            icon: "circle.fill"
+        )
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        // Simulate what BlockInspectorView.saveChanges() does
+        block.title = "Updated Ceremony"
+        block.scheduledStart = base.addingTimeInterval(600)
+        block.duration = 2700
+        block.isPinned = false
+        block.notes = "Outdoor garden"
+        block.colorTag = "#FF3B30"
+        block.icon = "heart.fill"
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+        #expect(result.title == "Updated Ceremony")
+        #expect(result.scheduledStart == base.addingTimeInterval(600))
+        #expect(result.duration == 2700)
+        #expect(result.isPinned == false)
+        #expect(result.notes == "Outdoor garden")
+        #expect(result.colorTag == "#FF3B30")
+        #expect(result.icon == "heart.fill")
+    }
 }

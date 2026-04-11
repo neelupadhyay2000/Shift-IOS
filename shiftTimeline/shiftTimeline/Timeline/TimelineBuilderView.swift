@@ -21,6 +21,7 @@ struct TimelineBuilderView: View {
     }
 
     @State private var isShowingCreateSheet = false
+    @State private var blockToInspect: TimeBlockModel?
 
     private var event: EventModel? { results.first }
 
@@ -54,19 +55,28 @@ struct TimelineBuilderView: View {
         .sheet(isPresented: $isShowingCreateSheet) {
             CreateBlockSheet(eventID: eventID)
         }
+        .sheet(item: $blockToInspect) { block in
+            BlockInspectorView(block: block)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Subviews
 
     private var blockList: some View {
         List(sortedBlocks) { block in
-            TimeBlockRowView(
-                title: block.title,
-                scheduledStart: block.scheduledStart,
-                duration: block.duration,
-                isPinned: block.isPinned,
-                colorTag: block.colorTag
-            )
+            Button {
+                blockToInspect = block
+            } label: {
+                TimeBlockRowView(
+                    title: block.title,
+                    scheduledStart: block.scheduledStart,
+                    duration: block.duration,
+                    isPinned: block.isPinned,
+                    colorTag: block.colorTag
+                )
+            }
+            .tint(.primary)
         }
     }
 
