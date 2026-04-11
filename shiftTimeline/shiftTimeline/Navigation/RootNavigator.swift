@@ -130,17 +130,54 @@ struct RootNavigator: View {
                 }
             }
             .navigationTitle(String(localized: "SHIFT"))
+            // CR2: keep sidebarSelection aligned when selectedTab changes externally
+            // (e.g. size class flips from compact → regular while a tab is selected on iPhone)
+            .onChange(of: selectedTab) { _, newTab in
+                sidebarSelection = newTab
+                detailPath = []
+            }
             .onChange(of: sidebarSelection) { _, newValue in
                 if let tab = newValue {
                     selectedTab = tab
-                    detailPath = []  // reset detail stack on tab switch
+                    detailPath = []
                 }
             }
         } detail: {
-            NavigationStack(path: $detailPath) {
-                ContentPlaceholderView(tab: selectedTab)
+            // CR1: swap the detail NavigationStack per selected tab so every tab
+            // gets its own typed destinations on iPad — not just Events.
+            iPadDetailStack
+        }
+        // CR2: when entering regular layout from compact, stamp sidebarSelection
+        // from the current selectedTab so the sidebar highlight is always correct.
+        .onChange(of: sizeClass) { _, newClass in
+            if newClass != .compact {
+                sidebarSelection = selectedTab
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var iPadDetailStack: some View {
+        switch selectedTab {
+        case .events:
+            NavigationStack(path: $eventPath) {
+                ContentPlaceholderView(tab: .events)
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
+                    }
+            }
+        case .templates:
+            NavigationStack(path: $templatePath) {
+                ContentPlaceholderView(tab: .templates)
+                    .navigationDestination(for: TemplateDestination.self) { destination in
+                        templateDestinationView(for: destination)
+                    }
+            }
+        case .settings:
+            NavigationStack(path: $settingsPath) {
+                ContentPlaceholderView(tab: .settings)
+                    .navigationDestination(for: SettingsDestination.self) { destination in
+                        settingsDestinationView(for: destination)
                     }
             }
         }
@@ -181,9 +218,9 @@ struct RootNavigator: View {
 
 /// Placeholder root content for each tab.
 /// Replaced by real views as E2 stories land:
-///   `.events`   → EventRosterView
-///   `.vendors`  → VendorManagerView
-///   `.settings` → SettingsView
+///   `.events`    → EventRosterView
+///   `.templates` → TemplateGalleryView
+///   `.settings`  → SettingsView
 private struct ContentPlaceholderView: View {
 
     var tab: Tab?
