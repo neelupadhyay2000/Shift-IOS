@@ -172,4 +172,178 @@ final class RippleEnginePerformanceTests: XCTestCase {
             "generatePreview(200 fluid blocks, +15 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 50 ms"
         )
     }
+
+    // MARK: - Full pipeline: 200 blocks, ~50 collision zones, +120 min shift
+
+    /// Builds a timeline of 200 blocks with exactly 50 collision zones designed
+    /// to exercise every stage of the pipeline under load.
+    ///
+    /// **Layout (repeating group of 4, 50 groups total = 200 blocks):**
+    /// ```
+    ///  ← groupSpan = 18000 s (5 h) →
+    ///  [F0:0s][F1:1800s][F2:3600s]   [Pinned:9000s]
+    /// ```
+    ///
+    /// **Why this geometry produces exactly 50 collisions after +7200 s:**
+    ///
+    /// After a +7200 s shift, all 150 fluid blocks slide forward. Consider group g:
+    ///
+    ///   Before: F0 @ gBase+0,    F1 @ gBase+1800, F2 @ gBase+3600
+    ///   After:  F0 @ gBase+7200, F1 @ gBase+9000, F2 @ gBase+10800
+    ///   Pinned (unchanged): @ gBase+9000
+    ///
+    /// - F0 starts at gBase+7200, ends at gBase+9000.
+    ///   Pinned.start (gBase+9000) == F0.end → **no strict overlap** (detector
+    ///   uses `pinnedStart < fluidEnd`, not `<=`). So the pinned sits
+    ///   right at the boundary.
+    ///
+    /// To get a real overlap, we place Pinned at gBase + 7800 (30 min into
+    /// the post-shift window):
+    ///   - F0.end after shift = gBase + 9000 > Pinned (gBase+7800) → collision ✓
+    ///   - F0.start after shift = gBase + 7200 < Pinned (gBase+7800) → F0 is
+    ///     still before Pinned in sorted order ✓
+    ///   - F1.start after shift = gBase + 9000 > Pinned (gBase+7800) → F1 is
+    ///     after Pinned in sorted order, so detector never pairs them ✓
+    ///
+    /// Result: exactly **1 collision per group × 50 groups = 50 collisions**.
+    /// Each collision triggers one compression pass → Stage 4 is exercised 50 ×.
+    private func makeHeavyLoadBlocks(startingAt base: Date) -> [TimeBlockModel] {
+        // 50 groups × 4 blocks = 200 blocks total.
+        let groupCount = 50
+        let groupSpan: TimeInterval = 18_000    // 5 h — keeps groups well-separated
+        let fluidDuration: TimeInterval = 1800  // 30 min per fluid block
+        let fluidMinimum: TimeInterval = 300    // 5 min minimum (for compression)
+        // Pinned offset: 7800 s = 7200 s (shift) + 600 s (10 min into post-shift window)
+        // This guarantees F0.end (7200+1800=9000) > Pinned.start (7800) → overlap of 1200 s.
+        let pinnedOffset: TimeInterval = 7800
+
+        var blocks: [TimeBlockModel] = []
+        blocks.reserveCapacity(groupCount * 4)
+
+        for g in 0..<groupCount {
+            let groupBase = base.addingTimeInterval(Double(g) * groupSpan)
+
+            // 3 fluid blocks placed contiguously starting at groupBase.
+            for f in 0..<3 {
+                blocks.append(TimeBlockModel(
+                    title: "G\(g)F\(f)",
+                    scheduledStart: groupBase.addingTimeInterval(Double(f) * fluidDuration),
+                    duration: fluidDuration,
+                    minimumDuration: fluidMinimum,
+                    isPinned: false
+                ))
+            }
+
+            // 1 pinned block at groupBase + 7800 s.
+            // Before shift: well after all 3 fluid blocks (F2 ends at groupBase+5400).
+            // After +7200 s shift: F0 (7200–9000) overlaps pinned (7800) by 1200 s = 20 min.
+            blocks.append(TimeBlockModel(
+                title: "G\(g)P",
+                scheduledStart: groupBase.addingTimeInterval(pinnedOffset),
+                duration: fluidDuration,
+                minimumDuration: fluidDuration,
+                isPinned: true
+            ))
+        }
+        return blocks
+    }
+
+    /// Measures the full 4-stage pipeline under heavy load:
+    /// 200 blocks, 50 collision zones, +120 min forward shift.
+    ///
+    /// **Acceptance criterion:** average wall-clock time < 100 ms over 5 iterations.
+    ///
+    /// `ShiftPreviewGenerator.generatePreview` runs all four stages:
+    /// - Stage 1 (DependencyResolver): 200-node adjacency BFS
+    /// - Stage 2 (shift propagation): 150 fluid blocks shifted +120 min
+    /// - Stage 3 (CollisionDetector): scans 200 blocks → 50 collisions
+    ///   (F0 of each group overlaps its group's pinned block)
+    /// - Stage 4 (CompressionCalculator): 50 compression passes
+    func test_fullPipeline_200Blocks_50CollisionZones_120MinShift_under100ms() {
+        let generator = ShiftPreviewGenerator()
+        let base = Date()
+        let shiftedID = makeHeavyLoadBlocks(startingAt: base)[0].id
+        let delta: TimeInterval = 7200  // +120 min
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 5
+
+        measure(options: options) {
+            let freshBlocks = self.makeHeavyLoadBlocks(startingAt: base)
+            _ = generator.generatePreview(
+                blocks: freshBlocks,
+                blockID: shiftedID,
+                delta: delta
+            )
+        }
+    }
+
+    /// Explicit wall-clock assertion for the full-pipeline heavy-load scenario.
+    func test_fullPipeline_200Blocks_50CollisionZones_singleRun_wallClockUnder100ms() {
+        let generator = ShiftPreviewGenerator()
+        let base = Date()
+        let blocks = makeHeavyLoadBlocks(startingAt: base)
+        let shiftedID = blocks[0].id
+        let delta: TimeInterval = 7200
+
+        let start = Date()
+        let preview = generator.generatePreview(
+            blocks: blocks,
+            blockID: shiftedID,
+            delta: delta
+        )
+        let elapsed = Date().timeIntervalSince(start)
+
+        // AC: full pipeline completes under 100 ms.
+        XCTAssertLessThan(
+            elapsed,
+            0.100,
+            "Full pipeline (200 blocks, 50 collision zones, +120 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 100 ms"
+        )
+
+        // AC: correct collision count — exactly 50 (one per group's pinned block).
+        XCTAssertEqual(
+            preview.collisions.count,
+            50,
+            "Expected 50 collisions (1 per group × 50 groups), got \(preview.collisions.count)"
+        )
+
+        // Status must reflect the collision-laden timeline.
+        XCTAssertTrue(
+            preview.status == .hasCollisions || preview.status == .impossible,
+            "Expected .hasCollisions or .impossible, got \(preview.status)"
+        )
+    }
+
+    /// AC: Correct collision count — verifies the fixture produces exactly
+    /// 50 Collision structs independent of the performance budget.
+    func test_heavyLoadFixture_produces50Collisions() {
+        let generator = ShiftPreviewGenerator()
+        let base = Date()
+        let blocks = makeHeavyLoadBlocks(startingAt: base)
+        let shiftedID = blocks[0].id
+
+        let preview = generator.generatePreview(
+            blocks: blocks,
+            blockID: shiftedID,
+            delta: 7200
+        )
+
+        // Exactly 1 collision per group × 50 groups.
+        XCTAssertEqual(
+            preview.collisions.count,
+            50,
+            "Fixture should produce 50 collisions (1 per group), got \(preview.collisions.count)"
+        )
+
+        // Every collision's fluid block must not be pinned;
+        // every collision's pinned block must be pinned.
+        let blocksByID = blocks.reduce(into: [UUID: TimeBlockModel]()) { $0[$1.id] = $1 }
+        for collision in preview.collisions {
+            XCTAssertEqual(blocksByID[collision.fluidBlockID]?.isPinned, false,
+                           "Fluid block in collision should not be pinned")
+            XCTAssertEqual(blocksByID[collision.pinnedBlockID]?.isPinned, true,
+                           "Pinned block in collision should be pinned")
+        }
+    }
 }
