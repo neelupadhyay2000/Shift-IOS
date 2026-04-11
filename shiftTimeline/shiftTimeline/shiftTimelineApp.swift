@@ -9,11 +9,24 @@ import SwiftUI
 import SwiftData
 import Services
 
+/// SHIFT app entry point.
+///
+/// `PersistenceController.shared.container` registers all five SwiftData models:
+///   - EventModel
+///   - TimelineTrack
+///   - TimeBlockModel
+///   - VendorModel
+///   - ShiftRecord
+///
+/// The container is injected into the SwiftUI environment here so every
+/// descendant view can use `@Query` and `@Environment(\.modelContext)` without
+/// additional setup.
 @main
 struct shiftTimelineApp: App {
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootNavigator()
         }
         .modelContainer(PersistenceController.shared.container)
     }
