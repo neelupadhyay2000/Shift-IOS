@@ -143,4 +143,132 @@ struct RippleEngineTests {
         // Only the changed block moves
         #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600 + delta))
     }
+
+    // MARK: - Backward Shift Tests
+
+    @Test @MainActor func backwardShiftClampsToOriginalStart() {
+        let engine = RippleEngine()
+        let originalStart = Date()
+        let drift: TimeInterval = 5 * 60 // blocks have drifted +5 min from original
+        let delta: TimeInterval = -10 * 60 // shift back by -10 min (exceeds drift)
+
+        // Blocks whose scheduledStart is 5 min ahead of originalStart
+        let blocks = [
+            TimeBlockModel(
+                title: "Block1",
+                scheduledStart: originalStart.addingTimeInterval(drift),
+                originalStart: originalStart,
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Block2",
+                scheduledStart: originalStart.addingTimeInterval(600 + drift),
+                originalStart: originalStart.addingTimeInterval(600),
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Block3",
+                scheduledStart: originalStart.addingTimeInterval(1200 + drift),
+                originalStart: originalStart.addingTimeInterval(1200),
+                duration: 600
+            )
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        // No block should go earlier than its originalStart
+        for block in result.blocks {
+            #expect(block.scheduledStart >= block.originalStart)
+        }
+        // Changed block clamped to originalStart (drift=5min, delta=-10min)
+        #expect(result.blocks[0].scheduledStart == originalStart)
+        // Subsequent fluid blocks also clamped
+        #expect(result.blocks[1].scheduledStart == originalStart.addingTimeInterval(600))
+        #expect(result.blocks[2].scheduledStart == originalStart.addingTimeInterval(1200))
+    }
+
+    @Test @MainActor func backwardShiftLargeDeltaClampsAllToOriginalStart() {
+        let engine = RippleEngine()
+        let originalStart = Date()
+        let drift: TimeInterval = 20 * 60 // blocks drifted +20 min
+        let delta: TimeInterval = -60 * 60 // shift back by -60 min (far exceeds drift)
+
+        let blocks = [
+            TimeBlockModel(
+                title: "Block1",
+                scheduledStart: originalStart.addingTimeInterval(drift),
+                originalStart: originalStart,
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Block2",
+                scheduledStart: originalStart.addingTimeInterval(600 + drift),
+                originalStart: originalStart.addingTimeInterval(600),
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Block3",
+                scheduledStart: originalStart.addingTimeInterval(1200 + drift),
+                originalStart: originalStart.addingTimeInterval(1200),
+                duration: 600
+            )
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        // All Fluid blocks clamp to their originalStart
+        #expect(result.blocks[0].scheduledStart == originalStart)
+        #expect(result.blocks[1].scheduledStart == originalStart.addingTimeInterval(600))
+        #expect(result.blocks[2].scheduledStart == originalStart.addingTimeInterval(1200))
+    }
+
+    @Test @MainActor func backwardShiftPinnedBlocksUnchanged() {
+        let engine = RippleEngine()
+        let originalStart = Date()
+        let drift: TimeInterval = 10 * 60
+        let delta: TimeInterval = -5 * 60
+
+        let blocks = [
+            TimeBlockModel(
+                title: "Changed",
+                scheduledStart: originalStart.addingTimeInterval(drift),
+                originalStart: originalStart,
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Pinned1",
+                scheduledStart: originalStart.addingTimeInterval(600 + drift),
+                originalStart: originalStart.addingTimeInterval(600),
+                duration: 600,
+                isPinned: true
+            ),
+            TimeBlockModel(
+                title: "Pinned2",
+                scheduledStart: originalStart.addingTimeInterval(1200 + drift),
+                originalStart: originalStart.addingTimeInterval(1200),
+                duration: 600,
+                isPinned: true
+            )
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        // Changed block shifts back by delta (within drift, no clamping needed)
+        #expect(result.blocks[0].scheduledStart == originalStart.addingTimeInterval(drift + delta))
+        // Pinned blocks remain completely unchanged
+        #expect(result.blocks[1].scheduledStart == originalStart.addingTimeInterval(600 + drift))
+        #expect(result.blocks[2].scheduledStart == originalStart.addingTimeInterval(1200 + drift))
+    }
 }

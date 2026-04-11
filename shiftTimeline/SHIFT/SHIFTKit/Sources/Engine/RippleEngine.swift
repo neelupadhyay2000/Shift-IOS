@@ -49,7 +49,7 @@ public struct RippleEngine: Sendable {
         changedBlockID: UUID,
         delta: TimeInterval
     ) -> RippleResult {
-        guard delta > 0 else {
+        guard delta != 0 else {
             return RippleResult(blocks: blocks, status: .clean)
         }
 
@@ -59,14 +59,28 @@ public struct RippleEngine: Sendable {
             return RippleResult(blocks: sorted, status: .clean)
         }
 
-        // Shift the changed block itself.
-        sorted[changedIndex].scheduledStart = sorted[changedIndex]
-            .scheduledStart.addingTimeInterval(delta)
+        // Shift the changed block itself, clamped to originalStart for negative delta.
+        let changedBlock = sorted[changedIndex]
+        if delta > 0 {
+            changedBlock.scheduledStart = changedBlock.scheduledStart.addingTimeInterval(delta)
+        } else {
+            changedBlock.scheduledStart = max(
+                changedBlock.originalStart,
+                changedBlock.scheduledStart.addingTimeInterval(delta)
+            )
+        }
 
-        // Shift all subsequent Fluid (non-pinned) blocks forward by delta.
+        // Shift all subsequent Fluid (non-pinned) blocks by delta.
         for index in (changedIndex + 1)..<sorted.count where !sorted[index].isPinned {
-            sorted[index].scheduledStart = sorted[index]
-                .scheduledStart.addingTimeInterval(delta)
+            let block = sorted[index]
+            if delta > 0 {
+                block.scheduledStart = block.scheduledStart.addingTimeInterval(delta)
+            } else {
+                block.scheduledStart = max(
+                    block.originalStart,
+                    block.scheduledStart.addingTimeInterval(delta)
+                )
+            }
         }
 
         return RippleResult(blocks: sorted, status: .clean)
