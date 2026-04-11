@@ -1,13 +1,6 @@
 import Foundation
 import Models
 
-// MARK: - Dependencies
-
-/// Resolves ordering dependencies between time blocks.
-public struct DependencyResolver: Sendable {
-    public init() {}
-}
-
 // MARK: - RippleEngine
 
 /// A stateless engine that propagates a time-delta change across a set of
