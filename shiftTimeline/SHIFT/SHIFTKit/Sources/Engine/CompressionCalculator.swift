@@ -1,6 +1,17 @@
 import Foundation
 import Models
 
+/// The outcome of a compression pass.
+public struct CompressionResult {
+    public let blocks: [TimeBlockModel]
+    public let status: RippleStatus
+
+    public init(blocks: [TimeBlockModel], status: RippleStatus) {
+        self.blocks = blocks
+        self.status = status
+    }
+}
+
 /// Calculates how blocks can be compressed toward their minimum duration
 /// to resolve collisions with Pinned blocks.
 public struct CompressionCalculator: Sendable {
@@ -14,15 +25,19 @@ public struct CompressionCalculator: Sendable {
     /// duration is scaled by `(block.duration / totalDuration) * availableTime`,
     /// and `scheduledStart` values are laid out contiguously with no gaps.
     ///
+    /// If `sum(minimumDurations) > availableTime`, all trapped blocks are set
+    /// to their `minimumDuration`, flagged with `requiresReview = true`, and
+    /// the result status is `.impossible`.
+    ///
     /// - Parameters:
     ///   - blocks: All time blocks in the timeline (sorted or unsorted).
     ///   - collision: The collision that triggered compression.
-    /// - Returns: The full block array with trapped blocks compressed in place.
-    public func compress(blocks: [TimeBlockModel], collision: Collision) -> [TimeBlockModel] {
+    /// - Returns: A ``CompressionResult`` with the adjusted blocks and status.
+    public func compress(blocks: [TimeBlockModel], collision: Collision) -> CompressionResult {
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
 
         guard let pinnedIndex = sorted.firstIndex(where: { $0.id == collision.pinnedBlockID }) else {
-            return sorted
+            return CompressionResult(blocks: sorted, status: .clean)
         }
 
         // Walk backwards from the pinned block to find consecutive trapped Fluid blocks.
@@ -32,16 +47,37 @@ public struct CompressionCalculator: Sendable {
         }
 
         let trappedRange = trappedStartIndex..<pinnedIndex
-        guard !trappedRange.isEmpty else { return sorted }
+        guard !trappedRange.isEmpty else {
+            return CompressionResult(blocks: sorted, status: .clean)
+        }
 
         let trappedBlocks = sorted[trappedRange]
         let gapStart = trappedBlocks.first!.scheduledStart
         let availableTime = sorted[pinnedIndex].scheduledStart.timeIntervalSince(gapStart)
 
-        guard availableTime > 0 else { return sorted }
+        guard availableTime > 0 else {
+            return CompressionResult(blocks: sorted, status: .clean)
+        }
 
         let totalDuration = trappedBlocks.reduce(0.0) { $0 + $1.duration }
-        guard totalDuration > 0 else { return sorted }
+        guard totalDuration > 0 else {
+            return CompressionResult(blocks: sorted, status: .clean)
+        }
+
+        let totalMinimum = trappedBlocks.reduce(0.0) { $0 + $1.minimumDuration }
+
+        // Impossible: minimums exceed available gap.
+        if totalMinimum > availableTime {
+            var cursor = gapStart
+            for index in trappedRange {
+                let block = sorted[index]
+                block.scheduledStart = cursor
+                block.duration = block.minimumDuration
+                block.requiresReview = true
+                cursor = cursor.addingTimeInterval(block.minimumDuration)
+            }
+            return CompressionResult(blocks: sorted, status: .impossible)
+        }
 
         // Two-pass compression: first proportional, then enforce minimums
         // and redistribute remaining time.
@@ -59,7 +95,6 @@ public struct CompressionCalculator: Sendable {
             var deficit: TimeInterval = 0
             var flexibleDuration: TimeInterval = 0
 
-            // Find blocks that fall below minimum and accumulate deficit.
             for (i, index) in trappedRange.enumerated() {
                 let minDur = sorted[index].minimumDuration
                 if newDurations[i] < minDur {
@@ -71,7 +106,6 @@ public struct CompressionCalculator: Sendable {
                 }
             }
 
-            // Redistribute deficit proportionally among flexible blocks.
             if changed && flexibleDuration > 0 {
                 for (i, index) in trappedRange.enumerated() {
                     let minDur = sorted[index].minimumDuration
@@ -92,6 +126,6 @@ public struct CompressionCalculator: Sendable {
             cursor = cursor.addingTimeInterval(newDurations[i])
         }
 
-        return sorted
+        return CompressionResult(blocks: sorted, status: .hasCollisions)
     }
 }
