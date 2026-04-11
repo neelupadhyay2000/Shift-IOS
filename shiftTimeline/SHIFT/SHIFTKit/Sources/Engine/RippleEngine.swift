@@ -59,6 +59,11 @@ public struct RippleEngine: Sendable {
             return RippleResult(blocks: sorted, status: .clean)
         }
 
+        // Pinned blocks cannot be shifted.
+        if sorted[changedIndex].isPinned {
+            return RippleResult(blocks: blocks, status: .pinnedBlockCannotShift)
+        }
+
         // Shift the changed block itself, clamped to originalStart for negative delta.
         let changedBlock = sorted[changedIndex]
         if delta > 0 {

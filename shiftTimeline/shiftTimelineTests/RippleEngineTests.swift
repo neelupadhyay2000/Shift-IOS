@@ -271,4 +271,31 @@ struct RippleEngineTests {
         #expect(result.blocks[1].scheduledStart == originalStart.addingTimeInterval(600 + drift))
         #expect(result.blocks[2].scheduledStart == originalStart.addingTimeInterval(1200 + drift))
     }
+
+    // MARK: - Pinned Block Cannot Shift
+
+    @Test @MainActor func pinnedBlockCannotShift() {
+        let engine = RippleEngine()
+        let start = Date()
+
+        let blocks = [
+            TimeBlockModel(title: "Fluid", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(600), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Fluid2", scheduledStart: start.addingTimeInterval(1200), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[1].id,
+            delta: 300
+        )
+
+        #expect(result.status == .pinnedBlockCannotShift)
+        #expect(result.blocks.count == blocks.count)
+        for (original, returned) in zip(blocks, result.blocks) {
+            #expect(original.id == returned.id)
+            #expect(original.scheduledStart == returned.scheduledStart)
+        }
+        #expect(result.collisions.isEmpty)
+    }
 }
