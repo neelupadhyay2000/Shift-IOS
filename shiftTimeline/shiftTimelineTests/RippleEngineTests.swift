@@ -83,14 +83,19 @@ struct RippleEngineTests {
         )
 
         #expect(result.status == .clean)
+
+        // Look up by ID — RippleResult sorts by scheduledStart, so indices
+        // may differ from the original array after fluid blocks shift past pinned ones.
+        let resultByID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
         // Changed block shifts by delta
-        #expect(result.blocks[0].scheduledStart == start.addingTimeInterval(delta))
+        #expect(resultByID[blocks[0].id]?.scheduledStart == start.addingTimeInterval(delta))
         // Fluid blocks after changed block shift by delta
-        #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600 + delta))
-        #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200 + delta))
+        #expect(resultByID[blocks[1].id]?.scheduledStart == start.addingTimeInterval(600 + delta))
+        #expect(resultByID[blocks[2].id]?.scheduledStart == start.addingTimeInterval(1200 + delta))
         // Pinned blocks remain unchanged
-        #expect(result.blocks[3].scheduledStart == start.addingTimeInterval(1800))
-        #expect(result.blocks[4].scheduledStart == start.addingTimeInterval(2400))
+        #expect(resultByID[blocks[3].id]?.scheduledStart == start.addingTimeInterval(1800))
+        #expect(resultByID[blocks[4].id]?.scheduledStart == start.addingTimeInterval(2400))
     }
 
     @Test @MainActor func forwardShiftMiddleBlockOnlyAffectsSubsequent() {
