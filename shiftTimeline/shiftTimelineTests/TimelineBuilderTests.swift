@@ -490,6 +490,135 @@ struct TimelineBuilderTests {
         #expect(event.tracks.count == 2)
         #expect(event.tracks.contains(where: { $0.name == "Main" }))
     }
+
+    // MARK: - Track Tab Bar Filtering
+
+    /// AC: Tapping a track tab filters blocks to that track.
+    @Test @MainActor func filteringByTrackReturnsOnlyBlocksInThatTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Cocktails", scheduledStart: .now.addingTimeInterval(1800), duration: 3600)
+        blockB.track = mainTrack
+        context.insert(blockB)
+
+        let blockC = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        blockC.track = photoTrack
+        context.insert(blockC)
+
+        try context.save()
+
+        // All blocks across all tracks
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        #expect(allBlocks.count == 3)
+
+        // Filter to Main track
+        let mainFiltered = allBlocks.filter { $0.track?.id == mainTrack.id }
+        #expect(mainFiltered.count == 2)
+        #expect(mainFiltered.allSatisfy { $0.track?.name == "Main" })
+
+        // Filter to Photo track
+        let photoFiltered = allBlocks.filter { $0.track?.id == photoTrack.id }
+        #expect(photoFiltered.count == 1)
+        #expect(photoFiltered.first?.title == "Portraits")
+    }
+
+    /// AC: Default is "Main" selected — when selectedTrackID matches Main,
+    /// only Main blocks are shown.
+    @Test @MainActor func defaultMainSelectionShowsOnlyMainBlocks() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let musicTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
+        context.insert(musicTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "DJ Set", scheduledStart: .now, duration: 3600)
+        blockB.track = musicTrack
+        context.insert(blockB)
+
+        try context.save()
+
+        // Simulate onAppear: selectedTrackID = mainTrack.id
+        let selectedTrackID = mainTrack.id
+
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        let filtered = allBlocks.filter { $0.track?.id == selectedTrackID }
+        #expect(filtered.count == 1)
+        #expect(filtered.first?.title == "Ceremony")
+    }
+
+    /// AC: "All" tab (selectedTrackID = nil) shows blocks from every track.
+    @Test @MainActor func allTabShowsBlocksFromEveryTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let musicTrack = TimelineTrack(name: "Music", sortOrder: 2, event: event)
+        context.insert(musicTrack)
+
+        for (title, track) in [("Ceremony", mainTrack), ("Portraits", photoTrack), ("DJ Set", musicTrack)] {
+            let block = TimeBlockModel(title: title, scheduledStart: .now, duration: 1800)
+            block.track = track
+            context.insert(block)
+        }
+        try context.save()
+
+        // selectedTrackID = nil means "All"
+        let selectedTrackID: UUID? = nil
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        // When nil, no filter is applied — all blocks shown
+        let filtered: [TimeBlockModel]
+        if let trackID = selectedTrackID {
+            filtered = allBlocks.filter { $0.track?.id == trackID }
+        } else {
+            filtered = allBlocks
+        }
+
+        #expect(filtered.count == 3)
+        let titles = Set(filtered.map(\.title))
+        #expect(titles.contains("Ceremony"))
+        #expect(titles.contains("Portraits"))
+        #expect(titles.contains("DJ Set"))
+    }
 }
 
 // MARK: - Test helper

@@ -36,6 +36,9 @@ struct TimelineBuilderView: View {
     @State private var renameText = ""
     @State private var trackToDelete: TimelineTrack?
 
+    // Track filtering — nil means "All", otherwise filters to a specific track
+    @State private var selectedTrackID: UUID?
+
     private var event: EventModel? { results.first }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
@@ -66,14 +69,28 @@ struct TimelineBuilderView: View {
         sortedTracks.first { $0.name == "Main" }
     }
 
+    /// Blocks filtered by the selected track tab.
+    /// When `selectedTrackID` is nil ("All"), shows all blocks.
+    private var filteredBlocks: [TimeBlockModel] {
+        guard let trackID = selectedTrackID else { return sortedBlocks }
+        return sortedBlocks.filter { $0.track?.id == trackID }
+    }
+
     // MARK: - Body
 
     var body: some View {
-        Group {
-            if sortedBlocks.isEmpty {
-                emptyState
-            } else {
-                timelineContent
+        VStack(spacing: 0) {
+            // Track tab bar — only show when multiple tracks exist
+            if sortedTracks.count > 1 {
+                TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
+            }
+
+            Group {
+                if filteredBlocks.isEmpty {
+                    emptyState
+                } else {
+                    timelineContent
+                }
             }
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
@@ -157,12 +174,18 @@ struct TimelineBuilderView: View {
                 Text(String(localized: "Are you sure you want to delete this track?"))
             }
         }
+        .onAppear {
+            // Default to Main track on first appearance
+            if selectedTrackID == nil, let main = mainTrack {
+                selectedTrackID = main.id
+            }
+        }
     }
 
     // MARK: - Timeline Content
 
     private var layout: TimeRulerLayout {
-        .adaptive(blocks: sortedBlocks)
+        .adaptive(blocks: filteredBlocks)
     }
 
 
@@ -180,7 +203,7 @@ struct TimelineBuilderView: View {
                     Color.clear
                         .frame(height: currentLayout.totalHeight)
 
-                    ForEach(sortedBlocks) { block in
+                    ForEach(filteredBlocks) { block in
                         blockCard(block, in: currentLayout)
                     }
                 }
@@ -331,6 +354,11 @@ struct TimelineBuilderView: View {
         guard let track = trackToDelete, track.name != "Main" else {
             trackToDelete = nil
             return
+        }
+
+        // If deleting the currently selected track, switch to Main
+        if selectedTrackID == track.id {
+            selectedTrackID = mainTrack?.id
         }
 
         // Move blocks to Main before deleting
