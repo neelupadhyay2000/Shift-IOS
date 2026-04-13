@@ -223,6 +223,55 @@ struct BlockInspectorTests {
         #expect(Set(editingBlock.dependencies.map(\.title)) == Set(["Block0", "Block2"]))
     }
 
+    /// AC: Self-dependency prevented — current block must not appear in the sibling list.
+    @Test @MainActor func selfDependencyIsPrevented() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let blockA = TimeBlockModel(title: "A", scheduledStart: base, duration: 600)
+        blockA.track = track
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "B", scheduledStart: base.addingTimeInterval(600), duration: 600)
+        blockB.track = track
+        context.insert(blockB)
+
+        let blockC = TimeBlockModel(title: "C", scheduledStart: base.addingTimeInterval(1200), duration: 600)
+        blockC.track = track
+        context.insert(blockC)
+        try context.save()
+
+        // Simulate BlockInspectorView's siblingBlocks for blockB
+        let editingBlock = blockB
+        let siblingBlocks = event.tracks
+            .flatMap(\.blocks)
+            .filter { $0.id != editingBlock.id }
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        // blockB must NOT be in the sibling list
+        #expect(!siblingBlocks.contains(where: { $0.id == editingBlock.id }))
+        #expect(siblingBlocks.count == 2)
+        #expect(Set(siblingBlocks.map(\.title)) == Set(["A", "C"]))
+
+        // Even if someone tried to include blockB's own ID in selectedIDs,
+        // the filter would exclude it since it's not in siblingBlocks
+        let selectedIDs: Set<UUID> = [blockA.id, blockB.id, blockC.id]
+        editingBlock.dependencies = siblingBlocks.filter { selectedIDs.contains($0.id) }
+        try context.save()
+
+        // Only A and C should be assigned — B (self) is excluded
+        #expect(editingBlock.dependencies.count == 2)
+        #expect(!editingBlock.dependencies.contains(where: { $0.id == editingBlock.id }))
+        #expect(Set(editingBlock.dependencies.map(\.title)) == Set(["A", "C"]))
+    }
+
     // MARK: - Color Tag
 
     @Test @MainActor func colorTagUpdatePersists() async throws {
