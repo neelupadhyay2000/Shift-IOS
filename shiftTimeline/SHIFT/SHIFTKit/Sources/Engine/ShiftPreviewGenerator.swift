@@ -176,19 +176,14 @@ public struct ShiftPreviewGenerator: Sendable {
         delta: TimeInterval
     ) -> ShiftPreview {
         // Capture original start times before any work so diffs are accurate.
-        let originalStarts = blocks.reduce(into: [UUID: Date]()) { dict, block in
-            dict[block.id] = block.scheduledStart
-        }
+        let originalStarts = Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, $0.scheduledStart) })
 
-        // Copy every live block into a value-type PreviewBlock.
+        // Copy every live block into a value-type PreviewBlock, sorted once.
         var preview = blocks.map { PreviewBlock(copying: $0) }
-        let sorted = preview.sorted { $0.scheduledStart < $1.scheduledStart }
-        preview = sorted
+        preview.sort { $0.scheduledStart < $1.scheduledStart }
 
         // Zero diffs: every block present with value 0 (nothing moved).
-        let zeroDiffs = preview.reduce(into: [UUID: TimeInterval]()) { dict, pb in
-            dict[pb.id] = 0
-        }
+        let zeroDiffs = Dictionary(uniqueKeysWithValues: preview.map { ($0.id, TimeInterval(0)) })
 
         guard delta != 0,
               let changedIndex = preview.firstIndex(where: { $0.id == blockID }) else {
@@ -264,7 +259,7 @@ public struct ShiftPreviewGenerator: Sendable {
         // Wrap preview blocks in temporary TimeBlockModel instances so the
         // existing CollisionDetector and CompressionCalculator can operate on
         // them without modification.
-        let tempBlocks = preview.map { pb -> TimeBlockModel in
+        var tempBlocks = preview.map { pb -> TimeBlockModel in
             TimeBlockModel(
                 id: pb.id,
                 title: pb.title,
@@ -277,13 +272,21 @@ public struct ShiftPreviewGenerator: Sendable {
             )
         }
 
-        let collisions = collisionDetector.detect(blocks: tempBlocks)
+        // Sort once — reuse for detect and all compress calls.
+        tempBlocks.sort {
+            if $0.scheduledStart != $1.scheduledStart {
+                return $0.scheduledStart < $1.scheduledStart
+            }
+            return !$0.isPinned && $1.isPinned
+        }
+
+        let collisions = collisionDetector.detect(sortedBlocks: tempBlocks)
 
         var compressedIDs = Set<UUID>()
         var finalStatus: RippleStatus = collisions.isEmpty ? .clean : .hasCollisions
 
         for collision in collisions {
-            let result = compressionCalculator.compress(blocks: tempBlocks, collision: collision)
+            let result = compressionCalculator.compress(sortedBlocks: tempBlocks, collision: collision)
             compressedIDs.formUnion(
                 result.blocks.filter { $0.id != collision.pinnedBlockID }.map(\.id)
             )
@@ -292,10 +295,9 @@ public struct ShiftPreviewGenerator: Sendable {
             }
         }
 
-        // Copy the (possibly compressed) temp block state back into PreviewBlocks.
-        let tempByID = tempBlocks.reduce(into: [UUID: TimeBlockModel]()) { dict, b in
-            dict[b.id] = b
-        }
+        // Copy the (possibly compressed) temp block state back into PreviewBlocks
+        // using index-aligned arrays (both are sorted by scheduledStart).
+        let tempByID = Dictionary(tempBlocks.map { ($0.id, $0) }, uniquingKeysWith: { _, b in b })
         var finalPreview = preview.map { pb -> PreviewBlock in
             guard let temp = tempByID[pb.id] else { return pb }
             var updated = pb
@@ -307,14 +309,10 @@ public struct ShiftPreviewGenerator: Sendable {
         finalPreview.sort { $0.scheduledStart < $1.scheduledStart }
 
         // --- Diffs: every block gets an entry; value = previewStart − originalStart.
-        // Blocks that didn't move have diff = 0. Callers can use this to
-        // determine movement for every block without having to handle absent keys.
-        var diffs = [UUID: TimeInterval]()
-        for pb in finalPreview {
-            if let original = originalStarts[pb.id] {
-                diffs[pb.id] = pb.scheduledStart.timeIntervalSince(original)
-            }
-        }
+        let diffs = Dictionary(uniqueKeysWithValues: finalPreview.compactMap { pb -> (UUID, TimeInterval)? in
+            guard let original = originalStarts[pb.id] else { return nil }
+            return (pb.id, pb.scheduledStart.timeIntervalSince(original))
+        })
 
         return ShiftPreview(
             previewBlocks: finalPreview,

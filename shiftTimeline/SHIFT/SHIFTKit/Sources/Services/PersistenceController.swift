@@ -1,8 +1,11 @@
 import Foundation
+import os
 import SwiftData
 import Models
 
 public final class PersistenceController: Sendable {
+
+    private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")
 
     public static let shared = PersistenceController()
 
@@ -28,22 +31,27 @@ public final class PersistenceController: Sendable {
 
         do {
             container = try ModelContainer(for: schema, configurations: [config])
+            Self.logger.info("ModelContainer created successfully")
         } catch {
-            // During development, delete the stale store and retry
-            let url = config.url
-            let relatedFiles = [
-                url,
-                url.deletingPathExtension().appendingPathExtension("store-shm"),
-                url.deletingPathExtension().appendingPathExtension("store-wal"),
-            ]
-            for file in relatedFiles {
-                try? FileManager.default.removeItem(at: file)
-            }
+            Self.logger.error("ModelContainer failed: \(error.localizedDescription) — deleting store and retrying")
+            Self.deleteStoreFiles(at: config.url)
             do {
                 container = try ModelContainer(for: schema, configurations: [config])
+                Self.logger.info("ModelContainer created after store reset")
             } catch {
                 fatalError("Could not create ModelContainer after store reset: \(error)")
             }
+        }
+    }
+
+    private static func deleteStoreFiles(at url: URL) {
+        let relatedFiles = [
+            url,
+            url.deletingPathExtension().appendingPathExtension("store-shm"),
+            url.deletingPathExtension().appendingPathExtension("store-wal"),
+        ]
+        for file in relatedFiles {
+            try? FileManager.default.removeItem(at: file)
         }
     }
 

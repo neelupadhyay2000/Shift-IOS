@@ -29,6 +29,16 @@ struct TimelineBuilderView: View {
     @State private var blockPendingDeletion: TimeBlockModel?
     @State private var isInspectorOpen = false
 
+    // Track management
+    @State private var isShowingAddTrackAlert = false
+    @State private var newTrackName = ""
+    @State private var trackToRename: TimelineTrack?
+    @State private var renameText = ""
+    @State private var trackToDelete: TimelineTrack?
+
+    // Track filtering — nil means "All", otherwise filters to a specific track
+    @State private var selectedTrackID: UUID?
+
     private var event: EventModel? { results.first }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
@@ -49,21 +59,56 @@ struct TimelineBuilderView: View {
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
+    /// All tracks for this event, sorted by sortOrder.
+    private var sortedTracks: [TimelineTrack] {
+        event?.tracks.sorted { $0.sortOrder < $1.sortOrder } ?? []
+    }
+
+    /// The default track — identified by the stable `isDefault` flag,
+    /// not by name. Cannot be renamed or deleted.
+    private var defaultTrack: TimelineTrack? {
+        sortedTracks.first { $0.isDefault }
+    }
+
+    /// Blocks filtered by the selected track tab.
+    /// When `selectedTrackID` is nil ("All"), shows all blocks.
+    private var filteredBlocks: [TimeBlockModel] {
+        guard let trackID = selectedTrackID else { return sortedBlocks }
+        return sortedBlocks.filter { $0.track?.id == trackID }
+    }
+
     // MARK: - Body
 
     var body: some View {
-        Group {
-            if sortedBlocks.isEmpty {
-                emptyState
-            } else {
-                timelineContent
+        VStack(spacing: 0) {
+            // iPhone compact: show track tab bar when multiple tracks
+            if sizeClass == .compact && sortedTracks.count > 1 {
+                TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
+            }
+
+            Group {
+                if sizeClass == .compact {
+                    // iPhone: single-track filtered view
+                    if filteredBlocks.isEmpty {
+                        emptyState
+                    } else {
+                        timelineContent
+                    }
+                } else {
+                    // iPad: side-by-side multi-column view
+                    if sortedBlocks.isEmpty {
+                        emptyState
+                    } else {
+                        iPadMultiColumnContent
+                    }
+                }
             }
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbarItems }
         .sheet(isPresented: $isShowingCreateSheet) {
-            CreateBlockSheet(eventID: eventID)
+            CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding) { block in
@@ -106,14 +151,62 @@ struct TimelineBuilderView: View {
                 Text(String(localized: "This block is pinned. Deleting it may affect the timeline. Are you sure?"))
             }
         }
+        // Add Track alert
+        .alert(String(localized: "New Track"), isPresented: $isShowingAddTrackAlert) {
+            TextField(String(localized: "Track Name"), text: $newTrackName)
+            Button(String(localized: "Add")) { addTrack() }
+            Button(String(localized: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(String(localized: "Enter a name for the new track."))
+        }
+        // Rename Track alert
+        .alert(String(localized: "Rename Track"), isPresented: Binding(
+            get: { trackToRename != nil },
+            set: { if !$0 { trackToRename = nil } }
+        )) {
+            TextField(String(localized: "Track Name"), text: $renameText)
+            Button(String(localized: "Rename")) { renameTrack() }
+            Button(String(localized: "Cancel"), role: .cancel) { trackToRename = nil }
+        }
+        // Delete Track confirmation alert
+        .alert(
+            String(localized: "Delete Track"),
+            isPresented: Binding(
+                get: { trackToDelete != nil },
+                set: { if !$0 { trackToDelete = nil } }
+            )
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) { deleteTrack() }
+            Button(String(localized: "Cancel"), role: .cancel) { trackToDelete = nil }
+        } message: {
+            if let track = trackToDelete, !track.blocks.isEmpty {
+                Text(String(localized: "This track has \(track.blocks.count) blocks. They will be moved to Main."))
+            } else {
+                Text(String(localized: "Are you sure you want to delete this track?"))
+            }
+        }
+        .onAppear {
+            // Default to Main track on first appearance
+            if selectedTrackID == nil, let main = defaultTrack {
+                selectedTrackID = main.id
+            }
+        }
     }
 
     // MARK: - Timeline Content
 
+    /// Layout computed from the currently visible (filtered) blocks — used by iPhone.
     private var layout: TimeRulerLayout {
+        .adaptive(blocks: filteredBlocks)
+    }
+
+    /// Layout computed from ALL blocks across ALL tracks — used by iPad
+    /// so the shared ruler spans the full time range.
+    private var sharedLayout: TimeRulerLayout {
         .adaptive(blocks: sortedBlocks)
     }
 
+    /// iPhone: single-track timeline with filter tabs.
     private var timelineContent: some View {
         ScrollView {
             let currentLayout = layout
@@ -128,7 +221,7 @@ struct TimelineBuilderView: View {
                     Color.clear
                         .frame(height: currentLayout.totalHeight)
 
-                    ForEach(sortedBlocks) { block in
+                    ForEach(filteredBlocks) { block in
                         blockCard(block, in: currentLayout)
                     }
                 }
@@ -141,7 +234,41 @@ struct TimelineBuilderView: View {
         .background(Color(.systemGroupedBackground))
     }
 
-    // MARK: - Block Card
+    /// iPad: multi-column layout with shared time ruler and side-by-side track columns.
+    private var iPadMultiColumnContent: some View {
+        ScrollView {
+            let currentLayout = sharedLayout
+
+            HStack(alignment: .top, spacing: 0) {
+                // — Left: Shared time ruler spanning the full time range
+                TimeRulerView(layout: currentLayout)
+
+                // — Right: Side-by-side track columns
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(sortedTracks) { track in
+                        TrackColumnView(
+                            track: track,
+                            layout: currentLayout,
+                            onTapBlock: { block in blockToInspect = block },
+                            onDeleteBlock: { block in
+                                if block.isPinned {
+                                    blockPendingDeletion = block
+                                } else {
+                                    deleteBlock(block)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+            .padding(.trailing, 16)
+        }
+        .scrollIndicators(.hidden)
+        .background(Color(.systemGroupedBackground))
+    }
+
 
     private func blockCard(
         _ block: TimeBlockModel,
@@ -205,6 +332,47 @@ struct TimelineBuilderView: View {
             }
             .accessibilityLabel(String(localized: "Add Block"))
         }
+
+        ToolbarItem(placement: .topBarLeading) {
+            Menu {
+                Button {
+                    newTrackName = ""
+                    isShowingAddTrackAlert = true
+                } label: {
+                    Label(String(localized: "Add Track"), systemImage: "plus.rectangle.on.rectangle")
+                }
+
+                if sortedTracks.count > 1 {
+                    Divider()
+                    ForEach(sortedTracks) { track in
+                        Menu(track.name) {
+                            // Default track cannot be renamed or deleted
+                            if !track.isDefault {
+                                Button {
+                                    renameText = track.name
+                                    trackToRename = track
+                                } label: {
+                                    Label(String(localized: "Rename"), systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    trackToDelete = track
+                                } label: {
+                                    Label(String(localized: "Delete"), systemImage: "trash")
+                                }
+                            }
+                        }
+                        // Don't show a submenu at all for the default track
+                        // if it has no actions — but keep it listed for visibility
+                    }
+                }
+            } label: {
+                Image(systemName: "rectangle.stack")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+            }
+            .accessibilityLabel(String(localized: "Manage Tracks"))
+        }
     }
 
     // MARK: - Empty State
@@ -217,6 +385,46 @@ struct TimelineBuilderView: View {
                 isShowingCreateSheet = true
             }
         }
+    }
+
+    // MARK: - Track Management
+
+    private func addTrack() {
+        let trimmed = newTrackName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let event else { return }
+
+        let nextOrder = (sortedTracks.last?.sortOrder ?? 0) + 1
+        let track = TimelineTrack(name: trimmed, sortOrder: nextOrder, event: event)
+        modelContext.insert(track)
+    }
+
+    private func renameTrack() {
+        let trimmed = renameText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, let track = trackToRename else { return }
+        track.name = trimmed
+        trackToRename = nil
+    }
+
+    private func deleteTrack() {
+        guard let track = trackToDelete, !track.isDefault else {
+            trackToDelete = nil
+            return
+        }
+
+        // If deleting the currently selected track, switch to default
+        if selectedTrackID == track.id {
+            selectedTrackID = defaultTrack?.id
+        }
+
+        // Move blocks to default track before deleting
+        if !track.blocks.isEmpty, let main = defaultTrack {
+            for block in track.blocks {
+                block.track = main
+            }
+        }
+
+        modelContext.delete(track)
+        trackToDelete = nil
     }
 
     // MARK: - Delete
@@ -278,7 +486,7 @@ private func previewTimelineContainer() -> ModelContainer {
     )
     context.insert(event)
 
-    let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+    let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
     context.insert(track)
 
     let blocks: [(String, TimeInterval, TimeInterval, Bool, String, String)] = [

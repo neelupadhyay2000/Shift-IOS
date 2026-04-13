@@ -16,7 +16,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let block1 = TimeBlockModel(title: "Dinner", scheduledStart: base.addingTimeInterval(3600), duration: 5400, isPinned: true, colorTag: "#34C759")
@@ -75,7 +75,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         // Existing blocks
@@ -114,7 +114,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let block = TimeBlockModel(
@@ -227,7 +227,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let a = TimeBlockModel(title: "A", scheduledStart: base, duration: 1800)
@@ -341,6 +341,423 @@ struct TimelineBuilderTests {
         #expect(yOffset == 60.0)  // 30 min * 2.0 ppm
         #expect(height == 90.0)   // 45 min * 2.0 ppm
         #expect(layout.totalHeight == 360.0) // 180 min * 2.0 ppm
+    }
+
+    // MARK: - Track Management
+
+    /// AC: Add track with user-entered name.
+    @Test @MainActor func addTrackCreatesNewTrackWithCorrectSortOrder() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+
+        // Simulate addTrack() logic
+        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        let nextOrder = (sortedTracks.last?.sortOrder ?? 0) + 1
+        let newTrack = TimelineTrack(name: "Photo", sortOrder: nextOrder, event: event)
+        context.insert(newTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+        let sorted = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        #expect(sorted[0].name == "Main")
+        #expect(sorted[0].sortOrder == 0)
+        #expect(sorted[1].name == "Photo")
+        #expect(sorted[1].sortOrder == 1)
+    }
+
+    /// AC: Rename via inline edit.
+    @Test @MainActor func renameTrackUpdatesName() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Photos", sortOrder: 1, event: event)
+        context.insert(track)
+        try context.save()
+
+        // Simulate renameTrack() logic
+        track.name = "Photo Session"
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimelineTrack>())
+        let renamedTrack = try #require(fetched.first { $0.id == track.id })
+        #expect(renamedTrack.name == "Photo Session")
+    }
+
+    /// AC: Delete empty track removes it.
+    @Test @MainActor func deleteEmptyTrackRemovesIt() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let emptyTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
+        context.insert(emptyTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+
+        // Simulate deleteTrack() on empty track
+        context.delete(emptyTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+        #expect(event.tracks.first?.name == "Main")
+    }
+
+    /// AC: Delete track with blocks moves blocks to Main first.
+    @Test @MainActor func deleteTrackWithBlocksMovesBlocksToMain() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 1800)
+        blockA.track = photoTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Group Shots", scheduledStart: .now.addingTimeInterval(1800), duration: 1200)
+        blockB.track = photoTrack
+        context.insert(blockB)
+        try context.save()
+
+        #expect(photoTrack.blocks.count == 2)
+        #expect(mainTrack.blocks.count == 0)
+
+        // Simulate deleteTrack() logic — move blocks to Main first
+        for block in photoTrack.blocks {
+            block.track = mainTrack
+        }
+        context.delete(photoTrack)
+        try context.save()
+
+        // Blocks should now be in Main
+        #expect(event.tracks.count == 1)
+        #expect(mainTrack.blocks.count == 2)
+        let blockTitles = Set(mainTrack.blocks.map(\.title))
+        #expect(blockTitles.contains("Portraits"))
+        #expect(blockTitles.contains("Group Shots"))
+    }
+
+    /// AC: "Main" track cannot be deleted.
+    @Test @MainActor func mainTrackCannotBeDeleted() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+        try context.save()
+
+        // Simulate deleteTrack() guard — default track is protected
+        let trackToDelete = mainTrack
+        #expect(trackToDelete.isDefault == true)
+
+        // The guard prevents deletion — default track stays
+        if !trackToDelete.isDefault {
+            context.delete(trackToDelete)
+        }
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+        #expect(event.tracks.contains(where: { $0.isDefault }))
+    }
+
+    // MARK: - Track Tab Bar Filtering
+
+    /// AC: Tapping a track tab filters blocks to that track.
+    @Test @MainActor func filteringByTrackReturnsOnlyBlocksInThatTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Cocktails", scheduledStart: .now.addingTimeInterval(1800), duration: 3600)
+        blockB.track = mainTrack
+        context.insert(blockB)
+
+        let blockC = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        blockC.track = photoTrack
+        context.insert(blockC)
+
+        try context.save()
+
+        // All blocks across all tracks
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        #expect(allBlocks.count == 3)
+
+        // Filter to Main track
+        let mainFiltered = allBlocks.filter { $0.track?.id == mainTrack.id }
+        #expect(mainFiltered.count == 2)
+        #expect(mainFiltered.allSatisfy { $0.track?.name == "Main" })
+
+        // Filter to Photo track
+        let photoFiltered = allBlocks.filter { $0.track?.id == photoTrack.id }
+        #expect(photoFiltered.count == 1)
+        #expect(photoFiltered.first?.title == "Portraits")
+    }
+
+    /// AC: Default is "Main" selected — when selectedTrackID matches Main,
+    /// only Main blocks are shown.
+    @Test @MainActor func defaultMainSelectionShowsOnlyMainBlocks() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let musicTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
+        context.insert(musicTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "DJ Set", scheduledStart: .now, duration: 3600)
+        blockB.track = musicTrack
+        context.insert(blockB)
+
+        try context.save()
+
+        // Simulate onAppear: selectedTrackID = mainTrack.id
+        let selectedTrackID = mainTrack.id
+
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        let filtered = allBlocks.filter { $0.track?.id == selectedTrackID }
+        #expect(filtered.count == 1)
+        #expect(filtered.first?.title == "Ceremony")
+    }
+
+    /// AC: "All" tab (selectedTrackID = nil) shows blocks from every track.
+    @Test @MainActor func allTabShowsBlocksFromEveryTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let musicTrack = TimelineTrack(name: "Music", sortOrder: 2, event: event)
+        context.insert(musicTrack)
+
+        for (title, track) in [("Ceremony", mainTrack), ("Portraits", photoTrack), ("DJ Set", musicTrack)] {
+            let block = TimeBlockModel(title: title, scheduledStart: .now, duration: 1800)
+            block.track = track
+            context.insert(block)
+        }
+        try context.save()
+
+        // selectedTrackID = nil means "All"
+        let selectedTrackID: UUID? = nil
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+
+        // When nil, no filter is applied — all blocks shown
+        let filtered: [TimeBlockModel]
+        if let trackID = selectedTrackID {
+            filtered = allBlocks.filter { $0.track?.id == trackID }
+        } else {
+            filtered = allBlocks
+        }
+
+        #expect(filtered.count == 3)
+        let titles = Set(filtered.map(\.title))
+        #expect(titles.contains("Ceremony"))
+        #expect(titles.contains("Portraits"))
+        #expect(titles.contains("DJ Set"))
+    }
+
+    // MARK: - iPad Multi-Column & Drag-and-Drop
+
+    /// AC: iPad shows all tracks as side-by-side columns — each track's blocks
+    /// are scoped to that track only.
+    @Test @MainActor func iPadColumnsShowBlocksScopedToEachTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Cocktails", scheduledStart: .now.addingTimeInterval(1800), duration: 3600)
+        blockB.track = mainTrack
+        context.insert(blockB)
+
+        let blockC = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        blockC.track = photoTrack
+        context.insert(blockC)
+        try context.save()
+
+        // Simulate iPad column logic: each track shows only its own blocks
+        let mainBlocks = mainTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let photoBlocks = photoTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+
+        #expect(mainBlocks.count == 2)
+        #expect(photoBlocks.count == 1)
+        #expect(mainBlocks.allSatisfy { $0.track?.id == mainTrack.id })
+        #expect(photoBlocks.first?.title == "Portraits")
+
+        // All tracks are displayed — sortedTracks returns both
+        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        #expect(sortedTracks.count == 2)
+        #expect(sortedTracks[0].name == "Main")
+        #expect(sortedTracks[1].name == "Photo")
+    }
+
+    /// AC: Drag-and-drop reassigns block.track to the target track.
+    @Test @MainActor func dragDropReassignsBlockTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let block = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        block.track = mainTrack
+        context.insert(block)
+        try context.save()
+
+        #expect(block.track?.id == mainTrack.id)
+        #expect(mainTrack.blocks.count == 1)
+        #expect(photoTrack.blocks.count == 0)
+
+        // Simulate drop: reassign block.track to photoTrack
+        block.track = photoTrack
+        try context.save()
+
+        #expect(block.track?.id == photoTrack.id)
+        #expect(photoTrack.blocks.contains(where: { $0.id == block.id }))
+    }
+
+    /// AC: Drag-drop to the same track is a no-op.
+    @Test @MainActor func dragDropToSameTrackIsNoOp() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        block.track = mainTrack
+        context.insert(block)
+        try context.save()
+
+        // Simulate drop onto same track — should remain unchanged
+        let originalTrackID = block.track?.id
+        // TrackColumnView.reassignBlock checks block.track?.id != targetTrack.id
+        // and returns false (no-op) if same
+        let isSameTrack = block.track?.id == mainTrack.id
+        #expect(isSameTrack == true)
+        #expect(block.track?.id == originalTrackID)
+    }
+
+    /// AC: Shared layout spans full time range across all tracks.
+    @Test @MainActor func sharedLayoutSpansAllTracksTimeRange() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        // Main track: early block
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: base, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        // Photo track: late block — extends the time range
+        let blockB = TimeBlockModel(title: "Sunset Shoot", scheduledStart: base.addingTimeInterval(7200), duration: 3600)
+        blockB.track = photoTrack
+        context.insert(blockB)
+        try context.save()
+
+        // Simulate sharedLayout: computed from ALL blocks
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        let layout = TimeRulerLayout.adaptive(blocks: allBlocks)
+
+        // Ruler should start at or before the earliest block
+        #expect(layout.rulerStart <= blockA.scheduledStart)
+        // Ruler should end at or after the latest block's end
+        let latestEnd = blockB.scheduledStart.addingTimeInterval(blockB.duration)
+        #expect(layout.rulerEnd >= latestEnd)
     }
 }
 

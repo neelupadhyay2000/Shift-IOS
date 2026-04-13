@@ -22,9 +22,14 @@ public struct DependencyResolver: Sendable {
     /// - Returns: A set of downstream block IDs (excluding `shiftedBlockID`),
     ///   or an error if a cycle is detected.
     public func resolve(blocks: [TimeBlockModel], shiftedBlockID: UUID) -> Result<Set<UUID>, SHIFTError> {
-        guard !blocks.isEmpty else { return .success([]) }
-
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        return resolve(sortedBlocks: sorted, shiftedBlockID: shiftedBlockID)
+    }
+
+    /// Pre-sorted variant — avoids an O(n log n) sort when the caller has
+    /// already sorted blocks by `scheduledStart`.
+    public func resolve(sortedBlocks sorted: [TimeBlockModel], shiftedBlockID: UUID) -> Result<Set<UUID>, SHIFTError> {
+        guard !sorted.isEmpty else { return .success([]) }
 
         // Build forward adjacency list from temporal ordering.
         var adjacency = [UUID: [UUID]]()

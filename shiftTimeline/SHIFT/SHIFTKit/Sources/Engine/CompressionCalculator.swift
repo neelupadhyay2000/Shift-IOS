@@ -53,6 +53,15 @@ public struct CompressionCalculator: Sendable {
     /// - Returns: A ``CompressionResult`` with the adjusted blocks and status.
     public func compress(blocks: [TimeBlockModel], collision: Collision) -> CompressionResult {
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        return compress(sortedBlocks: sorted, collision: collision)
+    }
+
+    /// Pre-sorted variant — avoids an O(n log n) sort on every call.
+    ///
+    /// Use this overload when the caller has already sorted the blocks array
+    /// (e.g., inside a loop that processes multiple collisions from the same
+    /// sorted snapshot).
+    public func compress(sortedBlocks sorted: [TimeBlockModel], collision: Collision) -> CompressionResult {
 
         guard let pinnedIndex = sorted.firstIndex(where: { $0.id == collision.pinnedBlockID }) else {
             return CompressionResult(blocks: sorted, status: .clean)
