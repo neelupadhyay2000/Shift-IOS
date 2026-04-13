@@ -125,13 +125,29 @@ struct BlockInspectorView: View {
             TextField(String(localized: "Notes"), text: $notes, axis: .vertical)
                 .lineLimit(3...6)
 
-            Picker(String(localized: "Color"), selection: $colorTag) {
-                ForEach(Self.colorOptions, id: \.value) { option in
-                    Label(option.label, systemImage: "circle.fill")
-                        .foregroundStyle(Color(hex: option.value))
-                        .tag(option.value)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(localized: "Color"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    ForEach(Self.colorOptions, id: \.value) { option in
+                        Circle()
+                            .fill(Color(hex: option.value))
+                            .frame(width: 32, height: 32)
+                            .overlay {
+                                if colorTag == option.value {
+                                    Circle()
+                                        .strokeBorder(.primary, lineWidth: 2.5)
+                                }
+                            }
+                            .accessibilityLabel(option.label)
+                            .onTapGesture {
+                                colorTag = option.value
+                            }
+                    }
                 }
             }
+            .padding(.vertical, 4)
 
             Picker(String(localized: "Icon"), selection: $icon) {
                 ForEach(Self.iconOptions, id: \.systemImage) { option in
