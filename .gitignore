@@ -18,3 +18,16 @@ DerivedData/
 # Playgrounds
 timeline.xctimeline
 playground.xcworkspace
+create_jira_e3_tickets.py
+create_jira_tickets.py
+update_jira_acceptance_criteria.py
+update_jira_exact_criteria.py
+.github/copilot-instructions.md
+shiftTimeline/Context/E1_Ripple_Engine_Context.md
+shiftTimeline/Context/E2_iPhone_Full_App_Context.md
+shiftTimeline/Context/E3_Live_Execution_Context.md
+shiftTimeline/Context/E4_watchOS_Companion_Context.md
+shiftTimeline/Context/E5_Sync_Collaboration_Context.md
+shiftTimeline/Context/E6_Widgets_LiveActivities_Polish_Context.md
+shiftTimeline/Context/E7_Monetization_Analytics_Context.md
+shiftTimeline/Context/E8_Beta_Launch_Context.md
