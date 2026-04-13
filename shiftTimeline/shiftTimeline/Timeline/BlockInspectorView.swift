@@ -58,7 +58,7 @@ struct BlockInspectorView: View {
     @State private var selectedDependencyIDs: Set<UUID> = []
 
     private var canSave: Bool {
-        !title.trimmingCharacters(in: .whitespaces).isEmpty
+        !title.trimmingCharacters(in: .whitespaces).isEmpty && event != nil
     }
 
     // MARK: - Body
@@ -89,9 +89,11 @@ struct BlockInspectorView: View {
         .onChange(of: colorTag) { _, new in block.colorTag = new }
         .onChange(of: icon) { _, new in block.icon = new }
         .onChange(of: selectedVendorIDs) { _, new in
+            guard event != nil else { return }
             block.vendors = eventVendors.filter { new.contains($0.id) }
         }
         .onChange(of: selectedDependencyIDs) { _, new in
+            guard event != nil else { return }
             block.dependencies = siblingBlocks.filter { new.contains($0.id) }
         }
     }
@@ -305,8 +307,13 @@ struct BlockInspectorView: View {
         block.colorTag = colorTag
         block.icon = icon
 
-        block.vendors = eventVendors.filter { selectedVendorIDs.contains($0.id) }
-        block.dependencies = siblingBlocks.filter { selectedDependencyIDs.contains($0.id) }
+        // Only update relationship fields when the event is resolved,
+        // otherwise eventVendors/siblingBlocks are empty and would
+        // incorrectly clear existing assignments.
+        if event != nil {
+            block.vendors = eventVendors.filter { selectedVendorIDs.contains($0.id) }
+            block.dependencies = siblingBlocks.filter { selectedDependencyIDs.contains($0.id) }
+        }
 
         dismiss()
     }
