@@ -1,0 +1,104 @@
+{
+    "id": "E5F6A7B8-C9D0-1234-EF01-345678901BCD",
+    "name": "Concert / Festival",
+    "description": "A 6-hour live music event from gates open through headliner encore.",
+    "category": "social",
+    "blocks": [
+        {
+            "title": "Stage & Sound Check",
+            "relativeStartOffset": 0,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Gates Open",
+            "relativeStartOffset": 3600,
+            "duration": 1800,
+            "isPinned": true,
+            "colorTag": "#007AFF",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Opening DJ Set",
+            "relativeStartOffset": 5400,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "music.note"
+        },
+        {
+            "title": "MC Welcome & Announcements",
+            "relativeStartOffset": 8100,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Opening Act",
+            "relativeStartOffset": 9000,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "music.note"
+        },
+        {
+            "title": "Changeover Break",
+            "relativeStartOffset": 11700,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Support Act",
+            "relativeStartOffset": 13500,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "music.note"
+        },
+        {
+            "title": "Stage Reset",
+            "relativeStartOffset": 16200,
+            "duration": 1200,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Headliner Performance",
+            "relativeStartOffset": 17400,
+            "duration": 3300,
+            "isPinned": true,
+            "colorTag": "#FF3B30",
+            "icon": "music.note"
+        },
+        {
+            "title": "Encore",
+            "relativeStartOffset": 20700,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FF2D55",
+            "icon": "star.fill"
+        },
+        {
+            "title": "Crowd Exit & Merch",
+            "relativeStartOffset": 21600,
+            "duration": 0,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Load-Out & Teardown",
+            "relativeStartOffset": 21600,
+            "duration": 0,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        }
+    ]
+}

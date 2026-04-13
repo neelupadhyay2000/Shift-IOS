@@ -138,25 +138,47 @@ struct TemplateTests {
 
     // MARK: - Bundle Loading
 
-    @Test func loadDecodesClassicWedding() throws {
+    @Test func loadDecodesTraditionalWedding() throws {
         let loader = TemplateLoader()
         let template = try loader.load(named: "classic-wedding", from: Self.templatesDirectory)
 
-        #expect(template.name == "Classic Wedding")
+        #expect(template.name == "Traditional Wedding")
         #expect(template.category == .wedding)
-        #expect(template.blocks.count == 10)
+        #expect(template.blocks.count == 15)
         #expect(template.blocks[0].title == "Bridal Suite Prep")
-        #expect(template.blocks[2].title == "Ceremony")
-        #expect(template.blocks[2].isPinned == true)
+        // Ceremony is pinned
+        let ceremony = template.blocks.first { $0.title == "Ceremony" }
+        #expect(ceremony?.isPinned == true)
+        // 8 hours: last block ends at or before 28800s
+        let lastBlock = template.blocks.last!
+        #expect(lastBlock.relativeStartOffset + lastBlock.duration <= 28800)
     }
 
-    @Test func loadDecodesCorporateConference() throws {
+    @Test func loadDecodesIndianWedding() throws {
+        let loader = TemplateLoader()
+        let template = try loader.load(named: "indian-wedding", from: Self.templatesDirectory)
+
+        #expect(template.name == "Indian Wedding")
+        #expect(template.category == .wedding)
+        #expect(template.blocks.count == 25)
+        // Baraat is pinned
+        let baraat = template.blocks.first { $0.title == "Baraat Procession" }
+        #expect(baraat?.isPinned == true)
+        // 12 hours: last block offset at or before 43200s
+        let maxEnd = template.blocks.map { $0.relativeStartOffset + $0.duration }.max()!
+        #expect(maxEnd <= 43200)
+    }
+
+    @Test func loadDecodesCorporateGala() throws {
         let loader = TemplateLoader()
         let template = try loader.load(named: "corporate-conference", from: Self.templatesDirectory)
 
-        #expect(template.name == "Corporate Conference")
+        #expect(template.name == "Corporate Gala")
         #expect(template.category == .corporate)
-        #expect(template.blocks.count == 7)
+        #expect(template.blocks.count == 10)
+        // 5 hours: last block ends at or before 18000s
+        let maxEnd = template.blocks.map { $0.relativeStartOffset + $0.duration }.max()!
+        #expect(maxEnd <= 18000)
     }
 
     @Test func loadDecodesBirthdayParty() throws {
@@ -165,18 +187,38 @@ struct TemplateTests {
 
         #expect(template.name == "Birthday Party")
         #expect(template.category == .social)
-        #expect(template.blocks.count == 6)
+        #expect(template.blocks.count == 8)
+        // 4 hours: last block ends at or before 14400s
+        let maxEnd = template.blocks.map { $0.relativeStartOffset + $0.duration }.max()!
+        #expect(maxEnd <= 14400)
     }
 
-    @Test func loadAllReturnsAllTemplates() throws {
+    @Test func loadDecodesConcertFestival() throws {
+        let loader = TemplateLoader()
+        let template = try loader.load(named: "concert-festival", from: Self.templatesDirectory)
+
+        #expect(template.name == "Concert / Festival")
+        #expect(template.category == .social)
+        #expect(template.blocks.count == 12)
+        // Headliner is pinned
+        let headliner = template.blocks.first { $0.title == "Headliner Performance" }
+        #expect(headliner?.isPinned == true)
+        // 6 hours: last block offset at or before 21600s
+        let maxEnd = template.blocks.map { $0.relativeStartOffset + $0.duration }.max()!
+        #expect(maxEnd <= 21600)
+    }
+
+    @Test func loadAllReturnsAllFiveTemplates() throws {
         let loader = TemplateLoader()
         let templates = try loader.loadAll(from: Self.templatesDirectory)
 
-        #expect(templates.count >= 3)
+        #expect(templates.count == 5)
         let names = Set(templates.map(\.name))
-        #expect(names.contains("Classic Wedding"))
-        #expect(names.contains("Corporate Conference"))
+        #expect(names.contains("Traditional Wedding"))
+        #expect(names.contains("Indian Wedding"))
+        #expect(names.contains("Corporate Gala"))
         #expect(names.contains("Birthday Party"))
+        #expect(names.contains("Concert / Festival"))
     }
 
     @Test func loadMissingResourceThrowsError() {
@@ -188,14 +230,27 @@ struct TemplateTests {
 
     // MARK: - Block Data Integrity
 
-    @Test func allTemplateBlocksHaveValidDurations() throws {
+    @Test func allTemplateBlocksHaveValidOffsets() throws {
         let loader = TemplateLoader()
         let templates = try loader.loadAll(from: Self.templatesDirectory)
 
         for template in templates {
             for block in template.blocks {
-                #expect(block.duration > 0, "Block '\(block.title)' in '\(template.name)' has non-positive duration")
+                #expect(block.duration >= 0, "Block '\(block.title)' in '\(template.name)' has negative duration")
                 #expect(block.relativeStartOffset >= 0, "Block '\(block.title)' in '\(template.name)' has negative offset")
+            }
+        }
+    }
+
+    @Test func allTemplateBlocksUseRelativeOffsetsNotAbsoluteDates() throws {
+        let loader = TemplateLoader()
+        let templates = try loader.loadAll(from: Self.templatesDirectory)
+
+        for template in templates {
+            for block in template.blocks {
+                // Relative offsets should be small (under 24h = 86400s), not epoch timestamps
+                #expect(block.relativeStartOffset < 86400,
+                        "Block '\(block.title)' in '\(template.name)' has suspiciously large offset — may be an absolute date")
             }
         }
     }

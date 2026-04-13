@@ -1,28 +1,60 @@
 {
     "id": "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
-    "name": "Classic Wedding",
-    "description": "A traditional wedding timeline covering ceremony through send-off.",
+    "name": "Traditional Wedding",
+    "description": "A classic 8-hour wedding day from bridal prep through sparkler send-off.",
     "category": "wedding",
     "blocks": [
         {
             "title": "Bridal Suite Prep",
             "relativeStartOffset": 0,
-            "duration": 7200,
+            "duration": 5400,
             "isPinned": false,
             "colorTag": "#FF2D55",
             "icon": "star.fill"
         },
         {
-            "title": "First Look & Portraits",
-            "relativeStartOffset": 7200,
+            "title": "Groomsmen Prep",
+            "relativeStartOffset": 1800,
             "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#007AFF",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "First Look",
+            "relativeStartOffset": 5400,
+            "duration": 1800,
             "isPinned": false,
             "colorTag": "#AF52DE",
             "icon": "camera.fill"
         },
         {
+            "title": "Wedding Party Portraits",
+            "relativeStartOffset": 7200,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Family Portraits",
+            "relativeStartOffset": 9900,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Guest Seating",
+            "relativeStartOffset": 11700,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "person.2.fill"
+        },
+        {
             "title": "Ceremony",
-            "relativeStartOffset": 10800,
+            "relativeStartOffset": 13500,
             "duration": 2700,
             "isPinned": true,
             "colorTag": "#FF3B30",
@@ -30,58 +62,66 @@
         },
         {
             "title": "Cocktail Hour",
-            "relativeStartOffset": 13500,
+            "relativeStartOffset": 16200,
             "duration": 3600,
             "isPinned": false,
             "colorTag": "#FF9500",
             "icon": "fork.knife"
         },
         {
-            "title": "Grand Entrance & First Dance",
-            "relativeStartOffset": 17100,
+            "title": "Couple Portraits (Golden Hour)",
+            "relativeStartOffset": 18000,
             "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "sun.max.fill"
+        },
+        {
+            "title": "Grand Entrance",
+            "relativeStartOffset": 19800,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "music.note"
+        },
+        {
+            "title": "First Dance",
+            "relativeStartOffset": 20700,
+            "duration": 900,
             "isPinned": false,
             "colorTag": "#FFCC00",
             "icon": "music.note"
         },
         {
-            "title": "Dinner",
-            "relativeStartOffset": 18900,
-            "duration": 5400,
+            "title": "Dinner Service",
+            "relativeStartOffset": 21600,
+            "duration": 3600,
             "isPinned": false,
             "colorTag": "#34C759",
             "icon": "fork.knife"
         },
         {
             "title": "Toasts & Speeches",
-            "relativeStartOffset": 24300,
+            "relativeStartOffset": 25200,
             "duration": 1800,
             "isPinned": false,
             "colorTag": "#007AFF",
             "icon": "mic.fill"
         },
         {
-            "title": "Cake Cutting",
-            "relativeStartOffset": 26100,
+            "title": "Cake Cutting & Open Dancing",
+            "relativeStartOffset": 27000,
             "duration": 900,
             "isPinned": false,
-            "colorTag": "#FFCC00",
+            "colorTag": "#FF2D55",
             "icon": "gift.fill"
         },
         {
-            "title": "Open Dancing",
-            "relativeStartOffset": 27000,
-            "duration": 5400,
+            "title": "Sparkler Send-Off",
+            "relativeStartOffset": 27900,
+            "duration": 900,
             "isPinned": false,
-            "colorTag": "#AF52DE",
-            "icon": "music.note"
-        },
-        {
-            "title": "Send-Off",
-            "relativeStartOffset": 32400,
-            "duration": 1800,
-            "isPinned": false,
-            "colorTag": "#FF2D55",
+            "colorTag": "#FFCC00",
             "icon": "car.fill"
         }
     ]

@@ -1,12 +1,20 @@
 {
     "id": "C3D4E5F6-A7B8-9012-CDEF-123456789012",
     "name": "Birthday Party",
-    "description": "A casual birthday celebration with food, activities, and cake.",
+    "description": "A fun 4-hour birthday celebration with food, games, cake, and gifts.",
     "category": "social",
     "blocks": [
         {
-            "title": "Guest Arrival",
+            "title": "Venue Setup & Decorations",
             "relativeStartOffset": 0,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Guest Arrival & Welcome",
+            "relativeStartOffset": 2700,
             "duration": 1800,
             "isPinned": false,
             "colorTag": "#007AFF",
@@ -14,15 +22,15 @@
         },
         {
             "title": "Activities & Games",
-            "relativeStartOffset": 1800,
-            "duration": 3600,
+            "relativeStartOffset": 4500,
+            "duration": 2700,
             "isPinned": false,
             "colorTag": "#34C759",
             "icon": "star.fill"
         },
         {
             "title": "Food & Drinks",
-            "relativeStartOffset": 5400,
+            "relativeStartOffset": 7200,
             "duration": 2700,
             "isPinned": false,
             "colorTag": "#FF9500",
@@ -30,24 +38,32 @@
         },
         {
             "title": "Cake & Candles",
-            "relativeStartOffset": 8100,
-            "duration": 1800,
+            "relativeStartOffset": 9900,
+            "duration": 1200,
             "isPinned": true,
             "colorTag": "#FF2D55",
             "icon": "gift.fill"
         },
         {
             "title": "Gift Opening",
-            "relativeStartOffset": 9900,
+            "relativeStartOffset": 11100,
             "duration": 1800,
             "isPinned": false,
             "colorTag": "#AF52DE",
             "icon": "gift.fill"
         },
         {
-            "title": "Farewell",
-            "relativeStartOffset": 11700,
-            "duration": 1800,
+            "title": "Free Play & Photos",
+            "relativeStartOffset": 12900,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Farewell & Goodie Bags",
+            "relativeStartOffset": 13800,
+            "duration": 600,
             "isPinned": false,
             "colorTag": "#8E8E93",
             "icon": "car.fill"
