@@ -30,7 +30,8 @@ enum EventDestination: Hashable {
 
 /// Typed push destinations for the Templates stack.
 enum TemplateDestination: Hashable {
-    case templatePreview(name: String)
+    case templatePreview(templateID: UUID)
+    case timelineBuilder(eventID: UUID)
 }
 
 /// Typed push destinations for the Settings stack.
@@ -99,7 +100,7 @@ struct RootNavigator: View {
 
             // Templates tab
             NavigationStack(path: $templatePath) {
-                ContentPlaceholderView(tab: .templates)
+                TemplateBrowserView()
                     .navigationDestination(for: TemplateDestination.self) { destination in
                         templateDestinationView(for: destination)
                     }
@@ -168,7 +169,7 @@ struct RootNavigator: View {
             }
         case .templates:
             NavigationStack(path: $templatePath) {
-                ContentPlaceholderView(tab: .templates)
+                TemplateBrowserView()
                     .navigationDestination(for: TemplateDestination.self) { destination in
                         templateDestinationView(for: destination)
                     }
@@ -198,8 +199,10 @@ struct RootNavigator: View {
     @ViewBuilder
     private func templateDestinationView(for destination: TemplateDestination) -> some View {
         switch destination {
-        case .templatePreview(let name):
-            ContentPlaceholderView(label: "Template: \(name)")
+        case .templatePreview(let templateID):
+            TemplatePreviewView(templateID: templateID, templatePath: $templatePath)
+        case .timelineBuilder(let eventID):
+            TimelineBuilderView(eventID: eventID)
         }
     }
 
