@@ -2,28 +2,28 @@ import SwiftUI
 import SwiftData
 import Models
 
-/// Inspector sheet for editing an existing time block.
+/// Inspector for editing an existing time block.
 ///
-/// Contains four form sections:
-/// 1. **Basic Info** — title, start time, duration, type (pinned/fluid)
-/// 2. **Details** — notes (multiline), color picker, icon picker
-/// 3. **Vendors** — multi-select from event's vendors
-/// 4. **Dependencies** — multi-select from sibling blocks
-///
-/// All fields are copied into local `@State` on appear. "Save" writes changes
-/// back to the model; "Cancel" dismisses without saving.
+/// Supports two presentation modes:
+/// - **Sheet mode** (`isInspectorMode = false`): Wraps content in `NavigationStack` with
+///   Save/Cancel toolbar. Changes are buffered in `@State` and committed on Save.
+/// - **Inspector mode** (`isInspectorMode = true`): No `NavigationStack` wrapper.
+///   Changes are live-written to the model via `.onChange` — the timeline updates in real-time.
+///   Used on iPad where the inspector is a trailing sidebar panel.
 struct BlockInspectorView: View {
 
     @Environment(\.dismiss) private var dismiss
 
     let block: TimeBlockModel
     let eventID: UUID
+    let isInspectorMode: Bool
 
     @Query private var eventResults: [EventModel]
 
-    init(block: TimeBlockModel, eventID: UUID) {
+    init(block: TimeBlockModel, eventID: UUID, isInspectorMode: Bool = false) {
         self.block = block
         self.eventID = eventID
+        self.isInspectorMode = isInspectorMode
         _eventResults = Query(
             filter: #Predicate<EventModel> { $0.id == eventID }
         )
@@ -64,6 +64,40 @@ struct BlockInspectorView: View {
     // MARK: - Body
 
     var body: some View {
+        if isInspectorMode {
+            inspectorBody
+        } else {
+            sheetBody
+        }
+    }
+
+    /// iPad inspector panel — no NavigationStack, live-write on change.
+    private var inspectorBody: some View {
+        Form {
+            basicInfoSection
+            detailsSection
+            vendorsSection
+            dependenciesSection
+        }
+        .formStyle(.grouped)
+        .onAppear { loadState() }
+        .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
+        .onChange(of: startTime) { _, new in block.scheduledStart = new }
+        .onChange(of: duration) { _, new in block.duration = new }
+        .onChange(of: isPinned) { _, new in block.isPinned = new }
+        .onChange(of: notes) { _, new in block.notes = new }
+        .onChange(of: colorTag) { _, new in block.colorTag = new }
+        .onChange(of: icon) { _, new in block.icon = new }
+        .onChange(of: selectedVendorIDs) { _, new in
+            block.vendors = eventVendors.filter { new.contains($0.id) }
+        }
+        .onChange(of: selectedDependencyIDs) { _, new in
+            block.dependencies = siblingBlocks.filter { new.contains($0.id) }
+        }
+    }
+
+    /// iPhone sheet — NavigationStack with Save/Cancel toolbar.
+    private var sheetBody: some View {
         NavigationStack {
             Form {
                 basicInfoSection
@@ -87,17 +121,19 @@ struct BlockInspectorView: View {
                 }
             }
         }
-        .onAppear {
-            title = block.title
-            startTime = block.scheduledStart
-            duration = block.duration
-            isPinned = block.isPinned
-            notes = block.notes
-            colorTag = block.colorTag
-            icon = block.icon
-            selectedVendorIDs = Set(block.vendors.map(\.id))
-            selectedDependencyIDs = Set(block.dependencies.map(\.id))
-        }
+        .onAppear { loadState() }
+    }
+
+    private func loadState() {
+        title = block.title
+        startTime = block.scheduledStart
+        duration = block.duration
+        isPinned = block.isPinned
+        notes = block.notes
+        colorTag = block.colorTag
+        icon = block.icon
+        selectedVendorIDs = Set(block.vendors.map(\.id))
+        selectedDependencyIDs = Set(block.dependencies.map(\.id))
     }
 
     // MARK: - Section 1: Basic Info

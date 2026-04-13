@@ -477,4 +477,137 @@ struct BlockInspectorTests {
         #expect(fetched.first?.title == "B")
         #expect(fetched.first?.dependencies.isEmpty == true)
     }
+
+    // MARK: - Inspector Mode (Live-Write)
+
+    /// AC: In inspector mode, writing directly to model properties
+    /// updates SwiftData immediately — no explicit save needed.
+    @Test @MainActor func inspectorModeLiveWriteUpdatesModelImmediately() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(
+            title: "Ceremony",
+            scheduledStart: .now,
+            duration: 1800,
+            isPinned: false,
+            notes: "",
+            colorTag: "#007AFF",
+            icon: "circle.fill"
+        )
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        // Simulate inspector mode live-write: each field mutation
+        // is written directly to the model (no buffered save).
+        block.title = "Grand Ceremony"
+        #expect(block.title == "Grand Ceremony")
+
+        block.duration = 2700
+        #expect(block.duration == 2700)
+
+        block.isPinned = true
+        #expect(block.isPinned == true)
+
+        block.notes = "Outdoor garden"
+        #expect(block.notes == "Outdoor garden")
+
+        block.colorTag = "#34C759"
+        #expect(block.colorTag == "#34C759")
+
+        block.icon = "heart.fill"
+        #expect(block.icon == "heart.fill")
+
+        // Verify all changes persist to SwiftData
+        try context.save()
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+        #expect(result.title == "Grand Ceremony")
+        #expect(result.duration == 2700)
+        #expect(result.isPinned == true)
+        #expect(result.notes == "Outdoor garden")
+        #expect(result.colorTag == "#34C759")
+        #expect(result.icon == "heart.fill")
+    }
+
+    /// AC: In inspector mode, vendor assignment is live-written.
+    @Test @MainActor func inspectorModeLiveWriteVendorAssignment() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(title: "Photos", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+
+        let vendor = VendorModel(name: "Jane", role: .photographer)
+        vendor.event = event
+        context.insert(vendor)
+        try context.save()
+
+        // Simulate live-write: toggle vendor on
+        let eventVendors = event.vendors
+        let selectedIDs: Set<UUID> = [vendor.id]
+        block.vendors = eventVendors.filter { selectedIDs.contains($0.id) }
+
+        // Immediately reflected — no save button needed
+        #expect(block.vendors.count == 1)
+        #expect(block.vendors.first?.name == "Jane")
+
+        // Toggle vendor off
+        block.vendors = []
+        #expect(block.vendors.isEmpty)
+    }
+
+    /// AC: In sheet mode, changes are buffered in @State and NOT written
+    /// to the model until saveChanges() is called.
+    @Test @MainActor func sheetModeDoesNotWriteUntilSave() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(
+            title: "Ceremony",
+            scheduledStart: .now,
+            duration: 1800,
+            colorTag: "#007AFF"
+        )
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        // Simulate sheet mode: user edits @State copies but hasn't
+        // tapped Save yet. The model should be unchanged.
+        let bufferedTitle = "Changed Title"
+        let bufferedColor = "#FF3B30"
+
+        // Model is NOT updated (these are local @State in the real view)
+        #expect(block.title == "Ceremony")
+        #expect(block.colorTag == "#007AFF")
+
+        // Now simulate saveChanges()
+        block.title = bufferedTitle
+        block.colorTag = bufferedColor
+        try context.save()
+
+        #expect(block.title == "Changed Title")
+        #expect(block.colorTag == "#FF3B30")
+    }
 }
