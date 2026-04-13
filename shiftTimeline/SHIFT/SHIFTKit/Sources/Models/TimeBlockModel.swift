@@ -21,6 +21,12 @@ public final class TimeBlockModel {
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
     public var shiftRecords: [ShiftRecord] = []
 
+    @Relationship(deleteRule: .nullify)
+    public var vendors: [VendorModel] = []
+
+    @Relationship(deleteRule: .nullify)
+    public var dependencies: [TimeBlockModel] = []
+
     public init(
         id: UUID = UUID(),
         title: String,
