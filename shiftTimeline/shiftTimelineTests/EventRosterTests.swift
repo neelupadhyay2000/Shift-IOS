@@ -129,4 +129,82 @@ struct EventRosterTests {
         #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).count == 0)
         #expect(try context.fetch(FetchDescriptor<VendorModel>()).count == 0)
     }
+
+    // MARK: - Default Track Auto-Creation
+
+    /// AC: Creating an event auto-creates a "Main" track.
+    @Test @MainActor func creatingEventAutoCreatesMainTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        // Simulate CreateEventSheet.createEvent()
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+        #expect(event.tracks.first?.name == "Main")
+        #expect(event.tracks.first?.sortOrder == 0)
+
+        // Verify the track is persisted
+        let tracks = try context.fetch(FetchDescriptor<TimelineTrack>())
+        #expect(tracks.count == 1)
+        #expect(tracks.first?.event?.id == event.id)
+    }
+
+    /// AC: Blocks added without specifying a track go to "Main".
+    @Test @MainActor func blockWithoutExplicitTrackGoesToMain() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        // Create event with auto-created Main track
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+        try context.save()
+
+        // Simulate CreateBlockSheet.saveBlock() — uses event.tracks.first
+        let track = event.tracks.first!
+        let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        // Block should be in the Main track
+        #expect(block.track?.name == "Main")
+        #expect(mainTrack.blocks.count == 1)
+        #expect(mainTrack.blocks.first?.title == "Ceremony")
+    }
+
+    /// AC: Cascade delete removes the auto-created Main track and its blocks.
+    @Test @MainActor func deleteEventCascadesAutoCreatedMainTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        block.track = mainTrack
+        context.insert(block)
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).count == 1)
+        #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).count == 1)
+
+        context.delete(event)
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<EventModel>()).count == 0)
+        #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).count == 0)
+        #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).count == 0)
+    }
 }

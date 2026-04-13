@@ -26,24 +26,30 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .none
         )
 
-        do {
+        do {    
             container = try ModelContainer(for: schema, configurations: [config])
         } catch {
-            // During development, delete the stale store and retry
-            let url = config.url
-            let relatedFiles = [
-                url,
-                url.deletingPathExtension().appendingPathExtension("store-shm"),
-                url.deletingPathExtension().appendingPathExtension("store-wal"),
-            ]
-            for file in relatedFiles {
-                try? FileManager.default.removeItem(at: file)
-            }
+            // During development, schema changes (added/removed relationships,
+            // new properties, etc.) can cause migration failures — including
+            // abort-level crashes that Swift's catch can't intercept.
+            // Delete the store and retry with a fresh database.
+            Self.deleteStoreFiles(at: config.url)
             do {
                 container = try ModelContainer(for: schema, configurations: [config])
             } catch {
                 fatalError("Could not create ModelContainer after store reset: \(error)")
             }
+        }
+    }
+
+    private static func deleteStoreFiles(at url: URL) {
+        let relatedFiles = [
+            url,
+            url.deletingPathExtension().appendingPathExtension("store-shm"),
+            url.deletingPathExtension().appendingPathExtension("store-wal"),
+        ]
+        for file in relatedFiles {
+            try? FileManager.default.removeItem(at: file)
         }
     }
 

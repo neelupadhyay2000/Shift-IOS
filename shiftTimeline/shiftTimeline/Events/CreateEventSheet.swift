@@ -60,6 +60,12 @@ struct CreateEventSheet: View {
             venueNames: venueNames
         )
         modelContext.insert(event)
+
+        // Auto-create the default "Main" track so blocks have
+        // a home immediately — no lazy fallback needed.
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        modelContext.insert(mainTrack)
+
         dismiss()
     }
 }
