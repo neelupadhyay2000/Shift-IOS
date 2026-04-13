@@ -32,16 +32,18 @@ public struct CollisionDetector: Sendable {
     /// - Returns: One ``Collision`` per (Fluid, Pinned) overlapping pair,
     ///   sorted in the order the Fluid blocks appear in the timeline.
     public func detect(blocks: [TimeBlockModel]) -> [Collision] {
-        // Primary sort: scheduledStart ascending.
-        // Tie-breaker: Fluid (isPinned == false) before Pinned for equal start
-        // times, so a Pinned block that shares a start with a Fluid block is
-        // always visited after it and is never skipped by the inner loop.
         let sorted = blocks.sorted {
             if $0.scheduledStart != $1.scheduledStart {
                 return $0.scheduledStart < $1.scheduledStart
             }
-            return !$0.isPinned && $1.isPinned  // Fluid before Pinned on tie
+            return !$0.isPinned && $1.isPinned
         }
+        return detect(sortedBlocks: sorted)
+    }
+
+    /// Pre-sorted variant — avoids an O(n log n) sort when the caller has
+    /// already sorted blocks by `scheduledStart` (Fluid before Pinned on tie).
+    public func detect(sortedBlocks sorted: [TimeBlockModel]) -> [Collision] {
         var collisions: [Collision] = []
         var collidingFluidIDs = Set<UUID>()
 
