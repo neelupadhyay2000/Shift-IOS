@@ -1,0 +1,56 @@
+{
+    "id": "C3D4E5F6-A7B8-9012-CDEF-123456789012",
+    "name": "Birthday Party",
+    "description": "A casual birthday celebration with food, activities, and cake.",
+    "category": "social",
+    "blocks": [
+        {
+            "title": "Guest Arrival",
+            "relativeStartOffset": 0,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#007AFF",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Activities & Games",
+            "relativeStartOffset": 1800,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "star.fill"
+        },
+        {
+            "title": "Food & Drinks",
+            "relativeStartOffset": 5400,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "fork.knife"
+        },
+        {
+            "title": "Cake & Candles",
+            "relativeStartOffset": 8100,
+            "duration": 1800,
+            "isPinned": true,
+            "colorTag": "#FF2D55",
+            "icon": "gift.fill"
+        },
+        {
+            "title": "Gift Opening",
+            "relativeStartOffset": 9900,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "gift.fill"
+        },
+        {
+            "title": "Farewell",
+            "relativeStartOffset": 11700,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "car.fill"
+        }
+    ]
+}

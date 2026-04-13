@@ -1,0 +1,64 @@
+{
+    "id": "B2C3D4E5-F6A7-8901-BCDE-F12345678901",
+    "name": "Corporate Conference",
+    "description": "A full-day corporate conference with keynotes, breakouts, and networking.",
+    "category": "corporate",
+    "blocks": [
+        {
+            "title": "Registration & Coffee",
+            "relativeStartOffset": 0,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Opening Keynote",
+            "relativeStartOffset": 3600,
+            "duration": 5400,
+            "isPinned": true,
+            "colorTag": "#007AFF",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Breakout Session A",
+            "relativeStartOffset": 9000,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Lunch",
+            "relativeStartOffset": 12600,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "fork.knife"
+        },
+        {
+            "title": "Breakout Session B",
+            "relativeStartOffset": 16200,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Closing Keynote",
+            "relativeStartOffset": 19800,
+            "duration": 3600,
+            "isPinned": true,
+            "colorTag": "#FF3B30",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Networking Reception",
+            "relativeStartOffset": 23400,
+            "duration": 5400,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "star.fill"
+        }
+    ]
+}

@@ -1,0 +1,60 @@
+import Foundation
+import Models
+
+/// Loads bundled Template JSON files from a given bundle.
+public struct TemplateLoader: Sendable {
+
+    public init() {}
+
+    /// Loads all templates from JSON files matching the given resource names in the bundle.
+    /// - Parameters:
+    ///   - resourceNames: JSON file names without extension. Pass `nil` to load all `.json` files in the "Templates" directory.
+    ///   - bundle: The bundle containing the JSON resources.
+    /// - Returns: An array of decoded `Template` values.
+    public func loadAll(from bundle: Bundle = .main) throws -> [Template] {
+        guard let urls = bundle.urls(forResourcesWithExtension: "json", subdirectory: "Templates") else {
+            return []
+        }
+        let decoder = JSONDecoder()
+        return try urls.map { url in
+            let data = try Data(contentsOf: url)
+            return try decoder.decode(Template.self, from: data)
+        }
+    }
+
+    /// Loads a single template from a named JSON resource.
+    public func load(named resourceName: String, from bundle: Bundle = .main) throws -> Template {
+        guard let url = bundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Templates") else {
+            throw TemplateLoaderError.resourceNotFound(resourceName)
+        }
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(Template.self, from: data)
+    }
+
+    /// Loads all templates from a directory on disk.
+    public func loadAll(from directory: URL) throws -> [Template] {
+        let contents = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        ).filter { $0.pathExtension == "json" }
+        let decoder = JSONDecoder()
+        return try contents.map { url in
+            let data = try Data(contentsOf: url)
+            return try decoder.decode(Template.self, from: data)
+        }
+    }
+
+    /// Loads a single template from a named JSON file in a directory on disk.
+    public func load(named resourceName: String, from directory: URL) throws -> Template {
+        let url = directory.appendingPathComponent("\(resourceName).json")
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw TemplateLoaderError.resourceNotFound(resourceName)
+        }
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(Template.self, from: data)
+    }
+}
+
+public enum TemplateLoaderError: Error, Sendable {
+    case resourceNotFound(String)
+}
