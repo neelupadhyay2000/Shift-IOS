@@ -64,7 +64,7 @@ struct TimeBlockRowView: View {
     }
 
     private var formattedDuration: String {
-        let minutes = Int(duration) / 60
+        let minutes = Int((duration / 60).rounded())
         if minutes >= 60 {
             let h = minutes / 60
             let m = minutes % 60
