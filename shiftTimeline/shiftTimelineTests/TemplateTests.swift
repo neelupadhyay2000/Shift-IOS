@@ -2,6 +2,7 @@ import Foundation
 import Models
 import Services
 import Testing
+@testable import shiftTimeline
 
 struct TemplateTests {
 
@@ -266,5 +267,48 @@ struct TemplateTests {
                         "Block '\(block.title)' in '\(template.name)' has invalid colorTag: \(block.colorTag)")
             }
         }
+    }
+
+    // MARK: - Category Display Helpers
+
+    @Test func categoryDisplayNamesAreNonEmpty() {
+        for category in TemplateCategory.allCases {
+            #expect(!category.displayName.isEmpty)
+        }
+    }
+
+    @Test func categoryDisplayNameValues() {
+        #expect(TemplateCategory.wedding.displayName == "Wedding")
+        #expect(TemplateCategory.corporate.displayName == "Corporate")
+        #expect(TemplateCategory.social.displayName == "Social")
+        #expect(TemplateCategory.photography.displayName == "Photography")
+    }
+
+    // MARK: - Browser Loading
+
+    @Test func allTemplatesHaveNonEmptyNameAndDescription() throws {
+        let loader = TemplateLoader()
+        let templates = try loader.loadAll(from: Self.templatesDirectory)
+
+        for template in templates {
+            #expect(!template.name.isEmpty, "Template has empty name")
+            #expect(!template.description.isEmpty, "Template '\(template.name)' has empty description")
+            #expect(!template.blocks.isEmpty, "Template '\(template.name)' has no blocks")
+        }
+    }
+
+    @Test func allTemplatesHaveUniqueIDs() throws {
+        let loader = TemplateLoader()
+        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let ids = templates.map(\.id)
+        #expect(Set(ids).count == ids.count)
+    }
+
+    @Test func templatesSortByNameProducesAlphabeticOrder() throws {
+        let loader = TemplateLoader()
+        let templates = try loader.loadAll(from: Self.templatesDirectory)
+            .sorted { $0.name < $1.name }
+        let names = templates.map(\.name)
+        #expect(names == names.sorted())
     }
 }
