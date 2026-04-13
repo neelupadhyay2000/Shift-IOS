@@ -12,10 +12,6 @@ public final class VendorModel {
     public var hasAcknowledgedLatestShift: Bool
     public var event: EventModel?
 
-    /// Blocks this vendor is assigned to (inverse of TimeBlockModel.vendors).
-    @Relationship(deleteRule: .nullify, inverse: \TimeBlockModel.vendors)
-    public var blocks: [TimeBlockModel] = []
-
     public init(
         id: UUID = UUID(),
         name: String,

@@ -78,16 +78,15 @@ struct EventDetailView: View {
 
             Section(String(localized: "Summary")) {
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
-                    let blockCount = event.tracks.flatMap(\.blocks).count
                     LabeledContent(String(localized: "Timeline")) {
-                        Text(blockCount, format: .number) + Text(" ") + Text(String(localized: "blocks"))
+                        Text("\(event.tracks.flatMap(\.blocks).count) blocks")
                     }
                 }
                 LabeledContent(String(localized: "Tracks")) {
-                    Text(event.tracks.count, format: .number)
+                    Text("\(event.tracks.count)")
                 }
                 LabeledContent(String(localized: "Vendors")) {
-                    Text(event.vendors.count, format: .number)
+                    Text("\(event.vendors.count)")
                 }
             }
         }

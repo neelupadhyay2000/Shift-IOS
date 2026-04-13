@@ -24,12 +24,8 @@ public final class TimeBlockModel {
     @Relationship(deleteRule: .nullify)
     public var vendors: [VendorModel] = []
 
-    @Relationship(deleteRule: .nullify, inverse: \TimeBlockModel.dependents)
-    public var dependencies: [TimeBlockModel] = []
-
-    /// Blocks that depend on this block (inverse of dependencies).
     @Relationship(deleteRule: .nullify)
-    public var dependents: [TimeBlockModel] = []
+    public var dependencies: [TimeBlockModel] = []
 
     public init(
         id: UUID = UUID(),
