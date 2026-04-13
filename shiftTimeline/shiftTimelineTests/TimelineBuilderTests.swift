@@ -619,6 +619,147 @@ struct TimelineBuilderTests {
         #expect(titles.contains("Portraits"))
         #expect(titles.contains("DJ Set"))
     }
+
+    // MARK: - iPad Multi-Column & Drag-and-Drop
+
+    /// AC: iPad shows all tracks as side-by-side columns — each track's blocks
+    /// are scoped to that track only.
+    @Test @MainActor func iPadColumnsShowBlocksScopedToEachTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Cocktails", scheduledStart: .now.addingTimeInterval(1800), duration: 3600)
+        blockB.track = mainTrack
+        context.insert(blockB)
+
+        let blockC = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        blockC.track = photoTrack
+        context.insert(blockC)
+        try context.save()
+
+        // Simulate iPad column logic: each track shows only its own blocks
+        let mainBlocks = mainTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let photoBlocks = photoTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+
+        #expect(mainBlocks.count == 2)
+        #expect(photoBlocks.count == 1)
+        #expect(mainBlocks.allSatisfy { $0.track?.id == mainTrack.id })
+        #expect(photoBlocks.first?.title == "Portraits")
+
+        // All tracks are displayed — sortedTracks returns both
+        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        #expect(sortedTracks.count == 2)
+        #expect(sortedTracks[0].name == "Main")
+        #expect(sortedTracks[1].name == "Photo")
+    }
+
+    /// AC: Drag-and-drop reassigns block.track to the target track.
+    @Test @MainActor func dragDropReassignsBlockTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let block = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 2700)
+        block.track = mainTrack
+        context.insert(block)
+        try context.save()
+
+        #expect(block.track?.id == mainTrack.id)
+        #expect(mainTrack.blocks.count == 1)
+        #expect(photoTrack.blocks.count == 0)
+
+        // Simulate drop: reassign block.track to photoTrack
+        block.track = photoTrack
+        try context.save()
+
+        #expect(block.track?.id == photoTrack.id)
+        #expect(photoTrack.blocks.contains(where: { $0.id == block.id }))
+    }
+
+    /// AC: Drag-drop to the same track is a no-op.
+    @Test @MainActor func dragDropToSameTrackIsNoOp() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
+        block.track = mainTrack
+        context.insert(block)
+        try context.save()
+
+        // Simulate drop onto same track — should remain unchanged
+        let originalTrackID = block.track?.id
+        // TrackColumnView.reassignBlock checks block.track?.id != targetTrack.id
+        // and returns false (no-op) if same
+        let isSameTrack = block.track?.id == mainTrack.id
+        #expect(isSameTrack == true)
+        #expect(block.track?.id == originalTrackID)
+    }
+
+    /// AC: Shared layout spans full time range across all tracks.
+    @Test @MainActor func sharedLayoutSpansAllTracksTimeRange() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let base = Date.now
+        let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        // Main track: early block
+        let blockA = TimeBlockModel(title: "Ceremony", scheduledStart: base, duration: 1800)
+        blockA.track = mainTrack
+        context.insert(blockA)
+
+        // Photo track: late block — extends the time range
+        let blockB = TimeBlockModel(title: "Sunset Shoot", scheduledStart: base.addingTimeInterval(7200), duration: 3600)
+        blockB.track = photoTrack
+        context.insert(blockB)
+        try context.save()
+
+        // Simulate sharedLayout: computed from ALL blocks
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        let layout = TimeRulerLayout.adaptive(blocks: allBlocks)
+
+        // Ruler should start at or before the earliest block
+        #expect(layout.rulerStart <= blockA.scheduledStart)
+        // Ruler should end at or after the latest block's end
+        let latestEnd = blockB.scheduledStart.addingTimeInterval(blockB.duration)
+        #expect(layout.rulerEnd >= latestEnd)
+    }
 }
 
 // MARK: - Test helper

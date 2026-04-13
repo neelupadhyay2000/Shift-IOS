@@ -80,16 +80,26 @@ struct TimelineBuilderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Track tab bar — only show when multiple tracks exist
-            if sortedTracks.count > 1 {
+            // iPhone compact: show track tab bar when multiple tracks
+            if sizeClass == .compact && sortedTracks.count > 1 {
                 TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
             }
 
             Group {
-                if filteredBlocks.isEmpty {
-                    emptyState
+                if sizeClass == .compact {
+                    // iPhone: single-track filtered view
+                    if filteredBlocks.isEmpty {
+                        emptyState
+                    } else {
+                        timelineContent
+                    }
                 } else {
-                    timelineContent
+                    // iPad: side-by-side multi-column view
+                    if sortedBlocks.isEmpty {
+                        emptyState
+                    } else {
+                        iPadMultiColumnContent
+                    }
                 }
             }
         }
@@ -184,11 +194,18 @@ struct TimelineBuilderView: View {
 
     // MARK: - Timeline Content
 
+    /// Layout computed from the currently visible (filtered) blocks — used by iPhone.
     private var layout: TimeRulerLayout {
         .adaptive(blocks: filteredBlocks)
     }
 
+    /// Layout computed from ALL blocks across ALL tracks — used by iPad
+    /// so the shared ruler spans the full time range.
+    private var sharedLayout: TimeRulerLayout {
+        .adaptive(blocks: sortedBlocks)
+    }
 
+    /// iPhone: single-track timeline with filter tabs.
     private var timelineContent: some View {
         ScrollView {
             let currentLayout = layout
@@ -216,7 +233,41 @@ struct TimelineBuilderView: View {
         .background(Color(.systemGroupedBackground))
     }
 
-    // MARK: - Block Card
+    /// iPad: multi-column layout with shared time ruler and side-by-side track columns.
+    private var iPadMultiColumnContent: some View {
+        ScrollView {
+            let currentLayout = sharedLayout
+
+            HStack(alignment: .top, spacing: 0) {
+                // — Left: Shared time ruler spanning the full time range
+                TimeRulerView(layout: currentLayout)
+
+                // — Right: Side-by-side track columns
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(sortedTracks) { track in
+                        TrackColumnView(
+                            track: track,
+                            layout: currentLayout,
+                            onTapBlock: { block in blockToInspect = block },
+                            onDeleteBlock: { block in
+                                if block.isPinned {
+                                    blockPendingDeletion = block
+                                } else {
+                                    deleteBlock(block)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+            .padding(.trailing, 16)
+        }
+        .scrollIndicators(.hidden)
+        .background(Color(.systemGroupedBackground))
+    }
+
 
     private func blockCard(
         _ block: TimeBlockModel,
