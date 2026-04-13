@@ -98,7 +98,8 @@ struct TimelineBuilderView: View {
                             scheduledStart: block.scheduledStart,
                             duration: block.duration,
                             isPinned: block.isPinned,
-                            colorTag: block.colorTag
+                            colorTag: block.colorTag,
+                            icon: block.icon
                         )
                         .frame(height: height)
                         .background(Color(.secondarySystemGroupedBackground))

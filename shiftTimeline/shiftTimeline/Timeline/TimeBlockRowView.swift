@@ -10,6 +10,7 @@ struct TimeBlockRowView: View {
     let duration: TimeInterval
     let isPinned: Bool
     let colorTag: String
+    let icon: String
 
     private var accentColor: Color {
         isPinned ? .red : .blue
@@ -24,9 +25,10 @@ struct TimeBlockRowView: View {
                 .padding(.vertical, 2)
 
             HStack(spacing: 12) {
-                Circle()
-                    .fill(Color(hex: colorTag))
-                    .frame(width: 12, height: 12)
+                Image(systemName: icon)
+                    .font(.caption)
+                    .foregroundStyle(Color(hex: colorTag))
+                    .frame(width: 20, height: 20)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)

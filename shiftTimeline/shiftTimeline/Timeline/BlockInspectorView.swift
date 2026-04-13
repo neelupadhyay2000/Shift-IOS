@@ -149,12 +149,35 @@ struct BlockInspectorView: View {
             }
             .padding(.vertical, 4)
 
-            Picker(String(localized: "Icon"), selection: $icon) {
-                ForEach(Self.iconOptions, id: \.systemImage) { option in
-                    Label(option.label, systemImage: option.systemImage)
-                        .tag(option.systemImage)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(String(localized: "Icon"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                    ForEach(Self.iconOptions, id: \.systemImage) { option in
+                        Image(systemName: option.systemImage)
+                            .font(.title3)
+                            .frame(width: 40, height: 40)
+                            .background(
+                                icon == option.systemImage
+                                    ? Color.accentColor.opacity(0.2)
+                                    : Color.clear
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay {
+                                if icon == option.systemImage {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                                }
+                            }
+                            .accessibilityLabel(option.label)
+                            .onTapGesture {
+                                icon = option.systemImage
+                            }
+                    }
                 }
             }
+            .padding(.vertical, 4)
         }
     }
 
@@ -273,6 +296,10 @@ struct BlockInspectorView: View {
         ("Speech", "speech", "mic.fill"),
         ("Travel", "travel", "car.fill"),
         ("Setup", "setup", "wrench.fill"),
+        ("People", "people", "person.2.fill"),
+        ("Sun", "sun", "sun.max.fill"),
+        ("Star", "star", "star.fill"),
+        ("Gift", "gift", "gift.fill"),
         ("Custom", "custom", "circle.fill"),
     ]
 }

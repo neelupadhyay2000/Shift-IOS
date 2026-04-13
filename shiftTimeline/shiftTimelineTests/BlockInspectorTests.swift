@@ -261,6 +261,44 @@ struct BlockInspectorTests {
         #expect(block.colorTag == "#007AFF")
     }
 
+    // MARK: - Icon
+
+    @Test @MainActor func iconUpdatePersists() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+
+        let block = TimeBlockModel(
+            title: "Ceremony",
+            scheduledStart: .now,
+            duration: 1800,
+            icon: "circle.fill"
+        )
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        #expect(block.icon == "circle.fill")
+
+        // Simulate tapping a different icon in the grid
+        block.icon = "heart.fill"
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+        #expect(result.icon == "heart.fill")
+    }
+
+    @Test func iconDefaultsToCircleFill() {
+        let block = TimeBlockModel(title: "Test", scheduledStart: .now, duration: 600)
+        #expect(block.icon == "circle.fill")
+    }
+
     // MARK: - Full Inspector Save Flow
 
     @Test @MainActor func fullInspectorSaveFlowPersistsAllFields() async throws {
