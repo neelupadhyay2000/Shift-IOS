@@ -1,8 +1,11 @@
 import Foundation
+import os
 import SwiftData
 import Models
 
 public final class PersistenceController: Sendable {
+
+    private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")
 
     public static let shared = PersistenceController()
 
@@ -26,16 +29,15 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .none
         )
 
-        do {    
+        do {
             container = try ModelContainer(for: schema, configurations: [config])
+            Self.logger.info("ModelContainer created successfully")
         } catch {
-            // During development, schema changes (added/removed relationships,
-            // new properties, etc.) can cause migration failures — including
-            // abort-level crashes that Swift's catch can't intercept.
-            // Delete the store and retry with a fresh database.
+            Self.logger.error("ModelContainer failed: \(error.localizedDescription) — deleting store and retrying")
             Self.deleteStoreFiles(at: config.url)
             do {
                 container = try ModelContainer(for: schema, configurations: [config])
+                Self.logger.info("ModelContainer created after store reset")
             } catch {
                 fatalError("Could not create ModelContainer after store reset: \(error)")
             }
