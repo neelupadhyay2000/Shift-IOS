@@ -107,7 +107,7 @@ public struct ShiftPreview: Sendable {
         status: RippleStatus,
         diffs: [UUID: TimeInterval]
     ) {
-        self.previewBlocks = previewBlocks
+        self.previewBlocks = previewBlocks.sorted { $0.scheduledStart < $1.scheduledStart }
         self.collisions = collisions
         self.compressedBlockIDs = compressedBlockIDs
         self.status = status

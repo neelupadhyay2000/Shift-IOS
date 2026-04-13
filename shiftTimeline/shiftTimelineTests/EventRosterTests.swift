@@ -141,13 +141,14 @@ struct EventRosterTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
         try context.save()
 
         #expect(event.tracks.count == 1)
         #expect(event.tracks.first?.name == "Main")
         #expect(event.tracks.first?.sortOrder == 0)
+        #expect(event.tracks.first?.isDefault == true)
 
         // Verify the track is persisted
         let tracks = try context.fetch(FetchDescriptor<TimelineTrack>())
@@ -164,7 +165,7 @@ struct EventRosterTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
         try context.save()
 
@@ -189,7 +190,7 @@ struct EventRosterTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)

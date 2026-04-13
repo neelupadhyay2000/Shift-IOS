@@ -64,9 +64,10 @@ struct TimelineBuilderView: View {
         event?.tracks.sorted { $0.sortOrder < $1.sortOrder } ?? []
     }
 
-    /// The default "Main" track — always exists after event creation.
-    private var mainTrack: TimelineTrack? {
-        sortedTracks.first { $0.name == "Main" }
+    /// The default track — identified by the stable `isDefault` flag,
+    /// not by name. Cannot be renamed or deleted.
+    private var defaultTrack: TimelineTrack? {
+        sortedTracks.first { $0.isDefault }
     }
 
     /// Blocks filtered by the selected track tab.
@@ -107,7 +108,7 @@ struct TimelineBuilderView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar { toolbarItems }
         .sheet(isPresented: $isShowingCreateSheet) {
-            CreateBlockSheet(eventID: eventID)
+            CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding) { block in
@@ -186,7 +187,7 @@ struct TimelineBuilderView: View {
         }
         .onAppear {
             // Default to Main track on first appearance
-            if selectedTrackID == nil, let main = mainTrack {
+            if selectedTrackID == nil, let main = defaultTrack {
                 selectedTrackID = main.id
             }
         }
@@ -345,14 +346,15 @@ struct TimelineBuilderView: View {
                     Divider()
                     ForEach(sortedTracks) { track in
                         Menu(track.name) {
-                            Button {
-                                renameText = track.name
-                                trackToRename = track
-                            } label: {
-                                Label(String(localized: "Rename"), systemImage: "pencil")
-                            }
+                            // Default track cannot be renamed or deleted
+                            if !track.isDefault {
+                                Button {
+                                    renameText = track.name
+                                    trackToRename = track
+                                } label: {
+                                    Label(String(localized: "Rename"), systemImage: "pencil")
+                                }
 
-                            if track.name != "Main" {
                                 Button(role: .destructive) {
                                     trackToDelete = track
                                 } label: {
@@ -360,6 +362,8 @@ struct TimelineBuilderView: View {
                                 }
                             }
                         }
+                        // Don't show a submenu at all for the default track
+                        // if it has no actions — but keep it listed for visibility
                     }
                 }
             } label: {
@@ -402,18 +406,18 @@ struct TimelineBuilderView: View {
     }
 
     private func deleteTrack() {
-        guard let track = trackToDelete, track.name != "Main" else {
+        guard let track = trackToDelete, !track.isDefault else {
             trackToDelete = nil
             return
         }
 
-        // If deleting the currently selected track, switch to Main
+        // If deleting the currently selected track, switch to default
         if selectedTrackID == track.id {
-            selectedTrackID = mainTrack?.id
+            selectedTrackID = defaultTrack?.id
         }
 
-        // Move blocks to Main before deleting
-        if !track.blocks.isEmpty, let main = mainTrack {
+        // Move blocks to default track before deleting
+        if !track.blocks.isEmpty, let main = defaultTrack {
             for block in track.blocks {
                 block.track = main
             }
@@ -482,7 +486,7 @@ private func previewTimelineContainer() -> ModelContainer {
     )
     context.insert(event)
 
-    let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+    let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
     context.insert(track)
 
     let blocks: [(String, TimeInterval, TimeInterval, Bool, String, String)] = [

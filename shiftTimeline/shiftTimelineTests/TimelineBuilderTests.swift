@@ -16,7 +16,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let block1 = TimeBlockModel(title: "Dinner", scheduledStart: base.addingTimeInterval(3600), duration: 5400, isPinned: true, colorTag: "#34C759")
@@ -75,7 +75,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         // Existing blocks
@@ -114,7 +114,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let block = TimeBlockModel(
@@ -227,7 +227,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(track)
 
         let a = TimeBlockModel(title: "A", scheduledStart: base, duration: 1800)
@@ -353,7 +353,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
         try context.save()
 
@@ -403,7 +403,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let emptyTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
@@ -428,7 +428,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
@@ -469,26 +469,25 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
         context.insert(photoTrack)
         try context.save()
 
-        // Simulate deleteTrack() guard — Main is protected
+        // Simulate deleteTrack() guard — default track is protected
         let trackToDelete = mainTrack
-        let isMainTrack = trackToDelete.name == "Main"
-        #expect(isMainTrack == true)
+        #expect(trackToDelete.isDefault == true)
 
-        // The guard prevents deletion — Main stays
-        if trackToDelete.name != "Main" {
+        // The guard prevents deletion — default track stays
+        if !trackToDelete.isDefault {
             context.delete(trackToDelete)
         }
         try context.save()
 
         #expect(event.tracks.count == 2)
-        #expect(event.tracks.contains(where: { $0.name == "Main" }))
+        #expect(event.tracks.contains(where: { $0.isDefault }))
     }
 
     // MARK: - Track Tab Bar Filtering
@@ -501,7 +500,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
@@ -547,7 +546,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let musicTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
@@ -583,7 +582,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
@@ -631,7 +630,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
@@ -674,7 +673,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
@@ -705,7 +704,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
@@ -731,7 +730,7 @@ struct TimelineBuilderTests {
         let event = EventModel(title: "Wedding", date: base, latitude: 0, longitude: 0)
         context.insert(event)
 
-        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         context.insert(mainTrack)
 
         let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)

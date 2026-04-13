@@ -1,12 +1,10 @@
-
 import SwiftUI
 import Models
 
 /// Horizontal scrollable tab bar for switching between timeline tracks.
 ///
 /// Shows one pill per track, plus an "All" option. The active tab is
-/// visually highlighted with a filled background. Scrolls automatically
-/// to keep the selected tab visible.
+/// visually highlighted with a filled background.
 struct TrackTabBar: View {
 
     let tracks: [TimelineTrack]

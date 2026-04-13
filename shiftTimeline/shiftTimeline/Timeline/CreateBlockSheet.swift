@@ -12,6 +12,8 @@ struct CreateBlockSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let eventID: UUID
+    /// Track to assign the new block to. When nil, falls back to the default track.
+    var trackID: UUID? = nil
 
     @State private var title = ""
     @State private var startTime = Date.now
@@ -84,7 +86,16 @@ struct CreateBlockSheet: View {
         guard let event = fetchEvent() else { return }
 
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        let track = event.tracks.first ?? createTrack(for: event)
+
+        // Prefer the explicitly selected track, then the default track, then first available
+        let track: TimelineTrack
+        if let trackID, let selected = event.tracks.first(where: { $0.id == trackID }) {
+            track = selected
+        } else if let defaultTrack = event.tracks.first(where: { $0.isDefault }) {
+            track = defaultTrack
+        } else {
+            track = event.tracks.first ?? createTrack(for: event)
+        }
 
         let block = TimeBlockModel(
             title: trimmedTitle,
@@ -98,7 +109,7 @@ struct CreateBlockSheet: View {
     }
 
     private func createTrack(for event: EventModel) -> TimelineTrack {
-        let track = TimelineTrack(name: "Main", sortOrder: 0)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true)
         track.event = event
         modelContext.insert(track)
         return track
