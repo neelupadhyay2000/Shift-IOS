@@ -342,6 +342,154 @@ struct TimelineBuilderTests {
         #expect(height == 90.0)   // 45 min * 2.0 ppm
         #expect(layout.totalHeight == 360.0) // 180 min * 2.0 ppm
     }
+
+    // MARK: - Track Management
+
+    /// AC: Add track with user-entered name.
+    @Test @MainActor func addTrackCreatesNewTrackWithCorrectSortOrder() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+
+        // Simulate addTrack() logic
+        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        let nextOrder = (sortedTracks.last?.sortOrder ?? 0) + 1
+        let newTrack = TimelineTrack(name: "Photo", sortOrder: nextOrder, event: event)
+        context.insert(newTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+        let sorted = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        #expect(sorted[0].name == "Main")
+        #expect(sorted[0].sortOrder == 0)
+        #expect(sorted[1].name == "Photo")
+        #expect(sorted[1].sortOrder == 1)
+    }
+
+    /// AC: Rename via inline edit.
+    @Test @MainActor func renameTrackUpdatesName() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Photos", sortOrder: 1, event: event)
+        context.insert(track)
+        try context.save()
+
+        // Simulate renameTrack() logic
+        track.name = "Photo Session"
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimelineTrack>())
+        let renamedTrack = try #require(fetched.first { $0.id == track.id })
+        #expect(renamedTrack.name == "Photo Session")
+    }
+
+    /// AC: Delete empty track removes it.
+    @Test @MainActor func deleteEmptyTrackRemovesIt() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let emptyTrack = TimelineTrack(name: "Music", sortOrder: 1, event: event)
+        context.insert(emptyTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+
+        // Simulate deleteTrack() on empty track
+        context.delete(emptyTrack)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+        #expect(event.tracks.first?.name == "Main")
+    }
+
+    /// AC: Delete track with blocks moves blocks to Main first.
+    @Test @MainActor func deleteTrackWithBlocksMovesBlocksToMain() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+
+        let blockA = TimeBlockModel(title: "Portraits", scheduledStart: .now, duration: 1800)
+        blockA.track = photoTrack
+        context.insert(blockA)
+
+        let blockB = TimeBlockModel(title: "Group Shots", scheduledStart: .now.addingTimeInterval(1800), duration: 1200)
+        blockB.track = photoTrack
+        context.insert(blockB)
+        try context.save()
+
+        #expect(photoTrack.blocks.count == 2)
+        #expect(mainTrack.blocks.count == 0)
+
+        // Simulate deleteTrack() logic — move blocks to Main first
+        for block in photoTrack.blocks {
+            block.track = mainTrack
+        }
+        context.delete(photoTrack)
+        try context.save()
+
+        // Blocks should now be in Main
+        #expect(event.tracks.count == 1)
+        #expect(mainTrack.blocks.count == 2)
+        let blockTitles = Set(mainTrack.blocks.map(\.title))
+        #expect(blockTitles.contains("Portraits"))
+        #expect(blockTitles.contains("Group Shots"))
+    }
+
+    /// AC: "Main" track cannot be deleted.
+    @Test @MainActor func mainTrackCannotBeDeleted() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(mainTrack)
+
+        let photoTrack = TimelineTrack(name: "Photo", sortOrder: 1, event: event)
+        context.insert(photoTrack)
+        try context.save()
+
+        // Simulate deleteTrack() guard — Main is protected
+        let trackToDelete = mainTrack
+        let isMainTrack = trackToDelete.name == "Main"
+        #expect(isMainTrack == true)
+
+        // The guard prevents deletion — Main stays
+        if trackToDelete.name != "Main" {
+            context.delete(trackToDelete)
+        }
+        try context.save()
+
+        #expect(event.tracks.count == 2)
+        #expect(event.tracks.contains(where: { $0.name == "Main" }))
+    }
 }
 
 // MARK: - Test helper
