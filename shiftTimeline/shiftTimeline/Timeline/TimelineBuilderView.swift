@@ -60,7 +60,7 @@ struct TimelineBuilderView: View {
             CreateBlockSheet(eventID: eventID)
         }
         .sheet(item: $blockToInspect) { block in
-            BlockInspectorView(block: block)
+            BlockInspectorView(block: block, eventID: eventID)
                 .presentationDetents([.medium, .large])
         }
         .onChange(of: sortedBlocks.map { "\($0.id)-\($0.scheduledStart.timeIntervalSinceReferenceDate)" }) {
