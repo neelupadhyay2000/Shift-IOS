@@ -1,14 +1,20 @@
 import SwiftUI
+import SwiftData
 import Models
 import Services
 
 /// Full preview of a template showing all blocks in a scrollable list.
+/// The "Use This Template" button creates a new event with pre-populated blocks.
 struct TemplatePreviewView: View {
 
     let templateID: UUID
+    @Binding var templatePath: [TemplateDestination]
+
+    @Environment(\.modelContext) private var modelContext
 
     @State private var template: Template?
     @State private var loadError: String?
+    @State private var isShowingCreateSheet = false
 
     var body: some View {
         Group {
@@ -28,6 +34,13 @@ struct TemplatePreviewView: View {
         .navigationBarTitleDisplayMode(.large)
         .task {
             loadTemplate()
+        }
+        .sheet(isPresented: $isShowingCreateSheet) {
+            if let template {
+                UseTemplateSheet(template: template) { eventID in
+                    templatePath.append(.timelineBuilder(eventID: eventID))
+                }
+            }
         }
     }
 
@@ -52,6 +65,15 @@ struct TemplatePreviewView: View {
                         .clipShape(Capsule())
                 }
                 .font(.subheadline)
+
+                Button {
+                    isShowingCreateSheet = true
+                } label: {
+                    Label(String(localized: "Use This Template"), systemImage: "plus.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             }
 
             Section(String(localized: "Blocks")) {
@@ -65,14 +87,7 @@ struct TemplatePreviewView: View {
     private func loadTemplate() {
         do {
             let loader = TemplateLoader()
-            let directory = URL(fileURLWithPath: Bundle.main.bundlePath)
-                .appendingPathComponent("Templates")
-            let allTemplates: [Template]
-            if FileManager.default.fileExists(atPath: directory.path) {
-                allTemplates = try loader.loadAll(from: directory)
-            } else {
-                allTemplates = try loader.loadAll(from: .main)
-            }
+            let allTemplates = try loader.loadAll(from: .main)
             template = allTemplates.first { $0.id == templateID }
             if template == nil {
                 loadError = String(localized: "Template not found.")
@@ -90,6 +105,113 @@ struct TemplatePreviewView: View {
             return "\(hours)h \(minutes)m"
         }
         return "\(hours)h"
+    }
+}
+
+// MARK: - Use Template Sheet
+
+/// Sheet that collects event name, date, and start time, then creates the event
+/// with all template blocks pre-populated.
+private struct UseTemplateSheet: View {
+
+    let template: Template
+    let onEventCreated: (UUID) -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var eventTitle: String = ""
+    @State private var eventDate: Date = .now
+    @State private var startTime: Date = Calendar.current.date(
+        bySettingHour: 10, minute: 0, second: 0, of: .now
+    ) ?? .now
+
+    private var canCreate: Bool {
+        !eventTitle.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(String(localized: "Event Details")) {
+                    TextField(String(localized: "Event Name"), text: $eventTitle)
+                    DatePicker(String(localized: "Date"), selection: $eventDate, displayedComponents: .date)
+                    DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: .hourAndMinute)
+                }
+
+                Section {
+                    LabeledContent(String(localized: "Template")) {
+                        Text(template.name)
+                    }
+                    LabeledContent(String(localized: "Blocks")) {
+                        Text("\(template.blocks.count)")
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "New Event from Template"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Cancel")) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Create")) {
+                        let eventID = createEventFromTemplate()
+                        dismiss()
+                        onEventCreated(eventID)
+                    }
+                    .disabled(!canCreate)
+                }
+            }
+        }
+    }
+
+    private func createEventFromTemplate() -> UUID {
+        let trimmedTitle = eventTitle.trimmingCharacters(in: .whitespaces)
+
+        let event = EventModel(
+            title: trimmedTitle,
+            date: eventDate,
+            latitude: 0,
+            longitude: 0
+        )
+        modelContext.insert(event)
+
+        let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        modelContext.insert(mainTrack)
+
+        let baseStart = combineDateAndTime(date: eventDate, time: startTime)
+
+        for templateBlock in template.blocks {
+            let blockStart = baseStart.addingTimeInterval(templateBlock.relativeStartOffset)
+            let block = TimeBlockModel(
+                title: templateBlock.title,
+                scheduledStart: blockStart,
+                duration: templateBlock.duration,
+                isPinned: templateBlock.isPinned,
+                colorTag: templateBlock.colorTag,
+                icon: templateBlock.icon
+            )
+            block.track = mainTrack
+            modelContext.insert(block)
+        }
+
+        return event.id
+    }
+
+    private func combineDateAndTime(date: Date, time: Date) -> Date {
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        var combined = DateComponents()
+        combined.year = dateComponents.year
+        combined.month = dateComponents.month
+        combined.day = dateComponents.day
+        combined.hour = timeComponents.hour
+        combined.minute = timeComponents.minute
+        return calendar.date(from: combined) ?? date
     }
 }
 

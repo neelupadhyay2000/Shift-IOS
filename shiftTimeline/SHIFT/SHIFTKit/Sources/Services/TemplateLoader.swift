@@ -12,19 +12,28 @@ public struct TemplateLoader: Sendable {
     ///   - bundle: The bundle containing the JSON resources.
     /// - Returns: An array of decoded `Template` values.
     public func loadAll(from bundle: Bundle = .main) throws -> [Template] {
-        guard let urls = bundle.urls(forResourcesWithExtension: "json", subdirectory: "Templates") else {
+        let urls: [URL]
+        if let subdirURLs = bundle.urls(forResourcesWithExtension: "json", subdirectory: "Templates"),
+           !subdirURLs.isEmpty {
+            urls = subdirURLs
+        } else if let rootURLs = bundle.urls(forResourcesWithExtension: "json", subdirectory: nil),
+                  !rootURLs.isEmpty {
+            urls = rootURLs
+        } else {
             return []
         }
         let decoder = JSONDecoder()
-        return try urls.map { url in
-            let data = try Data(contentsOf: url)
-            return try decoder.decode(Template.self, from: data)
+        return urls.compactMap { url in
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return try? decoder.decode(Template.self, from: data)
         }
     }
 
     /// Loads a single template from a named JSON resource.
     public func load(named resourceName: String, from bundle: Bundle = .main) throws -> Template {
-        guard let url = bundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Templates") else {
+        let url = bundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Templates")
+            ?? bundle.url(forResource: resourceName, withExtension: "json")
+        guard let url else {
             throw TemplateLoaderError.resourceNotFound(resourceName)
         }
         let data = try Data(contentsOf: url)

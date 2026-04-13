@@ -1,6 +1,7 @@
 import Foundation
 import Models
 import Services
+import SwiftData
 import Testing
 @testable import shiftTimeline
 
@@ -310,5 +311,202 @@ struct TemplateTests {
             .sorted { $0.name < $1.name }
         let names = templates.map(\.name)
         #expect(names == names.sorted())
+    }
+
+    // MARK: - Template → Event Conversion
+
+    @Test @MainActor func useTemplateCreatesEventWithCorrectBlockCount() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let template = Template(
+            name: "Test Wedding",
+            description: "Test",
+            category: .wedding,
+            blocks: [
+                TemplateBlock(title: "Prep", relativeStartOffset: 0, duration: 3600, colorTag: "#FF2D55", icon: "star.fill"),
+                TemplateBlock(title: "Ceremony", relativeStartOffset: 3600, duration: 1800, isPinned: true, colorTag: "#FF3B30", icon: "heart.fill"),
+                TemplateBlock(title: "Reception", relativeStartOffset: 5400, duration: 7200, colorTag: "#34C759", icon: "fork.knife"),
+            ]
+        )
+
+        let baseStart = Date(timeIntervalSinceReferenceDate: 0)
+        let event = EventModel(title: "My Wedding", date: baseStart, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(track)
+
+        for templateBlock in template.blocks {
+            let blockStart = baseStart.addingTimeInterval(templateBlock.relativeStartOffset)
+            let block = TimeBlockModel(
+                title: templateBlock.title,
+                scheduledStart: blockStart,
+                duration: templateBlock.duration,
+                isPinned: templateBlock.isPinned,
+                colorTag: templateBlock.colorTag,
+                icon: templateBlock.icon
+            )
+            block.track = track
+            context.insert(block)
+        }
+        try context.save()
+
+        let blocks = track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        #expect(blocks.count == 3)
+        #expect(event.title == "My Wedding")
+    }
+
+    @Test @MainActor func useTemplateBlockTimesAreRelativeToStartTime() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let calendar = Calendar.current
+        let baseStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14, minute: 0))!
+
+        let template = Template(
+            name: "Test",
+            description: "Test",
+            category: .wedding,
+            blocks: [
+                TemplateBlock(title: "A", relativeStartOffset: 0, duration: 1800),
+                TemplateBlock(title: "B", relativeStartOffset: 1800, duration: 3600),
+                TemplateBlock(title: "C", relativeStartOffset: 5400, duration: 900),
+            ]
+        )
+
+        let event = EventModel(title: "Wedding", date: baseStart, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(track)
+
+        for templateBlock in template.blocks {
+            let blockStart = baseStart.addingTimeInterval(templateBlock.relativeStartOffset)
+            let block = TimeBlockModel(
+                title: templateBlock.title,
+                scheduledStart: blockStart,
+                duration: templateBlock.duration,
+                isPinned: templateBlock.isPinned,
+                colorTag: templateBlock.colorTag,
+                icon: templateBlock.icon
+            )
+            block.track = track
+            context.insert(block)
+        }
+        try context.save()
+
+        let blocks = track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+
+        // A starts at 2:00 PM
+        #expect(blocks[0].scheduledStart == baseStart)
+        // B starts at 2:30 PM (baseStart + 1800s)
+        #expect(blocks[1].scheduledStart == baseStart.addingTimeInterval(1800))
+        // C starts at 3:30 PM (baseStart + 5400s)
+        #expect(blocks[2].scheduledStart == baseStart.addingTimeInterval(5400))
+    }
+
+    @Test @MainActor func useTemplatePreservesBlockProperties() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let baseStart = Date(timeIntervalSinceReferenceDate: 0)
+
+        let template = Template(
+            name: "Test",
+            description: "Test",
+            category: .corporate,
+            blocks: [
+                TemplateBlock(
+                    title: "Keynote",
+                    relativeStartOffset: 3600,
+                    duration: 5400,
+                    isPinned: true,
+                    colorTag: "#FF3B30",
+                    icon: "mic.fill"
+                ),
+            ]
+        )
+
+        let event = EventModel(title: "Conf", date: baseStart, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(track)
+
+        let templateBlock = template.blocks[0]
+        let block = TimeBlockModel(
+            title: templateBlock.title,
+            scheduledStart: baseStart.addingTimeInterval(templateBlock.relativeStartOffset),
+            duration: templateBlock.duration,
+            isPinned: templateBlock.isPinned,
+            colorTag: templateBlock.colorTag,
+            icon: templateBlock.icon
+        )
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+
+        #expect(result.title == "Keynote")
+        #expect(result.duration == 5400)
+        #expect(result.isPinned == true)
+        #expect(result.colorTag == "#FF3B30")
+        #expect(result.icon == "mic.fill")
+        #expect(result.scheduledStart == baseStart.addingTimeInterval(3600))
+        #expect(result.track?.name == "Main")
+    }
+
+    @Test @MainActor func useTemplateCreatesMainTrackAsDefault() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Test", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(track)
+        try context.save()
+
+        #expect(event.tracks.count == 1)
+        #expect(event.tracks.first?.isDefault == true)
+        #expect(event.tracks.first?.name == "Main")
+    }
+
+    @Test @MainActor func useTemplateAllBlocksAssignedToMainTrack() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let baseStart = Date(timeIntervalSinceReferenceDate: 0)
+        let template = Template(
+            name: "Party",
+            description: "Test",
+            category: .social,
+            blocks: [
+                TemplateBlock(title: "A", relativeStartOffset: 0, duration: 1800),
+                TemplateBlock(title: "B", relativeStartOffset: 1800, duration: 1800),
+                TemplateBlock(title: "C", relativeStartOffset: 3600, duration: 1800),
+            ]
+        )
+
+        let event = EventModel(title: "Bday", date: baseStart, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
+        context.insert(track)
+
+        for templateBlock in template.blocks {
+            let block = TimeBlockModel(
+                title: templateBlock.title,
+                scheduledStart: baseStart.addingTimeInterval(templateBlock.relativeStartOffset),
+                duration: templateBlock.duration,
+                isPinned: templateBlock.isPinned,
+                colorTag: templateBlock.colorTag,
+                icon: templateBlock.icon
+            )
+            block.track = track
+            context.insert(block)
+        }
+        try context.save()
+
+        #expect(track.blocks.count == 3)
+        #expect(track.blocks.allSatisfy { $0.track?.id == track.id })
     }
 }

@@ -50,15 +50,8 @@ struct TemplateBrowserView: View {
     private func loadTemplates() {
         do {
             let loader = TemplateLoader()
-            let directory = URL(fileURLWithPath: Bundle.main.bundlePath)
-                .appendingPathComponent("Templates")
-            if FileManager.default.fileExists(atPath: directory.path) {
-                templates = try loader.loadAll(from: directory)
-                    .sorted { $0.name < $1.name }
-            } else {
-                templates = try loader.loadAll(from: .main)
-                    .sorted { $0.name < $1.name }
-            }
+            templates = try loader.loadAll(from: .main)
+                .sorted { $0.name < $1.name }
         } catch {
             loadError = error.localizedDescription
         }
