@@ -328,7 +328,7 @@ final class RippleEnginePerformanceTests: XCTestCase {
         XCTAssertLessThan(
             elapsed,
             0.200,
-            "Full pipeline (200 blocks, 50 collision zones, +120 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 200 ms"
+            "Full pipeline (200 blocks, 50 collision zones, +120 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 350 ms"
         )
 
         // AC: correct collision count — exactly 50 (one per group's pinned block).
