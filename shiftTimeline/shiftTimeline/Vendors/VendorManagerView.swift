@@ -1,3 +1,6 @@
+#if canImport(UIKit)
+import UIKit
+#endif
 import SwiftUI
 import SwiftData
 import Models
@@ -34,12 +37,9 @@ struct VendorManagerView: View {
                     )
                 } else {
                     ForEach(event.vendors.sorted(by: { $0.name < $1.name })) { vendor in
-                        Button {
-                            vendorToEdit = vendor
-                        } label: {
-                            vendorRow(vendor)
-                        }
-                        .tint(.primary)
+                        vendorRow(vendor)
+                            .contentShape(Rectangle())
+                            .onTapGesture { vendorToEdit = vendor }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) {
                                 requestDelete(vendor)
@@ -145,8 +145,12 @@ struct VendorManagerView: View {
     }
 
     private var canMakePhoneCalls: Bool {
+        #if canImport(UIKit)
         guard let url = URL(string: "tel://") else { return false }
         return UIApplication.shared.canOpenURL(url)
+        #else
+        return false
+        #endif
     }
 
     private func callVendor(_ vendor: VendorModel) {

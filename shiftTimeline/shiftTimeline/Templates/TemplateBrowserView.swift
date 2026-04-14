@@ -54,6 +54,7 @@ struct TemplateBrowserView: View {
     private func loadTemplates() async {
         isLoading = true
         loadError = nil
+        defer { isLoading = false }
         do {
             let loaded = try await Task(priority: .userInitiated) {
                 try TemplateLoader().loadAll().sorted { $0.name < $1.name }
@@ -64,7 +65,6 @@ struct TemplateBrowserView: View {
             guard !Task.isCancelled else { return }
             loadError = error.localizedDescription
         }
-        isLoading = false
     }
 }
 

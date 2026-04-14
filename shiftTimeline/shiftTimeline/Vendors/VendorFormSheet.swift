@@ -57,7 +57,8 @@ struct VendorFormSheet: View {
                     TextField(String(localized: "Email"), text: $email)
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 }
             }
             .navigationTitle(isEditing ? String(localized: "Edit Vendor") : String(localized: "New Vendor"))
