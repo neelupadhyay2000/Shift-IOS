@@ -17,6 +17,8 @@ struct TrackColumnView: View {
 
     @Environment(\.modelContext) private var modelContext
 
+    @State private var isDropTargeted = false
+
     private var sortedBlocks: [TimeBlockModel] {
         track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
     }
@@ -26,21 +28,21 @@ struct TrackColumnView: View {
             // Track header
             Text(track.name)
                 .font(.caption)
-                .fontWeight(.semibold)
+                .fontWeight(.bold)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(.ultraThinMaterial)
 
             // Block column
             ZStack(alignment: .topLeading) {
-                // Full-height background with drop target
                 Color.clear
                     .frame(height: layout.totalHeight)
                     .contentShape(Rectangle())
 
+                let maxYMap = nextBlockYMap()
                 ForEach(sortedBlocks) { block in
-                    columnBlockCard(block)
+                    columnBlockCard(block, maxY: maxYMap[block.id])
                 }
             }
             .dropDestination(for: String.self) { items, _ in
@@ -49,26 +51,33 @@ struct TrackColumnView: View {
                     return false
                 }
                 return reassignBlock(id: blockID, to: track)
-            } isTargeted: { isTargeted in
-                // Visual feedback could be added here if needed
+            } isTargeted: { targeted in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isDropTargeted = targeted
+                }
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(.systemBackground).opacity(0.5))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(
+                    isDropTargeted ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.06),
+                    lineWidth: isDropTargeted ? 2 : 0.5
+                )
         )
+        .scaleEffect(isDropTargeted ? 1.02 : 1.0)
     }
 
     // MARK: - Block Card
 
-    private func columnBlockCard(_ block: TimeBlockModel) -> some View {
+    private func columnBlockCard(_ block: TimeBlockModel, maxY: CGFloat? = nil) -> some View {
         let yOffset = layout.yOffset(for: block.scheduledStart)
-        let minHeight: CGFloat = 52
-        let height = max(layout.height(for: block.duration), minHeight)
+        let naturalHeight = max(layout.height(for: block.duration), 52)
+        let gap = (maxY ?? .infinity) - yOffset
+        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
 
         return Button {
             onTapBlock(block)
@@ -83,14 +92,23 @@ struct TrackColumnView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            .background(
+                .ultraThinMaterial,
+                in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
             )
-            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
-            .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.4), .white.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+            .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
         .draggable(block.id.uuidString)
@@ -108,6 +126,15 @@ struct TrackColumnView: View {
         }
         .padding(.horizontal, 4)
         .offset(y: yOffset)
+    }
+
+    private func nextBlockYMap() -> [UUID: CGFloat] {
+        let blocks = sortedBlocks
+        var map = [UUID: CGFloat]()
+        for index in blocks.indices where index + 1 < blocks.count {
+            map[blocks[index].id] = layout.yOffset(for: blocks[index + 1].scheduledStart)
+        }
+        return map
     }
 
     // MARK: - Drag & Drop

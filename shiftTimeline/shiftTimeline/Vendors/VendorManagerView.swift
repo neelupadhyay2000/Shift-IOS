@@ -27,7 +27,7 @@ struct VendorManagerView: View {
     }
 
     var body: some View {
-        List {
+        Group {
             if let event {
                 if event.vendors.isEmpty {
                     ContentUnavailableView(
@@ -36,18 +36,27 @@ struct VendorManagerView: View {
                         description: Text(String(localized: "Tap + to add a vendor."))
                     )
                 } else {
-                    ForEach(event.vendors.sorted(by: { $0.name < $1.name })) { vendor in
-                        vendorRow(vendor)
-                            .contentShape(Rectangle())
-                            .onTapGesture { vendorToEdit = vendor }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                requestDelete(vendor)
-                            } label: {
-                                Label(String(localized: "Delete"), systemImage: "trash")
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(event.vendors.sorted(by: { $0.name < $1.name })) { vendor in
+                                vendorRow(vendor)
+                                    .premiumCard(padding: 12)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { vendorToEdit = vendor }
+                                    .scrollFade()
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            requestDelete(vendor)
+                                        } label: {
+                                            Label(String(localized: "Delete"), systemImage: "trash")
+                                        }
+                                    }
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
                     }
+                    .background { WarmBackground() }
                 }
             }
         }
@@ -92,26 +101,47 @@ struct VendorManagerView: View {
 
     @ViewBuilder
     private func vendorRow(_ vendor: VendorModel) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: vendor.role.systemImage)
-                .font(.title3)
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(Color.accentColor.gradient, in: Circle())
+        let roleColor = ShiftDesign.roleColor(for: vendor.role)
+        let blockCount = assignedBlockCount(for: vendor)
 
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(spacing: 14) {
+            // Role icon with role-specific color
+            Image(systemName: vendor.role.systemImage)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 42, height: 42)
+                .background(roleColor.gradient, in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
+                .symbolEffect(.bounce, value: vendor.id)
+
+            VStack(alignment: .leading, spacing: 3) {
                 Text(vendor.name)
-                    .font(.headline)
-                Text(vendor.role.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(vendor.role.displayName)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(roleColor.opacity(0.12), in: Capsule())
+                        .foregroundStyle(roleColor)
+
+                    if blockCount > 0 {
+                        Text("\(blockCount) blocks")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
             }
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            VStack(alignment: .trailing, spacing: 2) {
+            // Contact info
+            VStack(alignment: .trailing, spacing: 3) {
                 if !vendor.phone.isEmpty {
-                    Text(vendor.phone)
+                    Label(vendor.phone, systemImage: "phone.fill")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -125,20 +155,23 @@ struct VendorManagerView: View {
 
             phoneButton(for: vendor)
         }
-        .padding(.vertical, 4)
     }
 
     @ViewBuilder
     private func phoneButton(for vendor: VendorModel) -> some View {
         let canCall = canMakePhoneCalls && !vendor.phone.isEmpty
+        let roleColor = ShiftDesign.roleColor(for: vendor.role)
         Button {
             callVendor(vendor)
         } label: {
             Image(systemName: "phone.fill")
-                .font(.body)
-                .foregroundStyle(canCall ? Color.accentColor : .gray)
-                .frame(width: 36, height: 36)
-                .background(canCall ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.08), in: Circle())
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(canCall ? roleColor : .gray)
+                .frame(width: 38, height: 38)
+                .background(
+                    canCall ? roleColor.opacity(0.12) : Color.gray.opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                )
         }
         .buttonStyle(.plain)
         .disabled(!canCall)

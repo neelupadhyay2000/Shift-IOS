@@ -33,7 +33,7 @@ struct TrackTabBar: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(.ultraThinMaterial)
     }
 
     private func tabButton(
@@ -44,19 +44,19 @@ struct TrackTabBar: View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .fontWeight(isSelected ? .bold : .medium)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 9)
                 .background(
                     isSelected
-                        ? Color.accentColor
-                        : Color(.tertiarySystemFill)
+                        ? AnyShapeStyle(Color.accentColor.gradient)
+                        : AnyShapeStyle(Color(.tertiarySystemFill))
                 )
                 .foregroundStyle(isSelected ? .white : .primary)
                 .clipShape(Capsule())
                 .shadow(
-                    color: isSelected ? Color.accentColor.opacity(0.25) : .clear,
-                    radius: 4, y: 2
+                    color: isSelected ? Color.accentColor.opacity(0.3) : .clear,
+                    radius: 6, y: 3
                 )
         }
         .buttonStyle(.plain)

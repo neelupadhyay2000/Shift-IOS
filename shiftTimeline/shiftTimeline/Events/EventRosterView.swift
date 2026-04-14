@@ -81,31 +81,41 @@ struct EventRosterView: View {
     // MARK: - Subviews
 
     private var eventList: some View {
-        List {
-            Picker(String(localized: "Status"), selection: $statusFilter) {
-                ForEach(EventStatusFilter.allCases) { filter in
-                    Text(filter.label).tag(filter)
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                // Status filter
+                Picker(String(localized: "Status"), selection: $statusFilter) {
+                    ForEach(EventStatusFilter.allCases) { filter in
+                        Text(filter.label).tag(filter)
+                    }
                 }
-            }
-            .pickerStyle(.segmented)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
 
-            ForEach(filteredEvents) { event in
-                NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
-                    EventRowView(
-                        title: event.title,
-                        date: event.date,
-                        status: event.status
-                    )
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(String(localized: "Delete"), role: .destructive) {
-                        eventPendingDeletion = event
+                ForEach(filteredEvents) { event in
+                    NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
+                        EventRowView(
+                            title: event.title,
+                            date: event.date,
+                            status: event.status
+                        )
+                        .premiumCard()
+                    }
+                    .buttonStyle(.plain)
+                    .scrollFade()
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            eventPendingDeletion = event
+                        } label: {
+                            Label(String(localized: "Delete"), systemImage: "trash")
+                        }
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
+        .background { WarmBackground() }
     }
 
     private var emptyState: some View {

@@ -18,34 +18,36 @@ struct TimeBlockRowView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            // Left accent bar — thicker, rounded for modern feel
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
+            // Left accent bar — gradient strip
+            UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 2, topTrailingRadius: 2)
                 .fill(accentColor.gradient)
                 .frame(width: 5)
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
 
-            HStack(spacing: 10) {
-                // Icon circle
+            HStack(spacing: 12) {
+                // Icon circle — larger with gradient fill
                 ZStack {
-                    Circle()
-                        .fill(Color(hex: colorTag).opacity(0.12))
-                        .frame(width: 32, height: 32)
+                    RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
+                        .fill(Color(hex: colorTag).gradient.opacity(0.15))
+                        .frame(width: 40, height: 40)
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color(hex: colorTag))
+                        .symbolEffect(.bounce, value: isPinned)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.subheadline)
+                        .font(.callout)
                         .fontWeight(.semibold)
                         .lineLimit(1)
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         Image(systemName: "clock")
                             .font(.system(size: 9))
                             .foregroundStyle(.tertiary)
                         Text(scheduledStart, format: .dateTime.hour().minute())
                             .font(.caption)
+                            .fontWeight(.medium)
                             .foregroundStyle(.secondary)
                         Text("·")
                             .foregroundStyle(.quaternary)
@@ -58,20 +60,17 @@ struct TimeBlockRowView: View {
                 Spacer(minLength: 4)
 
                 // Status badge
-                HStack(spacing: 3) {
-                    if isPinned {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 8))
-                    }
+                HStack(spacing: 4) {
+                    Image(systemName: isPinned ? "pin.fill" : "arrow.up.arrow.down")
+                        .font(.system(size: 8, weight: .bold))
                     Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
                         .font(.caption2)
-                        .fontWeight(.semibold)
+                        .fontWeight(.bold)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(accentColor.opacity(0.1))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(accentColor.opacity(0.12), in: Capsule())
                 .foregroundStyle(accentColor)
-                .clipShape(Capsule())
             }
             .padding(.leading, 10)
             .padding(.trailing, 12)

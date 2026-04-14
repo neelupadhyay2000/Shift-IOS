@@ -27,6 +27,7 @@ enum EventDestination: Hashable {
     case eventDetail(id: UUID)
     case timelineBuilder(eventID: UUID)
     case vendorManager(eventID: UUID)
+    case pdfExport(eventID: UUID)
 }
 
 /// Typed push destinations for the Templates stack.
@@ -196,6 +197,8 @@ struct RootNavigator: View {
             TimelineBuilderView(eventID: eventID)
         case .vendorManager(let eventID):
             VendorManagerView(eventID: eventID)
+        case .pdfExport(let eventID):
+            PDFExportPreviewView(eventID: eventID)
         }
     }
 
@@ -248,7 +251,7 @@ private struct ContentPlaceholderView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(.systemGroupedBackground))
+        .background { WarmBackground() }
         .navigationTitle(label ?? tab?.rawValue ?? "")
         .navigationBarTitleDisplayMode(.large)
     }

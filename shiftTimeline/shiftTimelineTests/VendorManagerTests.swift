@@ -352,4 +352,3 @@ struct VendorManagerTests {
         #expect(count == 2)
     }
 }
-
