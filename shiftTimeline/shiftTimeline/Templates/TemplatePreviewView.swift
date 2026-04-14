@@ -33,7 +33,7 @@ struct TemplatePreviewView: View {
         .navigationTitle(template?.name ?? String(localized: "Template"))
         .navigationBarTitleDisplayMode(.large)
         .task {
-            loadTemplate()
+            await loadTemplate()
         }
         .sheet(isPresented: $isShowingCreateSheet) {
             if let template {
@@ -84,11 +84,12 @@ struct TemplatePreviewView: View {
         }
     }
 
-    private func loadTemplate() {
+    private func loadTemplate() async {
         do {
-            let loader = TemplateLoader()
-            let allTemplates = try loader.loadAll()
-            template = allTemplates.first { $0.id == templateID }
+            let loaded = try await Task.detached {
+                try TemplateLoader().loadAll()
+            }.value
+            template = loaded.first { $0.id == templateID }
             if template == nil {
                 loadError = String(localized: "Template not found.")
             }

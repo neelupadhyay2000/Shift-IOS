@@ -7,6 +7,7 @@ struct TemplateBrowserView: View {
 
     @State private var templates: [Template] = []
     @State private var loadError: String?
+    @State private var isLoading = true
 
     private let columns = [
         GridItem(.flexible(), spacing: 16),
@@ -21,6 +22,9 @@ struct TemplateBrowserView: View {
                     systemImage: "exclamationmark.triangle",
                     description: Text(loadError)
                 )
+            } else if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 200)
             } else if templates.isEmpty {
                 ContentUnavailableView(
                     String(localized: "No Templates"),
@@ -43,18 +47,20 @@ struct TemplateBrowserView: View {
         .navigationTitle(String(localized: "Templates"))
         .navigationBarTitleDisplayMode(.large)
         .task {
-            loadTemplates()
+            await loadTemplates()
         }
     }
 
-    private func loadTemplates() {
+    private func loadTemplates() async {
         do {
-            let loader = TemplateLoader()
-            templates = try loader.loadAll()
-                .sorted { $0.name < $1.name }
+            let loaded = try await Task.detached {
+                try TemplateLoader().loadAll().sorted { $0.name < $1.name }
+            }.value
+            templates = loaded
         } catch {
             loadError = error.localizedDescription
         }
+        isLoading = false
     }
 }
 
