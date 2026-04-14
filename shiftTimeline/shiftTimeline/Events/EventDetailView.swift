@@ -88,7 +88,7 @@ struct EventDetailView: View {
                     quickCard(
                         icon: "calendar.day.timeline.leading",
                         value: "\(event.tracks.flatMap(\.blocks).count)",
-                        subtitle: String(localized: "blocks"),
+                        subtitle: String(localized: "blocks_count_label", defaultValue: "blocks"),
                         color: .blue
                     )
                 }
