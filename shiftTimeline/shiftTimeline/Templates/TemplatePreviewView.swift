@@ -85,15 +85,18 @@ struct TemplatePreviewView: View {
     }
 
     private func loadTemplate() async {
+        loadError = nil
         do {
-            let loaded = try await Task.detached {
+            let loaded = try await Task(priority: .userInitiated) {
                 try TemplateLoader().loadAll()
             }.value
+            guard !Task.isCancelled else { return }
             template = loaded.first { $0.id == templateID }
             if template == nil {
                 loadError = String(localized: "Template not found.")
             }
         } catch {
+            guard !Task.isCancelled else { return }
             loadError = error.localizedDescription
         }
     }

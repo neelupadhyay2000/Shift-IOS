@@ -135,11 +135,6 @@ struct TimeRulerView: View {
                     Circle()
                         .fill(Color.secondary.opacity(0.35))
                         .frame(width: 6, height: 6)
-
-                    // Horizontal guide extending rightward
-                    Rectangle()
-                        .fill(Color.secondary.opacity(0.08))
-                        .frame(height: 0.5)
                 }
                 .offset(y: y - 3)
             }
