@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import SwiftData
+import UniformTypeIdentifiers
 import Models
 import Services
 
@@ -33,6 +34,20 @@ struct PDFExportPreviewView: View {
             } else if let pdfData {
                 PDFKitView(data: pdfData)
                     .ignoresSafeArea(edges: .bottom)
+                    .onDrag {
+                        let provider = NSItemProvider()
+                        guard let pdfFileURL else { return provider }
+                        provider.registerFileRepresentation(
+                            forTypeIdentifier: UTType.pdf.identifier,
+                            fileOptions: [],
+                            visibility: .all
+                        ) { completion in
+                            completion(pdfFileURL, false, nil)
+                            return nil
+                        }
+                        provider.suggestedName = pdfFileURL.deletingPathExtension().lastPathComponent
+                        return provider
+                    }
             } else {
                 ContentUnavailableView(
                     String(localized: "Unable to Generate PDF"),
