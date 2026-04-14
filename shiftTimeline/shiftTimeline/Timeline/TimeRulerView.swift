@@ -114,27 +114,38 @@ struct TimeRulerView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Continuous vertical guide line
+            // Continuous vertical guide line — subtle gradient
             Rectangle()
-                .fill(Color.secondary.opacity(0.18))
-                .frame(width: 1)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.accentColor.opacity(0.15), Color.secondary.opacity(0.10)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 1.5)
                 .frame(height: layout.totalHeight)
-                .offset(x: 56)
+                .offset(x: 55.5)
 
             ForEach(layout.hourMarkers, id: \.self) { hour in
                 let y = layout.yOffset(for: hour)
                 HStack(spacing: 6) {
                     Text(Self.hourFormatter.string(from: hour))
                         .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.tertiary)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
                         .frame(width: 42, alignment: .trailing)
                         .monospacedDigit()
 
-                    // Tick mark
+                    // Tick mark — accent-tinted
                     Circle()
-                        .fill(Color.secondary.opacity(0.35))
-                        .frame(width: 6, height: 6)
+                        .fill(Color.accentColor.opacity(0.4))
+                        .frame(width: 7, height: 7)
+                        .overlay(
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.15))
+                                .frame(width: 13, height: 13)
+                        )
                 }
                 .offset(y: y - 3)
             }

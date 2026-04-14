@@ -40,13 +40,58 @@ struct VendorFormSheet: View {
                 Section(String(localized: "Info")) {
                     TextField(String(localized: "Name"), text: $name)
                         .textContentType(.name)
+                }
 
-                    Picker(String(localized: "Role"), selection: $role) {
-                        ForEach(VendorRole.allCases, id: \.self) { role in
-                            Text(role.displayName)
-                                .tag(role)
+                // Visual role picker with colored icons
+                Section(String(localized: "Role")) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 12)], spacing: 12) {
+                        ForEach(VendorRole.allCases, id: \.self) { r in
+                            let roleColor = ShiftDesign.roleColor(for: r)
+                            let isSelected = role == r
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    role = r
+                                }
+                            } label: {
+                                VStack(spacing: 8) {
+                                    Image(systemName: r.systemImage)
+                                        .font(.system(size: 22, weight: .semibold))
+                                        .foregroundStyle(isSelected ? .white : roleColor)
+                                        .frame(width: 44, height: 44)
+                                        .background(
+                                            isSelected ? roleColor.gradient : Color.clear.gradient,
+                                            in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
+                                        )
+                                        .background(
+                                            isSelected ? Color.clear : roleColor.opacity(0.1),
+                                            in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
+                                        )
+                                        .symbolEffect(.bounce, value: isSelected)
+
+                                    Text(r.displayName)
+                                        .font(.caption2)
+                                        .fontWeight(isSelected ? .bold : .medium)
+                                        .foregroundStyle(isSelected ? roleColor : .secondary)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    isSelected ? roleColor.opacity(0.06) : Color.clear,
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .strokeBorder(
+                                            isSelected ? roleColor.opacity(0.3) : Color.clear,
+                                            lineWidth: 1.5
+                                        )
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
                 }
 
                 Section(String(localized: "Contact")) {

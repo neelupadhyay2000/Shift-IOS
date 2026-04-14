@@ -17,6 +17,8 @@ struct TrackColumnView: View {
 
     @Environment(\.modelContext) private var modelContext
 
+    @State private var isDropTargeted = false
+
     private var sortedBlocks: [TimeBlockModel] {
         track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
     }
@@ -26,15 +28,14 @@ struct TrackColumnView: View {
             // Track header
             Text(track.name)
                 .font(.caption)
-                .fontWeight(.semibold)
+                .fontWeight(.bold)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .background(.ultraThinMaterial)
 
             // Block column
             ZStack(alignment: .topLeading) {
-                // Full-height background with drop target
                 Color.clear
                     .frame(height: layout.totalHeight)
                     .contentShape(Rectangle())
@@ -49,18 +50,24 @@ struct TrackColumnView: View {
                     return false
                 }
                 return reassignBlock(id: blockID, to: track)
-            } isTargeted: { isTargeted in
-                // Visual feedback could be added here if needed
+            } isTargeted: { targeted in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isDropTargeted = targeted
+                }
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(.systemBackground).opacity(0.5))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.ultraThinMaterial)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(
+                    isDropTargeted ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.06),
+                    lineWidth: isDropTargeted ? 2 : 0.5
+                )
         )
+        .scaleEffect(isDropTargeted ? 1.02 : 1.0)
     }
 
     // MARK: - Block Card
@@ -83,14 +90,23 @@ struct TrackColumnView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+            .background(
+                .ultraThinMaterial,
+                in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
             )
-            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
-            .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
+            .overlay(
+                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.4), .white.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+            .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
         .draggable(block.id.uuidString)

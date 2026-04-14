@@ -43,7 +43,7 @@ struct TemplateBrowserView: View {
                 .padding()
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background { WarmBackground() }
         .navigationTitle(String(localized: "Templates"))
         .navigationBarTitleDisplayMode(.large)
         .task {
@@ -107,7 +107,7 @@ private struct TemplateCardView: View {
             }
         }
         .padding(12)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
     }
