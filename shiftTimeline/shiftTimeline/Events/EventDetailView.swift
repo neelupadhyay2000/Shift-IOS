@@ -82,24 +82,43 @@ struct EventDetailView: View {
     }
 
     private func quickAccessCards(_ event: EventModel) -> some View {
-        HStack(spacing: 12) {
-            NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
-                quickCard(
-                    icon: "calendar.day.timeline.leading",
-                    value: "\(event.tracks.flatMap(\.blocks).count)",
-                    subtitle: String(localized: "blocks"),
-                    color: .blue
-                )
-            }
-            .buttonStyle(.plain)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
+                    quickCard(
+                        icon: "calendar.day.timeline.leading",
+                        value: "\(event.tracks.flatMap(\.blocks).count)",
+                        subtitle: String(localized: "blocks"),
+                        color: .blue
+                    )
+                }
+                .buttonStyle(.plain)
 
-            NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
-                quickCard(
-                    icon: "person.2.fill",
-                    value: "\(event.vendors.count)",
-                    subtitle: String(localized: "assigned"),
-                    color: .purple
-                )
+                NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
+                    quickCard(
+                        icon: "person.2.fill",
+                        value: "\(event.vendors.count)",
+                        subtitle: String(localized: "assigned"),
+                        color: .purple
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
+                HStack(spacing: 10) {
+                    Image(systemName: "doc.richtext")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.orange)
+                    Text(String(localized: "Export PDF"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                .premiumCard()
             }
             .buttonStyle(.plain)
         }
