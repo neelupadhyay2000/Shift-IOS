@@ -14,6 +14,7 @@ struct PDFExportPreviewView: View {
 
     @Query private var results: [EventModel]
     @State private var pdfData: Data?
+    @State private var pdfFileURL: URL?
     @State private var isGenerating = true
 
     private var event: EventModel? { results.first }
@@ -42,15 +43,16 @@ struct PDFExportPreviewView: View {
         .navigationTitle(String(localized: "Export Preview"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if pdfData != nil {
+            if let pdfFileURL {
                 ToolbarItem(placement: .primaryAction) {
                     ShareLink(
-                        item: pdfData ?? Data(),
+                        item: pdfFileURL,
                         preview: SharePreview(
                             event?.title ?? "Timeline",
                             image: Image(systemName: "doc.richtext")
                         )
                     )
+                    .accessibilityLabel(String(localized: "Share PDF"))
                 }
             }
         }
@@ -66,7 +68,22 @@ struct PDFExportPreviewView: View {
         }
         #if os(iOS)
         let generator = PDFGenerator()
-        pdfData = generator.generate(from: event)
+        let data = generator.generate(from: event)
+        pdfData = data
+
+        // Write to a temporary file so ShareLink presents a proper .pdf
+        // that works with AirDrop, email, Files, and Print.
+        let sanitizedTitle = event.title
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined(separator: "_")
+        let fileName = "\(sanitizedTitle)_Timeline.pdf"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        do {
+            try data.write(to: tempURL, options: .atomic)
+            pdfFileURL = tempURL
+        } catch {
+            // Share won't be available but preview still works
+        }
         #endif
         isGenerating = false
     }
