@@ -65,6 +65,9 @@ struct RootNavigator: View {
     // iPad List requires an optional binding.
     @State private var sidebarSelection: Tab? = .events
 
+    // iPad sidebar visibility — auto-collapses when a tab is selected.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+
     // MARK: Per-tab @State path arrays (AC: navigation state via @State path arrays)
 
     @State private var eventPath: [EventDestination] = []
@@ -125,7 +128,7 @@ struct RootNavigator: View {
     // MARK: - iPad layout
 
     private var iPadLayout: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $sidebarSelection) {
                 ForEach(Tab.allCases, id: \.self) { tab in
                     Label(tab.rawValue, systemImage: tab.systemImage)
@@ -143,6 +146,10 @@ struct RootNavigator: View {
                 if let tab = newValue {
                     selectedTab = tab
                     detailPath = []
+                    // Auto-collapse sidebar after selection for cleaner UX
+                    withAnimation {
+                        columnVisibility = .detailOnly
+                    }
                 }
             }
         } detail: {

@@ -19,6 +19,8 @@ struct CreateBlockSheet: View {
     @State private var startTime = Date.now
     @State private var duration: TimeInterval = 1800
     @State private var isPinned = false
+    @State private var startTimePickerID = UUID()
+    @State private var startTimePickerTask: Task<Void, Never>?
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty && fetchEvent() != nil
@@ -41,6 +43,15 @@ struct CreateBlockSheet: View {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
                     DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                        .id(startTimePickerID)
+                        .onChange(of: startTime) { _, _ in
+                            startTimePickerTask?.cancel()
+                            startTimePickerTask = Task {
+                                try? await Task.sleep(for: .seconds(0.15))
+                                guard !Task.isCancelled else { return }
+                                startTimePickerID = UUID()
+                            }
+                        }
                 }
 
                 Section(String(localized: "Duration")) {
