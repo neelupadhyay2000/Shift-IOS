@@ -29,7 +29,7 @@ struct TrackColumnView: View {
                 .fontWeight(.semibold)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, 8)
                 .background(.ultraThinMaterial)
 
             // Block column
@@ -54,12 +54,12 @@ struct TrackColumnView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color(.systemBackground).opacity(0.5))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(.quaternary, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
         )
     }
 
@@ -67,7 +67,7 @@ struct TrackColumnView: View {
 
     private func columnBlockCard(_ block: TimeBlockModel) -> some View {
         let yOffset = layout.yOffset(for: block.scheduledStart)
-        let minHeight: CGFloat = 36
+        let minHeight: CGFloat = 52
         let height = max(layout.height(for: block.duration), minHeight)
 
         return Button {
@@ -83,12 +83,16 @@ struct TrackColumnView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .shadow(color: .black.opacity(0.04), radius: 3, y: 1)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .strokeBorder(.quaternary, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)

@@ -87,7 +87,7 @@ struct TemplatePreviewView: View {
     private func loadTemplate() {
         do {
             let loader = TemplateLoader()
-            let allTemplates = try loader.loadAll(from: .main)
+            let allTemplates = try loader.loadAll()
             template = allTemplates.first { $0.id == templateID }
             if template == nil {
                 loadError = String(localized: "Template not found.")

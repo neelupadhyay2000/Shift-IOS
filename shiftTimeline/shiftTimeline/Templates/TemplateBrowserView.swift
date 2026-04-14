@@ -50,7 +50,7 @@ struct TemplateBrowserView: View {
     private func loadTemplates() {
         do {
             let loader = TemplateLoader()
-            templates = try loader.loadAll(from: .main)
+            templates = try loader.loadAll()
                 .sorted { $0.name < $1.name }
         } catch {
             loadError = error.localizedDescription

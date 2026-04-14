@@ -1,0 +1,208 @@
+{
+    "id": "D4E5F6A7-B8C9-0123-DEF0-234567890ABC",
+    "name": "Indian Wedding",
+    "description": "A grand 12-hour Indian wedding celebration covering Baraat through reception.",
+    "category": "wedding",
+    "blocks": [
+        {
+            "title": "Venue Setup & Decor Check",
+            "relativeStartOffset": 0,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Bridal Makeup & Draping",
+            "relativeStartOffset": 3600,
+            "duration": 5400,
+            "isPinned": false,
+            "colorTag": "#FF2D55",
+            "icon": "star.fill"
+        },
+        {
+            "title": "Groom Getting Ready",
+            "relativeStartOffset": 5400,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#007AFF",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Bridal Portraits",
+            "relativeStartOffset": 9000,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Groom Portraits",
+            "relativeStartOffset": 9000,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Baraat Procession",
+            "relativeStartOffset": 10800,
+            "duration": 2700,
+            "isPinned": true,
+            "colorTag": "#FF9500",
+            "icon": "music.note"
+        },
+        {
+            "title": "Milni Ceremony",
+            "relativeStartOffset": 13500,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Groom Welcomed on Stage",
+            "relativeStartOffset": 15300,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "star.fill"
+        },
+        {
+            "title": "Bridal Entry (Kanya Aagaman)",
+            "relativeStartOffset": 16200,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#FF2D55",
+            "icon": "heart.fill"
+        },
+        {
+            "title": "Jai Mala (Garland Exchange)",
+            "relativeStartOffset": 18000,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FF3B30",
+            "icon": "heart.fill"
+        },
+        {
+            "title": "Kanyadaan",
+            "relativeStartOffset": 18900,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#FF3B30",
+            "icon": "heart.fill"
+        },
+        {
+            "title": "Mangal Pheras (Sacred Rounds)",
+            "relativeStartOffset": 20700,
+            "duration": 2700,
+            "isPinned": true,
+            "colorTag": "#FF3B30",
+            "icon": "heart.fill"
+        },
+        {
+            "title": "Sindoor & Mangalsutra",
+            "relativeStartOffset": 23400,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FF3B30",
+            "icon": "heart.fill"
+        },
+        {
+            "title": "Ceremony Conclusion & Blessings",
+            "relativeStartOffset": 24300,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Couple Portraits",
+            "relativeStartOffset": 26100,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Family Group Photos",
+            "relativeStartOffset": 28800,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "camera.fill"
+        },
+        {
+            "title": "Cocktail & Starters",
+            "relativeStartOffset": 30600,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "fork.knife"
+        },
+        {
+            "title": "Reception Grand Entrance",
+            "relativeStartOffset": 34200,
+            "duration": 1200,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "music.note"
+        },
+        {
+            "title": "Couple's First Dance",
+            "relativeStartOffset": 35400,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "music.note"
+        },
+        {
+            "title": "Speeches & Toasts",
+            "relativeStartOffset": 36300,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#007AFF",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Dinner Buffet",
+            "relativeStartOffset": 38100,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "fork.knife"
+        },
+        {
+            "title": "Cake Cutting",
+            "relativeStartOffset": 39600,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#FF2D55",
+            "icon": "gift.fill"
+        },
+        {
+            "title": "DJ & Dancing",
+            "relativeStartOffset": 40500,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "music.note"
+        },
+        {
+            "title": "Vidaai (Bride's Farewell)",
+            "relativeStartOffset": 42300,
+            "duration": 900,
+            "isPinned": true,
+            "colorTag": "#FF2D55",
+            "icon": "car.fill"
+        },
+        {
+            "title": "Farewell & Departure",
+            "relativeStartOffset": 43200,
+            "duration": 0,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "car.fill"
+        }
+    ]
+}

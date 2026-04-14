@@ -6,17 +6,16 @@ public struct TemplateLoader: Sendable {
 
     public init() {}
 
-    /// Loads all templates from JSON files matching the given resource names in the bundle.
-    /// - Parameters:
-    ///   - resourceNames: JSON file names without extension. Pass `nil` to load all `.json` files in the "Templates" directory.
-    ///   - bundle: The bundle containing the JSON resources.
+    /// Loads all templates from JSON files in the bundle's "Templates" directory.
+    /// - Parameter bundle: The bundle containing the JSON resources. Defaults to the package's resource bundle.
     /// - Returns: An array of decoded `Template` values.
-    public func loadAll(from bundle: Bundle = .main) throws -> [Template] {
+    public func loadAll(from bundle: Bundle? = nil) throws -> [Template] {
+        let resolvedBundle = bundle ?? .module
         let urls: [URL]
-        if let subdirURLs = bundle.urls(forResourcesWithExtension: "json", subdirectory: "Templates"),
+        if let subdirURLs = resolvedBundle.urls(forResourcesWithExtension: "json", subdirectory: "Templates"),
            !subdirURLs.isEmpty {
             urls = subdirURLs
-        } else if let rootURLs = bundle.urls(forResourcesWithExtension: "json", subdirectory: nil),
+        } else if let rootURLs = resolvedBundle.urls(forResourcesWithExtension: "json", subdirectory: nil),
                   !rootURLs.isEmpty {
             urls = rootURLs
         } else {
@@ -30,9 +29,10 @@ public struct TemplateLoader: Sendable {
     }
 
     /// Loads a single template from a named JSON resource.
-    public func load(named resourceName: String, from bundle: Bundle = .main) throws -> Template {
-        let url = bundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Templates")
-            ?? bundle.url(forResource: resourceName, withExtension: "json")
+    public func load(named resourceName: String, from bundle: Bundle? = nil) throws -> Template {
+        let resolvedBundle = bundle ?? .module
+        let url = resolvedBundle.url(forResource: resourceName, withExtension: "json", subdirectory: "Templates")
+            ?? resolvedBundle.url(forResource: resourceName, withExtension: "json")
         guard let url else {
             throw TemplateLoaderError.resourceNotFound(resourceName)
         }

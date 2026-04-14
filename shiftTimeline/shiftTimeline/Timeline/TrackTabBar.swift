@@ -45,8 +45,8 @@ struct TrackTabBar: View {
             Text(label)
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
                 .background(
                     isSelected
                         ? Color.accentColor
@@ -54,6 +54,10 @@ struct TrackTabBar: View {
                 )
                 .foregroundStyle(isSelected ? .white : .primary)
                 .clipShape(Capsule())
+                .shadow(
+                    color: isSelected ? Color.accentColor.opacity(0.25) : .clear,
+                    radius: 4, y: 2
+                )
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? .isSelected : [])

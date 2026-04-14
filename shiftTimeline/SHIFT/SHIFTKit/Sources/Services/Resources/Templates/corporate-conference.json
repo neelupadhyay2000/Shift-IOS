@@ -1,0 +1,88 @@
+{
+    "id": "B2C3D4E5-F6A7-8901-BCDE-F12345678901",
+    "name": "Corporate Gala",
+    "description": "A 5-hour corporate gala evening with dinner, awards, and entertainment.",
+    "category": "corporate",
+    "blocks": [
+        {
+            "title": "Venue Final Walk-Through",
+            "relativeStartOffset": 0,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "wrench.fill"
+        },
+        {
+            "title": "Guest Registration & Welcome Drinks",
+            "relativeStartOffset": 1800,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Opening Remarks",
+            "relativeStartOffset": 4500,
+            "duration": 900,
+            "isPinned": true,
+            "colorTag": "#007AFF",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Keynote Presentation",
+            "relativeStartOffset": 5400,
+            "duration": 2700,
+            "isPinned": true,
+            "colorTag": "#007AFF",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Dinner Service",
+            "relativeStartOffset": 8100,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#34C759",
+            "icon": "fork.knife"
+        },
+        {
+            "title": "Awards Ceremony",
+            "relativeStartOffset": 11700,
+            "duration": 2700,
+            "isPinned": false,
+            "colorTag": "#FFCC00",
+            "icon": "star.fill"
+        },
+        {
+            "title": "Entertainment / Live Band",
+            "relativeStartOffset": 14400,
+            "duration": 1800,
+            "isPinned": false,
+            "colorTag": "#AF52DE",
+            "icon": "music.note"
+        },
+        {
+            "title": "Networking & Open Bar",
+            "relativeStartOffset": 14400,
+            "duration": 3600,
+            "isPinned": false,
+            "colorTag": "#FF9500",
+            "icon": "person.2.fill"
+        },
+        {
+            "title": "Closing Remarks",
+            "relativeStartOffset": 16200,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#007AFF",
+            "icon": "mic.fill"
+        },
+        {
+            "title": "Guest Departure",
+            "relativeStartOffset": 17100,
+            "duration": 900,
+            "isPinned": false,
+            "colorTag": "#8E8E93",
+            "icon": "car.fill"
+        }
+    ]
+}

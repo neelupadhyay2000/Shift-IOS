@@ -7,13 +7,7 @@ import Testing
 
 struct TemplateTests {
 
-    /// Directory containing the bundled template JSON files on disk.
-    private static let templatesDirectory = URL(
-        fileURLWithPath: #filePath
-    )
-    .deletingLastPathComponent()  // shiftTimelineTests/
-    .deletingLastPathComponent()  // shiftTimeline/
-    .appendingPathComponent("shiftTimeline/Templates")
+    private let loader = TemplateLoader()
 
     // MARK: - Codable
 
@@ -141,8 +135,7 @@ struct TemplateTests {
     // MARK: - Bundle Loading
 
     @Test func loadDecodesTraditionalWedding() throws {
-        let loader = TemplateLoader()
-        let template = try loader.load(named: "classic-wedding", from: Self.templatesDirectory)
+        let template = try loader.load(named: "classic-wedding")
 
         #expect(template.name == "Traditional Wedding")
         #expect(template.category == .wedding)
@@ -157,8 +150,7 @@ struct TemplateTests {
     }
 
     @Test func loadDecodesIndianWedding() throws {
-        let loader = TemplateLoader()
-        let template = try loader.load(named: "indian-wedding", from: Self.templatesDirectory)
+        let template = try loader.load(named: "indian-wedding")
 
         #expect(template.name == "Indian Wedding")
         #expect(template.category == .wedding)
@@ -172,8 +164,7 @@ struct TemplateTests {
     }
 
     @Test func loadDecodesCorporateGala() throws {
-        let loader = TemplateLoader()
-        let template = try loader.load(named: "corporate-conference", from: Self.templatesDirectory)
+        let template = try loader.load(named: "corporate-conference")
 
         #expect(template.name == "Corporate Gala")
         #expect(template.category == .corporate)
@@ -184,8 +175,7 @@ struct TemplateTests {
     }
 
     @Test func loadDecodesBirthdayParty() throws {
-        let loader = TemplateLoader()
-        let template = try loader.load(named: "birthday-party", from: Self.templatesDirectory)
+        let template = try loader.load(named: "birthday-party")
 
         #expect(template.name == "Birthday Party")
         #expect(template.category == .social)
@@ -196,8 +186,7 @@ struct TemplateTests {
     }
 
     @Test func loadDecodesConcertFestival() throws {
-        let loader = TemplateLoader()
-        let template = try loader.load(named: "concert-festival", from: Self.templatesDirectory)
+        let template = try loader.load(named: "concert-festival")
 
         #expect(template.name == "Concert / Festival")
         #expect(template.category == .social)
@@ -211,8 +200,7 @@ struct TemplateTests {
     }
 
     @Test func loadAllReturnsAllFiveTemplates() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
 
         #expect(templates.count == 5)
         let names = Set(templates.map(\.name))
@@ -224,17 +212,15 @@ struct TemplateTests {
     }
 
     @Test func loadMissingResourceThrowsError() {
-        let loader = TemplateLoader()
         #expect(throws: TemplateLoaderError.self) {
-            try loader.load(named: "nonexistent-template", from: Self.templatesDirectory)
+            try loader.load(named: "nonexistent-template")
         }
     }
 
     // MARK: - Block Data Integrity
 
     @Test func allTemplateBlocksHaveValidOffsets() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
 
         for template in templates {
             for block in template.blocks {
@@ -245,8 +231,7 @@ struct TemplateTests {
     }
 
     @Test func allTemplateBlocksUseRelativeOffsetsNotAbsoluteDates() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
 
         for template in templates {
             for block in template.blocks {
@@ -258,8 +243,7 @@ struct TemplateTests {
     }
 
     @Test func allTemplateBlocksHaveValidHexColors() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
         let hexPattern = /^#[0-9A-Fa-f]{6}$/
 
         for template in templates {
@@ -288,8 +272,7 @@ struct TemplateTests {
     // MARK: - Browser Loading
 
     @Test func allTemplatesHaveNonEmptyNameAndDescription() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
 
         for template in templates {
             #expect(!template.name.isEmpty, "Template has empty name")
@@ -299,15 +282,13 @@ struct TemplateTests {
     }
 
     @Test func allTemplatesHaveUniqueIDs() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
         let ids = templates.map(\.id)
         #expect(Set(ids).count == ids.count)
     }
 
     @Test func templatesSortByNameProducesAlphabeticOrder() throws {
-        let loader = TemplateLoader()
-        let templates = try loader.loadAll(from: Self.templatesDirectory)
+        let templates = try loader.loadAll()
             .sorted { $0.name < $1.name }
         let names = templates.map(\.name)
         #expect(names == names.sorted())
