@@ -2,6 +2,9 @@ import Foundation
 import Services
 import Testing
 
+/// `.serialized` ensures tests run sequentially within this suite so the
+/// shared `MockURLProtocol` static state is never accessed concurrently.
+@Suite(.serialized)
 struct SunsetServiceTests {
 
     // MARK: - Mock URLProtocol
@@ -37,11 +40,19 @@ struct SunsetServiceTests {
         override func stopLoading() {}
     }
 
-    private func makeService() -> (SunsetService, URLSession) {
+    /// Configures the mock and returns a ready-to-use `SunsetService`.
+    /// Bundling setup here keeps individual tests free of static-state boilerplate.
+    private func makeService(
+        data: Data?,
+        statusCode: Int = 200,
+        error: Error? = nil
+    ) -> SunsetService {
+        MockURLProtocol.responseData = data
+        MockURLProtocol.responseStatusCode = statusCode
+        MockURLProtocol.responseError = error
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
-        let session = URLSession(configuration: config)
-        return (SunsetService(session: session), session)
+        return SunsetService(session: URLSession(configuration: config))
     }
 
     // MARK: - Successful Parse
@@ -56,11 +67,7 @@ struct SunsetServiceTests {
             "status": "OK"
         }
         """
-        MockURLProtocol.responseData = Data(json.utf8)
-        MockURLProtocol.responseStatusCode = 200
-        MockURLProtocol.responseError = nil
-
-        let (service, _) = makeService()
+        let service = makeService(data: Data(json.utf8))
         let date = Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 15))!
 
         let result = try await service.fetch(latitude: 40.7128, longitude: -74.006, date: date)
@@ -80,11 +87,7 @@ struct SunsetServiceTests {
             "status": "INVALID_REQUEST"
         }
         """
-        MockURLProtocol.responseData = Data(json.utf8)
-        MockURLProtocol.responseStatusCode = 200
-        MockURLProtocol.responseError = nil
-
-        let (service, _) = makeService()
+        let service = makeService(data: Data(json.utf8))
 
         await #expect(throws: SunsetServiceError.self) {
             try await service.fetch(latitude: 0, longitude: 0, date: .now)
@@ -94,11 +97,7 @@ struct SunsetServiceTests {
     // MARK: - HTTP Error
 
     @Test func fetchThrowsOnHTTPError() async throws {
-        MockURLProtocol.responseData = Data()
-        MockURLProtocol.responseStatusCode = 500
-        MockURLProtocol.responseError = nil
-
-        let (service, _) = makeService()
+        let service = makeService(data: Data(), statusCode: 500)
 
         await #expect(throws: SunsetServiceError.self) {
             try await service.fetch(latitude: 40.0, longitude: -74.0, date: .now)
@@ -108,11 +107,7 @@ struct SunsetServiceTests {
     // MARK: - Malformed JSON
 
     @Test func fetchThrowsOnMalformedJSON() async throws {
-        MockURLProtocol.responseData = Data("not json".utf8)
-        MockURLProtocol.responseStatusCode = 200
-        MockURLProtocol.responseError = nil
-
-        let (service, _) = makeService()
+        let service = makeService(data: Data("not json".utf8))
 
         await #expect(throws: Error.self) {
             try await service.fetch(latitude: 40.0, longitude: -74.0, date: .now)
@@ -131,11 +126,7 @@ struct SunsetServiceTests {
             "status": "OK"
         }
         """
-        MockURLProtocol.responseData = Data(json.utf8)
-        MockURLProtocol.responseStatusCode = 200
-        MockURLProtocol.responseError = nil
-
-        let (service, _) = makeService()
+        let service = makeService(data: Data(json.utf8))
 
         await #expect(throws: SunsetServiceError.self) {
             try await service.fetch(latitude: 40.0, longitude: -74.0, date: .now)

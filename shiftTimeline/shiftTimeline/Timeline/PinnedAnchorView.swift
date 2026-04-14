@@ -13,7 +13,8 @@ struct PinnedAnchorView: View {
 
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "h:mm a"
+        f.timeStyle = .short
+        f.dateStyle = .none
         return f
     }()
 

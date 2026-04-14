@@ -69,6 +69,10 @@ struct CreateBlockSheet: View {
             }
             .navigationTitle(String(localized: "New Block"))
             .navigationBarTitleDisplayMode(.inline)
+            .onDisappear {
+                startTimePickerTask?.cancel()
+                startTimePickerTask = nil
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {

@@ -165,6 +165,10 @@ private struct UseTemplateSheet: View {
             }
             .navigationTitle(String(localized: "New Event from Template"))
             .navigationBarTitleDisplayMode(.inline)
+            .onDisappear {
+                startTimePickerTask?.cancel()
+                startTimePickerTask = nil
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {

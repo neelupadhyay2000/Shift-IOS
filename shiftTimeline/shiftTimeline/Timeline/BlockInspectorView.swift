@@ -83,6 +83,10 @@ struct BlockInspectorView: View {
         }
         .formStyle(.grouped)
         .onAppear { loadState() }
+        .onDisappear {
+            startTimePickerTask?.cancel()
+            startTimePickerTask = nil
+        }
         .onChange(of: block.id) { _, _ in loadState() }
         .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
         .onChange(of: startTime) { _, new in block.scheduledStart = new }

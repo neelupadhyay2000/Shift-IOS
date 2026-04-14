@@ -3,8 +3,8 @@ import Foundation
 /// Fetches sunset and golden hour (civil twilight) times from the
 /// sunrise-sunset.org public API for a given coordinate and date.
 ///
-/// No API key required. Results are cached per event on `EventModel`
-/// so the network call only happens once per date+location pair.
+/// No API key required. Callers are responsible for caching the result
+/// to avoid redundant network calls.
 public struct SunsetService: Sendable {
 
     private let session: URLSession
@@ -13,10 +13,10 @@ public struct SunsetService: Sendable {
         self.session = session
     }
 
-    /// Fetches sunset and civil twilight end (golden hour proxy) for
+    /// Fetches sunset and civil twilight begin (golden hour proxy) for
     /// the given coordinates and date.
     ///
-    /// - Returns: A ``SunsetResult`` with sunset and golden hour times
+    /// - Returns: A ``SunsetResult`` with sunset and golden hour start times
     ///   in the local calendar, or throws on network/parse failure.
     public func fetch(
         latitude: Double,
@@ -93,10 +93,10 @@ public enum SunsetServiceError: Error, Sendable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidURL: "Failed to build sunset API URL."
-        case .networkError: "Network request to sunset API failed."
-        case .apiError(let status): "Sunset API returned status: \(status)"
-        case .parseFailed: "Failed to parse sunset times from API response."
+        case .invalidURL: return "Failed to build sunset API URL."
+        case .networkError: return "Network request to sunset API failed."
+        case .apiError(let status): return "Sunset API returned status: \(status)"
+        case .parseFailed: return "Failed to parse sunset times from API response."
         }
     }
 }

@@ -33,9 +33,9 @@ struct CreateEventSheet: View {
 
                 Section(String(localized: "Location")) {
                     TextField(String(localized: "Latitude"), text: $latitudeText)
-                        .keyboardType(.decimalPad)
+                        .keyboardType(.numbersAndPunctuation)
                     TextField(String(localized: "Longitude"), text: $longitudeText)
-                        .keyboardType(.decimalPad)
+                        .keyboardType(.numbersAndPunctuation)
                 }
             }
             .navigationTitle(String(localized: "New Event"))
