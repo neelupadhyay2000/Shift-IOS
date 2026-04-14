@@ -102,6 +102,7 @@ struct VendorManagerView: View {
     @ViewBuilder
     private func vendorRow(_ vendor: VendorModel) -> some View {
         let roleColor = ShiftDesign.roleColor(for: vendor.role)
+        let blockCount = assignedBlockCount(for: vendor)
 
         HStack(spacing: 14) {
             // Role icon with role-specific color
@@ -127,8 +128,8 @@ struct VendorManagerView: View {
                         .background(roleColor.opacity(0.12), in: Capsule())
                         .foregroundStyle(roleColor)
 
-                    if assignedBlockCount(for: vendor) > 0 {
-                        Text("\(assignedBlockCount(for: vendor)) blocks")
+                    if blockCount > 0 {
+                        Text("\(blockCount) blocks")
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }

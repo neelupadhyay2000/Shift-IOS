@@ -99,44 +99,11 @@ public final class PDFGenerator: Sendable {
             .flatMap(\.blocks)
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
-        // Build row data
-        var rows = allBlocks.map { block in
-            TableRow(
-                time: Self.timeFormatter.string(from: block.scheduledStart),
-                title: block.title,
-                duration: Self.formatDuration(block.duration),
-                vendor: block.vendors.map(\.name).joined(separator: ", "),
-                notes: block.notes,
-                highlight: .none,
-                isPinned: block.isPinned
-            )
-        }
-
-        // Insert sunset/golden hour marker rows
-        if let sunset = event.sunsetTime {
-            let sunsetRow = TableRow(
-                time: Self.timeFormatter.string(from: sunset),
-                title: "☀ Sunset",
-                duration: "",
-                vendor: "",
-                notes: "Sunset — plan outdoor activities before this time",
-                highlight: .sunset,
-                isPinned: false
-            )
-            insertChronologically(&rows, row: sunsetRow, date: sunset, allBlocks: allBlocks)
-        }
-        if let golden = event.goldenHourStart {
-            let goldenRow = TableRow(
-                time: Self.timeFormatter.string(from: golden),
-                title: "✦ Golden Hour",
-                duration: "",
-                vendor: "",
-                notes: "Best natural lighting for photos",
-                highlight: .goldenHour,
-                isPinned: false
-            )
-            insertChronologically(&rows, row: goldenRow, date: golden, allBlocks: allBlocks)
-        }
+        let rows = buildRows(
+            blocks: allBlocks,
+            sunsetTime: event.sunsetTime,
+            goldenHourStart: event.goldenHourStart
+        )
 
         return renderer.pdfData { context in
             var cursor = Cursor()
@@ -207,17 +174,17 @@ public final class PDFGenerator: Sendable {
 
     // MARK: - Data Types
 
-    private struct TableRow {
-        let time: String
-        let title: String
-        let duration: String
-        let vendor: String
-        let notes: String
-        let highlight: HighlightKind
-        let isPinned: Bool
+    public struct TableRow {
+        public let time: String
+        public let title: String
+        public let duration: String
+        public let vendor: String
+        public let notes: String
+        public let highlight: HighlightKind
+        public let isPinned: Bool
     }
 
-    private enum HighlightKind {
+    public enum HighlightKind {
         case none
         case sunset
         case goldenHour
@@ -442,8 +409,10 @@ public final class PDFGenerator: Sendable {
     }
 
     private func calculateRowHeight(_ row: TableRow) -> CGFloat {
-        let maxNoteWidth = Layout.contentWidth * Layout.colNotes - 10
         let attrs: [NSAttributedString.Key: Any] = [.font: PDFFont.tableBody]
+        let boldAttrs: [NSAttributedString.Key: Any] = [.font: PDFFont.tableBodyBold]
+
+        let maxNoteWidth = Layout.contentWidth * Layout.colNotes - 10
         let notesHeight = (row.notes as NSString).boundingRect(
             with: CGSize(width: maxNoteWidth, height: .greatestFiniteMagnitude),
             options: .usesLineFragmentOrigin,
@@ -459,7 +428,17 @@ public final class PDFGenerator: Sendable {
             context: nil
         ).height
 
-        return max(14, max(notesHeight, vendorHeight))
+        let maxTitleWidth = Layout.contentWidth * Layout.colTitle - 4
+        var titleText = row.title
+        if row.isPinned { titleText = "📌 \(titleText)" }
+        let titleHeight = (titleText as NSString).boundingRect(
+            with: CGSize(width: maxTitleWidth, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: boldAttrs,
+            context: nil
+        ).height
+
+        return max(14, max(notesHeight, max(vendorHeight, titleHeight)))
     }
 
     // MARK: - Footer
@@ -495,21 +474,61 @@ public final class PDFGenerator: Sendable {
         linePath.stroke()
     }
 
-    // MARK: - Helpers
+    // MARK: - Row Building (testable)
 
-    private func insertChronologically(
-        _ rows: inout [TableRow],
-        row: TableRow,
-        date: Date,
-        allBlocks: [TimeBlockModel]
-    ) {
-        let insertIndex = allBlocks.firstIndex { $0.scheduledStart > date } ?? allBlocks.count
-        // Adjust for previously inserted highlight rows
-        let currentCount = rows.count
-        let blockCount = allBlocks.count
-        let offset = currentCount - blockCount
-        rows.insert(row, at: min(insertIndex + offset, rows.count))
+    /// Builds the ordered table rows from blocks, inserting sunset/golden hour
+    /// marker rows in the correct chronological position.
+    public func buildRows(
+        blocks: [TimeBlockModel],
+        sunsetTime: Date?,
+        goldenHourStart: Date?
+    ) -> [TableRow] {
+        var rows = blocks.map { block in
+            TableRow(
+                time: Self.timeFormatter.string(from: block.scheduledStart),
+                title: block.title,
+                duration: Self.formatDuration(block.duration),
+                vendor: block.vendors.map(\.name).joined(separator: ", "),
+                notes: block.notes,
+                highlight: .none,
+                isPinned: block.isPinned
+            )
+        }
+        var rowDates = blocks.map(\.scheduledStart)
+
+        var markerRows: [(date: Date, row: TableRow)] = []
+        if let sunset = sunsetTime {
+            markerRows.append((sunset, TableRow(
+                time: Self.timeFormatter.string(from: sunset),
+                title: "☀ Sunset",
+                duration: "",
+                vendor: "",
+                notes: "Sunset — plan outdoor activities before this time",
+                highlight: .sunset,
+                isPinned: false
+            )))
+        }
+        if let golden = goldenHourStart {
+            markerRows.append((golden, TableRow(
+                time: Self.timeFormatter.string(from: golden),
+                title: "✦ Golden Hour",
+                duration: "",
+                vendor: "",
+                notes: "Best natural lighting for photos",
+                highlight: .goldenHour,
+                isPinned: false
+            )))
+        }
+        markerRows.sort { $0.date < $1.date }
+        for marker in markerRows.reversed() {
+            let insertIndex = rowDates.firstIndex { $0 > marker.date } ?? rowDates.count
+            rows.insert(marker.row, at: insertIndex)
+            rowDates.insert(marker.date, at: insertIndex)
+        }
+        return rows
     }
+
+    // MARK: - Helpers
 
     private static func formatDuration(_ duration: TimeInterval) -> String {
         let minutes = Int(duration) / 60

@@ -72,32 +72,38 @@ struct PDFExportPreviewView: View {
             }
         }
         .task {
-            generatePDF()
+            await generatePDF()
         }
     }
 
-    private func generatePDF() {
+    private func generatePDF() async {
         guard let event else {
             isGenerating = false
             return
         }
         #if os(iOS)
         let generator = PDFGenerator()
-        let data = generator.generate(from: event)
-        pdfData = data
+        let eventTitle = event.title
 
-        // Write to a temporary file so ShareLink presents a proper .pdf
-        // that works with AirDrop, email, Files, and Print.
-        let sanitizedTitle = event.title
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .joined(separator: "_")
-        let fileName = "\(sanitizedTitle)_Timeline.pdf"
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        do {
-            try data.write(to: tempURL, options: .atomic)
-            pdfFileURL = tempURL
-        } catch {
-            // Share won't be available but preview still works
+        let result: (data: Data, url: URL?)? = await Task.detached {
+            let data = generator.generate(from: event)
+
+            let sanitizedTitle = eventTitle
+                .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .joined(separator: "_")
+            let fileName = "\(sanitizedTitle)_Timeline.pdf"
+            let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+            do {
+                try data.write(to: tempURL, options: .atomic)
+                return (data, tempURL)
+            } catch {
+                return (data, nil)
+            }
+        }.value
+
+        if let result {
+            pdfData = result.data
+            pdfFileURL = result.url
         }
         #endif
         isGenerating = false
