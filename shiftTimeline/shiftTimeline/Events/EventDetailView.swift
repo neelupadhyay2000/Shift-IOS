@@ -85,8 +85,10 @@ struct EventDetailView: View {
                 LabeledContent(String(localized: "Tracks")) {
                     Text("\(event.tracks.count)")
                 }
-                LabeledContent(String(localized: "Vendors")) {
-                    Text("\(event.vendors.count)")
+                NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
+                    LabeledContent(String(localized: "Vendors")) {
+                        Text("\(event.vendors.count)")
+                    }
                 }
             }
         }

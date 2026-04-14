@@ -26,6 +26,7 @@ enum Tab: String, Hashable, CaseIterable {
 enum EventDestination: Hashable {
     case eventDetail(id: UUID)
     case timelineBuilder(eventID: UUID)
+    case vendorManager(eventID: UUID)
 }
 
 /// Typed push destinations for the Templates stack.
@@ -193,6 +194,8 @@ struct RootNavigator: View {
             EventDetailView(eventID: id)
         case .timelineBuilder(let eventID):
             TimelineBuilderView(eventID: eventID)
+        case .vendorManager(let eventID):
+            VendorManagerView(eventID: eventID)
         }
     }
 
