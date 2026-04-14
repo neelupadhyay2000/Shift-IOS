@@ -211,23 +211,33 @@ struct TimelineBuilderView: View {
         ScrollView {
             let currentLayout = layout
 
-            HStack(alignment: .top, spacing: 0) {
-                // — Left: Time ruler
-                TimeRulerView(layout: currentLayout)
+            ZStack(alignment: .topLeading) {
+                // Full-height guide lines extending across the entire width
+                ForEach(currentLayout.hourMarkers, id: \.self) { hour in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.08))
+                        .frame(height: 0.5)
+                        .offset(y: currentLayout.yOffset(for: hour))
+                }
 
-                // — Right: Block cards, absolutely positioned
-                ZStack(alignment: .topLeading) {
-                    // Invisible spacer to establish full height
-                    Color.clear
-                        .frame(height: currentLayout.totalHeight)
+                HStack(alignment: .top, spacing: 0) {
+                    // — Left: Time ruler
+                    TimeRulerView(layout: currentLayout)
 
-                    ForEach(filteredBlocks) { block in
-                        blockCard(block, in: currentLayout)
+                    // — Right: Block cards, absolutely positioned
+                    ZStack(alignment: .topLeading) {
+                        // Invisible spacer to establish full height
+                        Color.clear
+                            .frame(height: currentLayout.totalHeight)
+
+                        ForEach(filteredBlocks) { block in
+                            blockCard(block, in: currentLayout)
+                        }
                     }
                 }
             }
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 32)
             .padding(.trailing, 16)
         }
         .scrollIndicators(.hidden)
@@ -239,30 +249,40 @@ struct TimelineBuilderView: View {
         ScrollView {
             let currentLayout = sharedLayout
 
-            HStack(alignment: .top, spacing: 0) {
-                // — Left: Shared time ruler spanning the full time range
-                TimeRulerView(layout: currentLayout)
+            ZStack(alignment: .topLeading) {
+                // Full-width hour guide lines
+                ForEach(currentLayout.hourMarkers, id: \.self) { hour in
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.08))
+                        .frame(height: 0.5)
+                        .offset(y: currentLayout.yOffset(for: hour))
+                }
 
-                // — Right: Side-by-side track columns
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(sortedTracks) { track in
-                        TrackColumnView(
-                            track: track,
-                            layout: currentLayout,
-                            onTapBlock: { block in blockToInspect = block },
-                            onDeleteBlock: { block in
-                                if block.isPinned {
-                                    blockPendingDeletion = block
-                                } else {
-                                    deleteBlock(block)
+                HStack(alignment: .top, spacing: 0) {
+                    // — Left: Shared time ruler spanning the full time range
+                    TimeRulerView(layout: currentLayout)
+
+                    // — Right: Side-by-side track columns
+                    HStack(alignment: .top, spacing: 8) {
+                        ForEach(sortedTracks) { track in
+                            TrackColumnView(
+                                track: track,
+                                layout: currentLayout,
+                                onTapBlock: { block in blockToInspect = block },
+                                onDeleteBlock: { block in
+                                    if block.isPinned {
+                                        blockPendingDeletion = block
+                                    } else {
+                                        deleteBlock(block)
+                                    }
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 32)
             .padding(.trailing, 16)
         }
         .scrollIndicators(.hidden)
@@ -275,7 +295,7 @@ struct TimelineBuilderView: View {
         in currentLayout: TimeRulerLayout
     ) -> some View {
         let yOffset = currentLayout.yOffset(for: block.scheduledStart)
-        let minHeight: CGFloat = 44
+        let minHeight: CGFloat = 52
         let height = max(currentLayout.height(for: block.duration), minHeight)
 
         return Button {
@@ -291,12 +311,16 @@ struct TimelineBuilderView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .shadow(color: .black.opacity(0.06), radius: 4, y: 2)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.background)
+                    .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(.quaternary, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)
@@ -316,7 +340,7 @@ struct TimelineBuilderView: View {
                 Label(String(localized: "Delete"), systemImage: "trash")
             }
         }
-        .padding(.leading, 8)
+        .padding(.leading, 4)
         .offset(y: yOffset)
     }
 

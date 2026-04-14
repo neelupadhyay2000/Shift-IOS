@@ -48,7 +48,7 @@ struct TimeRulerLayout {
     /// Rounds start down and end up to the nearest hour, with padding.
     static func adaptive(
         blocks: [some TimeRulerBlock],
-        pointsPerMinute: CGFloat = 1.5
+        pointsPerMinute: CGFloat = 2.5
     ) -> TimeRulerLayout {
         let calendar = Calendar.current
 
@@ -101,7 +101,8 @@ extension TimeBlockModel: TimeRulerBlock {
 
 // MARK: - TimeRulerView
 
-/// Draws vertical hour markers along the left edge.
+/// Draws vertical hour markers along the left edge with a continuous
+/// vertical line connecting hour ticks for a polished, modern look.
 struct TimeRulerView: View {
     let layout: TimeRulerLayout
 
@@ -113,21 +114,36 @@ struct TimeRulerView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
+            // Continuous vertical guide line
+            Rectangle()
+                .fill(Color.secondary.opacity(0.18))
+                .frame(width: 1)
+                .frame(height: layout.totalHeight)
+                .offset(x: 56)
+
             ForEach(layout.hourMarkers, id: \.self) { hour in
-                HStack(spacing: 4) {
+                let y = layout.yOffset(for: hour)
+                HStack(spacing: 6) {
                     Text(Self.hourFormatter.string(from: hour))
                         .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44, alignment: .trailing)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 42, alignment: .trailing)
+                        .monospacedDigit()
 
+                    // Tick mark
+                    Circle()
+                        .fill(Color.secondary.opacity(0.35))
+                        .frame(width: 6, height: 6)
+
+                    // Horizontal guide extending rightward
                     Rectangle()
-                        .fill(Color.secondary.opacity(0.3))
+                        .fill(Color.secondary.opacity(0.08))
                         .frame(height: 0.5)
                 }
-                .offset(y: layout.yOffset(for: hour) - 6)
+                .offset(y: y - 3)
             }
         }
-        .frame(height: layout.totalHeight)
+        .frame(width: 64, height: layout.totalHeight, alignment: .topLeading)
     }
 }
