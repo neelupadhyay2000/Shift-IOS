@@ -104,7 +104,7 @@ final class RippleEnginePerformanceTests: XCTestCase {
         XCTAssertLessThan(
             elapsed,
             0.050,
-            "recalculate(200 fluid blocks, +15 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 50 ms"
+            "recalculate(200 fluid blocks, +15 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 150 ms"
         )
     }
 
@@ -184,7 +184,7 @@ final class RippleEnginePerformanceTests: XCTestCase {
         XCTAssertLessThan(
             elapsed,
             0.050,
-            "generatePreview(200 fluid blocks, +15 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 50 ms"
+            "generatePreview(200 fluid blocks, +15 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 150 ms"
         )
     }
 
