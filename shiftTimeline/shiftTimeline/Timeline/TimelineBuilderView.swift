@@ -29,6 +29,10 @@ struct TimelineBuilderView: View {
     @State private var blockPendingDeletion: TimeBlockModel?
     @State private var isInspectorOpen = false
 
+    // Drag reorder state (iPhone only)
+    @State private var draggingBlockID: UUID?
+    @State private var dragTranslation: CGFloat = 0
+
     // Track management
     @State private var isShowingAddTrackAlert = false
     @State private var newTrackName = ""
@@ -296,9 +300,12 @@ struct TimelineBuilderView: View {
         let naturalHeight = max(currentLayout.height(for: block.duration), 52)
         let gap = (maxY ?? .infinity) - yOffset
         let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        let isDragging = draggingBlockID == block.id
 
         return Button {
-            blockToInspect = block
+            if draggingBlockID == nil {
+                blockToInspect = block
+            }
         } label: {
             TimeBlockRowView(
                 title: block.title,
@@ -329,7 +336,36 @@ struct TimelineBuilderView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
+        .scaleEffect(isDragging ? 1.04 : 1.0)
+        .opacity(isDragging ? 0.85 : 1.0)
+        .zIndex(isDragging ? 100 : 0)
         .draggable(block.id.uuidString)
+        .gesture(
+            LongPressGesture(minimumDuration: 0.4)
+                .sequenced(before: DragGesture())
+                .onChanged { value in
+                    switch value {
+                    case .second(true, let drag):
+                        if draggingBlockID == nil {
+                            draggingBlockID = block.id
+                        }
+                        dragTranslation = drag?.translation.height ?? 0
+                    default:
+                        break
+                    }
+                }
+                .onEnded { value in
+                    guard draggingBlockID == block.id else { return }
+                    if case .second(true, let drag) = value, let drag {
+                        let dropY = yOffset + drag.translation.height
+                        reorderBlock(block, toY: dropY, in: currentLayout)
+                    }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        draggingBlockID = nil
+                        dragTranslation = 0
+                    }
+                }
+        )
         .contextMenu {
             Button {
                 blockToInspect = block
@@ -347,7 +383,8 @@ struct TimelineBuilderView: View {
             }
         }
         .padding(.leading, 4)
-        .offset(y: yOffset)
+        .offset(y: yOffset + (isDragging ? dragTranslation : 0))
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draggingBlockID)
     }
 
     private func nextBlockYMap(for blocks: [TimeBlockModel], layout: TimeRulerLayout) -> [UUID: CGFloat] {
@@ -463,6 +500,49 @@ struct TimelineBuilderView: View {
 
         modelContext.delete(track)
         trackToDelete = nil
+    }
+
+    // MARK: - Reorder
+
+    private func reorderBlock(
+        _ block: TimeBlockModel,
+        toY dropY: CGFloat,
+        in currentLayout: TimeRulerLayout
+    ) {
+        guard !block.isPinned else { return }
+
+        var blocks = filteredBlocks
+        guard blocks.count > 1 else { return }
+
+        // Remove the dragged block from the list
+        blocks.removeAll { $0.id == block.id }
+
+        // Determine insertion index based on drop y position
+        var insertionIndex = blocks.count
+        for (index, other) in blocks.enumerated() {
+            let otherY = currentLayout.yOffset(for: other.scheduledStart)
+            if dropY < otherY {
+                insertionIndex = index
+                break
+            }
+        }
+
+        blocks.insert(block, at: insertionIndex)
+
+        // Recalculate scheduledStart for all fluid blocks in new order
+        guard let firstBlock = blocks.first else { return }
+        var cursor = firstBlock.isPinned
+            ? firstBlock.scheduledStart
+            : (event?.date ?? firstBlock.scheduledStart)
+
+        for current in blocks {
+            if current.isPinned {
+                cursor = max(cursor, current.scheduledStart.addingTimeInterval(current.duration))
+            } else {
+                current.scheduledStart = cursor
+                cursor = cursor.addingTimeInterval(current.duration)
+            }
+        }
     }
 
     // MARK: - Delete
