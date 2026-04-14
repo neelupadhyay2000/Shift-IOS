@@ -83,17 +83,14 @@ struct TrackColumnView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.background)
-                    .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
-                    .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
-            )
+            .background(.background)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+            .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .draggable(block.id.uuidString)

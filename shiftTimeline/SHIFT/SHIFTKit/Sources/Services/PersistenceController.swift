@@ -44,7 +44,9 @@ public final class PersistenceController: Sendable {
                     at: supportDir, withIntermediateDirectories: true
                 )
             } catch {
-                logger.error("Failed to create App Group support dir: \(error.localizedDescription)")
+                logger.error("Failed to create App Group support dir: \(error.localizedDescription) — falling back to default location")
+                return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+                    .appendingPathComponent("default.store")
             }
         }
 

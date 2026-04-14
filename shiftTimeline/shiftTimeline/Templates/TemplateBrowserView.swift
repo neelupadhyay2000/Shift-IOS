@@ -52,15 +52,19 @@ struct TemplateBrowserView: View {
     }
 
     private func loadTemplates() async {
+        isLoading = true
+        loadError = nil
+        defer { isLoading = false }
         do {
-            let loaded = try await Task.detached {
+            let loaded = try await Task(priority: .userInitiated) {
                 try TemplateLoader().loadAll().sorted { $0.name < $1.name }
             }.value
+            guard !Task.isCancelled else { return }
             templates = loaded
         } catch {
+            guard !Task.isCancelled else { return }
             loadError = error.localizedDescription
         }
-        isLoading = false
     }
 }
 

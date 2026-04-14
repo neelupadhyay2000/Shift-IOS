@@ -212,16 +212,16 @@ struct TimelineBuilderView: View {
             let currentLayout = layout
 
             ZStack(alignment: .topLeading) {
-                // Full-height guide lines extending across the entire width
+                // Full-width hour guide lines — single source of truth for horizontal guides
                 ForEach(currentLayout.hourMarkers, id: \.self) { hour in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.08))
                         .frame(height: 0.5)
-                        .offset(y: currentLayout.yOffset(for: hour))
+                        .offset(y: currentLayout.yOffset(for: hour) - 3)
                 }
 
                 HStack(alignment: .top, spacing: 0) {
-                    // — Left: Time ruler
+                    // — Left: Time ruler (labels + tick dots only, no horizontal lines)
                     TimeRulerView(layout: currentLayout)
 
                     // — Right: Block cards, absolutely positioned
@@ -250,16 +250,16 @@ struct TimelineBuilderView: View {
             let currentLayout = sharedLayout
 
             ZStack(alignment: .topLeading) {
-                // Full-width hour guide lines
+                // Full-width hour guide lines — single source of truth for horizontal guides
                 ForEach(currentLayout.hourMarkers, id: \.self) { hour in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.08))
                         .frame(height: 0.5)
-                        .offset(y: currentLayout.yOffset(for: hour))
+                        .offset(y: currentLayout.yOffset(for: hour) - 3)
                 }
 
                 HStack(alignment: .top, spacing: 0) {
-                    // — Left: Shared time ruler spanning the full time range
+                    // — Left: Shared time ruler (labels + tick dots only, no horizontal lines)
                     TimeRulerView(layout: currentLayout)
 
                     // — Right: Side-by-side track columns
@@ -311,17 +311,14 @@ struct TimelineBuilderView: View {
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.background)
-                    .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
-                    .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
-            )
+            .background(.background)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
             )
+            .shadow(color: .black.opacity(0.04), radius: 2, y: 1)
+            .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
         }
         .buttonStyle(.plain)
         .contextMenu {
