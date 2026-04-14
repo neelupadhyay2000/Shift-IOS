@@ -56,6 +56,8 @@ struct BlockInspectorView: View {
     @State private var icon: String = "circle.fill"
     @State private var selectedVendorIDs: Set<UUID> = []
     @State private var selectedDependencyIDs: Set<UUID> = []
+    @State private var startTimePickerID = UUID()
+    @State private var startTimePickerTask: Task<Void, Never>?
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -81,6 +83,11 @@ struct BlockInspectorView: View {
         }
         .formStyle(.grouped)
         .onAppear { loadState() }
+        .onDisappear {
+            startTimePickerTask?.cancel()
+            startTimePickerTask = nil
+        }
+        .onChange(of: block.id) { _, _ in loadState() }
         .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
         .onChange(of: startTime) { _, new in block.scheduledStart = new }
         .onChange(of: duration) { _, new in block.duration = new }
@@ -122,6 +129,7 @@ struct BlockInspectorView: View {
             }
         }
         .onAppear { loadState() }
+        .onChange(of: block.id) { _, _ in loadState() }
     }
 
     private func loadState() {
@@ -142,6 +150,15 @@ struct BlockInspectorView: View {
         Section(String(localized: "Basic Info")) {
             TextField(String(localized: "Title"), text: $title)
             DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                    .id(startTimePickerID)
+                    .onChange(of: startTime) { _, _ in
+                        startTimePickerTask?.cancel()
+                        startTimePickerTask = Task {
+                            try? await Task.sleep(for: .seconds(0.15))
+                            guard !Task.isCancelled else { return }
+                            startTimePickerID = UUID()
+                        }
+                    }
 
             Picker(String(localized: "Duration"), selection: $duration) {
                 ForEach(CreateBlockSheet.durationOptions, id: \.1) { label, value in

@@ -24,10 +24,15 @@ struct TimelineBuilderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var sizeClass
 
+    @State private var undoManager = ShiftUndoManager()
     @State private var isShowingCreateSheet = false
     @State private var blockToInspect: TimeBlockModel?
     @State private var blockPendingDeletion: TimeBlockModel?
     @State private var isInspectorOpen = false
+
+    // Drag reorder state (iPhone only)
+    @State private var draggingBlockID: UUID?
+    @State private var dragTranslation: CGFloat = 0
 
     // Track management
     @State private var isShowingAddTrackAlert = false
@@ -206,6 +211,11 @@ struct TimelineBuilderView: View {
         .adaptive(blocks: sortedBlocks)
     }
 
+    /// Pinned blocks for anchor markers.
+    private var pinnedBlocks: [TimeBlockModel] {
+        sortedBlocks.filter(\.isPinned)
+    }
+
     /// iPhone: single-track timeline with filter tabs.
     private var timelineContent: some View {
         ScrollView {
@@ -222,6 +232,9 @@ struct TimelineBuilderView: View {
                         .offset(y: currentLayout.yOffset(for: marker) - 3)
                 }
 
+                // Pinned block anchor lines
+                PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
 
@@ -231,6 +244,25 @@ struct TimelineBuilderView: View {
 
                         ForEach(blocks) { block in
                             blockCard(block, in: currentLayout, maxY: maxYMap[block.id])
+                        }
+
+                        // Drop position indicator — shown while dragging
+                        if let dragID = draggingBlockID,
+                           let dragBlock = blocks.first(where: { $0.id == dragID }) {
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 8, height: 8)
+                                Rectangle()
+                                    .fill(Color.accentColor)
+                                    .frame(height: 2)
+                                    .cornerRadius(1)
+                            }
+                            .padding(.horizontal, 4)
+                            .shadow(color: Color.accentColor.opacity(0.5), radius: 6)
+                            .offset(y: dropIndicatorY(forDragging: dragBlock, in: blocks, layout: currentLayout))
+                            .allowsHitTesting(false)
+                            .animation(.easeInOut(duration: 0.08), value: dragTranslation)
                         }
                     }
                 }
@@ -256,6 +288,9 @@ struct TimelineBuilderView: View {
                         .frame(height: 0.5)
                         .offset(y: currentLayout.yOffset(for: hour) - 3)
                 }
+
+                // Pinned block anchor lines
+                PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
@@ -296,9 +331,12 @@ struct TimelineBuilderView: View {
         let naturalHeight = max(currentLayout.height(for: block.duration), 52)
         let gap = (maxY ?? .infinity) - yOffset
         let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        let isDragging = draggingBlockID == block.id
 
         return Button {
-            blockToInspect = block
+            if draggingBlockID == nil {
+                blockToInspect = block
+            }
         } label: {
             TimeBlockRowView(
                 title: block.title,
@@ -329,7 +367,35 @@ struct TimelineBuilderView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
-        .draggable(block.id.uuidString)
+        .scaleEffect(isDragging ? 1.04 : 1.0)
+        .opacity(isDragging ? 0.85 : 1.0)
+        .zIndex(isDragging ? 100 : 0)
+        .gesture(
+            LongPressGesture(minimumDuration: 0.3)
+                .sequenced(before: DragGesture())
+                .onChanged { value in
+                    switch value {
+                    case .second(true, let drag):
+                        if draggingBlockID == nil {
+                            draggingBlockID = block.id
+                        }
+                        dragTranslation = drag?.translation.height ?? 0
+                    default:
+                        break
+                    }
+                }
+                .onEnded { value in
+                    guard draggingBlockID == block.id else { return }
+                    if case .second(true, let drag) = value, let drag {
+                        let dropY = yOffset + drag.translation.height
+                        reorderBlock(block, toY: dropY, in: currentLayout)
+                    }
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        draggingBlockID = nil
+                        dragTranslation = 0
+                    }
+                }
+        )
         .contextMenu {
             Button {
                 blockToInspect = block
@@ -347,7 +413,8 @@ struct TimelineBuilderView: View {
             }
         }
         .padding(.leading, 4)
-        .offset(y: yOffset)
+        .offset(y: yOffset + (isDragging ? dragTranslation : 0))
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draggingBlockID)
     }
 
     private func nextBlockYMap(for blocks: [TimeBlockModel], layout: TimeRulerLayout) -> [UUID: CGFloat] {
@@ -356,6 +423,37 @@ struct TimelineBuilderView: View {
             map[blocks[index].id] = layout.yOffset(for: blocks[index + 1].scheduledStart)
         }
         return map
+    }
+
+    /// Y position for the insertion indicator line while a block is being dragged.
+    /// Places the line at the midpoint of the gap the dragged block would drop into.
+    private func dropIndicatorY(
+        forDragging block: TimeBlockModel,
+        in blocks: [TimeBlockModel],
+        layout: TimeRulerLayout
+    ) -> CGFloat {
+        let draggedY = layout.yOffset(for: block.scheduledStart) + dragTranslation
+        let others = blocks.filter { $0.id != block.id }
+        var insertIdx = others.count
+        for (i, other) in others.enumerated() {
+            if draggedY < layout.yOffset(for: other.scheduledStart) {
+                insertIdx = i
+                break
+            }
+        }
+        if others.isEmpty { return draggedY }
+        if insertIdx == 0 {
+            return layout.yOffset(for: others[0].scheduledStart) - 4
+        } else if insertIdx >= others.count {
+            let last = others[others.count - 1]
+            return layout.yOffset(for: last.scheduledStart) + max(layout.height(for: last.duration), 52) + 4
+        } else {
+            let prev = others[insertIdx - 1]
+            let next = others[insertIdx]
+            let prevBottom = layout.yOffset(for: prev.scheduledStart) + max(layout.height(for: prev.duration), 52)
+            let nextTop = layout.yOffset(for: next.scheduledStart)
+            return (prevBottom + nextTop) / 2
+        }
     }
 
     // MARK: - Toolbar
@@ -411,6 +509,65 @@ struct TimelineBuilderView: View {
             }
             .accessibilityLabel(String(localized: "Manage Tracks"))
         }
+
+        // iPad: visible undo/redo toolbar buttons (touch-friendly)
+        if sizeClass != .compact {
+            ToolbarItem(placement: .topBarLeading) {
+                HStack(spacing: 4) {
+                    Button {
+                        undoManager.undo(applying: sortedBlocks)
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                    }
+                    .disabled(!undoManager.canUndo)
+                    .accessibilityLabel(String(localized: "Undo"))
+
+                    Button {
+                        undoManager.redo(applying: sortedBlocks)
+                    } label: {
+                        Image(systemName: "arrow.uturn.forward")
+                    }
+                    .disabled(!undoManager.canRedo)
+                    .accessibilityLabel(String(localized: "Redo"))
+                }
+            }
+        }
+
+        // iPad keyboard shortcuts — Cmd+Z, Cmd+Shift+Z, Cmd+S, Cmd+N
+        ToolbarItem(placement: .keyboard) {
+            Button {
+                undoManager.undo(applying: sortedBlocks)
+            } label: {
+                Label(String(localized: "Undo"), systemImage: "arrow.uturn.backward")
+            }
+            .keyboardShortcut("z", modifiers: .command)
+            .disabled(!undoManager.canUndo)
+        }
+        ToolbarItem(placement: .keyboard) {
+            Button {
+                undoManager.redo(applying: sortedBlocks)
+            } label: {
+                Label(String(localized: "Redo"), systemImage: "arrow.uturn.forward")
+            }
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+            .disabled(!undoManager.canRedo)
+        }
+        ToolbarItem(placement: .keyboard) {
+            Button {
+                try? modelContext.save()
+            } label: {
+                Label(String(localized: "Save"), systemImage: "square.and.arrow.down")
+            }
+            .keyboardShortcut("s", modifiers: .command)
+        }
+        ToolbarItem(placement: .keyboard) {
+            Button {
+                isShowingCreateSheet = true
+            } label: {
+                Label(String(localized: "New Block"), systemImage: "plus")
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
     }
 
     // MARK: - Empty State
@@ -463,6 +620,55 @@ struct TimelineBuilderView: View {
 
         modelContext.delete(track)
         trackToDelete = nil
+    }
+
+    // MARK: - Reorder
+
+    private func reorderBlock(
+        _ block: TimeBlockModel,
+        toY dropY: CGFloat,
+        in currentLayout: TimeRulerLayout
+    ) {
+        guard !block.isPinned else { return }
+
+        var blocks = filteredBlocks
+        guard blocks.count > 1 else { return }
+
+        // Capture before-state for undo
+        undoManager.recordShift(blocks: blocks)
+
+        // Remove the dragged block from the list
+        blocks.removeAll { $0.id == block.id }
+
+        // Determine insertion index based on drop y position
+        var insertionIndex = blocks.count
+        for (index, other) in blocks.enumerated() {
+            let otherY = currentLayout.yOffset(for: other.scheduledStart)
+            if dropY < otherY {
+                insertionIndex = index
+                break
+            }
+        }
+
+        blocks.insert(block, at: insertionIndex)
+
+        // Recalculate scheduledStart for all fluid blocks in new order
+        guard let firstBlock = blocks.first else { return }
+        var cursor = firstBlock.isPinned
+            ? firstBlock.scheduledStart
+            : (event?.date ?? firstBlock.scheduledStart)
+
+        for current in blocks {
+            if current.isPinned {
+                cursor = max(cursor, current.scheduledStart.addingTimeInterval(current.duration))
+            } else {
+                current.scheduledStart = cursor
+                cursor = cursor.addingTimeInterval(current.duration)
+            }
+        }
+
+        // Commit after-state for undo
+        undoManager.commitShift(blocks: blocks)
     }
 
     // MARK: - Delete

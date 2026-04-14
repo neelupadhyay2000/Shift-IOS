@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Models
 
 // MARK: - BlockSnapshot
@@ -158,6 +159,7 @@ public struct UndoStack: Sendable {
 /// `ShiftUndoManager` lives on `@MainActor` because it reads and writes
 /// `TimeBlockModel` properties — SwiftData `@Model` objects that must be
 /// accessed on the main context's actor.
+@Observable
 @MainActor
 public final class ShiftUndoManager {
 
