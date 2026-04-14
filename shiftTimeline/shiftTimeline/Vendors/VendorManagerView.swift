@@ -7,6 +7,7 @@ struct VendorManagerView: View {
     let eventID: UUID
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openURL) private var openURL
     @Query private var results: [EventModel]
     @State private var showingAddSheet = false
     @State private var vendorToEdit: VendorModel?
@@ -110,7 +111,7 @@ struct VendorManagerView: View {
 
             VStack(alignment: .trailing, spacing: 2) {
                 if !vendor.phone.isEmpty {
-                    Label(vendor.phone, systemImage: "phone.fill")
+                    Text(vendor.phone)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -121,8 +122,37 @@ struct VendorManagerView: View {
                 }
             }
             .lineLimit(1)
+
+            phoneButton(for: vendor)
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private func phoneButton(for vendor: VendorModel) -> some View {
+        let canCall = canMakePhoneCalls && !vendor.phone.isEmpty
+        Button {
+            callVendor(vendor)
+        } label: {
+            Image(systemName: "phone.fill")
+                .font(.body)
+                .foregroundStyle(canCall ? Color.accentColor : .gray)
+                .frame(width: 36, height: 36)
+                .background(canCall ? Color.accentColor.opacity(0.12) : Color.gray.opacity(0.08), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!canCall)
+    }
+
+    private var canMakePhoneCalls: Bool {
+        guard let url = URL(string: "tel://") else { return false }
+        return UIApplication.shared.canOpenURL(url)
+    }
+
+    private func callVendor(_ vendor: VendorModel) {
+        let digits = vendor.phone.filter { $0.isNumber || $0 == "+" }
+        guard !digits.isEmpty, let url = URL(string: "tel://\(digits)") else { return }
+        openURL(url)
     }
 
     // MARK: - Actions
