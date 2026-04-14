@@ -105,7 +105,7 @@ struct TimelineBuilderView: View {
             }
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarItems }
         .sheet(isPresented: $isShowingCreateSheet) {
             CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
@@ -210,14 +210,16 @@ struct TimelineBuilderView: View {
     private var timelineContent: some View {
         ScrollView {
             let currentLayout = layout
+            let blocks = filteredBlocks
+            let maxYMap = nextBlockYMap(for: blocks, layout: currentLayout)
 
             ZStack(alignment: .topLeading) {
-                // Full-width hour guide lines
-                ForEach(currentLayout.hourMarkers, id: \.self) { hour in
+                // Full-width guide lines at every marker
+                ForEach(currentLayout.hourMarkers, id: \.self) { marker in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.10))
                         .frame(height: 0.5)
-                        .offset(y: currentLayout.yOffset(for: hour) - 3)
+                        .offset(y: currentLayout.yOffset(for: marker) - 3)
                 }
 
                 HStack(alignment: .top, spacing: 0) {
@@ -227,8 +229,8 @@ struct TimelineBuilderView: View {
                         Color.clear
                             .frame(height: currentLayout.totalHeight)
 
-                        ForEach(filteredBlocks) { block in
-                            blockCard(block, in: currentLayout)
+                        ForEach(blocks) { block in
+                            blockCard(block, in: currentLayout, maxY: maxYMap[block.id])
                         }
                     }
                 }
@@ -287,11 +289,13 @@ struct TimelineBuilderView: View {
 
     private func blockCard(
         _ block: TimeBlockModel,
-        in currentLayout: TimeRulerLayout
+        in currentLayout: TimeRulerLayout,
+        maxY: CGFloat? = nil
     ) -> some View {
         let yOffset = currentLayout.yOffset(for: block.scheduledStart)
-        let minHeight: CGFloat = 52
-        let height = max(currentLayout.height(for: block.duration), minHeight)
+        let naturalHeight = max(currentLayout.height(for: block.duration), 52)
+        let gap = (maxY ?? .infinity) - yOffset
+        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
 
         return Button {
             blockToInspect = block
@@ -344,6 +348,14 @@ struct TimelineBuilderView: View {
         }
         .padding(.leading, 4)
         .offset(y: yOffset)
+    }
+
+    private func nextBlockYMap(for blocks: [TimeBlockModel], layout: TimeRulerLayout) -> [UUID: CGFloat] {
+        var map = [UUID: CGFloat]()
+        for index in blocks.indices where index + 1 < blocks.count {
+            map[blocks[index].id] = layout.yOffset(for: blocks[index + 1].scheduledStart)
+        }
+        return map
     }
 
     // MARK: - Toolbar

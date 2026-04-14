@@ -37,7 +37,7 @@ struct TimeRulerLayout {
         var current = firstHour
         while current <= rulerEnd {
             markers.append(current)
-            guard let next = calendar.date(byAdding: .hour, value: 1, to: current) else { break }
+            guard let next = calendar.date(byAdding: .minute, value: 30, to: current) else { break }
             current = next
         }
         return markers
@@ -112,6 +112,12 @@ struct TimeRulerView: View {
         return f
     }()
 
+    private static let halfHourFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm"
+        return f
+    }()
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Continuous vertical guide line — subtle gradient
@@ -127,24 +133,28 @@ struct TimeRulerView: View {
                 .frame(height: layout.totalHeight)
                 .offset(x: 55.5)
 
-            ForEach(layout.hourMarkers, id: \.self) { hour in
-                let y = layout.yOffset(for: hour)
+            ForEach(layout.hourMarkers, id: \.self) { marker in
+                let y = layout.yOffset(for: marker)
+                let isFullHour = Calendar.current.component(.minute, from: marker) == 0
+
                 HStack(spacing: 6) {
-                    Text(Self.hourFormatter.string(from: hour))
+                    Text(isFullHour
+                         ? Self.hourFormatter.string(from: marker)
+                         : Self.halfHourFormatter.string(from: marker))
                         .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
+                        .fontWeight(isFullHour ? .bold : .regular)
+                        .foregroundStyle(isFullHour ? .secondary : .tertiary)
                         .frame(width: 42, alignment: .trailing)
                         .monospacedDigit()
 
-                    // Tick mark — accent-tinted
+                    // Tick mark — larger for full hours, subtle for half-hours
                     Circle()
-                        .fill(Color.accentColor.opacity(0.4))
-                        .frame(width: 7, height: 7)
+                        .fill(Color.accentColor.opacity(isFullHour ? 0.4 : 0.2))
+                        .frame(width: isFullHour ? 7 : 5, height: isFullHour ? 7 : 5)
                         .overlay(
                             Circle()
-                                .fill(Color.accentColor.opacity(0.15))
-                                .frame(width: 13, height: 13)
+                                .fill(Color.accentColor.opacity(isFullHour ? 0.15 : 0.08))
+                                .frame(width: isFullHour ? 13 : 9, height: isFullHour ? 13 : 9)
                         )
                 }
                 .offset(y: y - 3)

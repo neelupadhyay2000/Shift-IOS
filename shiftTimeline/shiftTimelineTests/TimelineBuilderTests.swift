@@ -308,7 +308,7 @@ struct TimelineBuilderTests {
         #expect(layout.rulerEnd == expected5PM)
     }
 
-    /// AC: hour markers cover the ruler range.
+    /// AC: markers cover the ruler range at 30-minute intervals.
     @Test func rulerGeneratesCorrectHourMarkers() {
         let calendar = Calendar.current
         let start = calendar.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 14))!
@@ -317,10 +317,11 @@ struct TimelineBuilderTests {
         let layout = TimeRulerLayout(rulerStart: start, rulerEnd: end, pointsPerMinute: 1.5)
         let markers = layout.hourMarkers
 
-        #expect(markers.count == 4) // 2PM, 3PM, 4PM, 5PM
+        // 2:00, 2:30, 3:00, 3:30, 4:00, 4:30, 5:00
+        #expect(markers.count == 7)
 
         let hours = markers.map { calendar.component(.hour, from: $0) }
-        #expect(hours == [14, 15, 16, 17])
+        #expect(hours == [14, 14, 15, 15, 16, 16, 17])
     }
 
     /// AC: blocks positioned relative to ruler (correct Y offset and height).

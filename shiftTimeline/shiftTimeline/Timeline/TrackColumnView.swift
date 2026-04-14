@@ -40,8 +40,9 @@ struct TrackColumnView: View {
                     .frame(height: layout.totalHeight)
                     .contentShape(Rectangle())
 
+                let maxYMap = nextBlockYMap()
                 ForEach(sortedBlocks) { block in
-                    columnBlockCard(block)
+                    columnBlockCard(block, maxY: maxYMap[block.id])
                 }
             }
             .dropDestination(for: String.self) { items, _ in
@@ -72,10 +73,11 @@ struct TrackColumnView: View {
 
     // MARK: - Block Card
 
-    private func columnBlockCard(_ block: TimeBlockModel) -> some View {
+    private func columnBlockCard(_ block: TimeBlockModel, maxY: CGFloat? = nil) -> some View {
         let yOffset = layout.yOffset(for: block.scheduledStart)
-        let minHeight: CGFloat = 52
-        let height = max(layout.height(for: block.duration), minHeight)
+        let naturalHeight = max(layout.height(for: block.duration), 52)
+        let gap = (maxY ?? .infinity) - yOffset
+        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
 
         return Button {
             onTapBlock(block)
@@ -124,6 +126,15 @@ struct TrackColumnView: View {
         }
         .padding(.horizontal, 4)
         .offset(y: yOffset)
+    }
+
+    private func nextBlockYMap() -> [UUID: CGFloat] {
+        let blocks = sortedBlocks
+        var map = [UUID: CGFloat]()
+        for index in blocks.indices where index + 1 < blocks.count {
+            map[blocks[index].id] = layout.yOffset(for: blocks[index + 1].scheduledStart)
+        }
+        return map
     }
 
     // MARK: - Drag & Drop
