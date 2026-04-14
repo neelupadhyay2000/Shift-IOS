@@ -15,13 +15,7 @@ public final class PersistenceController: Sendable {
     public let container: ModelContainer
 
     public static var schema: Schema {
-        Schema([
-            EventModel.self,
-            TimeBlockModel.self,
-            TimelineTrack.self,
-            VendorModel.self,
-            ShiftRecord.self,
-        ])
+        Schema(versionedSchema: SHIFTSchemaV1.self)
     }
 
     /// Returns the store URL inside the shared App Group container,
@@ -63,14 +57,21 @@ public final class PersistenceController: Sendable {
         )
 
         do {
-            container = try ModelContainer(for: schema, configurations: [config])
+            container = try ModelContainer(
+                for: schema,
+                migrationPlan: SHIFTMigrationPlan.self,
+                configurations: [config]
+            )
             Self.logger.info("ModelContainer created successfully")
         } catch {
             Self.logger.error("ModelContainer failed: \(error.localizedDescription) — deleting store and retrying")
             Self.deleteStoreFiles(at: url)
             do {
-                container = try ModelContainer(for: schema, configurations: [config])
-                Self.logger.info("ModelContainer created after store reset")
+                container = try ModelContainer(
+                    for: schema,
+                    migrationPlan: SHIFTMigrationPlan.self,
+                    configurations: [config]
+                )
             } catch {
                 fatalError("Could not create ModelContainer after store reset: \(error)")
             }
