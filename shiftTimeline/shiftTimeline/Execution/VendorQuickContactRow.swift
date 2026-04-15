@@ -1,15 +1,17 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 import Models
 
-/// Horizontal row of tappable vendor avatars (initials) for the active block.
+/// Horizontal row of vendor avatars (initials) for the active block.
 ///
 /// Displayed below `ActiveBlockHero` on the live dashboard. Each circle shows
-/// the vendor's initials and is tappable. Long-press reveals a context menu
-/// with Call and Message actions backed by `tel://` and `sms://` URL schemes.
+/// the vendor's initials. Long-press reveals a context menu with Call and
+/// Message actions backed by `tel://` and `sms://` URL schemes.
 struct VendorQuickContactRow: View {
 
     let vendors: [VendorModel]
-    let onVendorTapped: (VendorModel) -> Void
 
     @Environment(\.openURL) private var openURL
 
@@ -18,15 +20,16 @@ struct VendorQuickContactRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(vendors, id: \.id) { vendor in
-                        Button {
-                            onVendorTapped(vendor)
-                        } label: {
-                            vendorAvatar(vendor)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            contextMenuItems(for: vendor)
-                        }
+                        vendorAvatar(vendor)
+                            .contextMenu {
+                                contextMenuItems(for: vendor)
+                            }
+                            .accessibilityLabel(vendor.name)
+                            .accessibilityHint(
+                                normalizedPhone(vendor.phone).isEmpty
+                                    ? String(localized: "No contact actions available")
+                                    : String(localized: "Long press for contact options")
+                            )
                     }
                 }
                 .padding(.horizontal, 20)
@@ -38,9 +41,9 @@ struct VendorQuickContactRow: View {
 
     @ViewBuilder
     private func contextMenuItems(for vendor: VendorModel) -> some View {
-        let phone = vendor.phone.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = normalizedPhone(vendor.phone)
 
-        if !phone.isEmpty, let telURL = URL(string: "tel://\(phone)") {
+        if !digits.isEmpty, canOpen("tel://"), let telURL = URL(string: "tel://\(digits)") {
             Button {
                 openURL(telURL)
             } label: {
@@ -48,7 +51,7 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if !phone.isEmpty, let smsURL = URL(string: "sms://\(phone)") {
+        if !digits.isEmpty, canOpen("sms:"), let smsURL = URL(string: "sms:\(digits)") {
             Button {
                 openURL(smsURL)
             } label: {
@@ -56,7 +59,7 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if phone.isEmpty {
+        if digits.isEmpty {
             Text(String(localized: "No phone number"))
         }
     }
@@ -81,9 +84,24 @@ struct VendorQuickContactRow: View {
                 .lineLimit(1)
                 .frame(maxWidth: 56)
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Helpers
+
+    /// Strips formatting characters, keeping only digits and leading "+".
+    private func normalizedPhone(_ raw: String) -> String {
+        raw.filter { $0.isNumber || $0 == "+" }
+    }
+
+    private func canOpen(_ scheme: String) -> Bool {
+        #if canImport(UIKit)
+        guard let url = URL(string: scheme) else { return false }
+        return UIApplication.shared.canOpenURL(url)
+        #else
+        return false
+        #endif
+    }
 
     private func initials(for name: String) -> String {
         let components = name.split(separator: " ")

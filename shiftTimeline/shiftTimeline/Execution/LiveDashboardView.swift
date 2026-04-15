@@ -27,7 +27,6 @@ struct LiveDashboardView: View {
     @State private var pendingShiftPreview: ShiftPreview?
     @State private var pendingShiftMinutes: Int = 0
     @State private var undoManager = ShiftUndoManager()
-    @State private var selectedVendor: VendorModel?
 
     private let engine = RippleEngine()
     private let previewGenerator = ShiftPreviewGenerator()
@@ -76,8 +75,7 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
             onAdvance: advanceToNextBlock,
-            onDismiss: { dismiss() },
-            onVendorTapped: { vendor in selectedVendor = vendor }
+            onDismiss: { dismiss() }
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -283,7 +281,6 @@ private struct _LiveDashboardContent: View {
     let isEventComplete: Bool
     let onAdvance: () -> Void
     let onDismiss: () -> Void
-    let onVendorTapped: (VendorModel) -> Void
 
     @State private var isSiriTipVisible = true
 
@@ -336,10 +333,7 @@ private struct _LiveDashboardContent: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // ── Vendor quick-contact avatars ────────────────────
-                VendorQuickContactRow(
-                    vendors: activeBlock.vendors,
-                    onVendorTapped: onVendorTapped
-                )
+                VendorQuickContactRow(vendors: activeBlock.vendors)
                 .padding(.bottom, 8)
             } else {
                 VStack {
