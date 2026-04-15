@@ -20,15 +20,16 @@ struct VendorQuickContactRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(vendors, id: \.id) { vendor in
+                        let hasActions = hasContactActions(for: vendor)
                         vendorAvatar(vendor)
                             .contextMenu {
                                 contextMenuItems(for: vendor)
                             }
                             .accessibilityLabel(vendor.name)
                             .accessibilityHint(
-                                normalizedPhone(vendor.phone).isEmpty
-                                    ? String(localized: "No contact actions available")
-                                    : String(localized: "Long press for contact options")
+                                hasActions
+                                    ? String(localized: "Long press for contact options")
+                                    : String(localized: "No contact actions available")
                             )
                     }
                 }
@@ -42,8 +43,10 @@ struct VendorQuickContactRow: View {
     @ViewBuilder
     private func contextMenuItems(for vendor: VendorModel) -> some View {
         let digits = normalizedPhone(vendor.phone)
+        let canCall = !digits.isEmpty && canOpen("tel://")
+        let canMessage = !digits.isEmpty && canOpen("sms:")
 
-        if !digits.isEmpty, canOpen("tel://"), let telURL = URL(string: "tel://\(digits)") {
+        if canCall, let telURL = URL(string: "tel://\(digits)") {
             Button {
                 openURL(telURL)
             } label: {
@@ -51,7 +54,7 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if !digits.isEmpty, canOpen("sms:"), let smsURL = URL(string: "sms:\(digits)") {
+        if canMessage, let smsURL = URL(string: "sms:\(digits)") {
             Button {
                 openURL(smsURL)
             } label: {
@@ -59,8 +62,8 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if digits.isEmpty {
-            Text(String(localized: "No phone number"))
+        if !canCall && !canMessage {
+            Text(String(localized: "No contact actions available"))
         }
     }
 
@@ -89,9 +92,20 @@ struct VendorQuickContactRow: View {
 
     // MARK: - Helpers
 
-    /// Strips formatting characters, keeping only digits and leading "+".
+    /// Whether this vendor has at least one contactable action on this device.
+    private func hasContactActions(for vendor: VendorModel) -> Bool {
+        let digits = normalizedPhone(vendor.phone)
+        guard !digits.isEmpty else { return false }
+        return canOpen("tel://") || canOpen("sms:")
+    }
+
+    /// Normalizes a phone string to an optional leading "+" followed by digits only.
     private func normalizedPhone(_ raw: String) -> String {
-        raw.filter { $0.isNumber || $0 == "+" }
+        let stripped = raw.filter { $0.isNumber || $0 == "+" }
+        let hasLeadingPlus = stripped.hasPrefix("+")
+        let digitsOnly = stripped.filter { $0.isNumber }
+        guard !digitsOnly.isEmpty else { return "" }
+        return hasLeadingPlus ? "+\(digitsOnly)" : digitsOnly
     }
 
     private func canOpen(_ scheme: String) -> Bool {

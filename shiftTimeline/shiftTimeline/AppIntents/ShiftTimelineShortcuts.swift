@@ -16,9 +16,12 @@ struct ShiftTimelineIntent: AppIntent {
         "Shifts all remaining blocks in the live timeline forward by the specified minutes."
     )
 
+    /// Valid range matches the in-app QuickShiftSheet (1…120 minutes).
+    static let validRange = 1...120
+
     @Parameter(
         title: "Minutes",
-        description: "Number of minutes to shift the timeline forward.",
+        description: "Number of minutes to shift the timeline forward (1–120).",
         default: 10,
         requestValueDialog: "How many minutes would you like to shift?"
     )
@@ -26,6 +29,13 @@ struct ShiftTimelineIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // Input validation
+        guard Self.validRange.contains(shiftMinutes) else {
+            return .result(
+                dialog: IntentDialog("Please choose between 1 and 120 minutes.")
+            )
+        }
+
         let container = PersistenceController.shared.container
         let context = container.mainContext
 
@@ -36,7 +46,9 @@ struct ShiftTimelineIntent: AppIntent {
         )
 
         guard let event = try context.fetch(descriptor).first else {
-            return .result(dialog: "No live event found. Go live first, then try again.")
+            return .result(
+                dialog: IntentDialog("No live event found. Go live first, then try again.")
+            )
         }
 
         // Derive sorted blocks and active block
@@ -46,7 +58,9 @@ struct ShiftTimelineIntent: AppIntent {
 
         guard let activeBlock = sortedBlocks.first(where: { $0.status == .active })
                 ?? sortedBlocks.first(where: { $0.status != .completed }) else {
-            return .result(dialog: "No active block to shift.")
+            return .result(
+                dialog: IntentDialog("No active block to shift.")
+            )
         }
 
         // Run the engine
@@ -60,12 +74,18 @@ struct ShiftTimelineIntent: AppIntent {
 
         switch result.status {
         case .pinnedBlockCannotShift:
-            return .result(dialog: "A pinned block prevents this shift.")
+            return .result(
+                dialog: IntentDialog("A pinned block prevents this shift.")
+            )
         case .circularDependency:
-            return .result(dialog: "A circular dependency prevents this shift.")
+            return .result(
+                dialog: IntentDialog("A circular dependency prevents this shift.")
+            )
         case .clean, .hasCollisions, .impossible:
             try context.save()
-            return .result(dialog: "Timeline shifted by \(shiftMinutes) minutes.")
+            return .result(
+                dialog: IntentDialog("Timeline shifted by \(shiftMinutes) minutes.")
+            )
         }
     }
 }
