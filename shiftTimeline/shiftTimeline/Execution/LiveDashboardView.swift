@@ -26,6 +26,7 @@ struct LiveDashboardView: View {
     @State private var pendingShiftPreview: ShiftPreview?
     @State private var pendingShiftMinutes: Int = 0
     @State private var undoManager = ShiftUndoManager()
+    @State private var selectedVendor: VendorModel?
 
     private let engine = RippleEngine()
     private let previewGenerator = ShiftPreviewGenerator()
@@ -74,7 +75,8 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
             onAdvance: advanceToNextBlock,
-            onDismiss: { dismiss() }
+            onDismiss: { dismiss() },
+            onVendorTapped: { vendor in selectedVendor = vendor }
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -280,6 +282,7 @@ private struct _LiveDashboardContent: View {
     let isEventComplete: Bool
     let onAdvance: () -> Void
     let onDismiss: () -> Void
+    let onVendorTapped: (VendorModel) -> Void
 
     private var totalBlocks: Int {
         event?.tracks.flatMap(\.blocks).count ?? 0
@@ -328,6 +331,13 @@ private struct _LiveDashboardContent: View {
             if let activeBlock {
                 ActiveBlockHero(block: activeBlock)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                // ── Vendor quick-contact avatars ────────────────────
+                VendorQuickContactRow(
+                    vendors: activeBlock.vendors,
+                    onVendorTapped: onVendorTapped
+                )
+                .padding(.bottom, 8)
             } else {
                 VStack {
                     Spacer()
