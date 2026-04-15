@@ -26,7 +26,7 @@ struct SlideToAdvanceTests {
             latitude: 0,
             longitude: 0,
             status: .live
-        )
+        )	
         context.insert(event)
 
         let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)

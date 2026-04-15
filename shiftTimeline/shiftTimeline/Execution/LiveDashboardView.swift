@@ -20,6 +20,7 @@ struct LiveDashboardView: View {
     @Query private var results: [EventModel]
 
     @State private var isShowingExitConfirmation = false
+    @State private var isShowingQuickShift = false
 
     private let eventID: UUID
 
@@ -75,6 +76,19 @@ struct LiveDashboardView: View {
                 } label: {
                     Label(String(localized: "Back"), systemImage: "chevron.backward")
                 }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingQuickShift = true
+                } label: {
+                    Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
+                }
+                .disabled(isEventComplete)
+            }
+        }
+        .sheet(isPresented: $isShowingQuickShift) {
+            QuickShiftSheet { minutes in
+                shiftTimeline(byMinutes: minutes)
             }
         }
         .confirmationDialog(
@@ -143,6 +157,21 @@ struct LiveDashboardView: View {
         } else {
             event?.status = .completed
         }
+    }
+
+    /// Shifts remaining (non-completed) blocks forward by the given minutes.
+    /// Later subtasks will add preview overlay before committing.
+    private func shiftTimeline(byMinutes minutes: Int) {
+        let delta = TimeInterval(minutes * 60)
+        guard let active = activeBlock else { return }
+
+        // Shift the active block and all upcoming blocks forward
+        let remaining = sortedBlocks.filter { $0.status != .completed }
+        for block in remaining {
+            block.scheduledStart = block.scheduledStart.addingTimeInterval(delta)
+        }
+        try? modelContext.save()
+        _ = active // suppress unused warning
     }
 
     private func exitLiveMode() {
