@@ -25,6 +25,7 @@ import Services
 struct shiftTimelineApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var watchSessionManager = WatchSessionManager()
 
     init() {
         SunsetPrefetchTask.register()
@@ -34,6 +35,10 @@ struct shiftTimelineApp: App {
     var body: some Scene {
         WindowGroup {
             RootNavigator()
+                .environment(watchSessionManager)
+                .onAppear {
+                    watchSessionManager.activate()
+                }
         }
         .modelContainer(PersistenceController.shared.container)
         .onChange(of: scenePhase) { _, newPhase in
