@@ -90,6 +90,39 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.yellow)
                 }
+
+                // Error indicator
+                if let error = sessionManager.lastError {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                }
+
+                Divider()
+
+                // Shift buttons
+                HStack(spacing: 12) {
+                    Button {
+                        sessionManager.sendShiftCommand(minutes: 5)
+                    } label: {
+                        Text("+5m")
+                            .font(.caption)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+
+                    Button {
+                        sessionManager.sendShiftCommand(minutes: 15)
+                    } label: {
+                        Text("+15m")
+                            .font(.caption)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.blue)
+                }
             }
             .padding(.horizontal)
         }
