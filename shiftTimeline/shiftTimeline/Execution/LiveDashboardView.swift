@@ -3,6 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 import SwiftData
+import AppIntents
 import Models
 import Engine
 import Services
@@ -26,7 +27,6 @@ struct LiveDashboardView: View {
     @State private var pendingShiftPreview: ShiftPreview?
     @State private var pendingShiftMinutes: Int = 0
     @State private var undoManager = ShiftUndoManager()
-    @State private var selectedVendor: VendorModel?
 
     private let engine = RippleEngine()
     private let previewGenerator = ShiftPreviewGenerator()
@@ -75,8 +75,7 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
             onAdvance: advanceToNextBlock,
-            onDismiss: { dismiss() },
-            onVendorTapped: { vendor in selectedVendor = vendor }
+            onDismiss: { dismiss() }
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -282,7 +281,8 @@ private struct _LiveDashboardContent: View {
     let isEventComplete: Bool
     let onAdvance: () -> Void
     let onDismiss: () -> Void
-    let onVendorTapped: (VendorModel) -> Void
+
+    @State private var isSiriTipVisible = true
 
     private var totalBlocks: Int {
         event?.tracks.flatMap(\.blocks).count ?? 0
@@ -333,10 +333,7 @@ private struct _LiveDashboardContent: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // ── Vendor quick-contact avatars ────────────────────
-                VendorQuickContactRow(
-                    vendors: activeBlock.vendors,
-                    onVendorTapped: onVendorTapped
-                )
+                VendorQuickContactRow(vendors: activeBlock.vendors)
                 .padding(.bottom, 8)
             } else {
                 VStack {
@@ -373,6 +370,11 @@ private struct _LiveDashboardContent: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.horizontal, 20)
                 .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
+
+                // Siri tip — suggested when event is live
+                SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
+                    .siriTipViewStyle(.dark)
+                    .padding(.horizontal, 20)
 
                 // Slide-to-advance track
                 SlideToAdvanceView(onAdvance: onAdvance)

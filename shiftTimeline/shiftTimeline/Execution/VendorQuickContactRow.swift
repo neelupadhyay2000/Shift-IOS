@@ -1,15 +1,17 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 import Models
 
-/// Horizontal row of tappable vendor avatars (initials) for the active block.
+/// Horizontal row of vendor avatars (initials) for the active block.
 ///
 /// Displayed below `ActiveBlockHero` on the live dashboard. Each circle shows
-/// the vendor's initials and is tappable. Long-press reveals a context menu
-/// with Call and Message actions backed by `tel://` and `sms://` URL schemes.
+/// the vendor's initials. Long-press reveals a context menu with Call and
+/// Message actions backed by `tel://` and `sms://` URL schemes.
 struct VendorQuickContactRow: View {
 
     let vendors: [VendorModel]
-    let onVendorTapped: (VendorModel) -> Void
 
     @Environment(\.openURL) private var openURL
 
@@ -18,15 +20,17 @@ struct VendorQuickContactRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     ForEach(vendors, id: \.id) { vendor in
-                        Button {
-                            onVendorTapped(vendor)
-                        } label: {
-                            vendorAvatar(vendor)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            contextMenuItems(for: vendor)
-                        }
+                        let hasActions = hasContactActions(for: vendor)
+                        vendorAvatar(vendor)
+                            .contextMenu {
+                                contextMenuItems(for: vendor)
+                            }
+                            .accessibilityLabel(vendor.name)
+                            .accessibilityHint(
+                                hasActions
+                                    ? String(localized: "Long press for contact options")
+                                    : String(localized: "No contact actions available")
+                            )
                     }
                 }
                 .padding(.horizontal, 20)
@@ -38,9 +42,11 @@ struct VendorQuickContactRow: View {
 
     @ViewBuilder
     private func contextMenuItems(for vendor: VendorModel) -> some View {
-        let phone = vendor.phone.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = normalizedPhone(vendor.phone)
+        let canCall = !digits.isEmpty && canOpen("tel://")
+        let canMessage = !digits.isEmpty && canOpen("sms:")
 
-        if !phone.isEmpty, let telURL = URL(string: "tel://\(phone)") {
+        if canCall, let telURL = URL(string: "tel://\(digits)") {
             Button {
                 openURL(telURL)
             } label: {
@@ -48,7 +54,7 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if !phone.isEmpty, let smsURL = URL(string: "sms://\(phone)") {
+        if canMessage, let smsURL = URL(string: "sms:\(digits)") {
             Button {
                 openURL(smsURL)
             } label: {
@@ -56,8 +62,8 @@ struct VendorQuickContactRow: View {
             }
         }
 
-        if phone.isEmpty {
-            Text(String(localized: "No phone number"))
+        if !canCall && !canMessage {
+            Text(String(localized: "No contact actions available"))
         }
     }
 
@@ -81,9 +87,35 @@ struct VendorQuickContactRow: View {
                 .lineLimit(1)
                 .frame(maxWidth: 56)
         }
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Helpers
+
+    /// Whether this vendor has at least one contactable action on this device.
+    private func hasContactActions(for vendor: VendorModel) -> Bool {
+        let digits = normalizedPhone(vendor.phone)
+        guard !digits.isEmpty else { return false }
+        return canOpen("tel://") || canOpen("sms:")
+    }
+
+    /// Normalizes a phone string to an optional leading "+" followed by digits only.
+    private func normalizedPhone(_ raw: String) -> String {
+        let stripped = raw.filter { $0.isNumber || $0 == "+" }
+        let hasLeadingPlus = stripped.hasPrefix("+")
+        let digitsOnly = stripped.filter { $0.isNumber }
+        guard !digitsOnly.isEmpty else { return "" }
+        return hasLeadingPlus ? "+\(digitsOnly)" : digitsOnly
+    }
+
+    private func canOpen(_ scheme: String) -> Bool {
+        #if canImport(UIKit)
+        guard let url = URL(string: scheme) else { return false }
+        return UIApplication.shared.canOpenURL(url)
+        #else
+        return false
+        #endif
+    }
 
     private func initials(for name: String) -> String {
         let components = name.split(separator: " ")
