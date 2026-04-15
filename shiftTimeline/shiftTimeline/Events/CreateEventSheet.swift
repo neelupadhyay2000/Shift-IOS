@@ -77,45 +77,15 @@ struct CreateEventSheet: View {
         modelContext.insert(mainTrack)
 
         // Fire-and-forget sunset fetch when coordinates are provided.
-        if latitude != 0, longitude != 0 {
-            let eventID = event.id
-            let eventDate = date
+        if latitude != 0 || longitude != 0 {
             Task {
-                await fetchSunsetTimes(
-                    eventID: eventID,
-                    latitude: latitude,
-                    longitude: longitude,
-                    date: eventDate
-                )
+                let service = SunsetService()
+                _ = await service.fetchIfNeeded(for: event)
+                try? modelContext.save()
             }
         }
 
         dismiss()
-    }
-
-    @MainActor
-    private func fetchSunsetTimes(
-        eventID: UUID,
-        latitude: Double,
-        longitude: Double,
-        date: Date
-    ) async {
-        let service = SunsetService()
-        do {
-            let result = try await service.fetch(
-                latitude: latitude,
-                longitude: longitude,
-                date: date
-            )
-            let descriptor = FetchDescriptor<EventModel>(
-                predicate: #Predicate { $0.id == eventID }
-            )
-            guard let event = try? modelContext.fetch(descriptor).first else { return }
-            event.sunsetTime = result.sunset
-            event.goldenHourStart = result.goldenHourStart
-        } catch {
-            // Sunset fetch is best-effort — event was already created.
-        }
     }
 }
 
