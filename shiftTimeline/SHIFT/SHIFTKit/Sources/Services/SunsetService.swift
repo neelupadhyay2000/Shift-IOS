@@ -76,8 +76,8 @@ public struct SunsetService: Sendable {
             return SunsetResult(sunset: sunset, goldenHourStart: goldenHour)
         }
 
-        // No coordinates — can't query.
-        guard event.latitude != 0 || event.longitude != 0 else { return nil }
+        // No coordinates — can't query. Require both to avoid partial/invalid lookups.
+        guard event.latitude != 0 && event.longitude != 0 else { return nil }
 
         do {
             let result = try await fetch(

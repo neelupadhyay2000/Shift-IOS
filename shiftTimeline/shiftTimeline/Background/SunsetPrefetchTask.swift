@@ -11,10 +11,10 @@ import os
 /// data is available offline on event day.
 enum SunsetPrefetchTask {
 
-    static let identifier = "com.shift.app.sunset-prefetch"
+    static let identifier = "com.neelsoftwaresolutions.shiftTimeline.sunset-prefetch"
 
     private static let logger = Logger(
-        subsystem: "com.shift.app",
+        subsystem: "com.neelsoftwaresolutions.shiftTimeline",
         category: "SunsetPrefetch"
     )
 

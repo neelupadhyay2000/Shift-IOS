@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.shift.app.sunset-prefetch</string>
+		<string>com.neelsoftwaresolutions.shiftTimeline.sunset-prefetch</string>
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>

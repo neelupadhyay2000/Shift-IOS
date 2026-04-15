@@ -52,7 +52,7 @@ struct SunsetMarkerView: View {
                 .monospacedDigit()
                 .foregroundStyle(tint.opacity(0.8))
 
-            Text("— \(label)")
+            Text("— \(label)", comment: "Em-dash prefix before sunset/golden hour label on timeline ruler")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(tint.opacity(0.6))
 

@@ -28,6 +28,7 @@ struct shiftTimelineApp: App {
 
     init() {
         SunsetPrefetchTask.register()
+        SunsetPrefetchTask.scheduleNextRefresh()
     }
 
     var body: some Scene {

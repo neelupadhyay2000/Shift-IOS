@@ -162,9 +162,9 @@ struct LiveDashboardView: View {
     private func fetchSunsetIfNeeded() {
         guard let event,
               event.sunsetTime == nil,
-              (event.latitude != 0 || event.longitude != 0) else { return }
+              (event.latitude != 0 && event.longitude != 0) else { return }
 
-        Task {
+        Task { @MainActor in
             let service = SunsetService()
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()

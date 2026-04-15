@@ -76,9 +76,9 @@ struct CreateEventSheet: View {
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         modelContext.insert(mainTrack)
 
-        // Fire-and-forget sunset fetch when coordinates are provided.
-        if latitude != 0 || longitude != 0 {
-            Task {
+        // Fire-and-forget sunset fetch when both coordinates are provided.
+        if latitude != 0 && longitude != 0 {
+            Task { @MainActor in
                 let service = SunsetService()
                 _ = await service.fetchIfNeeded(for: event)
                 try? modelContext.save()
