@@ -86,7 +86,7 @@ struct ContentView: View {
 
                 // Queued indicator
                 if sessionManager.isCommandQueued {
-                    Text(String(localized: "Shift queued"))
+                    Text(String(localized: "Shift queued, will apply when connected"))
                         .font(.caption2)
                         .foregroundStyle(.yellow)
                 }
