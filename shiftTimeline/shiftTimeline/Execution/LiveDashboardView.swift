@@ -156,22 +156,29 @@ private struct _LiveDashboardContent: View {
                 }
 
                 // ── Next block card ───────────────────────────────────────
-                if let nextBlock {
+                if activeBlock != nil {
                     VStack(spacing: 4) {
-                        Text(String(localized: "Up Next"))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .tracking(1)
-                        Text("\(nextBlock.title)  ·  \(nextBlock.scheduledStart, format: .dateTime.hour().minute())")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
+                        if let nextBlock {
+                            Text(String(localized: "Up Next"))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .tracking(1)
+                            Text("Next: \(nextBlock.title) at \(nextBlock.scheduledStart, format: .dateTime.hour().minute())")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text(String(localized: "Last block of the day"))
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .padding(.vertical, 14)
                     .frame(maxWidth: .infinity)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 24)
+                    .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
                 }
             } else {
                 ContentUnavailableView(
