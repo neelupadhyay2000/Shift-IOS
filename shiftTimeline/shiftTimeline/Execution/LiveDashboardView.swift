@@ -94,9 +94,14 @@ struct LiveDashboardView: View {
                 .disabled(isEventComplete)
             }
         }
-        .sheet(isPresented: $isShowingQuickShift) {
+        .sheet(isPresented: $isShowingQuickShift, onDismiss: {
+            if pendingShiftMinutes != 0 {
+                showPreview(forMinutes: pendingShiftMinutes)
+            }
+        }) {
             QuickShiftSheet { minutes in
-                showPreview(forMinutes: minutes)
+                pendingShiftMinutes = minutes
+                isShowingQuickShift = false
             }
         }
         .sheet(item: previewBinding) { preview in
@@ -105,9 +110,11 @@ struct LiveDashboardView: View {
                 minutes: pendingShiftMinutes,
                 onConfirm: {
                     commitShift(byMinutes: pendingShiftMinutes)
+                    pendingShiftMinutes = 0
                     pendingShiftPreview = nil
                 },
                 onCancel: {
+                    pendingShiftMinutes = 0
                     pendingShiftPreview = nil
                 }
             )
@@ -127,6 +134,7 @@ struct LiveDashboardView: View {
             UIApplication.shared.isIdleTimerDisabled = true
             #endif
             activateFirstIncompleteBlockIfNeeded()
+            fetchSunsetIfNeeded()
         }
         .onDisappear {
             #if canImport(UIKit)
@@ -147,6 +155,20 @@ struct LiveDashboardView: View {
         }
         first.status = .active
         try? modelContext.save()
+    }
+
+    /// Retries sunset fetch if the event has coordinates but no cached data
+    /// (e.g. device was offline when event was created).
+    private func fetchSunsetIfNeeded() {
+        guard let event,
+              event.sunsetTime == nil,
+              (event.latitude != 0 && event.longitude != 0) else { return }
+
+        Task { @MainActor in
+            let service = SunsetService()
+            _ = await service.fetchIfNeeded(for: event)
+            try? modelContext.save()
+        }
     }
 
     private var isEventComplete: Bool {
@@ -219,8 +241,14 @@ struct LiveDashboardView: View {
             delta: delta
         )
 
-        // Phase 3: snapshot after-state and push undo entry
-        undoManager.commitShift(blocks: result.blocks)
+        // Phase 3: only commit undo if the engine actually applied a shift
+        switch result.status {
+        case .pinnedBlockCannotShift, .circularDependency:
+            undoManager.cancelShift()
+            return
+        case .clean, .hasCollisions, .impossible:
+            undoManager.commitShift(blocks: result.blocks)
+        }
 
         try? modelContext.save()
     }
@@ -288,6 +316,13 @@ private struct _LiveDashboardContent: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .padding(.top, 16)
+
+            // ── Sunset / Golden Hour banner ───────────────────────────
+            if let sunset = event.sunsetTime,
+               let golden = event.goldenHourStart {
+                SunsetBanner(sunsetTime: sunset, goldenHourStart: golden)
+                    .padding(.top, 8)
+            }
 
             // ── Hero (fills available space) ──────────────────────────
             if let activeBlock {

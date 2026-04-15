@@ -1,4 +1,5 @@
 import Foundation
+import Models
 
 /// Fetches sunset and golden hour (civil twilight) times from the
 /// sunrise-sunset.org public API for a given coordinate and date.
@@ -56,6 +57,41 @@ public struct SunsetService: Sendable {
         }
 
         return SunsetResult(sunset: sunset, goldenHourStart: civilTwilightBegin)
+    }
+
+    /// Checks the event's cached sunset data first. If already populated,
+    /// returns it immediately without a network call. Otherwise fetches from
+    /// the API and writes the result back to the event model.
+    ///
+    /// When the device is offline and no cached data exists, returns `nil`
+    /// so callers can show "Unknown" instead of crashing.
+    ///
+    /// - Important: The caller is responsible for saving the `ModelContext`
+    ///   after this method returns — the service only mutates the model.
+    @MainActor
+    public func fetchIfNeeded(for event: EventModel) async -> SunsetResult? {
+        // Cache hit — no network call.
+        if let sunset = event.sunsetTime,
+           let goldenHour = event.goldenHourStart {
+            return SunsetResult(sunset: sunset, goldenHourStart: goldenHour)
+        }
+
+        // No coordinates — can't query. Require both to avoid partial/invalid lookups.
+        guard event.latitude != 0 && event.longitude != 0 else { return nil }
+
+        do {
+            let result = try await fetch(
+                latitude: event.latitude,
+                longitude: event.longitude,
+                date: event.date
+            )
+            event.sunsetTime = result.sunset
+            event.goldenHourStart = result.goldenHourStart
+            return result
+        } catch {
+            // Offline or API failure — graceful nil.
+            return nil
+        }
     }
 
     // MARK: - Formatters

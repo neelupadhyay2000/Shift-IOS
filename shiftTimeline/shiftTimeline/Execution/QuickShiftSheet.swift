@@ -3,7 +3,8 @@ import SwiftUI
 /// Half-sheet with large, thumb-friendly shift buttons (+5, +10, +15, Custom).
 ///
 /// Opened from the LiveDashboard toolbar. Each preset calls `onShift(minutes)`
-/// with the selected delta. The Custom option presents a stepper for arbitrary values.
+/// with the selected delta. The Custom option reveals ±5-minute increment buttons
+/// clamped to 1…120 minutes.
 struct QuickShiftSheet: View {
 
     /// Called with the number of minutes to shift the timeline.
@@ -87,7 +88,7 @@ struct QuickShiftSheet: View {
         HStack {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.title3.weight(.semibold))
-            Text("+\(minutes) min")
+            Text(String(localized: "+\(minutes) min"))
                 .font(.title3.weight(.semibold))
         }
         .frame(maxWidth: .infinity)
@@ -153,7 +154,7 @@ struct QuickShiftSheet: View {
                 HStack {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.title3.weight(.semibold))
-                    Text("+\(customMinutes) min")
+                    Text(String(localized: "+\(customMinutes) min"))
                         .font(.title3.weight(.semibold))
                 }
                 .frame(maxWidth: .infinity)

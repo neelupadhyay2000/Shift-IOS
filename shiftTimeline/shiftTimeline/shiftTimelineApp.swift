@@ -24,10 +24,22 @@ import Services
 @main
 struct shiftTimelineApp: App {
 
+    @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        SunsetPrefetchTask.register()
+        SunsetPrefetchTask.scheduleNextRefresh()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootNavigator()
         }
         .modelContainer(PersistenceController.shared.container)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .background {
+                SunsetPrefetchTask.scheduleNextRefresh()
+            }
+        }
     }
 }
