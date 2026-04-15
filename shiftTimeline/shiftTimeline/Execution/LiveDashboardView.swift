@@ -289,6 +289,13 @@ private struct _LiveDashboardContent: View {
                 .lineLimit(1)
                 .padding(.top, 16)
 
+            // ── Sunset / Golden Hour banner ───────────────────────────
+            if let sunset = event.sunsetTime,
+               let golden = event.goldenHourStart {
+                SunsetBanner(sunsetTime: sunset, goldenHourStart: golden)
+                    .padding(.top, 8)
+            }
+
             // ── Hero (fills available space) ──────────────────────────
             if let activeBlock {
                 ActiveBlockHero(block: activeBlock)

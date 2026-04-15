@@ -235,6 +235,13 @@ struct TimelineBuilderView: View {
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
 
+                // Golden hour / sunset markers
+                SunsetMarkerView(
+                    goldenHourStart: event?.goldenHourStart,
+                    sunsetTime: event?.sunsetTime,
+                    layout: currentLayout
+                )
+
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
 
@@ -291,6 +298,13 @@ struct TimelineBuilderView: View {
 
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+
+                // Golden hour / sunset markers
+                SunsetMarkerView(
+                    goldenHourStart: event?.goldenHourStart,
+                    sunsetTime: event?.sunsetTime,
+                    layout: currentLayout
+                )
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)

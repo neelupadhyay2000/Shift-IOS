@@ -50,7 +50,11 @@ struct SunsetServiceTests {
         MockURLProtocol.responseData = data
         MockURLProtocol.responseStatusCode = statusCode
         MockURLProtocol.responseError = error
+<<<<<<< Updated upstream
         let config = URLSessionConfiguration.ephemeral
+=======
+        let config = URLSessionConfiguration.ephemeral		
+>>>>>>> Stashed changes
         config.protocolClasses = [MockURLProtocol.self]
         return SunsetService(session: URLSession(configuration: config))
     }
