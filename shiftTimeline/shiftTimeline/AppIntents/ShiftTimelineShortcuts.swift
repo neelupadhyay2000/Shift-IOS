@@ -94,6 +94,7 @@ struct ShiftTimelineIntent: AppIntent {
                     dialog: IntentDialog("Timeline was shifted but could not be saved. Please try again.")
                 )
             }
+            WatchSessionManager().sendCurrentContext()
             return .result(
                 dialog: IntentDialog("Timeline shifted by \(shiftMinutes) minutes.")
             )

@@ -22,6 +22,8 @@ struct LiveDashboardView: View {
 
     @Query private var results: [EventModel]
 
+    @Environment(WatchSessionManager.self) private var watchSessionManager
+
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
     @State private var pendingShiftPreview: ShiftPreview?
@@ -156,6 +158,7 @@ struct LiveDashboardView: View {
         }
         first.status = .active
         try? modelContext.save()
+        watchSessionManager.sendCurrentContext()
     }
 
     /// Retries sunset fetch if the event has coordinates but no cached data
@@ -185,6 +188,7 @@ struct LiveDashboardView: View {
             event: event
         )
         try? modelContext.save()
+        watchSessionManager.sendCurrentContext()
     }
 
     /// Extracted advance logic — testable without a live view hierarchy.
@@ -252,6 +256,7 @@ struct LiveDashboardView: View {
         }
 
         try? modelContext.save()
+        watchSessionManager.sendCurrentContext()
     }
 
     private func exitLiveMode() {

@@ -9,6 +9,7 @@ import Models
 struct EventDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(WatchSessionManager.self) private var watchSessionManager
 
     @Query private var results: [EventModel]
 
@@ -160,6 +161,7 @@ struct EventDetailView: View {
         allBlocks.first(where: { $0.status != .completed })?.status = .active
 
         try? modelContext.save()
+        watchSessionManager.sendCurrentContext()
     }
 
     @ViewBuilder
