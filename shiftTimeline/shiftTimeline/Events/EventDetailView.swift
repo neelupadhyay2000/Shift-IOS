@@ -8,6 +8,8 @@ import Models
 /// or shown in the iPad detail column.
 struct EventDetailView: View {
 
+    @Environment(\.modelContext) private var modelContext
+
     @Query private var results: [EventModel]
 
     private let eventID: UUID
@@ -83,6 +85,28 @@ struct EventDetailView: View {
 
     private func quickAccessCards(_ event: EventModel) -> some View {
         VStack(spacing: 12) {
+            NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                HStack(spacing: 10) {
+                    Image(systemName: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text(String(localized: "Go Live"))
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+                .premiumCard()
+                .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .simultaneousGesture(TapGesture().onEnded {
+                startLiveMode(for: event)
+            })
+            .buttonStyle(.plain)
+
             HStack(spacing: 12) {
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
                     quickCard(
@@ -122,6 +146,20 @@ struct EventDetailView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func startLiveMode(for event: EventModel) {
+        let allBlocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted(by: { $0.scheduledStart < $1.scheduledStart })
+
+        event.status = .live
+        for block in allBlocks where block.status != .completed {
+            block.status = .upcoming
+        }
+        allBlocks.first(where: { $0.status != .completed })?.status = .active
+
+        try? modelContext.save()
     }
 
     @ViewBuilder
