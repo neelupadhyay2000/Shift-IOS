@@ -60,8 +60,7 @@ struct LiveDashboardView: View {
         _LiveDashboardContent(
             event: event,
             activeBlock: activeBlock,
-            nextBlock: nextBlock,
-            formatCountdown: formatCountdown(_:)
+            nextBlock: nextBlock
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -119,16 +118,8 @@ struct LiveDashboardView: View {
         dismiss()
     }
 
-    private func formatCountdown(_ seconds: TimeInterval) -> String {
-        let total = Int(abs(seconds.rounded(.towardZero)))
-        let h = total / 3600
-        let m = (total % 3600) / 60
-        let s = total % 60
-        return h > 0
-            ? String(format: "%02d:%02d:%02d", h, m, s)
-            : String(format: "%02d:%02d", m, s)
-    }
 }
+
 
 // MARK: - _LiveDashboardContent
 
@@ -138,77 +129,59 @@ private struct _LiveDashboardContent: View {
     let event: EventModel?
     let activeBlock: TimeBlockModel?
     let nextBlock: TimeBlockModel?
-    let formatCountdown: (TimeInterval) -> String
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                if let event {
-                    Text(event.title)
-                        .font(.headline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+        VStack(spacing: 0) {
+            if let event {
+                // ── Event title pill ──────────────────────────────────────
+                Text(event.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.top, 16)
 
-                    if let activeBlock {
-                        VStack(spacing: 10) {
-                            Text(activeBlock.title)
-                                .font(.title2.weight(.bold))
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.center)
-
-                            TimelineView(.periodic(from: .now, by: 1)) { context in
-                                let activeEnd = activeBlock.scheduledStart
-                                    .addingTimeInterval(activeBlock.duration)
-                                let remaining = activeEnd.timeIntervalSince(context.date)
-                                let isOvertime = remaining < 0
-
-                                VStack(spacing: 6) {
-                                    Text(formatCountdown(remaining))
-                                        .font(.system(size: 74, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(isOvertime ? .red : .primary)
-                                        .contentTransition(.numericText())
-
-                                    if isOvertime {
-                                        Text(String(localized: "OVERTIME"))
-                                            .font(.caption.weight(.bold))
-                                            .tracking(2)
-                                            .foregroundStyle(.red)
-                                    } else {
-                                        Text(String(localized: "remaining"))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    } else {
+                // ── Hero (fills available space) ──────────────────────────
+                if let activeBlock {
+                    ActiveBlockHero(block: activeBlock)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    VStack {
+                        Spacer()
                         Text(String(localized: "No active block"))
                             .font(.title3.weight(.semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(.secondary)
+                        Spacer()
                     }
-
-                    if let nextBlock {
-                        VStack(spacing: 4) {
-                            Text(String(localized: "Next"))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                            Text("\(nextBlock.title) • \(nextBlock.scheduledStart, format: .dateTime.hour().minute())")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, 8)
-                    }
-                } else {
-                    ContentUnavailableView(
-                        String(localized: "Live Event Not Found"),
-                        systemImage: "exclamationmark.triangle"
-                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+
+                // ── Next block card ───────────────────────────────────────
+                if let nextBlock {
+                    VStack(spacing: 4) {
+                        Text(String(localized: "Up Next"))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .tracking(1)
+                        Text("\(nextBlock.title)  ·  \(nextBlock.scheduledStart, format: .dateTime.hour().minute())")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+                }
+            } else {
+                ContentUnavailableView(
+                    String(localized: "Live Event Not Found"),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(24)
-            .frame(maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { WarmBackground() }
     }
 }
