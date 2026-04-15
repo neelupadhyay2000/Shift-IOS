@@ -4,12 +4,14 @@ import Models
 /// Horizontal row of tappable vendor avatars (initials) for the active block.
 ///
 /// Displayed below `ActiveBlockHero` on the live dashboard. Each circle shows
-/// the vendor's initials and is tappable — the tap action is forwarded via
-/// `onVendorTapped` so the parent can present a contact sheet or context menu.
+/// the vendor's initials and is tappable. Long-press reveals a context menu
+/// with Call and Message actions backed by `tel://` and `sms://` URL schemes.
 struct VendorQuickContactRow: View {
 
     let vendors: [VendorModel]
     let onVendorTapped: (VendorModel) -> Void
+
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         if !vendors.isEmpty {
@@ -22,10 +24,40 @@ struct VendorQuickContactRow: View {
                             vendorAvatar(vendor)
                         }
                         .buttonStyle(.plain)
+                        .contextMenu {
+                            contextMenuItems(for: vendor)
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
             }
+        }
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private func contextMenuItems(for vendor: VendorModel) -> some View {
+        let phone = vendor.phone.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !phone.isEmpty, let telURL = URL(string: "tel://\(phone)") {
+            Button {
+                openURL(telURL)
+            } label: {
+                Label(String(localized: "Call"), systemImage: "phone.fill")
+            }
+        }
+
+        if !phone.isEmpty, let smsURL = URL(string: "sms://\(phone)") {
+            Button {
+                openURL(smsURL)
+            } label: {
+                Label(String(localized: "Message"), systemImage: "message.fill")
+            }
+        }
+
+        if phone.isEmpty {
+            Text(String(localized: "No phone number"))
         }
     }
 
