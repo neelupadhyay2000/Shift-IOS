@@ -154,10 +154,10 @@ struct EventDetailView: View {
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         event.status = .live
-        for block in allBlocks {
+        for block in allBlocks where block.status != .completed {
             block.status = .upcoming
         }
-        allBlocks.first?.status = .active
+        allBlocks.first(where: { $0.status != .completed })?.status = .active
 
         try? modelContext.save()
     }

@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 import Models
 
 /// Hero countdown component for the active block.
@@ -60,9 +62,11 @@ struct ActiveBlockHero: View {
                 .onChange(of: isOvertime) { _, isNowOvertime in
                     guard isNowOvertime, !overtimeHapticFired else { return }
                     overtimeHapticFired = true
+                    #if canImport(UIKit)
                     let generator = UINotificationFeedbackGenerator()
                     generator.prepare()
                     generator.notificationOccurred(.warning)
+                    #endif
                 }
             }
 

@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 import SwiftData
 import Models
 
@@ -83,11 +85,15 @@ struct LiveDashboardView: View {
             Button(String(localized: "Cancel"), role: .cancel) { }
         }
         .onAppear {
+            #if canImport(UIKit)
             UIApplication.shared.isIdleTimerDisabled = true
+            #endif
             activateFirstIncompleteBlockIfNeeded()
         }
         .onDisappear {
+            #if canImport(UIKit)
             UIApplication.shared.isIdleTimerDisabled = false
+            #endif
         }
     }
 
@@ -163,7 +169,8 @@ private struct _LiveDashboardContent: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .tracking(1)
-                            Text("Next: \(nextBlock.title) at \(nextBlock.scheduledStart, format: .dateTime.hour().minute())")
+                            let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
+                            Text(String(localized: "Next: \(nextBlock.title) at \(timeStr)"))
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.primary)
                                 .multilineTextAlignment(.center)
@@ -190,6 +197,13 @@ private struct _LiveDashboardContent: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { WarmBackground() }
+        // Use .environment(\.colorScheme, .dark) — NOT .preferredColorScheme(.dark).
+        // preferredColorScheme propagates UP to the UIHostingController/window,
+        // forcing the entire app into dark mode and breaking WarmBackground on
+        // parent screens. environment(\.colorScheme) propagates DOWN only, so
+        // this view and its children (including WarmBackground) see .dark without
+        // affecting the NavigationStack above.
+        .environment(\.colorScheme, .dark)
     }
 }
 
