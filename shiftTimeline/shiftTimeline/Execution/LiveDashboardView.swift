@@ -127,6 +127,7 @@ struct LiveDashboardView: View {
             UIApplication.shared.isIdleTimerDisabled = true
             #endif
             activateFirstIncompleteBlockIfNeeded()
+            fetchSunsetIfNeeded()
         }
         .onDisappear {
             #if canImport(UIKit)
@@ -147,6 +148,20 @@ struct LiveDashboardView: View {
         }
         first.status = .active
         try? modelContext.save()
+    }
+
+    /// Retries sunset fetch if the event has coordinates but no cached data
+    /// (e.g. device was offline when event was created).
+    private func fetchSunsetIfNeeded() {
+        guard let event,
+              event.sunsetTime == nil,
+              (event.latitude != 0 || event.longitude != 0) else { return }
+
+        Task {
+            let service = SunsetService()
+            _ = await service.fetchIfNeeded(for: event)
+            try? modelContext.save()
+        }
     }
 
     private var isEventComplete: Bool {
