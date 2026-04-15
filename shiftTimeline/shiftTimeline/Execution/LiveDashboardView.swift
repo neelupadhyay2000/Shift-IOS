@@ -23,9 +23,12 @@ struct LiveDashboardView: View {
 
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
+    @State private var pendingShiftPreview: ShiftPreview?
+    @State private var pendingShiftMinutes: Int = 0
     @State private var undoManager = ShiftUndoManager()
 
     private let engine = RippleEngine()
+    private let previewGenerator = ShiftPreviewGenerator()
 
     private let eventID: UUID
 
@@ -93,8 +96,21 @@ struct LiveDashboardView: View {
         }
         .sheet(isPresented: $isShowingQuickShift) {
             QuickShiftSheet { minutes in
-                shiftTimeline(byMinutes: minutes)
+                showPreview(forMinutes: minutes)
             }
+        }
+        .sheet(item: previewBinding) { preview in
+            ShiftPreviewOverlay(
+                preview: preview,
+                minutes: pendingShiftMinutes,
+                onConfirm: {
+                    commitShift(byMinutes: pendingShiftMinutes)
+                    pendingShiftPreview = nil
+                },
+                onCancel: {
+                    pendingShiftPreview = nil
+                }
+            )
         }
         .confirmationDialog(
             String(localized: "Exit live mode?"),
@@ -164,13 +180,31 @@ struct LiveDashboardView: View {
         }
     }
 
-    /// Shifts remaining blocks forward using the RippleEngine.
+    /// Binding that bridges `ShiftPreview?` to `.sheet(item:)`.
+    private var previewBinding: Binding<ShiftPreview?> {
+        $pendingShiftPreview
+    }
+
+    /// Generates a non-mutating preview and stores it for the overlay.
+    private func showPreview(forMinutes minutes: Int) {
+        guard let active = activeBlock else { return }
+        let delta = TimeInterval(minutes * 60)
+        let preview = previewGenerator.generatePreview(
+            blocks: sortedBlocks,
+            blockID: active.id,
+            delta: delta
+        )
+        pendingShiftMinutes = minutes
+        pendingShiftPreview = preview
+    }
+
+    /// Commits the shift after user confirms the preview.
     ///
     /// 1. Captures undo snapshot before mutation
     /// 2. Calls `RippleEngine.recalculate()` with delta on the active block
     /// 3. Commits undo snapshot after mutation
     /// 4. Persists to SwiftData
-    private func shiftTimeline(byMinutes minutes: Int) {
+    private func commitShift(byMinutes minutes: Int) {
         let delta = TimeInterval(minutes * 60)
         guard let active = activeBlock else { return }
         let blocks = sortedBlocks
