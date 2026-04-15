@@ -104,6 +104,17 @@ struct QuickShiftSheet: View {
     private var customEntry: some View {
         VStack(spacing: 12) {
             HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isShowingCustom = false
+                    }
+                } label: {
+                    Label(String(localized: "Back"), systemImage: "chevron.left")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                Spacer()
                 Text(String(localized: "Minutes"))
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)

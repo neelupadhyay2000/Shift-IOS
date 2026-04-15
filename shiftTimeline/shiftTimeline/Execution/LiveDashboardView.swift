@@ -4,6 +4,8 @@ import UIKit
 #endif
 import SwiftData
 import Models
+import Engine
+import Services
 
 // MARK: - LiveDashboardView
 
@@ -21,6 +23,9 @@ struct LiveDashboardView: View {
 
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
+    @State private var undoManager = ShiftUndoManager()
+
+    private let engine = RippleEngine()
 
     private let eventID: UUID
 
@@ -159,19 +164,31 @@ struct LiveDashboardView: View {
         }
     }
 
-    /// Shifts remaining (non-completed) blocks forward by the given minutes.
-    /// Later subtasks will add preview overlay before committing.
+    /// Shifts remaining blocks forward using the RippleEngine.
+    ///
+    /// 1. Captures undo snapshot before mutation
+    /// 2. Calls `RippleEngine.recalculate()` with delta on the active block
+    /// 3. Commits undo snapshot after mutation
+    /// 4. Persists to SwiftData
     private func shiftTimeline(byMinutes minutes: Int) {
         let delta = TimeInterval(minutes * 60)
         guard let active = activeBlock else { return }
+        let blocks = sortedBlocks
 
-        // Shift the active block and all upcoming blocks forward
-        let remaining = sortedBlocks.filter { $0.status != .completed }
-        for block in remaining {
-            block.scheduledStart = block.scheduledStart.addingTimeInterval(delta)
-        }
+        // Phase 1: snapshot before-state for undo
+        undoManager.recordShift(blocks: blocks)
+
+        // Phase 2: run the engine — mutates blocks in place
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: active.id,
+            delta: delta
+        )
+
+        // Phase 3: snapshot after-state and push undo entry
+        undoManager.commitShift(blocks: result.blocks)
+
         try? modelContext.save()
-        _ = active // suppress unused warning
     }
 
     private func exitLiveMode() {
