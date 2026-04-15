@@ -63,7 +63,9 @@ struct LiveDashboardView: View {
             event: event,
             activeBlock: activeBlock,
             nextBlock: nextBlock,
-            onAdvance: advanceToNextBlock
+            isEventComplete: isEventComplete,
+            onAdvance: advanceToNextBlock,
+            onDismiss: { dismiss() }
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -112,12 +114,21 @@ struct LiveDashboardView: View {
         try? modelContext.save()
     }
 
+    private var isEventComplete: Bool {
+        guard let event else { return false }
+        let allBlocks = event.tracks.flatMap(\.blocks)
+        return !allBlocks.isEmpty && allBlocks.allSatisfy { $0.status == .completed }
+    }
+
     private func advanceToNextBlock() {
         guard let activeBlock else { return }
         activeBlock.status = .completed
 
         if let nextBlock {
             nextBlock.status = .active
+        } else {
+            // Final block — mark event as completed
+            event?.status = .completed
         }
         try? modelContext.save()
     }
@@ -146,62 +157,21 @@ private struct _LiveDashboardContent: View {
     let event: EventModel?
     let activeBlock: TimeBlockModel?
     let nextBlock: TimeBlockModel?
+    let isEventComplete: Bool
     let onAdvance: () -> Void
+    let onDismiss: () -> Void
+
+    private var totalBlocks: Int {
+        event?.tracks.flatMap(\.blocks).count ?? 0
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             if let event {
-                // ── Event title pill ──────────────────────────────────────
-                Text(event.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .padding(.top, 16)
-
-                // ── Hero (fills available space) ──────────────────────────
-                if let activeBlock {
-                    ActiveBlockHero(block: activeBlock)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if isEventComplete {
+                    eventCompleteSummary(event: event)
                 } else {
-                    VStack {
-                        Spacer()
-                        Text(String(localized: "No active block"))
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-
-                // ── Next block card ───────────────────────────────────────
-                if activeBlock != nil {
-                    VStack(spacing: 4) {
-                        if let nextBlock {
-                            Text(String(localized: "Up Next"))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .tracking(1)
-                            let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-                            Text(String(localized: "Next: \(nextBlock.title) at \(timeStr)"))
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                                .multilineTextAlignment(.center)
-                        } else {
-                            Text(String(localized: "Last block of the day"))
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: .infinity)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .padding(.horizontal, 20)
-                    .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
-
-                    // Slide-to-advance track
-                    SlideToAdvanceView(onAdvance: onAdvance)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
+                    liveDashboard(event: event)
                 }
             } else {
                 ContentUnavailableView(
@@ -213,13 +183,125 @@ private struct _LiveDashboardContent: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { WarmBackground() }
-        // Use .environment(\.colorScheme, .dark) — NOT .preferredColorScheme(.dark).
-        // preferredColorScheme propagates UP to the UIHostingController/window,
-        // forcing the entire app into dark mode and breaking WarmBackground on
-        // parent screens. environment(\.colorScheme) propagates DOWN only, so
-        // this view and its children (including WarmBackground) see .dark without
-        // affecting the NavigationStack above.
         .environment(\.colorScheme, .dark)
+    }
+
+    // MARK: - Live Dashboard
+
+    private func liveDashboard(event: EventModel) -> some View {
+        VStack(spacing: 0) {
+            // ── Event title pill ──────────────────────────────────────
+            Text(event.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.top, 16)
+
+            // ── Hero (fills available space) ──────────────────────────
+            if let activeBlock {
+                ActiveBlockHero(block: activeBlock)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack {
+                    Spacer()
+                    Text(String(localized: "No active block"))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            // ── Next block card ───────────────────────────────────────
+            if activeBlock != nil {
+                VStack(spacing: 4) {
+                    if let nextBlock {
+                        Text(String(localized: "Up Next"))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .tracking(1)
+                        let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
+                        Text(String(localized: "Next: \(nextBlock.title) at \(timeStr)"))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text(String(localized: "Last block of the day"))
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity)
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 20)
+                .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
+
+                // Slide-to-advance track
+                SlideToAdvanceView(onAdvance: onAdvance)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+            }
+        }
+    }
+
+    // MARK: - Event Complete Summary
+
+    private func eventCompleteSummary(event: EventModel) -> some View {
+        VStack(spacing: 20) {
+            Spacer()
+
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 72))
+                .foregroundStyle(.green)
+                .symbolEffect(.bounce, value: isEventComplete)
+
+            Text(String(localized: "Event Complete"))
+                .font(.system(size: 32, weight: .bold))
+                .foregroundStyle(.primary)
+
+            Text(event.title)
+                .font(.title3.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            // Stats pill
+            HStack(spacing: 24) {
+                VStack(spacing: 4) {
+                    Text("\(totalBlocks)")
+                        .font(.title.weight(.bold))
+                        .monospacedDigit()
+                    Text(String(localized: "Blocks"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                VStack(spacing: 4) {
+                    Text(event.date, format: .dateTime.month().day())
+                        .font(.title.weight(.bold))
+                    Text(String(localized: "Date"))
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 32)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            Spacer()
+
+            Button {
+                onDismiss()
+            } label: {
+                Text(String(localized: "Done"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(.green, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 32)
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }
 }
 
