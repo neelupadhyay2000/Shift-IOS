@@ -37,12 +37,24 @@ struct ShiftPreviewOverlay: View {
         }
     }
 
+    /// Whether the preview represents an error that prevents the shift.
+    private var isErrorStatus: Bool {
+        switch preview.status {
+        case .pinnedBlockCannotShift, .circularDependency:
+            return true
+        case .clean, .hasCollisions, .impossible:
+            return false
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
 
-                if affectedBlocks.isEmpty {
+                if isErrorStatus {
+                    errorView
+                } else if affectedBlocks.isEmpty {
                     noChangesView
                 } else {
                     blockList
@@ -128,7 +140,7 @@ struct ShiftPreviewOverlay: View {
                 }
                 .font(.caption.weight(.medium))
 
-                Text("\(sign)\(diffMinutes) min")
+                Text(String(localized: "\(sign)\(diffMinutes) min"))
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(diffMinutes > 0 ? Color.orange : Color.green)
             }
@@ -139,6 +151,33 @@ struct ShiftPreviewOverlay: View {
             .ultraThinMaterial,
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
+    }
+
+    // MARK: - Error View
+
+    private var errorView: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle")
+                .font(.largeTitle)
+                .foregroundStyle(.orange)
+            Text(statusMessage)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+    }
+
+    private var statusMessage: String {
+        switch preview.status {
+        case .pinnedBlockCannotShift:
+            return String(localized: "A pinned block prevents this shift.")
+        case .circularDependency:
+            return String(localized: "A circular dependency prevents this shift.")
+        case .clean, .hasCollisions, .impossible:
+            return ""
+        }
     }
 
     // MARK: - No Changes
@@ -170,6 +209,7 @@ struct ShiftPreviewOverlay: View {
                     .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
+            .disabled(isErrorStatus || affectedBlocks.isEmpty)
 
             Button {
                 onCancel()

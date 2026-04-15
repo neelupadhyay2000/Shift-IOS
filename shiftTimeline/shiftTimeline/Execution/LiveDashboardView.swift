@@ -94,9 +94,14 @@ struct LiveDashboardView: View {
                 .disabled(isEventComplete)
             }
         }
-        .sheet(isPresented: $isShowingQuickShift) {
+        .sheet(isPresented: $isShowingQuickShift, onDismiss: {
+            if pendingShiftMinutes != 0 {
+                showPreview(forMinutes: pendingShiftMinutes)
+            }
+        }) {
             QuickShiftSheet { minutes in
-                showPreview(forMinutes: minutes)
+                pendingShiftMinutes = minutes
+                isShowingQuickShift = false
             }
         }
         .sheet(item: previewBinding) { preview in
@@ -105,9 +110,11 @@ struct LiveDashboardView: View {
                 minutes: pendingShiftMinutes,
                 onConfirm: {
                     commitShift(byMinutes: pendingShiftMinutes)
+                    pendingShiftMinutes = 0
                     pendingShiftPreview = nil
                 },
                 onCancel: {
+                    pendingShiftMinutes = 0
                     pendingShiftPreview = nil
                 }
             )
@@ -234,8 +241,14 @@ struct LiveDashboardView: View {
             delta: delta
         )
 
-        // Phase 3: snapshot after-state and push undo entry
-        undoManager.commitShift(blocks: result.blocks)
+        // Phase 3: only commit undo if the engine actually applied a shift
+        switch result.status {
+        case .pinnedBlockCannotShift, .circularDependency:
+            undoManager.cancelShift()
+            return
+        case .clean, .hasCollisions, .impossible:
+            undoManager.commitShift(blocks: result.blocks)
+        }
 
         try? modelContext.save()
     }
