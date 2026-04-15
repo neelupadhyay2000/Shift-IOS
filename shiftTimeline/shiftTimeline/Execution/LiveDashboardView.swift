@@ -62,7 +62,8 @@ struct LiveDashboardView: View {
         _LiveDashboardContent(
             event: event,
             activeBlock: activeBlock,
-            nextBlock: nextBlock
+            nextBlock: nextBlock,
+            onAdvance: advanceToNextBlock
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -111,6 +112,16 @@ struct LiveDashboardView: View {
         try? modelContext.save()
     }
 
+    private func advanceToNextBlock() {
+        guard let activeBlock else { return }
+        activeBlock.status = .completed
+
+        if let nextBlock {
+            nextBlock.status = .active
+        }
+        try? modelContext.save()
+    }
+
     private func exitLiveMode() {
         guard let event else {
             dismiss()
@@ -135,6 +146,7 @@ private struct _LiveDashboardContent: View {
     let event: EventModel?
     let activeBlock: TimeBlockModel?
     let nextBlock: TimeBlockModel?
+    let onAdvance: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -184,8 +196,12 @@ private struct _LiveDashboardContent: View {
                     .frame(maxWidth: .infinity)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
                     .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
+
+                    // Slide-to-advance track
+                    SlideToAdvanceView(onAdvance: onAdvance)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
                 }
             } else {
                 ContentUnavailableView(
