@@ -3,6 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 import SwiftData
+import AppIntents
 import Models
 import Engine
 import Services
@@ -284,6 +285,8 @@ private struct _LiveDashboardContent: View {
     let onDismiss: () -> Void
     let onVendorTapped: (VendorModel) -> Void
 
+    @State private var isSiriTipVisible = true
+
     private var totalBlocks: Int {
         event?.tracks.flatMap(\.blocks).count ?? 0
     }
@@ -373,6 +376,11 @@ private struct _LiveDashboardContent: View {
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.horizontal, 20)
                 .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
+
+                // Siri tip — suggested when event is live
+                SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
+                    .siriTipViewStyle(.dark)
+                    .padding(.horizontal, 20)
 
                 // Slide-to-advance track
                 SlideToAdvanceView(onAdvance: onAdvance)

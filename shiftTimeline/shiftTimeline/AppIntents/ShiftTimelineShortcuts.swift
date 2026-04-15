@@ -77,7 +77,8 @@ struct ShiftTimelineShortcutsProvider: AppShortcutsProvider {
         AppShortcut(
             intent: ShiftTimelineIntent(),
             phrases: [
-                "Shift \(.applicationName) timeline",
+                "Shift my \(.applicationName) timeline",
+                "Shift my timeline in \(.applicationName)",
                 "Push \(.applicationName) timeline forward",
                 "Delay \(.applicationName) timeline"
             ],
