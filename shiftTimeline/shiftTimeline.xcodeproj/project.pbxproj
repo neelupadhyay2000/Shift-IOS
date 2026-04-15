@@ -733,6 +733,7 @@
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -766,6 +767,7 @@
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWidget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -792,8 +794,9 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -815,8 +818,9 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.shiftTimelineTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
