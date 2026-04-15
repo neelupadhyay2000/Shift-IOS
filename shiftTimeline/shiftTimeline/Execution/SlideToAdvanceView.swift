@@ -53,7 +53,7 @@ struct SlideToAdvanceView: View {
                             endPoint: .trailing
                         )
                     )
-                    .frame(width: dragOffset + thumbSize + 4)
+                    .frame(width: min(dragOffset + thumbSize + 4, trackWidth))
 
                 // Label — fades as thumb covers it
                 Text(String(localized: "Slide to advance"))
@@ -95,6 +95,14 @@ struct SlideToAdvanceView: View {
                     )
             }
             .frame(height: trackHeight)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(String(localized: "Advance to next block"))
+            .accessibilityHint(String(localized: "Slide right to complete the current block, or double-tap"))
+            .accessibilityAddTraits(.allowsDirectInteraction)
+            .accessibilityAction {
+                guard !isCompleted else { return }
+                completeSlide(maxOffset: max(trackWidth - thumbSize - 8, 0))
+            }
         }
         .frame(height: trackHeight)
     }

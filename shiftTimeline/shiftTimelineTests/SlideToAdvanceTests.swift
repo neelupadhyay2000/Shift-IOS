@@ -7,7 +7,7 @@ import Testing
 @testable import shiftTimeline
 
 /// Tests for the block advancement logic used by LiveDashboardView's
-/// `advanceToNextBlock()` and the "Event Complete" state.
+/// `performAdvance()` and the "Event Complete" state.
 @MainActor
 struct SlideToAdvanceTests {
 
@@ -44,21 +44,38 @@ struct SlideToAdvanceTests {
             blocks.append(block)
         }
 
-        // Activate the first block
         blocks[0].status = .active
 
         return (event, blocks)
     }
 
-    // MARK: - Advancing marks current completed and next active
+    /// Derives active/next block the same way LiveDashboardView does.
+    private func deriveActiveAndNext(
+        from blocks: [TimeBlockModel]
+    ) -> (active: TimeBlockModel?, next: TimeBlockModel?) {
+        let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let active = sorted.first(where: { $0.status == .active })
+            ?? sorted.first(where: { $0.status != .completed })
+        guard let active,
+              let activeIndex = sorted.firstIndex(where: { $0.id == active.id })
+        else {
+            let next = sorted.first(where: { $0.status == .upcoming })
+            return (active, next)
+        }
+        let tail = sorted.suffix(from: sorted.index(after: activeIndex))
+        let next = tail.first(where: { $0.status != .completed })
+        return (active, next)
+    }
+
+    // MARK: - Advancing via production code path
 
     @Test func advanceCompletesCurrentAndActivatesNext() throws {
         let container = try makeContainer()
         let context = container.mainContext
-        let (_, blocks) = makeEvent(in: context, blockCount: 3)
+        let (event, blocks) = makeEvent(in: context, blockCount: 3)
 
-        blocks[0].status = .completed
-        blocks[1].status = .active
+        let (active, next) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active, nextBlock: next, event: event)
 
         #expect(blocks[0].status == .completed)
         #expect(blocks[1].status == .active)
@@ -70,16 +87,14 @@ struct SlideToAdvanceTests {
     @Test func activeBlockDerivedPropertyReturnsNextAfterAdvance() throws {
         let container = try makeContainer()
         let context = container.mainContext
-        let (_, blocks) = makeEvent(in: context, blockCount: 3)
+        let (event, blocks) = makeEvent(in: context, blockCount: 3)
 
-        blocks[0].status = .completed
-        blocks[1].status = .active
+        let (active, next) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active, nextBlock: next, event: event)
 
-        let sortedBlocks = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
-        let activeBlock = sortedBlocks.first(where: { $0.status == .active })
-
-        #expect(activeBlock?.id == blocks[1].id)
-        #expect(activeBlock?.title == "Block 1")
+        let (newActive, _) = deriveActiveAndNext(from: blocks)
+        #expect(newActive?.id == blocks[1].id)
+        #expect(newActive?.title == "Block 1")
     }
 
     // MARK: - Final block shows event complete
@@ -89,15 +104,13 @@ struct SlideToAdvanceTests {
         let context = container.mainContext
         let (event, blocks) = makeEvent(in: context, blockCount: 2)
 
-        blocks[0].status = .completed
-        blocks[1].status = .active
+        // Advance first block
+        let (active1, next1) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active1, nextBlock: next1, event: event)
 
         // Advance final block
-        blocks[1].status = .completed
-        let hasNext = blocks.contains { $0.status != .completed }
-        if !hasNext {
-            event.status = .completed
-        }
+        let (active2, next2) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active2, nextBlock: next2, event: event)
 
         #expect(event.status == .completed)
         #expect(blocks.allSatisfy { $0.status == .completed })
@@ -108,10 +121,10 @@ struct SlideToAdvanceTests {
     @Test func isEventCompleteIsFalseWhileBlocksRemain() throws {
         let container = try makeContainer()
         let context = container.mainContext
-        let (_, blocks) = makeEvent(in: context, blockCount: 3)
+        let (event, blocks) = makeEvent(in: context, blockCount: 3)
 
-        blocks[0].status = .completed
-        blocks[1].status = .active
+        let (active, next) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active, nextBlock: next, event: event)
 
         let isComplete = blocks.allSatisfy { $0.status == .completed }
         #expect(!isComplete)
@@ -120,10 +133,13 @@ struct SlideToAdvanceTests {
     @Test func isEventCompleteIsTrueWhenAllBlocksDone() throws {
         let container = try makeContainer()
         let context = container.mainContext
-        let (_, blocks) = makeEvent(in: context, blockCount: 2)
+        let (event, blocks) = makeEvent(in: context, blockCount: 2)
 
-        blocks[0].status = .completed
-        blocks[1].status = .completed
+        // Advance both blocks via production path
+        for _ in 0..<2 {
+            let (active, next) = deriveActiveAndNext(from: blocks)
+            LiveDashboardView.performAdvance(activeBlock: active, nextBlock: next, event: event)
+        }
 
         let isComplete = blocks.allSatisfy { $0.status == .completed }
         #expect(isComplete)
@@ -136,8 +152,8 @@ struct SlideToAdvanceTests {
         let context = container.mainContext
         let (event, blocks) = makeEvent(in: context, blockCount: 2)
 
-        blocks[0].status = .completed
-        blocks[1].status = .active
+        let (active, next) = deriveActiveAndNext(from: blocks)
+        LiveDashboardView.performAdvance(activeBlock: active, nextBlock: next, event: event)
         try context.save()
 
         let eventID = event.id
@@ -156,6 +172,22 @@ struct SlideToAdvanceTests {
 
     @Test func completionThresholdIs80Percent() {
         #expect(SlideToAdvanceView.completionThreshold == 0.8)
+    }
+
+    // MARK: - No-op when no active block
+
+    @Test func advanceWithNoActiveBlockIsNoOp() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let (event, blocks) = makeEvent(in: context, blockCount: 2)
+
+        // Reset all to upcoming (no active)
+        blocks[0].status = .upcoming
+
+        LiveDashboardView.performAdvance(activeBlock: nil, nextBlock: blocks[0], event: event)
+
+        #expect(blocks[0].status == .upcoming)
+        #expect(event.status == .live)
     }
 }
 #endif

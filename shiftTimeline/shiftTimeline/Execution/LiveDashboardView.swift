@@ -10,9 +10,9 @@ import Models
 /// Event-day execution dashboard.
 ///
 /// All navigation modifiers, lifecycle hooks, and state mutations live here.
-/// The visual content is delegated to `_LiveDashboardContent`, which is the
-/// sole owner of `.preferredColorScheme(.dark)` — keeping the dark preference
-/// isolated so it does NOT propagate back up the NavigationStack to other screens.
+/// The visual content is delegated to `_LiveDashboardContent`, which uses
+/// `.environment(\.colorScheme, .dark)` — propagating dark mode DOWN only
+/// so it does NOT escape to the parent NavigationStack or UIHostingController.
 struct LiveDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -121,16 +121,28 @@ struct LiveDashboardView: View {
     }
 
     private func advanceToNextBlock() {
+        Self.performAdvance(
+            activeBlock: activeBlock,
+            nextBlock: nextBlock,
+            event: event
+        )
+        try? modelContext.save()
+    }
+
+    /// Extracted advance logic — testable without a live view hierarchy.
+    static func performAdvance(
+        activeBlock: TimeBlockModel?,
+        nextBlock: TimeBlockModel?,
+        event: EventModel?
+    ) {
         guard let activeBlock else { return }
         activeBlock.status = .completed
 
         if let nextBlock {
             nextBlock.status = .active
         } else {
-            // Final block — mark event as completed
             event?.status = .completed
         }
-        try? modelContext.save()
     }
 
     private func exitLiveMode() {
@@ -151,8 +163,8 @@ struct LiveDashboardView: View {
 
 // MARK: - _LiveDashboardContent
 
-/// Pure layout view. `.preferredColorScheme(.dark)` lives only here,
-/// preventing it from escaping to the parent NavigationStack.
+/// Pure layout view. `.environment(\.colorScheme, .dark)` lives only here,
+/// propagating dark mode DOWN to children without escaping to the NavigationStack.
 private struct _LiveDashboardContent: View {
     let event: EventModel?
     let activeBlock: TimeBlockModel?
