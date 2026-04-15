@@ -84,6 +84,9 @@ struct SlideToAdvanceView: View {
                                 if progress >= Self.completionThreshold {
                                     completeSlide(maxOffset: maxOffset)
                                 } else {
+                                    #if canImport(UIKit)
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    #endif
                                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                                         dragOffset = 0
                                     }
