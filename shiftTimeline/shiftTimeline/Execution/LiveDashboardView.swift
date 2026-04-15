@@ -4,6 +4,8 @@ import UIKit
 #endif
 import SwiftData
 import Models
+import Engine
+import Services
 
 // MARK: - LiveDashboardView
 
@@ -20,6 +22,13 @@ struct LiveDashboardView: View {
     @Query private var results: [EventModel]
 
     @State private var isShowingExitConfirmation = false
+    @State private var isShowingQuickShift = false
+    @State private var pendingShiftPreview: ShiftPreview?
+    @State private var pendingShiftMinutes: Int = 0
+    @State private var undoManager = ShiftUndoManager()
+
+    private let engine = RippleEngine()
+    private let previewGenerator = ShiftPreviewGenerator()
 
     private let eventID: UUID
 
@@ -76,6 +85,32 @@ struct LiveDashboardView: View {
                     Label(String(localized: "Back"), systemImage: "chevron.backward")
                 }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingQuickShift = true
+                } label: {
+                    Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
+                }
+                .disabled(isEventComplete)
+            }
+        }
+        .sheet(isPresented: $isShowingQuickShift) {
+            QuickShiftSheet { minutes in
+                showPreview(forMinutes: minutes)
+            }
+        }
+        .sheet(item: previewBinding) { preview in
+            ShiftPreviewOverlay(
+                preview: preview,
+                minutes: pendingShiftMinutes,
+                onConfirm: {
+                    commitShift(byMinutes: pendingShiftMinutes)
+                    pendingShiftPreview = nil
+                },
+                onCancel: {
+                    pendingShiftPreview = nil
+                }
+            )
         }
         .confirmationDialog(
             String(localized: "Exit live mode?"),
@@ -143,6 +178,51 @@ struct LiveDashboardView: View {
         } else {
             event?.status = .completed
         }
+    }
+
+    /// Binding that bridges `ShiftPreview?` to `.sheet(item:)`.
+    private var previewBinding: Binding<ShiftPreview?> {
+        $pendingShiftPreview
+    }
+
+    /// Generates a non-mutating preview and stores it for the overlay.
+    private func showPreview(forMinutes minutes: Int) {
+        guard let active = activeBlock else { return }
+        let delta = TimeInterval(minutes * 60)
+        let preview = previewGenerator.generatePreview(
+            blocks: sortedBlocks,
+            blockID: active.id,
+            delta: delta
+        )
+        pendingShiftMinutes = minutes
+        pendingShiftPreview = preview
+    }
+
+    /// Commits the shift after user confirms the preview.
+    ///
+    /// 1. Captures undo snapshot before mutation
+    /// 2. Calls `RippleEngine.recalculate()` with delta on the active block
+    /// 3. Commits undo snapshot after mutation
+    /// 4. Persists to SwiftData
+    private func commitShift(byMinutes minutes: Int) {
+        let delta = TimeInterval(minutes * 60)
+        guard let active = activeBlock else { return }
+        let blocks = sortedBlocks
+
+        // Phase 1: snapshot before-state for undo
+        undoManager.recordShift(blocks: blocks)
+
+        // Phase 2: run the engine — mutates blocks in place
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: active.id,
+            delta: delta
+        )
+
+        // Phase 3: snapshot after-state and push undo entry
+        undoManager.commitShift(blocks: result.blocks)
+
+        try? modelContext.save()
     }
 
     private func exitLiveMode() {
