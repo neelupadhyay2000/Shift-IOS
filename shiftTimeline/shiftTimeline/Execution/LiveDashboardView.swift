@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Event-day dashboard shell with a fixed dark appearance.
 struct LiveDashboardView: View {
@@ -22,6 +23,12 @@ struct LiveDashboardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .preferredColorScheme(.dark)
+        .onAppear {
+            UIApplication.shared.isIdleTimerDisabled = true
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
     }
 }
 
