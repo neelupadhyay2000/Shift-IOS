@@ -96,7 +96,7 @@ struct ContentView: View {
 
                 VStack(spacing: 2) {
                     Text(formatTime(remaining))
-                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
                         .foregroundStyle(isOvertime ? .red : .white)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
