@@ -71,6 +71,19 @@ final class WatchSessionManager: NSObject {
     /// Lead time before block end at which the haptic fires.
     static let hapticLeadSeconds: TimeInterval = 5 * 60
 
+    /// The running sunset haptic task. Cancelled if sunset time changes.
+    private var sunsetHapticTask: Task<Void, Never>?
+
+    /// Lead time before sunset at which the haptic fires.
+    static let sunsetLeadSeconds: TimeInterval = 30 * 60
+
+    /// Calendar day (yyyy-MM-dd) for which the sunset haptic has already fired.
+    /// Persisted so the haptic fires only once per event day, even across app restarts.
+    private var sunsetHapticFiredDay: String? {
+        get { UserDefaults.standard.string(forKey: "sunsetHapticFiredDay") }
+        set { UserDefaults.standard.set(newValue, forKey: "sunsetHapticFiredDay") }
+    }
+
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline.watch",
         category: "WatchSession"
@@ -176,6 +189,7 @@ final class WatchSessionManager: NSObject {
     private func applyContext(_ context: WatchContext) {
         currentContext = context
         scheduleBlockEndHaptic(for: context)
+        scheduleSunsetHaptic(for: context)
     }
 
     // MARK: - Haptic Scheduling
@@ -215,6 +229,54 @@ final class WatchSessionManager: NSObject {
     private func fireBlockEndHaptic() {
         WKInterfaceDevice.current().play(.notification)
         Self.logger.info("Fired block-end haptic (5 min warning)")
+    }
+
+    // MARK: - Sunset Haptic Scheduling
+
+    /// Schedules a `WKHapticType.directionUp` haptic 30 minutes before sunset.
+    ///
+    /// Deduplicates by calendar day so the haptic fires only once per event day,
+    /// surviving app restarts and context refreshes within the 30-minute window.
+    private func scheduleSunsetHaptic(for context: WatchContext) {
+        guard let sunset = context.sunsetTime else { return }
+
+        let dayKey = Self.calendarDayKey(for: sunset)
+
+        // Already fired for this event day — skip entirely.
+        if sunsetHapticFiredDay == dayKey { return }
+
+        let fireDate = sunset.addingTimeInterval(-Self.sunsetLeadSeconds)
+        let delay = fireDate.timeIntervalSinceNow
+
+        // Fire date already past — mark as fired so we don't retry.
+        guard delay > 0 else {
+            sunsetHapticFiredDay = dayKey
+            Self.logger.info("Sunset haptic fire date already past — marking as fired")
+            return
+        }
+
+        // Cancel any previously scheduled sunset task (e.g. sunset time shifted).
+        sunsetHapticTask?.cancel()
+
+        Self.logger.info("Scheduling sunset haptic in \(Int(delay))s")
+
+        sunsetHapticTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.fireSunsetHaptic(dayKey: dayKey)
+        }
+    }
+
+    private func fireSunsetHaptic(dayKey: String) {
+        sunsetHapticFiredDay = dayKey
+        WKInterfaceDevice.current().play(.directionUp)
+        Self.logger.info("Fired sunset approach haptic (30 min warning)")
+    }
+
+    /// Returns a stable calendar-day string (yyyy-MM-dd) for deduplication.
+    private static func calendarDayKey(for date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
     }
 }
 
