@@ -188,8 +188,23 @@ final class WatchSessionManager: NSObject {
     /// Central setter for `currentContext`. Schedules haptics whenever the context changes.
     private func applyContext(_ context: WatchContext) {
         currentContext = context
+
+        guard context.isLive else {
+            cancelAllHaptics()
+            return
+        }
+
         scheduleBlockEndHaptic(for: context)
         scheduleSunsetHaptic(for: context)
+    }
+
+    /// Cancels all pending haptic tasks and clears scheduling state.
+    private func cancelAllHaptics() {
+        hapticTask?.cancel()
+        hapticTask = nil
+        scheduledHapticEndTime = nil
+        sunsetHapticTask?.cancel()
+        sunsetHapticTask = nil
     }
 
     // MARK: - Haptic Scheduling
@@ -219,7 +234,7 @@ final class WatchSessionManager: NSObject {
 
         Self.logger.info("Scheduling block-end haptic in \(Int(delay))s")
 
-        hapticTask = Task { [weak self] in
+        hapticTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             self?.fireBlockEndHaptic()
@@ -238,7 +253,11 @@ final class WatchSessionManager: NSObject {
     /// Deduplicates by calendar day so the haptic fires only once per event day,
     /// surviving app restarts and context refreshes within the 30-minute window.
     private func scheduleSunsetHaptic(for context: WatchContext) {
-        guard let sunset = context.sunsetTime else { return }
+        guard let sunset = context.sunsetTime else {
+            sunsetHapticTask?.cancel()
+            sunsetHapticTask = nil
+            return
+        }
 
         let dayKey = Self.calendarDayKey(for: sunset)
 
@@ -260,7 +279,7 @@ final class WatchSessionManager: NSObject {
 
         Self.logger.info("Scheduling sunset haptic in \(Int(delay))s")
 
-        sunsetHapticTask = Task { [weak self] in
+        sunsetHapticTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(delay))
             guard !Task.isCancelled else { return }
             self?.fireSunsetHaptic(dayKey: dayKey)
