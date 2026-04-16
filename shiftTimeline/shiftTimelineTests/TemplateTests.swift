@@ -332,7 +332,7 @@ struct TemplateTests {
         }
         try context.save()
 
-        let blocks = track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let blocks = (track.blocks ?? []).sorted { $0.scheduledStart < $1.scheduledStart }
         #expect(blocks.count == 3)
         #expect(event.title == "My Wedding")
     }
@@ -375,7 +375,7 @@ struct TemplateTests {
         }
         try context.save()
 
-        let blocks = track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let blocks = (track.blocks ?? []).sorted { $0.scheduledStart < $1.scheduledStart }
 
         // A starts at 2:00 PM
         #expect(blocks[0].scheduledStart == baseStart)
@@ -447,9 +447,9 @@ struct TemplateTests {
         context.insert(track)
         try context.save()
 
-        #expect(event.tracks.count == 1)
-        #expect(event.tracks.first?.isDefault == true)
-        #expect(event.tracks.first?.name == "Main")
+        #expect((event.tracks ?? []).count == 1)
+        #expect((event.tracks ?? []).first?.isDefault == true)
+        #expect((event.tracks ?? []).first?.name == "Main")
     }
 
     @Test @MainActor func useTemplateAllBlocksAssignedToMainTrack() async throws {
@@ -487,7 +487,7 @@ struct TemplateTests {
         }
         try context.save()
 
-        #expect(track.blocks.count == 3)
-        #expect(track.blocks.allSatisfy { $0.track?.id == track.id })
+        #expect((track.blocks ?? []).count == 3)
+        #expect((track.blocks ?? []).allSatisfy { $0.track?.id == track.id })
     }
 }

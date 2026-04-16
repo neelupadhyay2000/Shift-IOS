@@ -145,10 +145,10 @@ struct EventRosterTests {
         context.insert(mainTrack)
         try context.save()
 
-        #expect(event.tracks.count == 1)
-        #expect(event.tracks.first?.name == "Main")
-        #expect(event.tracks.first?.sortOrder == 0)
-        #expect(event.tracks.first?.isDefault == true)
+        #expect((event.tracks ?? []).count == 1)
+        #expect((event.tracks ?? []).first?.name == "Main")
+        #expect((event.tracks ?? []).first?.sortOrder == 0)
+        #expect((event.tracks ?? []).first?.isDefault == true)
 
         // Verify the track is persisted
         let tracks = try context.fetch(FetchDescriptor<TimelineTrack>())
@@ -170,7 +170,7 @@ struct EventRosterTests {
         try context.save()
 
         // Simulate CreateBlockSheet.saveBlock() — uses event.tracks.first
-        let track = event.tracks.first!
+        let track = (event.tracks ?? []).first!
         let block = TimeBlockModel(title: "Ceremony", scheduledStart: .now, duration: 1800)
         block.track = track
         context.insert(block)
@@ -178,8 +178,8 @@ struct EventRosterTests {
 
         // Block should be in the Main track
         #expect(block.track?.name == "Main")
-        #expect(mainTrack.blocks.count == 1)
-        #expect(mainTrack.blocks.first?.title == "Ceremony")
+        #expect((mainTrack.blocks ?? []).count == 1)
+        #expect((mainTrack.blocks ?? []).first?.title == "Ceremony")
     }
 
     /// AC: Cascade delete removes the auto-created Main track and its blocks.

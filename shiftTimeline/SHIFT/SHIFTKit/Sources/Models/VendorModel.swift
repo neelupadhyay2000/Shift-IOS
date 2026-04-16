@@ -3,14 +3,17 @@ import SwiftData
 
 @Model
 public final class VendorModel {
-    public var id: UUID
-    public var name: String
-    public var role: VendorRole
-    public var phone: String
-    public var email: String
-    public var notificationThreshold: TimeInterval
-    public var hasAcknowledgedLatestShift: Bool
+    public var id: UUID = UUID()
+    public var name: String = ""
+    public var role: VendorRole = VendorRole.custom
+    public var phone: String = ""
+    public var email: String = ""
+    public var notificationThreshold: TimeInterval = 300
+    public var hasAcknowledgedLatestShift: Bool = false
     public var event: EventModel?
+
+    @Relationship(deleteRule: .nullify)
+    public var assignedBlocks: [TimeBlockModel]?
 
     public init(
         id: UUID = UUID(),

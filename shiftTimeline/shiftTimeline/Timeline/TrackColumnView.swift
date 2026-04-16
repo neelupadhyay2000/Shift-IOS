@@ -20,7 +20,7 @@ struct TrackColumnView: View {
     @State private var isDropTargeted = false
 
     private var sortedBlocks: [TimeBlockModel] {
-        track.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        (track.blocks ?? []).sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
     var body: some View {
@@ -143,7 +143,7 @@ struct TrackColumnView: View {
         // Find the block across all tracks in the same event
         guard let event = targetTrack.event else { return false }
 
-        let allBlocks = event.tracks.flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
         guard let block = allBlocks.first(where: { $0.id == id }) else { return false }
 
         // Skip if already on this track

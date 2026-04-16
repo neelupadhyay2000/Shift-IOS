@@ -36,7 +36,7 @@ struct VendorManagerTests {
         #expect(result.email == "jane@example.com")
         #expect(result.role == .photographer)
         #expect(result.event === event)
-        #expect(event.vendors.count == 1)
+        #expect((event.vendors ?? []).count == 1)
     }
 
     @Test @MainActor func saveVendorWithEmptyContactFieldsSucceeds() async throws {
@@ -74,10 +74,10 @@ struct VendorManagerTests {
             context.insert(v)
         }
         try context.save()
-        #expect(event.vendors.count == 3)
+        #expect((event.vendors ?? []).count == 3)
 
         // Mirror VendorManagerView.deleteVendors: sort by name, then delete by offset
-        let sorted = event.vendors.sorted(by: { $0.name < $1.name })
+        let sorted = (event.vendors ?? []).sorted(by: { $0.name < $1.name })
         // sorted order: Alice (0), Bob (1), Charlie (2)
         #expect(sorted[0].name == "Alice")
         #expect(sorted[1].name == "Bob")
@@ -112,7 +112,7 @@ struct VendorManagerTests {
         }
         try context.save()
 
-        let sorted = event.vendors.sorted(by: { $0.name < $1.name })
+        let sorted = (event.vendors ?? []).sorted(by: { $0.name < $1.name })
         // sorted: Alpha(0), Bravo(1), Charlie(2), Delta(3), Echo(4)
 
         // Delete indices 0 and 3 (Alpha and Delta)
@@ -146,7 +146,7 @@ struct VendorManagerTests {
         }
         try context.save()
 
-        let sorted = event.vendors.sorted(by: { $0.name < $1.name })
+        let sorted = (event.vendors ?? []).sorted(by: { $0.name < $1.name })
         #expect(sorted.map(\.name) == ["Anna", "Mike", "Zara"])
     }
 
@@ -254,11 +254,11 @@ struct VendorManagerTests {
         // Assign vendor to block
         block.vendors = [vendor]
         try context.save()
-        #expect(block.vendors.count == 1)
+        #expect((block.vendors ?? []).count == 1)
 
         // Mirror VendorManagerView.deleteVendor: remove from blocks, then delete
-        for b in event.tracks.flatMap(\.blocks) {
-            b.vendors.removeAll(where: { $0.id == vendor.id })
+        for b in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) {
+            b.vendors?.removeAll(where: { $0.id == vendor.id })
         }
         context.delete(vendor)
         try context.save()
@@ -267,7 +267,7 @@ struct VendorManagerTests {
         #expect(remainingVendors.count == 0)
 
         let fetchedBlock = try #require(try context.fetch(FetchDescriptor<TimeBlockModel>()).first)
-        #expect(fetchedBlock.vendors.isEmpty)
+        #expect((fetchedBlock.vendors ?? []).isEmpty)
     }
 
     @Test @MainActor func deleteVendorAssignedToMultipleBlocks() async throws {
@@ -297,19 +297,19 @@ struct VendorManagerTests {
         block2.vendors = [vendor]
         try context.save()
 
-        #expect(block1.vendors.count == 1)
-        #expect(block2.vendors.count == 1)
+        #expect((block1.vendors ?? []).count == 1)
+        #expect((block2.vendors ?? []).count == 1)
 
         // Delete vendor — should clear from both blocks
-        for b in event.tracks.flatMap(\.blocks) {
-            b.vendors.removeAll(where: { $0.id == vendor.id })
+        for b in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) {
+            b.vendors?.removeAll(where: { $0.id == vendor.id })
         }
         context.delete(vendor)
         try context.save()
 
         let blocks = try context.fetch(FetchDescriptor<TimeBlockModel>())
         #expect(blocks.count == 2)
-        #expect(blocks.allSatisfy { $0.vendors.isEmpty })
+        #expect(blocks.allSatisfy { ($0.vendors ?? []).isEmpty })
     }
 
     @Test @MainActor func vendorAssignedBlockCountIsAccurate() async throws {
@@ -345,9 +345,9 @@ struct VendorManagerTests {
         try context.save()
 
         // Mirror VendorManagerView.assignedBlockCount
-        let count = event.tracks
-            .flatMap(\.blocks)
-            .filter { $0.vendors.contains(where: { $0.id == vendor.id }) }
+        let count = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
+            .filter { ($0.vendors ?? []).contains(where: { $0.id == vendor.id }) }
             .count
         #expect(count == 2)
     }

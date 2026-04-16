@@ -29,7 +29,7 @@ struct VendorManagerView: View {
     var body: some View {
         Group {
             if let event {
-                if event.vendors.isEmpty {
+                if (event.vendors ?? []).isEmpty {
                     ContentUnavailableView(
                         String(localized: "No Vendors"),
                         systemImage: "person.2.slash",
@@ -38,7 +38,7 @@ struct VendorManagerView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(event.vendors.sorted(by: { $0.name < $1.name })) { vendor in
+                            ForEach((event.vendors ?? []).sorted(by: { $0.name < $1.name })) { vendor in
                                 vendorRow(vendor)
                                     .premiumCard(padding: 12)
                                     .contentShape(Rectangle())
@@ -196,9 +196,9 @@ struct VendorManagerView: View {
 
     private func assignedBlockCount(for vendor: VendorModel) -> Int {
         guard let event else { return 0 }
-        return event.tracks
-            .flatMap(\.blocks)
-            .filter { $0.vendors.contains(where: { $0.id == vendor.id }) }
+        return (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
+            .filter { ($0.vendors ?? []).contains(where: { $0.id == vendor.id }) }
             .count
     }
 
@@ -211,8 +211,8 @@ struct VendorManagerView: View {
         // Remove from all block assignments (nullify handled by SwiftData,
         // but explicitly clearing ensures immediate UI consistency)
         if let event {
-            for block in event.tracks.flatMap(\.blocks) {
-                block.vendors.removeAll(where: { $0.id == vendor.id })
+            for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) {
+                block.vendors?.removeAll(where: { $0.id == vendor.id })
             }
         }
         modelContext.delete(vendor)

@@ -7,6 +7,9 @@ public final class PersistenceController: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")
 
+    /// The CloudKit container identifier for iCloud sync.
+    private static let cloudKitContainerID = "iCloud.com.neelsoftwaresolutions.shiftTimeline"
+
     /// The App Group identifier shared between the main app and extensions.
     private static let appGroupID = "group.com.neelsoftwaresolutions.shiftTimeline"
 
@@ -15,7 +18,13 @@ public final class PersistenceController: Sendable {
     public let container: ModelContainer
 
     public static var schema: Schema {
-        Schema(versionedSchema: SHIFTSchemaV1.self)
+        Schema([
+            EventModel.self,
+            TimeBlockModel.self,
+            TimelineTrack.self,
+            VendorModel.self,
+            ShiftRecord.self,
+        ])
     }
 
     /// Returns the store URL inside the shared App Group container,
@@ -53,13 +62,12 @@ public final class PersistenceController: Sendable {
         let config = ModelConfiguration(
             schema: schema,
             url: url,
-            cloudKitDatabase: .none
+            cloudKitDatabase: .automatic
         )
 
         do {
             container = try ModelContainer(
                 for: schema,
-                migrationPlan: SHIFTMigrationPlan.self,
                 configurations: [config]
             )
             Self.logger.info("ModelContainer created successfully")
@@ -69,7 +77,6 @@ public final class PersistenceController: Sendable {
             do {
                 container = try ModelContainer(
                     for: schema,
-                    migrationPlan: SHIFTMigrationPlan.self,
                     configurations: [config]
                 )
             } catch {

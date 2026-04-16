@@ -112,7 +112,7 @@ struct EventDetailView: View {
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
                     quickCard(
                         icon: "calendar.day.timeline.leading",
-                        value: "\(event.tracks.flatMap(\.blocks).count)",
+                        value: "\((event.tracks ?? []).flatMap { $0.blocks ?? [] }.count)",
                         subtitle: String(localized: "blocks_count_label", defaultValue: "blocks"),
                         color: .blue
                     )
@@ -122,7 +122,7 @@ struct EventDetailView: View {
                 NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
                     quickCard(
                         icon: "person.2.fill",
-                        value: "\(event.vendors.count)",
+                        value: "\((event.vendors ?? []).count)",
                         subtitle: String(localized: "assigned"),
                         color: .purple
                     )
@@ -150,8 +150,8 @@ struct EventDetailView: View {
     }
 
     private func startLiveMode(for event: EventModel) {
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         event.status = .live
@@ -228,7 +228,7 @@ struct EventDetailView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(.secondary)
 
-            ForEach(event.tracks.sorted(by: { $0.sortOrder < $1.sortOrder }), id: \TimelineTrack.id) { track in
+            ForEach((event.tracks ?? []).sorted(by: { $0.sortOrder < $1.sortOrder }), id: \TimelineTrack.id) { track in
                 trackRow(track)
             }
         }
@@ -250,7 +250,7 @@ struct EventDetailView: View {
                     .foregroundStyle(Color.accentColor)
             }
             Spacer()
-            Text("\(track.blocks.count) blocks")
+            Text("\((track.blocks ?? []).count) blocks")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

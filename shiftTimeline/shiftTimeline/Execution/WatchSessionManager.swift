@@ -123,8 +123,8 @@ public final class WatchSessionManager {
             return
         }
 
-        let blocks = event.tracks
-            .flatMap(\.blocks)
+        let blocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         guard let activeBlock = blocks.first(where: { $0.status == .active }) else { return }
@@ -274,8 +274,8 @@ public final class WatchSessionManager {
             return
         }
 
-        let blocks = event.tracks
-            .flatMap(\.blocks)
+        let blocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         guard let activeBlock = blocks.first(where: { $0.status == .active }) else {
@@ -347,8 +347,8 @@ public final class WatchSessionManager {
             return
         }
 
-        let blocks = event.tracks
-            .flatMap(\.blocks)
+        let blocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         guard let activeBlock = blocks.first(where: { $0.status == .active }) else {
@@ -408,8 +408,8 @@ public final class WatchSessionManager {
         let modelContext = container.mainContext
         guard let event = fetchLiveEvent(context: modelContext) else { return nil }
 
-        let blocks = event.tracks
-            .flatMap(\.blocks)
+        let blocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         guard let activeBlock = blocks.first(where: { $0.status == .active }) else { return nil }

@@ -39,8 +39,8 @@ struct BlockInspectorView: View {
     /// All sibling blocks in the same event (excluding the current block).
     private var siblingBlocks: [TimeBlockModel] {
         guard let event else { return [] }
-        return event.tracks
-            .flatMap(\.blocks)
+        return (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .filter { $0.id != block.id }
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
@@ -140,8 +140,8 @@ struct BlockInspectorView: View {
         notes = block.notes
         colorTag = block.colorTag
         icon = block.icon
-        selectedVendorIDs = Set(block.vendors.map(\.id))
-        selectedDependencyIDs = Set(block.dependencies.map(\.id))
+        selectedVendorIDs = Set((block.vendors ?? []).map(\.id))
+        selectedDependencyIDs = Set((block.dependencies ?? []).map(\.id))
     }
 
     // MARK: - Section 1: Basic Info

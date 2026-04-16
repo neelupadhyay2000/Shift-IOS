@@ -34,8 +34,8 @@ struct TimelineBuilderTests {
         try context.save()
 
         // Simulate the sort logic from TimelineBuilderView
-        let sortedBlocks = event.tracks
-            .flatMap(\.blocks)
+        let sortedBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         #expect(sortedBlocks.count == 3)
@@ -62,7 +62,7 @@ struct TimelineBuilderTests {
         context.insert(event)
         try context.save()
 
-        let blocks = event.tracks.flatMap(\.blocks)
+        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
         #expect(blocks.isEmpty)
     }
 
@@ -95,8 +95,8 @@ struct TimelineBuilderTests {
         context.insert(newBlock)
         try context.save()
 
-        let sorted = event.tracks
-            .flatMap(\.blocks)
+        let sorted = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         #expect(sorted.count == 3)
@@ -358,17 +358,17 @@ struct TimelineBuilderTests {
         context.insert(mainTrack)
         try context.save()
 
-        #expect(event.tracks.count == 1)
+        #expect((event.tracks ?? []).count == 1)
 
         // Simulate addTrack() logic
-        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        let sortedTracks = (event.tracks ?? []).sorted { $0.sortOrder < $1.sortOrder }
         let nextOrder = (sortedTracks.last?.sortOrder ?? 0) + 1
         let newTrack = TimelineTrack(name: "Photo", sortOrder: nextOrder, event: event)
         context.insert(newTrack)
         try context.save()
 
-        #expect(event.tracks.count == 2)
-        let sorted = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        #expect((event.tracks ?? []).count == 2)
+        let sorted = (event.tracks ?? []).sorted { $0.sortOrder < $1.sortOrder }
         #expect(sorted[0].name == "Main")
         #expect(sorted[0].sortOrder == 0)
         #expect(sorted[1].name == "Photo")
@@ -411,14 +411,14 @@ struct TimelineBuilderTests {
         context.insert(emptyTrack)
         try context.save()
 
-        #expect(event.tracks.count == 2)
+        #expect((event.tracks ?? []).count == 2)
 
         // Simulate deleteTrack() on empty track
         context.delete(emptyTrack)
         try context.save()
 
-        #expect(event.tracks.count == 1)
-        #expect(event.tracks.first?.name == "Main")
+        #expect((event.tracks ?? []).count == 1)
+        #expect((event.tracks ?? []).first?.name == "Main")
     }
 
     /// AC: Delete track with blocks moves blocks to Main first.
@@ -444,20 +444,20 @@ struct TimelineBuilderTests {
         context.insert(blockB)
         try context.save()
 
-        #expect(photoTrack.blocks.count == 2)
-        #expect(mainTrack.blocks.count == 0)
+        #expect((photoTrack.blocks ?? []).count == 2)
+        #expect((mainTrack.blocks ?? []).count == 0)
 
         // Simulate deleteTrack() logic — move blocks to Main first
-        for block in photoTrack.blocks {
+        for block in photoTrack.blocks ?? [] {
             block.track = mainTrack
         }
         context.delete(photoTrack)
         try context.save()
 
         // Blocks should now be in Main
-        #expect(event.tracks.count == 1)
-        #expect(mainTrack.blocks.count == 2)
-        let blockTitles = Set(mainTrack.blocks.map(\.title))
+        #expect((event.tracks ?? []).count == 1)
+        #expect((mainTrack.blocks ?? []).count == 2)
+        let blockTitles = Set((mainTrack.blocks ?? []).map(\.title))
         #expect(blockTitles.contains("Portraits"))
         #expect(blockTitles.contains("Group Shots"))
     }
@@ -487,8 +487,8 @@ struct TimelineBuilderTests {
         }
         try context.save()
 
-        #expect(event.tracks.count == 2)
-        #expect(event.tracks.contains(where: { $0.isDefault }))
+        #expect((event.tracks ?? []).count == 2)
+        #expect((event.tracks ?? []).contains(where: { $0.isDefault }))
     }
 
     // MARK: - Track Tab Bar Filtering
@@ -522,8 +522,8 @@ struct TimelineBuilderTests {
         try context.save()
 
         // All blocks across all tracks
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
         #expect(allBlocks.count == 3)
 
@@ -566,8 +566,8 @@ struct TimelineBuilderTests {
         // Simulate onAppear: selectedTrackID = mainTrack.id
         let selectedTrackID = mainTrack.id
 
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         let filtered = allBlocks.filter { $0.track?.id == selectedTrackID }
@@ -601,8 +601,8 @@ struct TimelineBuilderTests {
 
         // selectedTrackID = nil means "All"
         let selectedTrackID: UUID? = nil
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         // When nil, no filter is applied — all blocks shown
@@ -651,8 +651,8 @@ struct TimelineBuilderTests {
         try context.save()
 
         // Simulate iPad column logic: each track shows only its own blocks
-        let mainBlocks = mainTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
-        let photoBlocks = photoTrack.blocks.sorted { $0.scheduledStart < $1.scheduledStart }
+        let mainBlocks = (mainTrack.blocks ?? []).sorted { $0.scheduledStart < $1.scheduledStart }
+        let photoBlocks = (photoTrack.blocks ?? []).sorted { $0.scheduledStart < $1.scheduledStart }
 
         #expect(mainBlocks.count == 2)
         #expect(photoBlocks.count == 1)
@@ -660,7 +660,7 @@ struct TimelineBuilderTests {
         #expect(photoBlocks.first?.title == "Portraits")
 
         // All tracks are displayed — sortedTracks returns both
-        let sortedTracks = event.tracks.sorted { $0.sortOrder < $1.sortOrder }
+        let sortedTracks = (event.tracks ?? []).sorted { $0.sortOrder < $1.sortOrder }
         #expect(sortedTracks.count == 2)
         #expect(sortedTracks[0].name == "Main")
         #expect(sortedTracks[1].name == "Photo")
@@ -686,15 +686,15 @@ struct TimelineBuilderTests {
         try context.save()
 
         #expect(block.track?.id == mainTrack.id)
-        #expect(mainTrack.blocks.count == 1)
-        #expect(photoTrack.blocks.count == 0)
+        #expect((mainTrack.blocks ?? []).count == 1)
+        #expect((photoTrack.blocks ?? []).count == 0)
 
         // Simulate drop: reassign block.track to photoTrack
         block.track = photoTrack
         try context.save()
 
         #expect(block.track?.id == photoTrack.id)
-        #expect(photoTrack.blocks.contains(where: { $0.id == block.id }))
+        #expect((photoTrack.blocks ?? []).contains(where: { $0.id == block.id }))
     }
 
     /// AC: Drag-drop to the same track is a no-op.
@@ -749,8 +749,8 @@ struct TimelineBuilderTests {
         try context.save()
 
         // Simulate sharedLayout: computed from ALL blocks
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
         let layout = TimeRulerLayout.adaptive(blocks: allBlocks)
 

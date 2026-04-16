@@ -95,8 +95,8 @@ public final class PDFGenerator: Sendable {
             bounds: CGRect(x: 0, y: 0, width: Layout.pageWidth, height: Layout.pageHeight)
         )
 
-        let allBlocks = event.tracks
-            .flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         let rows = buildRows(
@@ -119,9 +119,9 @@ public final class PDFGenerator: Sendable {
             }
 
             // Track summary
-            let trackSummary = event.tracks
+            let trackSummary = (event.tracks ?? [])
                 .sorted { $0.sortOrder < $1.sortOrder }
-                .map { "\($0.name) (\($0.blocks.count))" }
+                .map { "\($0.name) (\(($0.blocks ?? []).count))" }
                 .joined(separator: " · ")
             if !trackSummary.isEmpty {
                 drawSubtitleLine(icon: "🎵", text: "Tracks: \(trackSummary)", cursor: &cursor)
@@ -158,7 +158,7 @@ public final class PDFGenerator: Sendable {
             cursor.y += 20
 
             // Summary line
-            let summaryText = "\(allBlocks.count) blocks across \(event.tracks.count) track(s)"
+            let summaryText = "\(allBlocks.count) blocks across \((event.tracks ?? []).count) track(s)"
             let summaryAttrs: [NSAttributedString.Key: Any] = [
                 .font: PDFFont.subtitle,
                 .foregroundColor: PDFColor.lightText,
@@ -488,7 +488,7 @@ public final class PDFGenerator: Sendable {
                 time: Self.timeFormatter.string(from: block.scheduledStart),
                 title: block.title,
                 duration: Self.formatDuration(block.duration),
-                vendor: block.vendors.map(\.name).joined(separator: ", "),
+                vendor: (block.vendors ?? []).map(\.name).joined(separator: ", "),
                 notes: block.notes,
                 highlight: .none,
                 isPinned: block.isPinned

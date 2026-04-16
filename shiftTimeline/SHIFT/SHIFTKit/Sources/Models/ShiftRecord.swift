@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 public final class ShiftRecord {
-    public var id: UUID
-    public var timestamp: Date
-    public var deltaMinutes: Int
-    public var triggeredBy: ShiftSource
+    public var id: UUID = UUID()
+    public var timestamp: Date = Date()
+    public var deltaMinutes: Int = 0
+    public var triggeredBy: ShiftSource = ShiftSource.manual
     public var sourceBlock: TimeBlockModel?
     public var event: EventModel?
 
