@@ -1,4 +1,5 @@
 import WatchConnectivity
+import WatchKit
 import Models
 import os
 
@@ -56,6 +57,19 @@ final class WatchSessionManager: NSObject {
 
     /// Whether the session has been activated. Guards against repeated activation.
     private var didActivate = false
+
+    // MARK: - Haptic Scheduling
+
+    /// The end time of the block for which a haptic is currently scheduled.
+    /// Used to deduplicate — if a context refresh arrives for the same block
+    /// (same end time), the haptic is not rescheduled.
+    private var scheduledHapticEndTime: Date?
+
+    /// The currently running haptic timer task. Cancelled when a new block arrives.
+    private var hapticTask: Task<Void, Never>?
+
+    /// Lead time before block end at which the haptic fires.
+    static let hapticLeadSeconds: TimeInterval = 5 * 60
 
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline.watch",
@@ -151,9 +165,56 @@ final class WatchSessionManager: NSObject {
         }
 
         if let context = WatchContext(dictionary: reply) {
-            currentContext = context
+            applyContext(context)
             Self.logger.info("Updated context from reply: \(context.activeBlockTitle)")
         }
+    }
+
+    // MARK: - Context Application
+
+    /// Central setter for `currentContext`. Schedules haptics whenever the context changes.
+    private func applyContext(_ context: WatchContext) {
+        currentContext = context
+        scheduleBlockEndHaptic(for: context)
+    }
+
+    // MARK: - Haptic Scheduling
+
+    /// Schedules a `WKHapticType.notification` haptic 5 minutes before the active
+    /// block's end time. Deduplicates by `activeBlockEndTime` so a context refresh
+    /// for the same block does not double-fire.
+    private func scheduleBlockEndHaptic(for context: WatchContext) {
+        let endTime = context.activeBlockEndTime
+
+        // Deduplicate: same block end time means same block — skip.
+        if scheduledHapticEndTime == endTime { return }
+
+        // New block or shifted block — cancel any existing timer.
+        hapticTask?.cancel()
+        hapticTask = nil
+        scheduledHapticEndTime = endTime
+
+        let fireDate = endTime.addingTimeInterval(-Self.hapticLeadSeconds)
+        let delay = fireDate.timeIntervalSinceNow
+
+        // If the fire date is already past, don't schedule.
+        guard delay > 0 else {
+            Self.logger.info("Haptic fire date already past — skipping")
+            return
+        }
+
+        Self.logger.info("Scheduling block-end haptic in \(Int(delay))s")
+
+        hapticTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.fireBlockEndHaptic()
+        }
+    }
+
+    private func fireBlockEndHaptic() {
+        WKInterfaceDevice.current().play(.notification)
+        Self.logger.info("Fired block-end haptic (5 min warning)")
     }
 }
 
@@ -177,7 +238,7 @@ extension WatchSessionManager: WCSessionDelegate {
         let existing = session.receivedApplicationContext
         if !existing.isEmpty, let context = WatchContext(dictionary: existing) {
             Task { @MainActor [weak self] in
-                self?.currentContext = context
+                self?.applyContext(context)
                 Self.logger.info("Restored context on activation: \(context.activeBlockTitle)")
             }
         }
@@ -193,7 +254,7 @@ extension WatchSessionManager: WCSessionDelegate {
         }
 
         Task { @MainActor [weak self] in
-            self?.currentContext = context
+            self?.applyContext(context)
             self?.isCommandQueued = false
             Self.logger.info("Received context: \(context.activeBlockTitle)")
         }
