@@ -20,6 +20,10 @@
 		5F21CFEE2F85F1B600110808 /* Engine in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFED2F85F1B600110808 /* Engine */; };
 		5F21CFF02F85F1B600110808 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFEF2F85F1B600110808 /* Models */; };
 		5F21CFF22F85F1B600110808 /* Services in Frameworks */ = {isa = PBXBuildFile; productRef = 5F21CFF12F85F1B600110808 /* Services */; };
+		5F9C4F572F9089FF00331621 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CF9E2F85CA0900110808 /* WidgetKit.framework */; };
+		5F9C4F582F9089FF00331621 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
+		5F9C4F652F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		5F9C4F722F908A9100331621 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F9C4F702F908A0000331621 /* Models */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +47,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 5F21CF712F85C1B000110808;
 			remoteInfo = shiftTimeline;
+		};
+		5F9C4F632F9089FF00331621 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F9C4F552F9089FF00331621;
+			remoteInfo = shiftTimelineWatchWidgetExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -69,6 +80,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9C4F6A2F9089FF00331621 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5F9C4F652F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -79,6 +101,7 @@
 		5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
 		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWatchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -103,6 +126,13 @@
 				ShiftLiveActivity.swift,
 			);
 			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+		};
+		5F9C4F692F9089FF00331621 /* Exceptions for "shiftTimelineWatchWidget" folder in "shiftTimelineWatchWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -132,6 +162,14 @@
 		5F21CFF82F85F2BF00110808 /* shiftTimelineTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = shiftTimelineTests;
+			sourceTree = "<group>";
+		};
+		5F9C4F592F9089FF00331621 /* shiftTimelineWatchWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5F9C4F692F9089FF00331621 /* Exceptions for "shiftTimelineWatchWidget" folder in "shiftTimelineWatchWidgetExtension" target */,
+			);
+			path = shiftTimelineWatchWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -176,6 +214,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9C4F532F9089FF00331621 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5F9C4F722F908A9100331621 /* Models in Frameworks */,
+				5F9C4F582F9089FF00331621 /* SwiftUI.framework in Frameworks */,
+				5F9C4F572F9089FF00331621 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -187,6 +235,7 @@
 				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
 				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
 				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
+				5F9C4F592F9089FF00331621 /* shiftTimelineWatchWidget */,
 				5F21CF9D2F85CA0900110808 /* Frameworks */,
 				5F21CF732F85C1B000110808 /* Products */,
 			);
@@ -199,6 +248,7 @@
 				5F21CF892F85C7FA00110808 /* shiftTimelineWatch Watch App.app */,
 				5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
 				5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */,
+				5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -251,10 +301,12 @@
 				5F21CF852F85C7FA00110808 /* Sources */,
 				5F21CF862F85C7FA00110808 /* Frameworks */,
 				5F21CF872F85C7FA00110808 /* Resources */,
+				5F9C4F6A2F9089FF00331621 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				5F9C4F642F9089FF00331621 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
@@ -317,6 +369,29 @@
 			productReference = 5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5F9C4F662F9089FF00331621 /* Build configuration list for PBXNativeTarget "shiftTimelineWatchWidgetExtension" */;
+			buildPhases = (
+				5F9C4F522F9089FF00331621 /* Sources */,
+				5F9C4F532F9089FF00331621 /* Frameworks */,
+				5F9C4F542F9089FF00331621 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5F9C4F592F9089FF00331621 /* shiftTimelineWatchWidget */,
+			);
+			name = shiftTimelineWatchWidgetExtension;
+			packageProductDependencies = (
+				5F9C4F702F908A0000331621 /* Models */,
+			);
+			productName = shiftTimelineWatchWidgetExtension;
+			productReference = 5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -339,6 +414,9 @@
 					5F21CFF62F85F2BF00110808 = {
 						CreatedOnToolsVersion = 26.4;
 						TestTargetID = 5F21CF712F85C1B000110808;
+					};
+					5F9C4F552F9089FF00331621 = {
+						CreatedOnToolsVersion = 26.4;
 					};
 				};
 			};
@@ -363,6 +441,7 @@
 				5F21CF882F85C7FA00110808 /* shiftTimelineWatch Watch App */,
 				5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
 				5F21CFF62F85F2BF00110808 /* shiftTimelineTests */,
+				5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -390,6 +469,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5F21CFF52F85F2BF00110808 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5F9C4F542F9089FF00331621 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -427,6 +513,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5F9C4F522F9089FF00331621 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -444,6 +537,11 @@
 			isa = PBXTargetDependency;
 			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
 			targetProxy = 5F21CFFB2F85F2BF00110808 /* PBXContainerItemProxy */;
+		};
+		5F9C4F642F9089FF00331621 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */;
+			targetProxy = 5F9C4F632F9089FF00331621 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -835,6 +933,74 @@
 			};
 			name = Release;
 		};
+		5F9C4F672F9089FF00331621 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 93;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatchWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp.shiftTimelineWatchWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Debug;
+		};
+		5F9C4F682F9089FF00331621 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 93;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = shiftTimelineWatchWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimeline.watchkitapp.shiftTimelineWatchWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -879,6 +1045,15 @@
 			buildConfigurations = (
 				5F21CFFE2F85F2BF00110808 /* Debug */,
 				5F21CFFF2F85F2BF00110808 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5F9C4F662F9089FF00331621 /* Build configuration list for PBXNativeTarget "shiftTimelineWatchWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F9C4F672F9089FF00331621 /* Debug */,
+				5F9C4F682F9089FF00331621 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -931,6 +1106,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
 			productName = Services;
+		};
+		5F9C4F702F908A0000331621 /* Models */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Models;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

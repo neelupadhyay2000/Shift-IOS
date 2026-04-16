@@ -78,6 +78,10 @@ final class WatchSessionManager: NSObject {
     /// Lead time before sunset at which the haptic fires.
     static let sunsetLeadSeconds: TimeInterval = 30 * 60
 
+    /// Debounce task for widget timeline reloads. Coalesces rapid context updates
+    /// (e.g. activation + shift + block advance) into a single reload.
+    private var complicationReloadTask: Task<Void, Never>?
+
     /// Calendar day (yyyy-MM-dd) for which the sunset haptic has already fired.
     /// Persisted so the haptic fires only once per event day, even across app restarts.
     private var sunsetHapticFiredDay: String? {
@@ -194,13 +198,24 @@ final class WatchSessionManager: NSObject {
 
         if context.isLive {
             WatchContextStore.save(context)
-            WidgetCenter.shared.reloadAllTimelines()
+            scheduleComplicationReload()
             scheduleBlockEndHaptic(for: context)
             scheduleSunsetHaptic(for: context)
         } else {
             WatchContextStore.clear()
-            WidgetCenter.shared.reloadAllTimelines()
+            scheduleComplicationReload()
             cancelAllHaptics()
+        }
+    }
+
+    /// Debounced complication reload — waits 0.5s before firing so rapid
+    /// successive context updates (activation + shift) trigger only one reload.
+    private func scheduleComplicationReload() {
+        complicationReloadTask?.cancel()
+        complicationReloadTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: "com.neelsoftwaresolutions.shiftTimeline.nextBlock")
         }
     }
 
