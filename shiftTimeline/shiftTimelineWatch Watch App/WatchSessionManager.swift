@@ -1,4 +1,5 @@
 import WatchConnectivity
+import WatchKit
 import Models
 import os
 
@@ -56,6 +57,32 @@ final class WatchSessionManager: NSObject {
 
     /// Whether the session has been activated. Guards against repeated activation.
     private var didActivate = false
+
+    // MARK: - Haptic Scheduling
+
+    /// The end time of the block for which a haptic is currently scheduled.
+    /// Used to deduplicate — if a context refresh arrives for the same block
+    /// (same end time), the haptic is not rescheduled.
+    private var scheduledHapticEndTime: Date?
+
+    /// The currently running haptic timer task. Cancelled when a new block arrives.
+    private var hapticTask: Task<Void, Never>?
+
+    /// Lead time before block end at which the haptic fires.
+    static let hapticLeadSeconds: TimeInterval = 5 * 60
+
+    /// The running sunset haptic task. Cancelled if sunset time changes.
+    private var sunsetHapticTask: Task<Void, Never>?
+
+    /// Lead time before sunset at which the haptic fires.
+    static let sunsetLeadSeconds: TimeInterval = 30 * 60
+
+    /// Calendar day (yyyy-MM-dd) for which the sunset haptic has already fired.
+    /// Persisted so the haptic fires only once per event day, even across app restarts.
+    private var sunsetHapticFiredDay: String? {
+        get { UserDefaults.standard.string(forKey: "sunsetHapticFiredDay") }
+        set { UserDefaults.standard.set(newValue, forKey: "sunsetHapticFiredDay") }
+    }
 
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline.watch",
@@ -151,9 +178,124 @@ final class WatchSessionManager: NSObject {
         }
 
         if let context = WatchContext(dictionary: reply) {
-            currentContext = context
+            applyContext(context)
             Self.logger.info("Updated context from reply: \(context.activeBlockTitle)")
         }
+    }
+
+    // MARK: - Context Application
+
+    /// Central setter for `currentContext`. Schedules haptics whenever the context changes.
+    private func applyContext(_ context: WatchContext) {
+        currentContext = context
+
+        guard context.isLive else {
+            cancelAllHaptics()
+            return
+        }
+
+        scheduleBlockEndHaptic(for: context)
+        scheduleSunsetHaptic(for: context)
+    }
+
+    /// Cancels all pending haptic tasks and clears scheduling state.
+    private func cancelAllHaptics() {
+        hapticTask?.cancel()
+        hapticTask = nil
+        scheduledHapticEndTime = nil
+        sunsetHapticTask?.cancel()
+        sunsetHapticTask = nil
+    }
+
+    // MARK: - Haptic Scheduling
+
+    /// Schedules a `WKHapticType.notification` haptic 5 minutes before the active
+    /// block's end time. Deduplicates by `activeBlockEndTime` so a context refresh
+    /// for the same block does not double-fire.
+    private func scheduleBlockEndHaptic(for context: WatchContext) {
+        let endTime = context.activeBlockEndTime
+
+        // Deduplicate: same block end time means same block — skip.
+        if scheduledHapticEndTime == endTime { return }
+
+        // New block or shifted block — cancel any existing timer.
+        hapticTask?.cancel()
+        hapticTask = nil
+        scheduledHapticEndTime = endTime
+
+        let fireDate = endTime.addingTimeInterval(-Self.hapticLeadSeconds)
+        let delay = fireDate.timeIntervalSinceNow
+
+        // If the fire date is already past, don't schedule.
+        guard delay > 0 else {
+            Self.logger.info("Haptic fire date already past — skipping")
+            return
+        }
+
+        Self.logger.info("Scheduling block-end haptic in \(Int(delay))s")
+
+        hapticTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.fireBlockEndHaptic()
+        }
+    }
+
+    private func fireBlockEndHaptic() {
+        WKInterfaceDevice.current().play(.notification)
+        Self.logger.info("Fired block-end haptic (5 min warning)")
+    }
+
+    // MARK: - Sunset Haptic Scheduling
+
+    /// Schedules a `WKHapticType.directionUp` haptic 30 minutes before sunset.
+    ///
+    /// Deduplicates by calendar day so the haptic fires only once per event day,
+    /// surviving app restarts and context refreshes within the 30-minute window.
+    private func scheduleSunsetHaptic(for context: WatchContext) {
+        guard let sunset = context.sunsetTime else {
+            sunsetHapticTask?.cancel()
+            sunsetHapticTask = nil
+            return
+        }
+
+        let dayKey = Self.calendarDayKey(for: sunset)
+
+        // Already fired for this event day — skip entirely.
+        if sunsetHapticFiredDay == dayKey { return }
+
+        let fireDate = sunset.addingTimeInterval(-Self.sunsetLeadSeconds)
+        let delay = fireDate.timeIntervalSinceNow
+
+        // Fire date already past — mark as fired so we don't retry.
+        guard delay > 0 else {
+            sunsetHapticFiredDay = dayKey
+            Self.logger.info("Sunset haptic fire date already past — marking as fired")
+            return
+        }
+
+        // Cancel any previously scheduled sunset task (e.g. sunset time shifted).
+        sunsetHapticTask?.cancel()
+
+        Self.logger.info("Scheduling sunset haptic in \(Int(delay))s")
+
+        sunsetHapticTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled else { return }
+            self?.fireSunsetHaptic(dayKey: dayKey)
+        }
+    }
+
+    private func fireSunsetHaptic(dayKey: String) {
+        sunsetHapticFiredDay = dayKey
+        WKInterfaceDevice.current().play(.directionUp)
+        Self.logger.info("Fired sunset approach haptic (30 min warning)")
+    }
+
+    /// Returns a stable calendar-day string (yyyy-MM-dd) for deduplication.
+    private static func calendarDayKey(for date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
     }
 }
 
@@ -177,7 +319,7 @@ extension WatchSessionManager: WCSessionDelegate {
         let existing = session.receivedApplicationContext
         if !existing.isEmpty, let context = WatchContext(dictionary: existing) {
             Task { @MainActor [weak self] in
-                self?.currentContext = context
+                self?.applyContext(context)
                 Self.logger.info("Restored context on activation: \(context.activeBlockTitle)")
             }
         }
@@ -193,7 +335,7 @@ extension WatchSessionManager: WCSessionDelegate {
         }
 
         Task { @MainActor [weak self] in
-            self?.currentContext = context
+            self?.applyContext(context)
             self?.isCommandQueued = false
             Self.logger.info("Received context: \(context.activeBlockTitle)")
         }
