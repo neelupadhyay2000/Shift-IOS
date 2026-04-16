@@ -16,68 +16,58 @@ struct ContentView: View {
     // MARK: - Live
 
     private func liveView(_ context: WatchContext) -> some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                // Event title
-                Text(context.eventTitle)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 12) {
+                    // Event title
+                    Text(context.eventTitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
 
-                // ── Section 1: Current Block ────────────────────────
-                currentBlockSection(context)
+                    // ── Section 1: Current Block ────────────────────────
+                    currentBlockSection(context)
 
-                Divider()
-
-                // ── Section 2: Next Block ───────────────────────────
-                nextBlockSection(context)
-
-                // ── Section 3: Sunset ───────────────────────────────
-                if let sunset = context.sunsetTime, sunset > .now {
                     Divider()
-                    sunsetSection(sunset)
-                }
 
-                // Status indicators
-                if sessionManager.isCommandQueued {
-                    Text(String(localized: "Shift queued, will apply when connected"))
-                        .font(.caption2)
-                        .foregroundStyle(.yellow)
-                }
+                    // ── Section 2: Next Block ───────────────────────────
+                    nextBlockSection(context)
 
-                if let error = sessionManager.lastError {
-                    Text(error)
-                        .font(.caption2)
-                        .foregroundStyle(.red)
-                        .lineLimit(2)
-                }
+                    // ── Section 3: Sunset ───────────────────────────────
+                    if let sunset = context.sunsetTime, sunset > .now {
+                        Divider()
+                        sunsetSection(sunset)
+                    }
 
-                Divider()
+                    // Status indicators
+                    if sessionManager.isCommandQueued {
+                        Text(String(localized: "Shift queued, will apply when connected"))
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                    }
 
-                // Shift buttons
-                HStack(spacing: 12) {
-                    Button {
-                        sessionManager.sendShiftCommand(minutes: 5)
+                    if let error = sessionManager.lastError {
+                        Text(error)
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                            .lineLimit(2)
+                    }
+
+                    Divider()
+
+                    // Shift button — navigates to dedicated shift screen
+                    NavigationLink {
+                        ShiftSheet()
                     } label: {
-                        Text("+5m")
+                        Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
                             .font(.caption)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.blue)
-
-                    Button {
-                        sessionManager.sendShiftCommand(minutes: 15)
-                    } label: {
-                        Text("+15m")
-                            .font(.caption)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.blue)
                 }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
         }
     }
 
