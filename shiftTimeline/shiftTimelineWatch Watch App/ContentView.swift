@@ -1,10 +1,3 @@
-//
-//  ContentView.swift
-//  shiftTimelineWatch Watch App
-//
-//  Created by Neel Upadhyay on 2026-04-07.
-//
-
 import SwiftUI
 import Models
 
@@ -31,67 +24,27 @@ struct ContentView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                // Active block countdown
-                VStack(spacing: 4) {
-                    Text(context.activeBlockTitle)
-                        .font(.headline)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-
-                    TimelineView(.periodic(from: .now, by: 1)) { (timeline: TimelineViewDefaultContext) in
-                        let remaining = context.activeBlockEndTime.timeIntervalSince(timeline.date)
-                        Text(formatTime(remaining))
-                            .font(.system(size: 36, design: .monospaced))
-                            .foregroundColor(remaining > 0 ? .white : .red)
-                    }
-                }
+                // ── Section 1: Current Block ────────────────────────
+                currentBlockSection(context)
 
                 Divider()
 
-                // Next block
-                VStack(spacing: 2) {
-                    Text(String(localized: "Next"))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                // ── Section 2: Next Block ───────────────────────────
+                nextBlockSection(context)
 
-                    if let nextTitle = context.nextBlockTitle {
-                        Text(nextTitle)
-                            .font(.subheadline)
-                            .lineLimit(1)
-
-                        if let nextStart = context.nextBlockStartTime {
-                            Text(nextStart, format: .dateTime.hour().minute())
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text(String(localized: "Last block of the day"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                // Sunset
+                // ── Section 3: Sunset ───────────────────────────────
                 if let sunset = context.sunsetTime, sunset > .now {
                     Divider()
-                    VStack(spacing: 2) {
-                        Image(systemName: "sun.horizon")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                        Text(sunset, style: .timer)
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
+                    sunsetSection(sunset)
                 }
 
-                // Queued indicator
+                // Status indicators
                 if sessionManager.isCommandQueued {
                     Text(String(localized: "Shift queued, will apply when connected"))
                         .font(.caption2)
                         .foregroundStyle(.yellow)
                 }
 
-                // Error indicator
                 if let error = sessionManager.lastError {
                     Text(error)
                         .font(.caption2)
@@ -128,6 +81,90 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Section 1: Current Block
+
+    private func currentBlockSection(_ context: WatchContext) -> some View {
+        VStack(spacing: 4) {
+            Text(context.activeBlockTitle)
+                .font(.headline)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                let remaining = context.activeBlockEndTime.timeIntervalSince(timeline.date)
+                let isOvertime = remaining < 0
+
+                VStack(spacing: 2) {
+                    Text(formatTime(remaining))
+                        .font(.system(size: 36, weight: .bold, design: .monospaced))
+                        .foregroundStyle(isOvertime ? .red : .white)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+
+                    Text(isOvertime
+                         ? String(localized: "OVERTIME")
+                         : String(localized: "Remaining"))
+                        .font(.caption2)
+                        .foregroundStyle(isOvertime ? .red : .secondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Section 2: Next Block
+
+    private func nextBlockSection(_ context: WatchContext) -> some View {
+        VStack(spacing: 2) {
+            Text(String(localized: "Up Next"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            if let nextTitle = context.nextBlockTitle {
+                Text(nextTitle)
+                    .font(.subheadline.weight(.medium))
+                    .lineLimit(1)
+
+                if let nextStart = context.nextBlockStartTime {
+                    Text(nextStart, format: .dateTime.hour().minute())
+                        .font(.system(size: 20, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Text(String(localized: "Last block of the day"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - Section 3: Sunset
+
+    private func sunsetSection(_ sunset: Date) -> some View {
+        VStack(spacing: 2) {
+            Image(systemName: "sun.horizon.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                let remaining = sunset.timeIntervalSince(timeline.date)
+                if remaining > 0 {
+                    Text(formatTime(remaining))
+                        .font(.system(size: 20, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.orange)
+                } else {
+                    Text(String(localized: "Past sunset"))
+                        .font(.caption)
+                        .foregroundStyle(.orange.opacity(0.6))
+                }
+            }
+
+            Text(sunset, format: .dateTime.hour().minute())
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     // MARK: - Idle
 
     private var idleView: some View {
@@ -147,6 +184,7 @@ struct ContentView: View {
 
     // MARK: - Helpers
 
+    /// Formats a `TimeInterval` as mm:ss (or h:mm:ss for durations >= 1 hour).
     private func formatTime(_ seconds: TimeInterval) -> String {
         let total = Int(abs(seconds.rounded(.towardZero)))
         let h = total / 3600
