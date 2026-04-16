@@ -1,5 +1,6 @@
 import WatchConnectivity
 import WatchKit
+import WidgetKit
 import Models
 import os
 
@@ -76,6 +77,10 @@ final class WatchSessionManager: NSObject {
 
     /// Lead time before sunset at which the haptic fires.
     static let sunsetLeadSeconds: TimeInterval = 30 * 60
+
+    /// Debounce task for widget timeline reloads. Coalesces rapid context updates
+    /// (e.g. activation + shift + block advance) into a single reload.
+    private var complicationReloadTask: Task<Void, Never>?
 
     /// Calendar day (yyyy-MM-dd) for which the sunset haptic has already fired.
     /// Persisted so the haptic fires only once per event day, even across app restarts.
@@ -186,16 +191,32 @@ final class WatchSessionManager: NSObject {
     // MARK: - Context Application
 
     /// Central setter for `currentContext`. Schedules haptics whenever the context changes.
+    /// Also persists the context to the shared App Group suite so the watchOS
+    /// widget extension can read it for complication timelines.
     private func applyContext(_ context: WatchContext) {
         currentContext = context
 
-        guard context.isLive else {
+        if context.isLive {
+            WatchContextStore.save(context)
+            scheduleComplicationReload()
+            scheduleBlockEndHaptic(for: context)
+            scheduleSunsetHaptic(for: context)
+        } else {
+            WatchContextStore.clear()
+            scheduleComplicationReload()
             cancelAllHaptics()
-            return
         }
+    }
 
-        scheduleBlockEndHaptic(for: context)
-        scheduleSunsetHaptic(for: context)
+    /// Debounced complication reload — waits 0.5s before firing so rapid
+    /// successive context updates (activation + shift) trigger only one reload.
+    private func scheduleComplicationReload() {
+        complicationReloadTask?.cancel()
+        complicationReloadTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            WidgetCenter.shared.reloadTimelines(ofKind: "com.neelsoftwaresolutions.shiftTimeline.nextBlock")
+        }
     }
 
     /// Cancels all pending haptic tasks and clears scheduling state.
