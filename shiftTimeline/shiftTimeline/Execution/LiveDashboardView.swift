@@ -22,6 +22,8 @@ struct LiveDashboardView: View {
 
     @Query private var results: [EventModel]
 
+    @Environment(WatchSessionManager.self) private var watchSessionManager
+
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
     @State private var pendingShiftPreview: ShiftPreview?
@@ -155,7 +157,12 @@ struct LiveDashboardView: View {
             block.status = .upcoming
         }
         first.status = .active
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            watchSessionManager.sendCurrentContext()
+        } catch {
+            // Save failed — don't push stale context to Watch.
+        }
     }
 
     /// Retries sunset fetch if the event has coordinates but no cached data
@@ -184,7 +191,12 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             event: event
         )
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            watchSessionManager.sendCurrentContext()
+        } catch {
+            // Save failed — don't push stale context to Watch.
+        }
     }
 
     /// Extracted advance logic — testable without a live view hierarchy.
@@ -251,7 +263,12 @@ struct LiveDashboardView: View {
             undoManager.commitShift(blocks: result.blocks)
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            watchSessionManager.sendCurrentContext()
+        } catch {
+            // Save failed — don't push stale context to Watch.
+        }
     }
 
     private func exitLiveMode() {
@@ -448,10 +465,12 @@ private struct _LiveDashboardContent: View {
 
 #Preview("System Light") {
     LiveDashboardView(eventID: UUID())
+        .environment(WatchSessionManager())
         .environment(\.colorScheme, .light)
 }
 
 #Preview("System Dark") {
     LiveDashboardView(eventID: UUID())
+        .environment(WatchSessionManager())
         .environment(\.colorScheme, .dark)
 }

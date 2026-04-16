@@ -1,5 +1,6 @@
 import AppIntents
 import SwiftData
+import WatchConnectivity
 import Models
 import Engine
 import Services
@@ -39,13 +40,18 @@ struct ShiftTimelineIntent: AppIntent {
         let container = PersistenceController.shared.container
         let context = container.mainContext
 
-        // Fetch live event
-        let liveStatus = EventStatus.live
-        let descriptor = FetchDescriptor<EventModel>(
-            predicate: #Predicate { $0.status == liveStatus }
-        )
+        // Fetch all events and filter in-memory — #Predicate with enum
+        // comparison can crash at runtime in SwiftData.
+        let allEvents: [EventModel]
+        do {
+            allEvents = try context.fetch(FetchDescriptor<EventModel>())
+        } catch {
+            return .result(
+                dialog: IntentDialog("Could not access event data. Please try again.")
+            )
+        }
 
-        guard let event = try context.fetch(descriptor).first else {
+        guard let event = allEvents.first(where: { $0.status == .live }) else {
             return .result(
                 dialog: IntentDialog("No live event found. Go live first, then try again.")
             )
@@ -82,7 +88,14 @@ struct ShiftTimelineIntent: AppIntent {
                 dialog: IntentDialog("A circular dependency prevents this shift.")
             )
         case .clean, .hasCollisions, .impossible:
-            try context.save()
+            do {
+                try context.save()
+            } catch {
+                return .result(
+                    dialog: IntentDialog("Timeline was shifted but could not be saved. Please try again.")
+                )
+            }
+            WatchSessionManager.pushCurrentContext()
             return .result(
                 dialog: IntentDialog("Timeline shifted by \(shiftMinutes) minutes.")
             )
