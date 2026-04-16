@@ -1,5 +1,6 @@
 import WatchConnectivity
 import WatchKit
+import WidgetKit
 import Models
 import os
 
@@ -186,16 +187,21 @@ final class WatchSessionManager: NSObject {
     // MARK: - Context Application
 
     /// Central setter for `currentContext`. Schedules haptics whenever the context changes.
+    /// Also persists the context to the shared App Group suite so the watchOS
+    /// widget extension can read it for complication timelines.
     private func applyContext(_ context: WatchContext) {
         currentContext = context
 
-        guard context.isLive else {
+        if context.isLive {
+            WatchContextStore.save(context)
+            WidgetCenter.shared.reloadAllTimelines()
+            scheduleBlockEndHaptic(for: context)
+            scheduleSunsetHaptic(for: context)
+        } else {
+            WatchContextStore.clear()
+            WidgetCenter.shared.reloadAllTimelines()
             cancelAllHaptics()
-            return
         }
-
-        scheduleBlockEndHaptic(for: context)
-        scheduleSunsetHaptic(for: context)
     }
 
     /// Cancels all pending haptic tasks and clears scheduling state.
