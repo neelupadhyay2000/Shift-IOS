@@ -20,31 +20,42 @@ struct NextBlockProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NextBlockEntry) -> Void) {
-        completion(makeEntry(at: .now))
+        if let stored = WatchContextStore.load(), stored.isLive {
+            completion(makeEntry(from: stored, at: .now))
+        } else {
+            completion(NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false))
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextBlockEntry>) -> Void) {
+        guard let stored = WatchContextStore.load(), stored.isLive else {
+            // No live event — single fallback entry, retry in 15 minutes.
+            let entry = NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false)
+            completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(15 * 60))))
+            return
+        }
+
         let now = Date.now
         var entries: [NextBlockEntry] = []
 
-        // Generate entries every 5 minutes for the next 30 minutes.
-        for minuteOffset in stride(from: 0, through: 25, by: 5) {
+        // Generate entries every 5 minutes for the next 2 hours (24 entries).
+        // Each entry recalculates the countdown from its own date so the
+        // complication shows the correct "Xm" as time progresses.
+        for minuteOffset in stride(from: 0, through: 115, by: 5) {
             let entryDate = now.addingTimeInterval(TimeInterval(minuteOffset * 60))
-            entries.append(makeEntry(at: entryDate))
+            entries.append(makeEntry(from: stored, at: entryDate))
         }
 
-        // Refresh after the last entry.
-        let refreshDate = now.addingTimeInterval(30 * 60)
+        // Request a fresh timeline after the 2-hour window.
+        let refreshDate = now.addingTimeInterval(2 * 60 * 60)
         completion(Timeline(entries: entries, policy: .after(refreshDate)))
     }
 
-    private func makeEntry(at date: Date) -> NextBlockEntry {
-        guard let context = WatchContextStore.load(), context.isLive else {
-            return NextBlockEntry(date: date, blockTitle: nil, minutesUntilStart: nil, isLive: false)
-        }
-
-        guard let nextTitle = context.nextBlockTitle,
-              let nextStart = context.nextBlockStartTime else {
+    /// Builds an entry from the locally cached WCSession context.
+    /// No network or API calls — data comes exclusively from the synced store.
+    private func makeEntry(from stored: WatchContext, at date: Date) -> NextBlockEntry {
+        guard let nextTitle = stored.nextBlockTitle,
+              let nextStart = stored.nextBlockStartTime else {
             // Live but no next block — last block of the day.
             return NextBlockEntry(date: date, blockTitle: nil, minutesUntilStart: nil, isLive: true)
         }
