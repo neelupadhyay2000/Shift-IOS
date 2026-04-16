@@ -1,5 +1,6 @@
 import AppIntents
 import SwiftData
+import WatchConnectivity
 import Models
 import Engine
 import Services
@@ -94,7 +95,7 @@ struct ShiftTimelineIntent: AppIntent {
                     dialog: IntentDialog("Timeline was shifted but could not be saved. Please try again.")
                 )
             }
-            WatchSessionManager().sendCurrentContext()
+            WatchSessionManager.pushCurrentContext()
             return .result(
                 dialog: IntentDialog("Timeline shifted by \(shiftMinutes) minutes.")
             )

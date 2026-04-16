@@ -36,7 +36,7 @@ struct shiftTimelineApp: App {
         WindowGroup {
             RootNavigator()
                 .environment(watchSessionManager)
-                .onAppear {
+                .task {
                     watchSessionManager.activate()
                 }
         }

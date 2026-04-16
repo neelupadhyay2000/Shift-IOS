@@ -50,6 +50,9 @@ public final class WatchSessionManager {
     /// The most recent command received from the Watch.
     public internal(set) var lastReceivedCommand: WatchCommand?
 
+    /// Whether the session has been activated. Guards against repeated activation.
+    private var didActivate = false
+
     // MARK: - Dependencies
 
     private let session: any WatchSessionProtocol
@@ -94,13 +97,57 @@ public final class WatchSessionManager {
     ///
     /// On successful activation, the delegate's `activationDidComplete`
     /// callback pushes the current live event context to the Watch.
+    /// Guarded so repeated calls (e.g. from `onAppear`) are no-ops.
     public func activate() {
+        guard !didActivate else { return }
+        didActivate = true
         session.delegate = delegate
         session.activate()
         Self.logger.info("WCSession activation requested")
     }
 
     // MARK: - Sending Context
+
+    /// Pushes the current live-event context to the Watch via `WCSession.default`.
+    ///
+    /// Safe to call from contexts without a long-lived manager (e.g. AppIntents).
+    /// Uses the shared `PersistenceController` container and `WCSession.default`.
+    /// No-op if WCSession is unsupported or no live event exists.
+    public static func pushCurrentContext() {
+        guard WCSession.isSupported() else { return }
+        let container = PersistenceController.shared.container
+        let modelContext = container.mainContext
+        let descriptor = FetchDescriptor<EventModel>()
+        guard let events = try? modelContext.fetch(descriptor),
+              let event = events.first(where: { $0.status == .live }) else {
+            return
+        }
+
+        let blocks = event.tracks
+            .flatMap(\.blocks)
+            .sorted(by: { $0.scheduledStart < $1.scheduledStart })
+
+        guard let activeBlock = blocks.first(where: { $0.status == .active }) else { return }
+
+        let nextBlock: TimeBlockModel? = {
+            guard let idx = blocks.firstIndex(where: { $0.id == activeBlock.id }) else { return nil }
+            return blocks.suffix(from: blocks.index(after: idx))
+                .first(where: { $0.status != .completed })
+        }()
+
+        let context = WatchContext(
+            eventTitle: event.title,
+            activeBlockTitle: activeBlock.title,
+            activeBlockEndTime: activeBlock.scheduledStart.addingTimeInterval(activeBlock.duration),
+            nextBlockTitle: nextBlock?.title,
+            nextBlockStartTime: nextBlock?.scheduledStart,
+            sunsetTime: event.sunsetTime,
+            isLive: true
+        )
+
+        try? WCSession.default.updateApplicationContext(context.toDictionary())
+        logger.info("Pushed Watch context (static): \(context.activeBlockTitle)")
+    }
 
     /// Pushes the current active block data to the Watch.
     ///
@@ -183,6 +230,26 @@ public final class WatchSessionManager {
         Self.logger.info("Received application context from Watch: \(context.keys.joined(separator: ", "))")
     }
 
+    /// Called by the delegate when a queued command arrives via `transferUserInfo`.
+    ///
+    /// Processes the command identically to `handleMessage`, but without a
+    /// reply handler. Pushes updated context via `sendCurrentContext()` once.
+    func handleQueuedCommand(_ userInfo: [String: Any]) {
+        guard let command = WatchCommand(dictionary: userInfo) else {
+            Self.logger.warning("Received unrecognized queued userInfo: \(userInfo.keys.joined(separator: ", "))")
+            return
+        }
+
+        lastReceivedCommand = command
+        Self.logger.info("Processing queued command: \(command.action.rawValue)")
+
+        // Use a no-op reply handler — transferUserInfo has no reply path.
+        handleMessage(userInfo) { _ in }
+
+        // Push the latest context to the Watch after processing.
+        sendCurrentContext()
+    }
+
     /// Called by the delegate when the session activates successfully.
     func handleActivationComplete() {
         Self.logger.info("WCSession activated — sending current context")
@@ -231,7 +298,13 @@ public final class WatchSessionManager {
             break
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Self.logger.error("Failed to save shift: \(error.localizedDescription)")
+            replyHandler(["error": "save_failed"])
+            return
+        }
 
         // Re-derive active/next after the shift and reply with updated context.
         let updatedActive = blocks.first(where: { $0.status == .active })
@@ -296,7 +369,13 @@ public final class WatchSessionManager {
             event.status = .completed
         }
 
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Self.logger.error("Failed to save block advance: \(error.localizedDescription)")
+            replyHandler(["error": "save_failed"])
+            return
+        }
 
         // Build reply with updated state.
         let replyActive = nextBlock ?? activeBlock
@@ -371,7 +450,7 @@ private final class SessionDelegate: NSObject, WCSessionDelegate {
 
     /// Weak-ish back-reference. Set immediately after init, before activation.
     /// Accessed only from MainActor dispatch blocks.
-    var manager: WatchSessionManager?
+    weak var manager: WatchSessionManager?
 
     func session(
         _ session: WCSession,
@@ -416,27 +495,8 @@ private final class SessionDelegate: NSObject, WCSessionDelegate {
         _ session: WCSession,
         didReceiveUserInfo userInfo: [String: Any] = [:]
     ) {
-        // transferUserInfo fallback — same as message handling but without reply.
         Task { @MainActor [weak self] in
-            guard let command = WatchCommand(dictionary: userInfo) else { return }
-            self?.manager?.lastReceivedCommand = command
-
-            // Process without reply handler.
-            switch command.action {
-            case .shift:
-                self?.manager?.handleMessage(userInfo) { _ in
-                    // No reply path for transferUserInfo — push context instead.
-                    Task { @MainActor in
-                        self?.manager?.sendCurrentContext()
-                    }
-                }
-            case .completeBlock:
-                self?.manager?.handleMessage(userInfo) { _ in
-                    Task { @MainActor in
-                        self?.manager?.sendCurrentContext()
-                    }
-                }
-            }
+            self?.manager?.handleQueuedCommand(userInfo)
         }
     }
 }

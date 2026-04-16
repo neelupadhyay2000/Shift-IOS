@@ -17,7 +17,7 @@ struct shiftTimelineWatch_Watch_AppApp: App {
         WindowGroup {
             ContentView()
                 .environment(sessionManager)
-                .onAppear {
+                .task {
                     sessionManager.activate()
                 }
         }

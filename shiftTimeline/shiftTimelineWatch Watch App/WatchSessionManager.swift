@@ -34,7 +34,7 @@ extension WCSession: WatchSessionSending {}
 ///
 /// The Watch never accesses SwiftData or runs the RippleEngine directly.
 /// All mutations are sent to the iPhone for processing.
-@Observable
+@MainActor @Observable
 final class WatchSessionManager: NSObject {
 
     // MARK: - Observable State (drives Watch UI)
@@ -54,6 +54,9 @@ final class WatchSessionManager: NSObject {
 
     private let session: any WatchSessionSending
 
+    /// Whether the session has been activated. Guards against repeated activation.
+    private var didActivate = false
+
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline.watch",
         category: "WatchSession"
@@ -64,8 +67,11 @@ final class WatchSessionManager: NSObject {
     init(session: (any WatchSessionSending)? = nil) {
         if let session {
             self.session = session
-        } else {
+        } else if WCSession.isSupported() {
             self.session = WCSession.default
+        } else {
+            self.session = NoOpWatchSession()
+            Self.logger.info("WCSession not supported on this device")
         }
         super.init()
     }
@@ -76,7 +82,10 @@ final class WatchSessionManager: NSObject {
     ///
     /// On activation, restores the last received application context so the
     /// Watch UI populates immediately even if the iPhone hasn't pushed new data.
+    /// Guarded so repeated calls (e.g. from `onAppear`) are no-ops.
     func activate() {
+        guard !didActivate else { return }
+        didActivate = true
         session.delegate = self
         session.activate()
         Self.logger.info("WCSession activation requested")
@@ -188,5 +197,23 @@ extension WatchSessionManager: WCSessionDelegate {
             self?.isCommandQueued = false
             Self.logger.info("Received context: \(context.activeBlockTitle)")
         }
+    }
+}
+
+// MARK: - NoOpWatchSession
+
+/// Stub session for simulator / unsupported devices.
+private final class NoOpWatchSession: NSObject, WatchSessionSending {
+    var isReachable: Bool { false }
+    var delegate: WCSessionDelegate?
+    var receivedApplicationContext: [String: Any] { [:] }
+    func activate() {}
+    func sendMessage(
+        _ message: [String: Any],
+        replyHandler: (([String: Any]) -> Void)?,
+        errorHandler: ((any Error) -> Void)?
+    ) {}
+    func transferUserInfo(_ userInfo: [String: Any]) -> WCSessionUserInfoTransfer {
+        fatalError("transferUserInfo called on NoOpWatchSession — WCSession is not supported")
     }
 }
