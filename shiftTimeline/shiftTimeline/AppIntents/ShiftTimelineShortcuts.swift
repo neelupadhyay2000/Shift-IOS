@@ -58,8 +58,8 @@ struct ShiftTimelineIntent: AppIntent {
         }
 
         // Derive sorted blocks and active block
-        let sortedBlocks = event.tracks
-            .flatMap(\.blocks)
+        let sortedBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
         guard let activeBlock = sortedBlocks.first(where: { $0.status == .active })

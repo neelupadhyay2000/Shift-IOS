@@ -38,8 +38,8 @@ struct BlockInspectorTests {
 
         let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
         let result = try #require(fetched.first)
-        #expect(result.vendors.count == 2)
-        #expect(Set(result.vendors.map(\.id)) == Set([vendor1.id, vendor2.id]))
+        #expect((result.vendors ?? []).count == 2)
+        #expect(Set((result.vendors ?? []).map(\.id)) == Set([vendor1.id, vendor2.id]))
     }
 
     @Test @MainActor func removeVendorFromBlockPersists() async throws {
@@ -63,7 +63,7 @@ struct BlockInspectorTests {
         block.vendors = [vendor]
         try context.save()
 
-        #expect(block.vendors.count == 1)
+        #expect((block.vendors ?? []).count == 1)
 
         // Simulate deselecting the vendor in inspector
         block.vendors = []
@@ -71,7 +71,7 @@ struct BlockInspectorTests {
 
         let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
         let result = try #require(fetched.first)
-        #expect(result.vendors.isEmpty)
+        #expect((result.vendors ?? []).isEmpty)
 
         // Vendor itself should still exist
         let vendors = try context.fetch(FetchDescriptor<VendorModel>())
@@ -105,12 +105,12 @@ struct BlockInspectorTests {
 
         // Simulate inspector save: only v1 and v3 selected
         let selectedIDs: Set<UUID> = [v1.id, v3.id]
-        let eventVendors = event.vendors
+        let eventVendors = event.vendors ?? []
         block.vendors = eventVendors.filter { selectedIDs.contains($0.id) }
         try context.save()
 
-        #expect(block.vendors.count == 2)
-        #expect(Set(block.vendors.map(\.name)) == Set(["Photographer", "Florist"]))
+        #expect((block.vendors ?? []).count == 2)
+        #expect(Set((block.vendors ?? []).map(\.name)) == Set(["Photographer", "Florist"]))
     }
 
     // MARK: - Dependency Assignments
@@ -147,8 +147,8 @@ struct BlockInspectorTests {
             predicate: #Predicate { $0.title == "Dinner" }
         ))
         let result = try #require(fetched.first)
-        #expect(result.dependencies.count == 2)
-        #expect(Set(result.dependencies.map(\.title)) == Set(["Ceremony", "Cocktails"]))
+        #expect((result.dependencies ?? []).count == 2)
+        #expect(Set((result.dependencies ?? []).map(\.title)) == Set(["Ceremony", "Cocktails"]))
     }
 
     @Test @MainActor func removeDependencyFromBlockPersists() async throws {
@@ -172,13 +172,13 @@ struct BlockInspectorTests {
 
         blockB.dependencies = [blockA]
         try context.save()
-        #expect(blockB.dependencies.count == 1)
+        #expect((blockB.dependencies ?? []).count == 1)
 
         // Remove dependency
         blockB.dependencies = []
         try context.save()
 
-        #expect(blockB.dependencies.isEmpty)
+        #expect((blockB.dependencies ?? []).isEmpty)
         // blockA should still exist
         let blocks = try context.fetch(FetchDescriptor<TimeBlockModel>())
         #expect(blocks.count == 2)
@@ -210,8 +210,8 @@ struct BlockInspectorTests {
 
         // Simulate inspector for Block3: select Block0 and Block2 as dependencies
         let editingBlock = blocks[3]
-        let siblingBlocks = event.tracks
-            .flatMap(\.blocks)
+        let siblingBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .filter { $0.id != editingBlock.id }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
@@ -219,8 +219,8 @@ struct BlockInspectorTests {
         editingBlock.dependencies = siblingBlocks.filter { selectedIDs.contains($0.id) }
         try context.save()
 
-        #expect(editingBlock.dependencies.count == 2)
-        #expect(Set(editingBlock.dependencies.map(\.title)) == Set(["Block0", "Block2"]))
+        #expect((editingBlock.dependencies ?? []).count == 2)
+        #expect(Set((editingBlock.dependencies ?? []).map(\.title)) == Set(["Block0", "Block2"]))
     }
 
     /// AC: Self-dependency prevented — current block must not appear in the sibling list.
@@ -250,8 +250,8 @@ struct BlockInspectorTests {
 
         // Simulate BlockInspectorView's siblingBlocks for blockB
         let editingBlock = blockB
-        let siblingBlocks = event.tracks
-            .flatMap(\.blocks)
+        let siblingBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .filter { $0.id != editingBlock.id }
             .sorted { $0.scheduledStart < $1.scheduledStart }
 
@@ -267,9 +267,9 @@ struct BlockInspectorTests {
         try context.save()
 
         // Only A and C should be assigned — B (self) is excluded
-        #expect(editingBlock.dependencies.count == 2)
-        #expect(!editingBlock.dependencies.contains(where: { $0.id == editingBlock.id }))
-        #expect(Set(editingBlock.dependencies.map(\.title)) == Set(["A", "C"]))
+        #expect((editingBlock.dependencies ?? []).count == 2)
+        #expect(!(editingBlock.dependencies ?? []).contains(where: { $0.id == editingBlock.id }))
+        #expect(Set((editingBlock.dependencies ?? []).map(\.title)) == Set(["A", "C"]))
     }
 
     // MARK: - Color Tag
@@ -410,10 +410,10 @@ struct BlockInspectorTests {
         #expect(result.notes == "Outdoor garden ceremony")
         #expect(result.colorTag == "#34C759")
         #expect(result.icon == "heart.fill")
-        #expect(result.vendors.count == 1)
-        #expect(result.vendors.first?.name == "Jane")
-        #expect(result.dependencies.count == 1)
-        #expect(result.dependencies.first?.title == "Setup")
+        #expect((result.vendors ?? []).count == 1)
+        #expect((result.vendors ?? []).first?.name == "Jane")
+        #expect((result.dependencies ?? []).count == 1)
+        #expect((result.dependencies ?? []).first?.title == "Setup")
     }
 
     @Test @MainActor func deletingBlockNullifiesVendorRelationship() async throws {
@@ -475,7 +475,7 @@ struct BlockInspectorTests {
         let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
         #expect(fetched.count == 1)
         #expect(fetched.first?.title == "B")
-        #expect(fetched.first?.dependencies.isEmpty == true)
+        #expect(fetched.first?.dependencies?.isEmpty == true)
     }
 
     // MARK: - Inspector Mode (Live-Write)
@@ -558,17 +558,17 @@ struct BlockInspectorTests {
         try context.save()
 
         // Simulate live-write: toggle vendor on
-        let eventVendors = event.vendors
+        let eventVendors = event.vendors ?? []
         let selectedIDs: Set<UUID> = [vendor.id]
         block.vendors = eventVendors.filter { selectedIDs.contains($0.id) }
 
         // Immediately reflected — no save button needed
-        #expect(block.vendors.count == 1)
-        #expect(block.vendors.first?.name == "Jane")
+        #expect((block.vendors ?? []).count == 1)
+        #expect((block.vendors ?? []).first?.name == "Jane")
 
         // Toggle vendor off
         block.vendors = []
-        #expect(block.vendors.isEmpty)
+        #expect((block.vendors ?? []).isEmpty)
     }
 
     /// AC: In sheet mode, changes are buffered in @State and NOT written

@@ -104,12 +104,12 @@ struct CreateBlockSheet: View {
 
         // Prefer the explicitly selected track, then the default track, then first available
         let track: TimelineTrack
-        if let trackID, let selected = event.tracks.first(where: { $0.id == trackID }) {
+        if let trackID, let selected = (event.tracks ?? []).first(where: { $0.id == trackID }) {
             track = selected
-        } else if let defaultTrack = event.tracks.first(where: { $0.isDefault }) {
+        } else if let defaultTrack = (event.tracks ?? []).first(where: { $0.isDefault }) {
             track = defaultTrack
         } else {
-            track = event.tracks.first ?? createTrack(for: event)
+            track = (event.tracks ?? []).first ?? createTrack(for: event)
         }
 
         let block = TimeBlockModel(

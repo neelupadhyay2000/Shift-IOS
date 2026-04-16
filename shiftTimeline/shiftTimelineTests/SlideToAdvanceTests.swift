@@ -161,8 +161,8 @@ struct SlideToAdvanceTests {
             predicate: #Predicate { $0.id == eventID }
         )
         let fetched = try context.fetch(descriptor).first
-        let fetchedBlocks = fetched?.tracks.flatMap(\.blocks)
-            .sorted { $0.scheduledStart < $1.scheduledStart } ?? []
+        let fetchedBlocks = (fetched?.tracks ?? []).flatMap { $0.blocks ?? [] }
+            .sorted { $0.scheduledStart < $1.scheduledStart }
 
         #expect(fetchedBlocks[0].status == .completed)
         #expect(fetchedBlocks[1].status == .active)

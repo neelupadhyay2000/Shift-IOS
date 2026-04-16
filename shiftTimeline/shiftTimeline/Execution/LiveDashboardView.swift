@@ -48,8 +48,8 @@ struct LiveDashboardView: View {
 
     private var sortedBlocks: [TimeBlockModel] {
         guard let event else { return [] }
-        return event.tracks
-            .flatMap(\.blocks)
+        return (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
     }
 
@@ -181,7 +181,7 @@ struct LiveDashboardView: View {
 
     private var isEventComplete: Bool {
         guard let event else { return false }
-        let allBlocks = event.tracks.flatMap(\.blocks)
+        let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
         return !allBlocks.isEmpty && allBlocks.allSatisfy { $0.status == .completed }
     }
 
@@ -277,7 +277,7 @@ struct LiveDashboardView: View {
             return
         }
         event.status = .planning
-        for block in event.tracks.flatMap(\.blocks) where block.status != .completed {
+        for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
             block.status = .upcoming
         }
         try? modelContext.save()
@@ -302,7 +302,7 @@ private struct _LiveDashboardContent: View {
     @State private var isSiriTipVisible = true
 
     private var totalBlocks: Int {
-        event?.tracks.flatMap(\.blocks).count ?? 0
+        (event?.tracks ?? []).flatMap { $0.blocks ?? [] }.count
     }
 
     var body: some View {
@@ -350,7 +350,7 @@ private struct _LiveDashboardContent: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 // ── Vendor quick-contact avatars ────────────────────
-                VendorQuickContactRow(vendors: activeBlock.vendors)
+                VendorQuickContactRow(vendors: activeBlock.vendors ?? [])
                 .padding(.bottom, 8)
             } else {
                 VStack {

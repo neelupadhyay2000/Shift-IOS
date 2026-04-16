@@ -59,14 +59,14 @@ struct TimelineBuilderView: View {
     /// Live-reads blocks from SwiftData relationships — never stale.
     private var sortedBlocks: [TimeBlockModel] {
         guard let event else { return [] }
-        return event.tracks
-            .flatMap(\.blocks)
+        return (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
     /// All tracks for this event, sorted by sortOrder.
     private var sortedTracks: [TimelineTrack] {
-        event?.tracks.sorted { $0.sortOrder < $1.sortOrder } ?? []
+        (event?.tracks ?? []).sorted { $0.sortOrder < $1.sortOrder }
     }
 
     /// The default track — identified by the stable `isDefault` flag,
@@ -184,8 +184,8 @@ struct TimelineBuilderView: View {
             Button(String(localized: "Delete"), role: .destructive) { deleteTrack() }
             Button(String(localized: "Cancel"), role: .cancel) { trackToDelete = nil }
         } message: {
-            if let track = trackToDelete, !track.blocks.isEmpty {
-                Text(String(localized: "This track has \(track.blocks.count) blocks. They will be moved to Main."))
+            if let track = trackToDelete, !(track.blocks ?? []).isEmpty {
+                Text(String(localized: "This track has \((track.blocks ?? []).count) blocks. They will be moved to Main."))
             } else {
                 Text(String(localized: "Are you sure you want to delete this track?"))
             }
@@ -626,8 +626,8 @@ struct TimelineBuilderView: View {
         }
 
         // Move blocks to default track before deleting
-        if !track.blocks.isEmpty, let main = defaultTrack {
-            for block in track.blocks {
+        if !(track.blocks ?? []).isEmpty, let main = defaultTrack {
+            for block in track.blocks ?? [] {
                 block.track = main
             }
         }

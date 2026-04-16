@@ -122,7 +122,7 @@ struct shiftTimelineTests {
         #expect(result.notificationThreshold == 600)
         #expect(result.hasAcknowledgedLatestShift == false)
         #expect(result.event === event)
-        #expect(event.vendors.contains(where: { $0.id == vendor.id }))
+        #expect((event.vendors ?? []).contains(where: { $0.id == vendor.id }))
     }
 
     @Test @MainActor func vendorModelUpdate() async throws {
@@ -236,7 +236,7 @@ struct shiftTimelineTests {
         #expect(result.triggeredBy == .manual)
         #expect(result.sourceBlock === block)
         #expect(result.event === event)
-        #expect(event.shiftRecords.contains(where: { $0.id == record.id }))
+        #expect((event.shiftRecords ?? []).contains(where: { $0.id == record.id }))
     }
 
 }

@@ -161,7 +161,7 @@ struct WatchSessionManagerTests {
         let container = try Self.makeContainer()
         let event = Self.insertLiveEvent(into: container)
 
-        let blocks = event.tracks.flatMap(\.blocks)
+        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
         let active = blocks[0]
         let next = blocks[1]
@@ -181,7 +181,7 @@ struct WatchSessionManagerTests {
         let container = try Self.makeContainer()
         let event = Self.insertLiveEvent(into: container)
 
-        let blocks = event.tracks.flatMap(\.blocks)
+        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
         let originalBlock2Start = blocks[1].scheduledStart
 
@@ -201,7 +201,7 @@ struct WatchSessionManagerTests {
         #expect(manager.lastReceivedCommand?.deltaMinutes == 5)
 
         // Verify the shift was applied — Block 2 should have moved forward by 5 min.
-        let updatedBlocks = event.tracks.flatMap(\.blocks)
+        let updatedBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
         let shiftDelta = updatedBlocks[1].scheduledStart.timeIntervalSince(originalBlock2Start)
         #expect(abs(shiftDelta - 300) < 1, "Block 2 should shift forward by 5 minutes")
@@ -257,10 +257,10 @@ struct WatchSessionManagerTests {
         #expect(reply?["isLive"] as? Bool == true)
 
         // Verify Block 1 is completed, Block 2 is active.
-        let blocks = event.tracks.flatMap(\.blocks)
+        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
         #expect(blocks[0].status == .completed)
-        #expect(blocks[1].status == .active)
+        #expect(blocks[1].status == BlockStatus.active)
     }
 
     @Test @MainActor func handleCompleteLastBlockCompletesEvent() throws {

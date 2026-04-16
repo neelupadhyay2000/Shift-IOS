@@ -3,24 +3,24 @@ import SwiftData
 
 @Model
 public final class EventModel {
-    public var id: UUID
-    public var title: String
-    public var date: Date
-    public var latitude: Double
-    public var longitude: Double
-    public var venueNames: [String]
+    public var id: UUID = UUID()
+    public var title: String = ""
+    public var date: Date = Date.distantPast
+    public var latitude: Double = 0
+    public var longitude: Double = 0
+    public var venueNames: [String] = []
     public var sunsetTime: Date?
     public var goldenHourStart: Date?
-    public var status: EventStatus
+    public var status: EventStatus = EventStatus.planning
 
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
-    public var tracks: [TimelineTrack] = []
+    public var tracks: [TimelineTrack]?
 
     @Relationship(deleteRule: .cascade, inverse: \VendorModel.event)
-    public var vendors: [VendorModel] = []
+    public var vendors: [VendorModel]?
 
     @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
-    public var shiftRecords: [ShiftRecord] = []
+    public var shiftRecords: [ShiftRecord]?
 
     public init(
         id: UUID = UUID(),
