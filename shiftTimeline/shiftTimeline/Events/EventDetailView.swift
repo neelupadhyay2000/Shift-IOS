@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 import Models
 
 /// Displays the details for a single event.
@@ -13,6 +14,11 @@ struct EventDetailView: View {
 
     @Query private var results: [EventModel]
 
+    @State private var isShowingShareSheet = false
+    @State private var existingCKShare: CKShare?
+    @State private var shareError: String?
+
+    private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
 
     init(eventID: UUID) {
@@ -146,6 +152,95 @@ struct EventDetailView: View {
                 .premiumCard()
             }
             .buttonStyle(.plain)
+
+            shareWithVendorsButton(event)
+        }
+    }
+
+    private func shareWithVendorsButton(_ event: EventModel) -> some View {
+        Button {
+            prepareShareSheet(for: event)
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.green)
+                Text(event.shareURL != nil
+                     ? String(localized: "Manage Vendor Sharing")
+                     : String(localized: "Share with Vendors"))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .premiumCard()
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $isShowingShareSheet) {
+            CloudSharingView(
+                container: cloudKitContainer,
+                eventTitle: event.title,
+                existingShare: existingCKShare,
+                onShareCreated: { urlString in
+                    event.shareURL = urlString
+                    try? modelContext.save()
+                },
+                onShareStopped: {
+                    event.shareURL = nil
+                    existingCKShare = nil
+                    try? modelContext.save()
+                },
+                onError: { error in
+                    shareError = error.localizedDescription
+                }
+            )
+        }
+    }
+
+    /// Fetches the existing CKShare if this event was previously shared,
+    /// then presents the sharing sheet.
+    private func prepareShareSheet(for event: EventModel) {
+        guard let shareURLString = event.shareURL,
+              let shareURL = URL(string: shareURLString) else {
+            // No existing share — present the creation flow.
+            existingCKShare = nil
+            isShowingShareSheet = true
+            return
+        }
+
+        // Fetch the existing share metadata so UICloudSharingController can manage it.
+        let metadataOperation = CKFetchShareMetadataOperation(shareURLs: [shareURL])
+        metadataOperation.perShareMetadataResultBlock = { _, result in
+            Task { @MainActor in
+                switch result {
+                case .success(let metadata):
+                    self.fetchExistingShare(from: metadata)
+                case .failure:
+                    // Metadata fetch failed — share may have been deleted externally.
+                    // Clear stale URL and present new share flow.
+                    event.shareURL = nil
+                    try? self.modelContext.save()
+                    self.existingCKShare = nil
+                    self.isShowingShareSheet = true
+                }
+            }
+        }
+        cloudKitContainer.add(metadataOperation)
+    }
+
+    private func fetchExistingShare(from metadata: CKShare.Metadata) {
+        let shareRecordID = metadata.share.recordID
+        cloudKitContainer.sharedCloudDatabase.fetch(withRecordID: shareRecordID) { record, error in
+            Task { @MainActor in
+                if let share = record as? CKShare {
+                    self.existingCKShare = share
+                } else {
+                    self.existingCKShare = nil
+                }
+                self.isShowingShareSheet = true
+            }
         }
     }
 

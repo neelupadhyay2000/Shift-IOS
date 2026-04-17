@@ -13,6 +13,11 @@ public final class EventModel {
     public var goldenHourStart: Date?
     public var status: EventStatus = EventStatus.planning
 
+    /// The URL string of the CKShare associated with this event, if shared.
+    /// Persisted so re-tapping "Share" opens the existing share for management
+    /// instead of creating a duplicate.
+    public var shareURL: String?
+
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
     public var tracks: [TimelineTrack]?
 
