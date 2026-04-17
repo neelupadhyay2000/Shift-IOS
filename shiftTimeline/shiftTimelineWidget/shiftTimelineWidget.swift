@@ -21,6 +21,7 @@ struct ShiftWidgetEntry: TimelineEntry {
     let eventName: String?
     let eventID: UUID?
     let isEventLive: Bool
+    let nextEventDate: Date?
 }
 
 // MARK: - Timeline Provider
@@ -30,14 +31,15 @@ struct ShiftSmallProvider: TimelineProvider {
     func placeholder(in context: Context) -> ShiftWidgetEntry {
         ShiftWidgetEntry(
             date: .now,
-            activeBlockTitle: "Ceremony",
-            blockEndDate: .now.addingTimeInterval(1800),
-            nextBlockTitle: "Reception",
-            nextBlockStartTime: .now.addingTimeInterval(3600),
-            sunsetTime: .now.addingTimeInterval(7200),
+            activeBlockTitle: "Cocktail Hour",
+            blockEndDate: .now.addingTimeInterval(1935),
+            nextBlockTitle: "First Dance",
+            nextBlockStartTime: .now.addingTimeInterval(1935),
+            sunsetTime: Calendar.current.date(bySettingHour: 20, minute: 14, second: 0, of: .now),
             eventName: "Wedding",
             eventID: nil,
-            isEventLive: true
+            isEventLive: true,
+            nextEventDate: nil
         )
     }
 
@@ -46,14 +48,15 @@ struct ShiftSmallProvider: TimelineProvider {
             // Widget gallery — show realistic mock data
             completion(ShiftWidgetEntry(
                 date: .now,
-                activeBlockTitle: "First Dance",
-                blockEndDate: .now.addingTimeInterval(2400),
-                nextBlockTitle: "Cake Cutting",
-                nextBlockStartTime: .now.addingTimeInterval(3600),
-                sunsetTime: .now.addingTimeInterval(5400),
+                activeBlockTitle: "Cocktail Hour",
+                blockEndDate: .now.addingTimeInterval(1935),
+                nextBlockTitle: "First Dance",
+                nextBlockStartTime: .now.addingTimeInterval(1935),
+                sunsetTime: Calendar.current.date(bySettingHour: 20, minute: 14, second: 0, of: .now),
                 eventName: "Sarah & Tom's Wedding",
                 eventID: UUID(),
-                isEventLive: true
+                isEventLive: true,
+                nextEventDate: nil
             ))
             return
         }
@@ -81,6 +84,7 @@ struct ShiftSmallProvider: TimelineProvider {
 
     private func makeEntry(date: Date) -> ShiftWidgetEntry {
         guard let shared = WidgetDataStore.load(), shared.isEventLive else {
+            let nextDate = WidgetDataStore.load()?.nextEventDate
             return ShiftWidgetEntry(
                 date: date,
                 activeBlockTitle: "",
@@ -90,7 +94,8 @@ struct ShiftSmallProvider: TimelineProvider {
                 sunsetTime: nil,
                 eventName: nil,
                 eventID: nil,
-                isEventLive: false
+                isEventLive: false,
+                nextEventDate: nextDate
             )
         }
 
@@ -103,7 +108,8 @@ struct ShiftSmallProvider: TimelineProvider {
             sunsetTime: shared.sunsetTime,
             eventName: shared.eventName,
             eventID: shared.eventID,
-            isEventLive: true
+            isEventLive: true,
+            nextEventDate: nil
         )
     }
 }
@@ -153,13 +159,23 @@ struct ShiftSmallWidgetView: View {
     private var noEventContent: some View {
         VStack(spacing: 8) {
             Image(systemName: "calendar.badge.clock")
-                .font(.largeTitle)
+                .font(.title2)
                 .foregroundStyle(.secondary)
 
             Text("No Active Event")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            if let nextDate = entry.nextEventDate {
+                Text("Next event: \(nextDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text("No upcoming events")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -199,11 +215,12 @@ struct ShiftSmallWidget: Widget {
         sunsetTime: nil,
         eventName: nil,
         eventID: UUID(),
-        isEventLive: true
+        isEventLive: true,
+        nextEventDate: nil
     )
 }
 
-#Preview("Small — No Event", as: .systemSmall) {
+#Preview("Small — No Event (with upcoming)", as: .systemSmall) {
     ShiftSmallWidget()
 } timeline: {
     ShiftWidgetEntry(
@@ -215,7 +232,25 @@ struct ShiftSmallWidget: Widget {
         sunsetTime: nil,
         eventName: nil,
         eventID: nil,
-        isEventLive: false
+        isEventLive: false,
+        nextEventDate: Calendar.current.date(byAdding: .day, value: 3, to: .now)
+    )
+}
+
+#Preview("Small — No Event (none)", as: .systemSmall) {
+    ShiftSmallWidget()
+} timeline: {
+    ShiftWidgetEntry(
+        date: .now,
+        activeBlockTitle: "",
+        blockEndDate: .now,
+        nextBlockTitle: nil,
+        nextBlockStartTime: nil,
+        sunsetTime: nil,
+        eventName: nil,
+        eventID: nil,
+        isEventLive: false,
+        nextEventDate: nil
     )
 }
 
@@ -303,13 +338,23 @@ struct ShiftMediumWidgetView: View {
     private var noEventContent: some View {
         VStack(spacing: 8) {
             Image(systemName: "calendar.badge.clock")
-                .font(.largeTitle)
+                .font(.title2)
                 .foregroundStyle(.secondary)
 
             Text("No Active Event")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            if let nextDate = entry.nextEventDate {
+                Text("Next event: \(nextDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text("No upcoming events")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -349,11 +394,12 @@ struct ShiftMediumWidget: Widget {
         sunsetTime: .now.addingTimeInterval(7200),
         eventName: "Wedding",
         eventID: UUID(),
-        isEventLive: true
+        isEventLive: true,
+        nextEventDate: nil
     )
 }
 
-#Preview("Medium — No Event", as: .systemMedium) {
+#Preview("Medium — No Event (with upcoming)", as: .systemMedium) {
     ShiftMediumWidget()
 } timeline: {
     ShiftWidgetEntry(
@@ -365,6 +411,24 @@ struct ShiftMediumWidget: Widget {
         sunsetTime: nil,
         eventName: nil,
         eventID: nil,
-        isEventLive: false
+        isEventLive: false,
+        nextEventDate: Calendar.current.date(byAdding: .day, value: 3, to: .now)
+    )
+}
+
+#Preview("Medium — No Event (none)", as: .systemMedium) {
+    ShiftMediumWidget()
+} timeline: {
+    ShiftWidgetEntry(
+        date: .now,
+        activeBlockTitle: "",
+        blockEndDate: .now,
+        nextBlockTitle: nil,
+        nextBlockStartTime: nil,
+        sunsetTime: nil,
+        eventName: nil,
+        eventID: nil,
+        isEventLive: false,
+        nextEventDate: nil
     )
 }

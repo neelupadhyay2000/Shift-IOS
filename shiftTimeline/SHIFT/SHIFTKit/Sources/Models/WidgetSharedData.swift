@@ -21,6 +21,8 @@ public struct WidgetSharedData: Codable, Sendable {
     /// Whether the event is currently live. When `false`, widgets
     /// show a "No Active Event" placeholder.
     public let isEventLive: Bool
+    /// Date of the next upcoming event (shown when no event is live).
+    public let nextEventDate: Date?
 
     public init(
         activeBlockTitle: String,
@@ -30,7 +32,8 @@ public struct WidgetSharedData: Codable, Sendable {
         sunsetTime: Date? = nil,
         eventID: UUID,
         eventName: String,
-        isEventLive: Bool
+        isEventLive: Bool,
+        nextEventDate: Date? = nil
     ) {
         self.activeBlockTitle = activeBlockTitle
         self.blockEndDate = blockEndDate
@@ -40,6 +43,7 @@ public struct WidgetSharedData: Codable, Sendable {
         self.eventID = eventID
         self.eventName = eventName
         self.isEventLive = isEventLive
+        self.nextEventDate = nextEventDate
     }
 }
 
@@ -70,5 +74,27 @@ public enum WidgetDataStore {
     /// Clears widget data (e.g. when exiting live mode or event completes).
     public static func clear() {
         defaults?.removeObject(forKey: dataKey)
+    }
+
+    /// Writes only the next-event date for the no-live-event widget state.
+    /// Called by the main app on foreground so the widget can show
+    /// "Next event: Sat Jun 14" when no event is live.
+    public static func writeNextEventDate(_ date: Date?) {
+        // Only write if there's no live event data already.
+        if let existing = load(), existing.isEventLive { return }
+
+        if let date {
+            let placeholder = WidgetSharedData(
+                activeBlockTitle: "",
+                blockEndDate: .distantPast,
+                eventID: UUID(),
+                eventName: "",
+                isEventLive: false,
+                nextEventDate: date
+            )
+            save(placeholder)
+        } else {
+            clear()
+        }
     }
 }
