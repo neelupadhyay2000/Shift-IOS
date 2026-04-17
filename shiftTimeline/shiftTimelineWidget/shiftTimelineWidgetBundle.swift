@@ -12,7 +12,7 @@ import Models
 @main
 struct shiftTimelineWidgetBundle: WidgetBundle {
     var body: some Widget {
-        shiftTimelineWidget()
+        ShiftSmallWidget()
         shiftTimelineWidgetControl()
         ShiftLiveActivity()
     }
