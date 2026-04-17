@@ -360,6 +360,10 @@ private struct _LiveDashboardContent: View {
                 // ── Vendor quick-contact avatars ────────────────────
                 VendorQuickContactRow(vendors: activeBlock.vendors ?? [])
                 .padding(.bottom, 8)
+
+                // ── Vendor acknowledgment grid ───────────────────────
+                VendorAckGrid(vendors: event.vendors ?? [])
+                    .padding(.bottom, 8)
             } else {
                 VStack {
                     Spacer()
