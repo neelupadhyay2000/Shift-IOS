@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import UserNotifications
 import Models
 import Services
 import os
@@ -30,6 +31,7 @@ struct shiftTimelineApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var watchSessionManager = WatchSessionManager()
+    private let deepLinkRouter = DeepLinkRouter.shared
 
     init() {
         SunsetPrefetchTask.register()
@@ -65,6 +67,7 @@ struct shiftTimelineApp: App {
         WindowGroup {
             RootNavigator()
                 .environment(watchSessionManager)
+                .environment(deepLinkRouter)
                 .task {
                     watchSessionManager.activate()
                     await CloudKitIdentity.shared.fetchAndCache()
@@ -88,7 +91,8 @@ struct shiftTimelineApp: App {
 /// 2. Remote notification registration for silent-push-based sync.
 /// 3. Silent push handling — triggers shared-zone change fetch so the
 ///    vendor's local SwiftData store stays current after planner edits.
-final class AppDelegate: NSObject, UIApplicationDelegate {
+/// 4. Local notification tap → deep-link into the shared event.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline",
@@ -100,6 +104,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         application.registerForRemoteNotifications()
+        UNUserNotificationCenter.current().delegate = self
+        Task { await VendorShiftLocalNotifier.requestAuthorization() }
         return true
     }
 
@@ -131,6 +137,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         Task {
             let hasNewData = await SharedZoneSubscriptionManager.shared.fetchChanges()
+            if hasNewData {
+                await processVendorShiftNotifications()
+            }
             completionHandler(hasNewData ? .newData : .noData)
         }
     }
@@ -152,5 +161,46 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         }
         operation.qualityOfService = .userInteractive
         container.add(operation)
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// After CloudKit sync delivers updated vendor data, scan for any
+    /// `pendingShiftDelta` values and post local notifications.
+    @MainActor
+    private func processVendorShiftNotifications() async {
+        let context = PersistenceController.shared.container.mainContext
+        let descriptor = FetchDescriptor<EventModel>()
+        guard let events = try? context.fetch(descriptor) else { return }
+
+        for event in events {
+            await VendorShiftLocalNotifier.processAndNotify(event: event)
+        }
+        try? context.save()
+    }
+
+    /// Handle notification tap — deep-link into the shared event.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let eventIDString = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
+           let eventID = UUID(uuidString: eventIDString) {
+            Task { @MainActor in
+                DeepLinkRouter.shared.pendingEventID = eventID
+            }
+        }
+        completionHandler()
+    }
+
+    /// Show notifications even when app is in foreground.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
