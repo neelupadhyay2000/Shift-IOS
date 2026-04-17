@@ -8,10 +8,10 @@ struct SharedZoneSubscriptionTests {
 
     // MARK: - Subscription ID Consistency
 
-    @Test func subscriptionIDIsStable() {
-        // The subscription ID must stay constant across app versions so
-        // CloudKit doesn't create duplicate subscriptions.
-        // We verify via the notification filter in AppDelegate.
+    @Test func cloudKitNotificationParsingDoesNotCrash() {
+        // Verify that CKNotification can parse a minimal remote notification
+        // dictionary without crashing. The subscriptionID field is absent,
+        // so it will be nil — this test only confirms the parser is safe.
         let userInfo: [AnyHashable: Any] = [
             "ck": [
                 "ce": 2, // database notification
