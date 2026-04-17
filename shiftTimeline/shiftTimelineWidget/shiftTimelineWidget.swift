@@ -26,7 +26,7 @@ struct ShiftWidgetEntry: TimelineEntry {
 
 // MARK: - Timeline Provider
 
-struct ShiftSmallProvider: TimelineProvider {
+struct ShiftTimelineProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> ShiftWidgetEntry {
         ShiftWidgetEntry(
@@ -67,24 +67,24 @@ struct ShiftSmallProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShiftWidgetEntry>) -> Void) {
         let now = Date()
-        var entries: [ShiftWidgetEntry] = []
+        let shared = WidgetDataStore.load()
+        let entry = makeEntry(date: now, shared: shared)
 
-        // Generate 60 entries, one per minute, for the next hour.
-        for minuteOffset in 0..<60 {
-            let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: now)!
-            entries.append(makeEntry(date: entryDate))
-        }
+        // Text(date, style: .timer) counts down in real time without
+        // additional entries. Schedule the next reload at the block end
+        // (state change boundary) or in 15 minutes, whichever is sooner.
+        let blockEnd = (shared?.isEventLive == true) ? shared!.blockEndDate : nil
+        let fallbackRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: now)!
+        let nextRefresh = [blockEnd, fallbackRefresh].compactMap { $0 }.min()!
 
-        // Refresh again after the last entry.
-        let timeline = Timeline(entries: entries, policy: .atEnd)
+        let timeline = Timeline(entries: [entry], policy: .after(nextRefresh))
         completion(timeline)
     }
 
     // MARK: Helpers
 
-    private func makeEntry(date: Date) -> ShiftWidgetEntry {
-        guard let shared = WidgetDataStore.load(), shared.isEventLive else {
-            let nextDate = WidgetDataStore.load()?.nextEventDate
+    private func makeEntry(date: Date, shared: WidgetSharedData? = WidgetDataStore.load()) -> ShiftWidgetEntry {
+        guard let shared, shared.isEventLive else {
             return ShiftWidgetEntry(
                 date: date,
                 activeBlockTitle: "",
@@ -95,7 +95,7 @@ struct ShiftSmallProvider: TimelineProvider {
                 eventName: nil,
                 eventID: nil,
                 isEventLive: false,
-                nextEventDate: nextDate
+                nextEventDate: shared?.nextEventDate
             )
         }
 
@@ -184,16 +184,13 @@ struct ShiftSmallWidgetView: View {
 // MARK: - Widget Configuration
 
 struct ShiftSmallWidget: Widget {
-    let kind: String = "ShiftSmallWidget"
+    let kind: String = "shiftTimelineWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: ShiftSmallProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: ShiftTimelineProvider()) { entry in
             ShiftSmallWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
-                .widgetURL(entry.isEventLive
-                    ? URL(string: "shift://live/\(entry.eventID?.uuidString ?? "")")
-                    : nil
-                )
+                .widgetURL(entry.eventID.map { URL(string: "shift://live/\($0.uuidString)")! })
         }
         .configurationDisplayName("SHIFT Timeline")
         .description("Current block and countdown timer.")
@@ -366,13 +363,10 @@ struct ShiftMediumWidget: Widget {
     let kind: String = "ShiftMediumWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: ShiftSmallProvider()) { entry in
+        StaticConfiguration(kind: kind, provider: ShiftTimelineProvider()) { entry in
             ShiftMediumWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
-                .widgetURL(entry.isEventLive
-                    ? URL(string: "shift://live/\(entry.eventID?.uuidString ?? "")")
-                    : nil
-                )
+                .widgetURL(entry.eventID.map { URL(string: "shift://live/\($0.uuidString)")! })
         }
         .configurationDisplayName("SHIFT Timeline")
         .description("Current block, next block, and sunset countdown.")

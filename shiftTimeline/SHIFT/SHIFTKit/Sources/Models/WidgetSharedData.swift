@@ -16,7 +16,7 @@ public struct WidgetSharedData: Codable, Sendable {
     public let sunsetTime: Date?
     /// The live event's UUID — used for deep-link tap target.
     public let eventID: UUID
-    /// Human-readable event name shown in the medium widget.
+    /// Human-readable event name for the live event.
     public let eventName: String
     /// Whether the event is currently live. When `false`, widgets
     /// show a "No Active Event" placeholder.

@@ -446,7 +446,8 @@ struct EventDetailView: View {
                 isEventLive: true
             )
             WidgetDataStore.save(data)
-            WidgetCenter.shared.reloadAllTimelines()
+            WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+            WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
         }
     }
 

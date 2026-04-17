@@ -105,7 +105,8 @@ struct shiftTimelineApp: App {
         } else {
             WidgetDataStore.writeNextEventDate(nil)
         }
-        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
     }
 }
 

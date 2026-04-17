@@ -297,8 +297,7 @@ struct LiveDashboardView: View {
         for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
             block.status = .upcoming
         }
-        WidgetDataStore.clear()
-        WidgetCenter.shared.reloadAllTimelines()
+        writeNextEventPlaceholder()
         try? modelContext.save()
         dismiss()
     }
@@ -318,8 +317,9 @@ struct LiveDashboardView: View {
 
         guard let active else {
             // No remaining blocks — event is complete.
-            WidgetDataStore.clear()
-            WidgetCenter.shared.reloadAllTimelines()
+            // Write a non-live placeholder with the next event date so
+            // the widget transitions cleanly to "next event" state.
+            writeNextEventPlaceholder()
             return
         }
 
@@ -341,7 +341,26 @@ struct LiveDashboardView: View {
         )
 
         WidgetDataStore.save(data)
-        WidgetCenter.shared.reloadAllTimelines()
+        reloadShiftWidgetTimelines()
+    }
+
+    /// Reloads only the SHIFT widget timelines, not unrelated controls.
+    private func reloadShiftWidgetTimelines() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
+    }
+
+    /// Writes a non-live placeholder with the next upcoming event date
+    /// so the widget shows "Next event: …" instead of "No upcoming events".
+    private func writeNextEventPlaceholder() {
+        let now = Date()
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate { $0.date >= now },
+            sortBy: [SortDescriptor(\EventModel.date)]
+        )
+        let nextDate = try? modelContext.fetch(descriptor).first?.date
+        WidgetDataStore.writeNextEventDate(nextDate)
+        reloadShiftWidgetTimelines()
     }
 
 }
