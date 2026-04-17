@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Models
+import Services
 
 /// Inspector for editing an existing time block.
 ///
@@ -47,6 +48,18 @@ struct BlockInspectorView: View {
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
+    /// Whether the current user (as a vendor) is assigned to this block.
+    /// Owners always see full details. Non-owners only see details if their
+    /// linked VendorModel is in this block's vendors list.
+    private var canSeeDetails: Bool {
+        if !isReadOnly { return true }
+        guard let event else { return false }
+        guard let currentVendor = event.vendorForUser(CloudKitIdentity.currentUserRecordName) else {
+            return false
+        }
+        return (block.vendors ?? []).contains { $0.id == currentVendor.id }
+    }
+
     // MARK: - State
 
     @State private var title: String = ""
@@ -79,9 +92,11 @@ struct BlockInspectorView: View {
     private var inspectorBody: some View {
         Form {
             basicInfoSection
-            detailsSection
-            vendorsSection
-            dependenciesSection
+            if canSeeDetails {
+                detailsSection
+                vendorsSection
+                dependenciesSection
+            }
         }
         .formStyle(.grouped)
         .disabled(isReadOnly)
@@ -111,9 +126,11 @@ struct BlockInspectorView: View {
         NavigationStack {
             Form {
                 basicInfoSection
-                detailsSection
-                vendorsSection
-                dependenciesSection
+                if canSeeDetails {
+                    detailsSection
+                    vendorsSection
+                    dependenciesSection
+                }
             }
             .disabled(isReadOnly)
             .navigationTitle(isReadOnly ? String(localized: "Block Details") : String(localized: "Edit Block"))

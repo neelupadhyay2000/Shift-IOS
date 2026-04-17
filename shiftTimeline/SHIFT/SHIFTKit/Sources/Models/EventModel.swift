@@ -41,6 +41,13 @@ public final class EventModel {
         return ownerRecordName == currentUserRecordName
     }
 
+    /// Returns the `VendorModel` linked to the current iCloud user, if any.
+    /// Used to scope block detail visibility for shared event recipients.
+    public func vendorForUser(_ currentUserRecordName: String?) -> VendorModel? {
+        guard let currentUserRecordName else { return nil }
+        return (vendors ?? []).first { $0.cloudKitRecordName == currentUserRecordName }
+    }
+
     public init(
         id: UUID = UUID(),
         title: String,
