@@ -1,0 +1,100 @@
+import Foundation
+
+/// Data shared between the main app and the iOS home screen widget
+/// via the App Group UserDefaults suite.
+public struct WidgetSharedData: Codable, Sendable {
+    /// Title of the currently active block (e.g. "Ceremony").
+    public let activeBlockTitle: String
+    /// The scheduled end time of the active block — used by the widget
+    /// `Text(date, style: .timer)` for a live-counting countdown.
+    public let blockEndDate: Date
+    /// Title of the next upcoming block, if any.
+    public let nextBlockTitle: String?
+    /// Scheduled start time of the next block, if any.
+    public let nextBlockStartTime: Date?
+    /// Sunset time for the event day, if available.
+    public let sunsetTime: Date?
+    /// The live event's UUID — used for deep-link tap target.
+    public let eventID: UUID
+    /// Human-readable event name for the live event.
+    public let eventName: String
+    /// Whether the event is currently live. When `false`, widgets
+    /// show a "No Active Event" placeholder.
+    public let isEventLive: Bool
+    /// Date of the next upcoming event (shown when no event is live).
+    public let nextEventDate: Date?
+
+    public init(
+        activeBlockTitle: String,
+        blockEndDate: Date,
+        nextBlockTitle: String? = nil,
+        nextBlockStartTime: Date? = nil,
+        sunsetTime: Date? = nil,
+        eventID: UUID,
+        eventName: String,
+        isEventLive: Bool,
+        nextEventDate: Date? = nil
+    ) {
+        self.activeBlockTitle = activeBlockTitle
+        self.blockEndDate = blockEndDate
+        self.nextBlockTitle = nextBlockTitle
+        self.nextBlockStartTime = nextBlockStartTime
+        self.sunsetTime = sunsetTime
+        self.eventID = eventID
+        self.eventName = eventName
+        self.isEventLive = isEventLive
+        self.nextEventDate = nextEventDate
+    }
+}
+
+/// Reads and writes ``WidgetSharedData`` to the shared App Group
+/// `UserDefaults` suite so the widget extension can display live
+/// timeline data without accessing SwiftData directly.
+public enum WidgetDataStore {
+    public static let suiteName = "group.com.neelsoftwaresolutions.shiftTimeline"
+    private static let dataKey = "widgetSharedData"
+
+    private static var defaults: UserDefaults? {
+        UserDefaults(suiteName: suiteName)
+    }
+
+    /// Writes fresh data for the widget to read on its next timeline reload.
+    public static func save(_ data: WidgetSharedData) {
+        guard let encoded = try? JSONEncoder().encode(data) else { return }
+        defaults?.set(encoded, forKey: dataKey)
+    }
+
+    /// Reads the last-saved widget data. Returns `nil` if no live event
+    /// has ever been written.
+    public static func load() -> WidgetSharedData? {
+        guard let data = defaults?.data(forKey: dataKey) else { return nil }
+        return try? JSONDecoder().decode(WidgetSharedData.self, from: data)
+    }
+
+    /// Clears widget data (e.g. when exiting live mode or event completes).
+    public static func clear() {
+        defaults?.removeObject(forKey: dataKey)
+    }
+
+    /// Writes only the next-event date for the no-live-event widget state.
+    /// Called by the main app on foreground so the widget can show
+    /// "Next event: Sat Jun 14" when no event is live.
+    public static func writeNextEventDate(_ date: Date?) {
+        // Only write if there's no live event data already.
+        if let existing = load(), existing.isEventLive { return }
+
+        if let date {
+            let placeholder = WidgetSharedData(
+                activeBlockTitle: "",
+                blockEndDate: .distantPast,
+                eventID: UUID(),
+                eventName: "",
+                isEventLive: false,
+                nextEventDate: date
+            )
+            save(placeholder)
+        } else {
+            clear()
+        }
+    }
+}

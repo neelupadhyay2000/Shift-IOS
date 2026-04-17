@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 import CloudKit
 import UserNotifications
+import WidgetKit
 import Models
 import Services
 import os
@@ -83,7 +84,29 @@ struct shiftTimelineApp: App {
             if newPhase == .background {
                 SunsetPrefetchTask.scheduleNextRefresh()
             }
+            if newPhase == .active {
+                refreshWidgetNextEventDate()
+            }
         }
+    }
+
+    /// Writes the next upcoming event date to the widget App Group store
+    /// so the "No Active Event" widget state can show "Next event: …".
+    private func refreshWidgetNextEventDate() {
+        let context = PersistenceController.shared.container.mainContext
+        let now = Date()
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate { $0.date >= now },
+            sortBy: [SortDescriptor(\.date)]
+        )
+
+        if let nextEvent = try? context.fetch(descriptor).first {
+            WidgetDataStore.writeNextEventDate(nextEvent.date)
+        } else {
+            WidgetDataStore.writeNextEventDate(nil)
+        }
+        WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
     }
 }
 

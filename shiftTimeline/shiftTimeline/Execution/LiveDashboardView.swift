@@ -4,6 +4,7 @@ import UIKit
 #endif
 import SwiftData
 import AppIntents
+import WidgetKit
 import Models
 import Engine
 import Services
@@ -150,7 +151,12 @@ struct LiveDashboardView: View {
 
     private func activateFirstIncompleteBlockIfNeeded() {
         let blocks = sortedBlocks
-        guard !blocks.contains(where: { $0.status == .active }) else { return }
+        guard !blocks.contains(where: { $0.status == .active }) else {
+            // Already active — still write widget data so the widget
+            // has current state after a fresh app launch.
+            writeWidgetData()
+            return
+        }
         guard let first = blocks.first(where: { $0.status != .completed }) else { return }
 
         for block in blocks where block.status != .completed {
@@ -160,6 +166,7 @@ struct LiveDashboardView: View {
         do {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
+            writeWidgetData()
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -194,6 +201,7 @@ struct LiveDashboardView: View {
         do {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
+            writeWidgetData()
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -274,6 +282,7 @@ struct LiveDashboardView: View {
         do {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
+            writeWidgetData()
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -288,8 +297,70 @@ struct LiveDashboardView: View {
         for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
             block.status = .upcoming
         }
+        writeNextEventPlaceholder()
         try? modelContext.save()
         dismiss()
+    }
+
+    // MARK: - Widget Data
+
+    /// Writes the current live state to App Group UserDefaults so the
+    /// home screen widget can display it, then asks WidgetKit to reload.
+    private func writeWidgetData() {
+        guard let event else { return }
+
+        // Re-derive active/next from the current sorted blocks so we
+        // capture the state *after* any mutation.
+        let blocks = sortedBlocks
+        let active = blocks.first(where: { $0.status == .active })
+            ?? blocks.first(where: { $0.status != .completed })
+
+        guard let active else {
+            // No remaining blocks — event is complete.
+            // Write a non-live placeholder with the next event date so
+            // the widget transitions cleanly to "next event" state.
+            writeNextEventPlaceholder()
+            return
+        }
+
+        let nextUp: TimeBlockModel? = {
+            guard let idx = blocks.firstIndex(where: { $0.id == active.id }) else { return nil }
+            return blocks.suffix(from: blocks.index(after: idx))
+                .first(where: { $0.status != .completed })
+        }()
+
+        let data = WidgetSharedData(
+            activeBlockTitle: active.title,
+            blockEndDate: active.scheduledStart.addingTimeInterval(active.duration),
+            nextBlockTitle: nextUp?.title,
+            nextBlockStartTime: nextUp?.scheduledStart,
+            sunsetTime: event.sunsetTime,
+            eventID: event.id,
+            eventName: event.title,
+            isEventLive: true
+        )
+
+        WidgetDataStore.save(data)
+        reloadShiftWidgetTimelines()
+    }
+
+    /// Reloads only the SHIFT widget timelines, not unrelated controls.
+    private func reloadShiftWidgetTimelines() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
+    }
+
+    /// Writes a non-live placeholder with the next upcoming event date
+    /// so the widget shows "Next event: …" instead of "No upcoming events".
+    private func writeNextEventPlaceholder() {
+        let now = Date()
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate { $0.date >= now },
+            sortBy: [SortDescriptor(\EventModel.date)]
+        )
+        let nextDate = try? modelContext.fetch(descriptor).first?.date
+        WidgetDataStore.writeNextEventDate(nextDate)
+        reloadShiftWidgetTimelines()
     }
 
 }

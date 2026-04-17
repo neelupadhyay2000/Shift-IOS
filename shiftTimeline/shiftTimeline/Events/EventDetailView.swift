@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import WidgetKit
 import Models
 import Services
 
@@ -417,13 +418,36 @@ struct EventDetailView: View {
         for block in allBlocks where block.status != .completed {
             block.status = .upcoming
         }
-        allBlocks.first(where: { $0.status != .completed })?.status = .active
+        let activeBlock = allBlocks.first(where: { $0.status != .completed })
+        activeBlock?.status = .active
 
         do {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
         } catch {
             // Save failed — don't push stale context to Watch.
+        }
+
+        // Write initial widget data so the home screen widget updates immediately.
+        if let active = activeBlock {
+            let nextUp = allBlocks
+                .drop(while: { $0.id != active.id })
+                .dropFirst()
+                .first(where: { $0.status != .completed })
+
+            let data = WidgetSharedData(
+                activeBlockTitle: active.title,
+                blockEndDate: active.scheduledStart.addingTimeInterval(active.duration),
+                nextBlockTitle: nextUp?.title,
+                nextBlockStartTime: nextUp?.scheduledStart,
+                sunsetTime: event.sunsetTime,
+                eventID: event.id,
+                eventName: event.title,
+                isEventLive: true
+            )
+            WidgetDataStore.save(data)
+            WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
+            WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
         }
     }
 
