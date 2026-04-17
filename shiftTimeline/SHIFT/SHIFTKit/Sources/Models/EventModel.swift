@@ -18,6 +18,11 @@ public final class EventModel {
     /// instead of creating a duplicate.
     public var shareURL: String?
 
+    /// The CloudKit user record name of the event creator.
+    /// Set at creation time so shared recipients can detect they don't own the event.
+    /// `nil` for events created before this field was added — treated as "owned by current user".
+    public var ownerRecordName: String?
+
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
     public var tracks: [TimelineTrack]?
 
@@ -26,6 +31,15 @@ public final class EventModel {
 
     @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
     public var shiftRecords: [ShiftRecord]?
+
+    /// Returns `true` when the current user is the event owner (planner).
+    /// Returns `true` for pre-feature events (`ownerRecordName == nil`) and
+    /// when iCloud identity is unavailable (`currentUserRecordName == nil`).
+    public func isOwnedBy(_ currentUserRecordName: String?) -> Bool {
+        guard let ownerRecordName else { return true }
+        guard let currentUserRecordName else { return true }
+        return ownerRecordName == currentUserRecordName
+    }
 
     public init(
         id: UUID = UUID(),

@@ -12,6 +12,7 @@ struct TrackColumnView: View {
 
     let track: TimelineTrack
     let layout: TimeRulerLayout
+    let isReadOnly: Bool
     let onTapBlock: (TimeBlockModel) -> Void
     let onDeleteBlock: (TimeBlockModel) -> Void
 
@@ -46,7 +47,8 @@ struct TrackColumnView: View {
                 }
             }
             .dropDestination(for: String.self) { items, _ in
-                guard let blockIDString = items.first,
+                guard !isReadOnly,
+                      let blockIDString = items.first,
                       let blockID = UUID(uuidString: blockIDString) else {
                     return false
                 }
@@ -111,17 +113,19 @@ struct TrackColumnView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
-        .draggable(block.id.uuidString)
+        .draggable(isReadOnly ? "" : block.id.uuidString)
         .contextMenu {
-            Button {
-                onTapBlock(block)
-            } label: {
-                Label(String(localized: "Edit"), systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                onDeleteBlock(block)
-            } label: {
-                Label(String(localized: "Delete"), systemImage: "trash")
+            if !isReadOnly {
+                Button {
+                    onTapBlock(block)
+                } label: {
+                    Label(String(localized: "Edit"), systemImage: "pencil")
+                }
+                Button(role: .destructive) {
+                    onDeleteBlock(block)
+                } label: {
+                    Label(String(localized: "Delete"), systemImage: "trash")
+                }
             }
         }
         .padding(.horizontal, 4)

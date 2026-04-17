@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import CloudKit
 import Models
+import Services
 
 /// Displays the details for a single event.
 ///
@@ -30,6 +31,10 @@ struct EventDetailView: View {
     }
 
     private var event: EventModel? { results.first }
+
+    private var isOwner: Bool {
+        event?.isOwnedBy(CloudKitIdentity.currentUserRecordName) ?? true
+    }
 
     var body: some View {
         Group {
@@ -93,27 +98,29 @@ struct EventDetailView: View {
 
     private func quickAccessCards(_ event: EventModel) -> some View {
         VStack(spacing: 12) {
-            NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
-                HStack(spacing: 10) {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(String(localized: "Go Live"))
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
+            if isOwner {
+                NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text(String(localized: "Go Live"))
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .premiumCard()
+                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .premiumCard()
-                .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .simultaneousGesture(TapGesture().onEnded {
+                    startLiveMode(for: event)
+                })
+                .buttonStyle(.plain)
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                startLiveMode(for: event)
-            })
-            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
@@ -135,6 +142,8 @@ struct EventDetailView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(!isOwner)
+                .opacity(isOwner ? 1 : 0.5)
             }
 
             NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
@@ -154,7 +163,9 @@ struct EventDetailView: View {
             }
             .buttonStyle(.plain)
 
-            shareWithVendorsButton(event)
+            if isOwner {
+                shareWithVendorsButton(event)
+            }
         }
     }
 

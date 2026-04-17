@@ -17,13 +17,15 @@ struct BlockInspectorView: View {
     let block: TimeBlockModel
     let eventID: UUID
     let isInspectorMode: Bool
+    let isReadOnly: Bool
 
     @Query private var eventResults: [EventModel]
 
-    init(block: TimeBlockModel, eventID: UUID, isInspectorMode: Bool = false) {
+    init(block: TimeBlockModel, eventID: UUID, isInspectorMode: Bool = false, isReadOnly: Bool = false) {
         self.block = block
         self.eventID = eventID
         self.isInspectorMode = isInspectorMode
+        self.isReadOnly = isReadOnly
         _eventResults = Query(
             filter: #Predicate<EventModel> { $0.id == eventID }
         )
@@ -82,6 +84,7 @@ struct BlockInspectorView: View {
             dependenciesSection
         }
         .formStyle(.grouped)
+        .disabled(isReadOnly)
         .onAppear { loadState() }
         .onDisappear {
             startTimePickerTask?.cancel()
@@ -112,19 +115,22 @@ struct BlockInspectorView: View {
                 vendorsSection
                 dependenciesSection
             }
-            .navigationTitle(String(localized: "Edit Block"))
+            .disabled(isReadOnly)
+            .navigationTitle(isReadOnly ? String(localized: "Block Details") : String(localized: "Edit Block"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) {
+                    Button(isReadOnly ? String(localized: "Done") : String(localized: "Cancel")) {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Save")) {
-                        saveChanges()
+                if !isReadOnly {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(String(localized: "Save")) {
+                            saveChanges()
+                        }
+                        .disabled(!canSave)
                     }
-                    .disabled(!canSave)
                 }
             }
         }

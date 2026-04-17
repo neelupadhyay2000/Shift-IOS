@@ -71,6 +71,7 @@ struct CreateEventSheet: View {
             longitude: longitude,
             venueNames: venueNames
         )
+        event.ownerRecordName = CloudKitIdentity.currentUserRecordName
         modelContext.insert(event)
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)

@@ -46,6 +46,12 @@ struct TimelineBuilderView: View {
 
     private var event: EventModel? { results.first }
 
+    /// True when the current user does not own this event (shared read-only).
+    private var isReadOnly: Bool {
+        guard let event else { return false }
+        return !event.isOwnedBy(CloudKitIdentity.currentUserRecordName)
+    }
+
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
     private var sheetBinding: Binding<TimeBlockModel?> {
@@ -111,19 +117,19 @@ struct TimelineBuilderView: View {
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { toolbarItems }
+        .toolbar { if !isReadOnly { toolbarItems } }
         .sheet(isPresented: $isShowingCreateSheet) {
             CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding) { block in
-            BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false)
+            BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
                 .presentationDetents([.medium, .large])
         }
         // iPad: trailing inspector panel
         .inspector(isPresented: $isInspectorOpen) {
             if let block = blockToInspect {
-                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true)
+                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true, isReadOnly: isReadOnly)
                     .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
             }
         }
@@ -314,6 +320,7 @@ struct TimelineBuilderView: View {
                             TrackColumnView(
                                 track: track,
                                 layout: currentLayout,
+                                isReadOnly: isReadOnly,
                                 onTapBlock: { block in blockToInspect = block },
                                 onDeleteBlock: { block in
                                     if block.isPinned {
@@ -384,7 +391,7 @@ struct TimelineBuilderView: View {
         .scaleEffect(isDragging ? 1.04 : 1.0)
         .opacity(isDragging ? 0.85 : 1.0)
         .zIndex(isDragging ? 100 : 0)
-        .gesture(
+        .gesture(isReadOnly ? nil :
             LongPressGesture(minimumDuration: 0.3)
                 .sequenced(before: DragGesture())
                 .onChanged { value in
@@ -411,19 +418,21 @@ struct TimelineBuilderView: View {
                 }
         )
         .contextMenu {
-            Button {
-                blockToInspect = block
-            } label: {
-                Label(String(localized: "Edit"), systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                if block.isPinned {
-                    blockPendingDeletion = block
-                } else {
-                    deleteBlock(block)
+            if !isReadOnly {
+                Button {
+                    blockToInspect = block
+                } label: {
+                    Label(String(localized: "Edit"), systemImage: "pencil")
                 }
-            } label: {
-                Label(String(localized: "Delete"), systemImage: "trash")
+                Button(role: .destructive) {
+                    if block.isPinned {
+                        blockPendingDeletion = block
+                    } else {
+                        deleteBlock(block)
+                    }
+                } label: {
+                    Label(String(localized: "Delete"), systemImage: "trash")
+                }
             }
         }
         .padding(.leading, 4)
@@ -588,10 +597,17 @@ struct TimelineBuilderView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label(String(localized: "Add your first block"), systemImage: "clock.badge.plus")
+            Label(
+                isReadOnly
+                    ? String(localized: "No blocks yet")
+                    : String(localized: "Add your first block"),
+                systemImage: "clock.badge.plus"
+            )
         } actions: {
-            Button(String(localized: "Add Block")) {
-                isShowingCreateSheet = true
+            if !isReadOnly {
+                Button(String(localized: "Add Block")) {
+                    isShowingCreateSheet = true
+                }
             }
         }
     }

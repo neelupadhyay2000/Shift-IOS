@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import CloudKit
+import Models
 import Services
 import os
 
@@ -35,12 +36,31 @@ struct shiftTimelineApp: App {
         SunsetPrefetchTask.scheduleNextRefresh()
     }
 
+    /// One-time migration: stamps existing events with the current user's
+    /// CloudKit record name so the shared-event detection works for
+    /// events created before `ownerRecordName` was introduced.
+    @MainActor
+    private func backfillOwnerRecordNames() {
+        guard let recordName = CloudKitIdentity.currentUserRecordName else { return }
+        let context = PersistenceController.shared.container.mainContext
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate<EventModel> { $0.ownerRecordName == nil }
+        )
+        guard let events = try? context.fetch(descriptor), !events.isEmpty else { return }
+        for event in events {
+            event.ownerRecordName = recordName
+        }
+        try? context.save()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootNavigator()
                 .environment(watchSessionManager)
                 .task {
                     watchSessionManager.activate()
+                    await CloudKitIdentity.fetchAndCache()
+                    backfillOwnerRecordNames()
                 }
         }
         .modelContainer(PersistenceController.shared.container)
