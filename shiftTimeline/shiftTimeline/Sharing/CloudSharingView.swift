@@ -4,21 +4,18 @@ import CloudKit
 
 /// A SwiftUI wrapper around `UICloudSharingController`.
 ///
-/// Uses `init(preparationHandler:)` when creating a new share, and
-/// `init(share:container:)` when managing an existing one.
-/// The `availablePermissions` are locked to `.allowReadOnly` + `.allowPrivate`
+/// Always uses `init(share:container:)` — the non-deprecated path.
+/// The caller is responsible for creating and saving the `CKShare` before
+/// presenting this view. `availablePermissions` are locked to read-only
 /// so vendors can never gain write access.
 struct CloudSharingView: UIViewControllerRepresentable {
 
+    let share: CKShare
     let container: CKContainer
     let eventTitle: String
 
-    /// `nil` for a new share, non-nil for managing an existing share.
-    let existingShare: CKShare?
-
-    /// Called after CloudKit saves a new share. Provides the share URL string
-    /// so the caller can persist it on the `EventModel`.
-    let onShareCreated: (String) -> Void
+    /// Called after CloudKit saves share changes (new participants, etc.).
+    let onShareSaved: (CKShare) -> Void
 
     /// Called when the user stops sharing entirely.
     let onShareStopped: () -> Void
@@ -29,38 +26,14 @@ struct CloudSharingView: UIViewControllerRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             eventTitle: eventTitle,
-            onShareCreated: onShareCreated,
+            onShareSaved: onShareSaved,
             onShareStopped: onShareStopped,
             onError: onError
         )
     }
 
     func makeUIViewController(context: Context) -> UICloudSharingController {
-        let controller: UICloudSharingController
-
-        if let existingShare {
-            // Manage an existing share (add/remove participants).
-            controller = UICloudSharingController(share: existingShare, container: container)
-        } else {
-            // Create a new share via the preparation handler.
-            controller = UICloudSharingController { sharingController, completion in
-                let share = CKShare(recordZoneID: .default)
-                share[CKShare.SystemFieldKey.title] = eventTitle as CKRecordValue
-                share.publicPermission = .readOnly
-
-                let operation = CKModifyRecordsOperation(recordsToSave: [share], recordIDsToDelete: nil)
-                operation.modifyRecordsResultBlock = { result in
-                    switch result {
-                    case .success:
-                        completion(share, self.container, nil)
-                    case .failure(let error):
-                        completion(nil, nil, error)
-                    }
-                }
-                self.container.privateCloudDatabase.add(operation)
-            }
-        }
-
+        let controller = UICloudSharingController(share: share, container: container)
         controller.availablePermissions = [.allowReadOnly, .allowPrivate]
         controller.delegate = context.coordinator
         return controller
@@ -73,25 +46,25 @@ struct CloudSharingView: UIViewControllerRepresentable {
     final class Coordinator: NSObject, UICloudSharingControllerDelegate {
 
         private let eventTitle: String
-        private let onShareCreated: (String) -> Void
+        private let onShareSaved: (CKShare) -> Void
         private let onShareStopped: () -> Void
         private let onError: (Error) -> Void
 
         init(
             eventTitle: String,
-            onShareCreated: @escaping (String) -> Void,
+            onShareSaved: @escaping (CKShare) -> Void,
             onShareStopped: @escaping () -> Void,
             onError: @escaping (Error) -> Void
         ) {
             self.eventTitle = eventTitle
-            self.onShareCreated = onShareCreated
+            self.onShareSaved = onShareSaved
             self.onShareStopped = onShareStopped
             self.onError = onError
         }
 
         func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
-            guard let url = csc.share?.url else { return }
-            onShareCreated(url.absoluteString)
+            guard let share = csc.share else { return }
+            onShareSaved(share)
         }
 
         func cloudSharingControllerDidStopSharing(_ csc: UICloudSharingController) {

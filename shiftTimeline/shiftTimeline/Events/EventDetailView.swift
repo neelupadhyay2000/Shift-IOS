@@ -15,7 +15,8 @@ struct EventDetailView: View {
     @Query private var results: [EventModel]
 
     @State private var isShowingShareSheet = false
-    @State private var existingCKShare: CKShare?
+    @State private var activeShareForSheet: CKShare?
+    @State private var isPreparingShare = false
     @State private var shareError: String?
 
     private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
@@ -162,9 +163,14 @@ struct EventDetailView: View {
             prepareShareSheet(for: event)
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.green)
+                if isPreparingShare {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.green)
+                }
                 Text(event.shareURL != nil
                      ? String(localized: "Manage Vendor Sharing")
                      : String(localized: "Share with Vendors"))
@@ -178,68 +184,101 @@ struct EventDetailView: View {
             .premiumCard()
         }
         .buttonStyle(.plain)
+        .disabled(isPreparingShare)
         .sheet(isPresented: $isShowingShareSheet) {
-            CloudSharingView(
-                container: cloudKitContainer,
-                eventTitle: event.title,
-                existingShare: existingCKShare,
-                onShareCreated: { urlString in
-                    event.shareURL = urlString
-                    try? modelContext.save()
-                },
-                onShareStopped: {
-                    event.shareURL = nil
-                    existingCKShare = nil
-                    try? modelContext.save()
-                },
-                onError: { error in
-                    shareError = error.localizedDescription
-                }
-            )
+            if let share = activeShareForSheet {
+                CloudSharingView(
+                    share: share,
+                    container: cloudKitContainer,
+                    eventTitle: event.title,
+                    onShareSaved: { savedShare in
+                        if let url = savedShare.url {
+                            event.shareURL = url.absoluteString
+                            try? modelContext.save()
+                        }
+                    },
+                    onShareStopped: {
+                        event.shareURL = nil
+                        activeShareForSheet = nil
+                        try? modelContext.save()
+                    },
+                    onError: { error in
+                        shareError = error.localizedDescription
+                    }
+                )
+            }
         }
     }
 
-    /// Fetches the existing CKShare if this event was previously shared,
-    /// then presents the sharing sheet.
+    /// Prepares a CKShare (creating or fetching as needed) then presents
+    /// `UICloudSharingController` via the non-deprecated `init(share:container:)`.
     private func prepareShareSheet(for event: EventModel) {
-        guard let shareURLString = event.shareURL,
-              let shareURL = URL(string: shareURLString) else {
-            // No existing share — present the creation flow.
-            existingCKShare = nil
-            isShowingShareSheet = true
-            return
-        }
+        isPreparingShare = true
 
-        // Fetch the existing share metadata so UICloudSharingController can manage it.
+        if let shareURLString = event.shareURL,
+           let shareURL = URL(string: shareURLString) {
+            // Existing share — fetch it from CloudKit for management.
+            fetchExistingShare(at: shareURL, for: event)
+        } else {
+            // No share yet — create one, save it, then present.
+            createNewShare(for: event)
+        }
+    }
+
+    /// Creates a new `CKShare`, saves it to CloudKit, persists the URL, and presents the sheet.
+    private func createNewShare(for event: EventModel) {
+        let share = CKShare(recordZoneID: .default)
+        share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
+        share.publicPermission = .readOnly
+
+        let operation = CKModifyRecordsOperation(recordsToSave: [share], recordIDsToDelete: nil)
+        operation.modifyRecordsResultBlock = { result in
+            Task { @MainActor in
+                self.isPreparingShare = false
+                switch result {
+                case .success:
+                    event.shareURL = share.url?.absoluteString
+                    try? self.modelContext.save()
+                    self.activeShareForSheet = share
+                    self.isShowingShareSheet = true
+                case .failure(let error):
+                    self.shareError = error.localizedDescription
+                }
+            }
+        }
+        cloudKitContainer.privateCloudDatabase.add(operation)
+    }
+
+    /// Fetches an existing `CKShare` by its URL and presents the management sheet.
+    private func fetchExistingShare(at shareURL: URL, for event: EventModel) {
         let metadataOperation = CKFetchShareMetadataOperation(shareURLs: [shareURL])
         metadataOperation.perShareMetadataResultBlock = { _, result in
             Task { @MainActor in
                 switch result {
                 case .success(let metadata):
-                    self.fetchExistingShare(from: metadata)
+                    self.resolveShare(from: metadata)
                 case .failure:
-                    // Metadata fetch failed — share may have been deleted externally.
-                    // Clear stale URL and present new share flow.
+                    // Share may have been deleted externally — clear stale URL and create fresh.
                     event.shareURL = nil
                     try? self.modelContext.save()
-                    self.existingCKShare = nil
-                    self.isShowingShareSheet = true
+                    self.createNewShare(for: event)
                 }
             }
         }
         cloudKitContainer.add(metadataOperation)
     }
 
-    private func fetchExistingShare(from metadata: CKShare.Metadata) {
+    private func resolveShare(from metadata: CKShare.Metadata) {
         let shareRecordID = metadata.share.recordID
-        cloudKitContainer.sharedCloudDatabase.fetch(withRecordID: shareRecordID) { record, error in
+        cloudKitContainer.sharedCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
             Task { @MainActor in
+                self.isPreparingShare = false
                 if let share = record as? CKShare {
-                    self.existingCKShare = share
+                    self.activeShareForSheet = share
+                    self.isShowingShareSheet = true
                 } else {
-                    self.existingCKShare = nil
+                    self.shareError = String(localized: "Could not load share details")
                 }
-                self.isShowingShareSheet = true
             }
         }
     }
