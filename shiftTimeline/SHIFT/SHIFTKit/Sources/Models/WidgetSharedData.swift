@@ -10,6 +10,8 @@ public struct WidgetSharedData: Codable, Sendable {
     public let blockEndDate: Date
     /// Title of the next upcoming block, if any.
     public let nextBlockTitle: String?
+    /// Scheduled start time of the next block, if any.
+    public let nextBlockStartTime: Date?
     /// Sunset time for the event day, if available.
     public let sunsetTime: Date?
     /// The live event's UUID — used for deep-link tap target.
@@ -24,6 +26,7 @@ public struct WidgetSharedData: Codable, Sendable {
         activeBlockTitle: String,
         blockEndDate: Date,
         nextBlockTitle: String? = nil,
+        nextBlockStartTime: Date? = nil,
         sunsetTime: Date? = nil,
         eventID: UUID,
         eventName: String,
@@ -32,6 +35,7 @@ public struct WidgetSharedData: Codable, Sendable {
         self.activeBlockTitle = activeBlockTitle
         self.blockEndDate = blockEndDate
         self.nextBlockTitle = nextBlockTitle
+        self.nextBlockStartTime = nextBlockStartTime
         self.sunsetTime = sunsetTime
         self.eventID = eventID
         self.eventName = eventName

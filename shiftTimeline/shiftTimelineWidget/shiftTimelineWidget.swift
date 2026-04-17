@@ -15,6 +15,10 @@ struct ShiftWidgetEntry: TimelineEntry {
     let date: Date
     let activeBlockTitle: String
     let blockEndDate: Date
+    let nextBlockTitle: String?
+    let nextBlockStartTime: Date?
+    let sunsetTime: Date?
+    let eventName: String?
     let eventID: UUID?
     let isEventLive: Bool
 }
@@ -28,6 +32,10 @@ struct ShiftSmallProvider: TimelineProvider {
             date: .now,
             activeBlockTitle: "Ceremony",
             blockEndDate: .now.addingTimeInterval(1800),
+            nextBlockTitle: "Reception",
+            nextBlockStartTime: .now.addingTimeInterval(3600),
+            sunsetTime: .now.addingTimeInterval(7200),
+            eventName: "Wedding",
             eventID: nil,
             isEventLive: true
         )
@@ -40,6 +48,10 @@ struct ShiftSmallProvider: TimelineProvider {
                 date: .now,
                 activeBlockTitle: "First Dance",
                 blockEndDate: .now.addingTimeInterval(2400),
+                nextBlockTitle: "Cake Cutting",
+                nextBlockStartTime: .now.addingTimeInterval(3600),
+                sunsetTime: .now.addingTimeInterval(5400),
+                eventName: "Sarah & Tom's Wedding",
                 eventID: UUID(),
                 isEventLive: true
             ))
@@ -73,6 +85,10 @@ struct ShiftSmallProvider: TimelineProvider {
                 date: date,
                 activeBlockTitle: "",
                 blockEndDate: date,
+                nextBlockTitle: nil,
+                nextBlockStartTime: nil,
+                sunsetTime: nil,
+                eventName: nil,
                 eventID: nil,
                 isEventLive: false
             )
@@ -82,6 +98,10 @@ struct ShiftSmallProvider: TimelineProvider {
             date: date,
             activeBlockTitle: shared.activeBlockTitle,
             blockEndDate: shared.blockEndDate,
+            nextBlockTitle: shared.nextBlockTitle,
+            nextBlockStartTime: shared.nextBlockStartTime,
+            sunsetTime: shared.sunsetTime,
+            eventName: shared.eventName,
             eventID: shared.eventID,
             isEventLive: true
         )
@@ -167,25 +187,183 @@ struct ShiftSmallWidget: Widget {
 
 // MARK: - Previews
 
-#Preview("Live Event", as: .systemSmall) {
+#Preview("Small — Live", as: .systemSmall) {
     ShiftSmallWidget()
 } timeline: {
     ShiftWidgetEntry(
         date: .now,
         activeBlockTitle: "Ceremony",
         blockEndDate: .now.addingTimeInterval(1800),
+        nextBlockTitle: nil,
+        nextBlockStartTime: nil,
+        sunsetTime: nil,
+        eventName: nil,
         eventID: UUID(),
         isEventLive: true
     )
 }
 
-#Preview("No Event", as: .systemSmall) {
+#Preview("Small — No Event", as: .systemSmall) {
     ShiftSmallWidget()
 } timeline: {
     ShiftWidgetEntry(
         date: .now,
         activeBlockTitle: "",
         blockEndDate: .now,
+        nextBlockTitle: nil,
+        nextBlockStartTime: nil,
+        sunsetTime: nil,
+        eventName: nil,
+        eventID: nil,
+        isEventLive: false
+    )
+}
+
+// MARK: - Medium Widget View
+
+struct ShiftMediumWidgetView: View {
+    var entry: ShiftWidgetEntry
+
+    var body: some View {
+        if entry.isEventLive {
+            liveContent
+        } else {
+            noEventContent
+        }
+    }
+
+    private var liveContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Row 1 — Current block + countdown
+            HStack {
+                Image(systemName: "play.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                Text(entry.activeBlockTitle)
+                    .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer()
+                Text(entry.blockEndDate, style: .timer)
+                    .font(.headline.monospacedDigit())
+                    .foregroundStyle(.orange)
+            }
+
+            Divider()
+
+            // Row 2 — Next block + start time
+            HStack {
+                Image(systemName: "forward.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let next = entry.nextBlockTitle {
+                    Text(next)
+                        .font(.subheadline)
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if let startTime = entry.nextBlockStartTime {
+                        Text("Starts at \(startTime.formatted(.dateTime.hour().minute()))")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Last block of the day")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
+
+            Divider()
+
+            // Row 3 — Sunset countdown
+            HStack {
+                Image(systemName: "sunset.fill")
+                    .font(.caption)
+                    .foregroundStyle(.yellow)
+                Text("Sunset")
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if let sunset = entry.sunsetTime {
+                    Text(sunset, style: .timer)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundStyle(.yellow)
+                } else {
+                    Text("—")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var noEventContent: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "calendar.badge.clock")
+                .font(.largeTitle)
+                .foregroundStyle(.secondary)
+
+            Text("No Active Event")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Medium Widget Configuration
+
+struct ShiftMediumWidget: Widget {
+    let kind: String = "ShiftMediumWidget"
+
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: ShiftSmallProvider()) { entry in
+            ShiftMediumWidgetView(entry: entry)
+                .containerBackground(.fill.tertiary, for: .widget)
+                .widgetURL(entry.isEventLive
+                    ? URL(string: "shift://live/\(entry.eventID?.uuidString ?? "")")
+                    : nil
+                )
+        }
+        .configurationDisplayName("SHIFT Timeline")
+        .description("Current block, next block, and sunset countdown.")
+        .supportedFamilies([.systemMedium])
+    }
+}
+
+// MARK: - Medium Previews
+
+#Preview("Medium — Live", as: .systemMedium) {
+    ShiftMediumWidget()
+} timeline: {
+    ShiftWidgetEntry(
+        date: .now,
+        activeBlockTitle: "Ceremony",
+        blockEndDate: .now.addingTimeInterval(1800),
+        nextBlockTitle: "Reception",
+        nextBlockStartTime: .now.addingTimeInterval(3600),
+        sunsetTime: .now.addingTimeInterval(7200),
+        eventName: "Wedding",
+        eventID: UUID(),
+        isEventLive: true
+    )
+}
+
+#Preview("Medium — No Event", as: .systemMedium) {
+    ShiftMediumWidget()
+} timeline: {
+    ShiftWidgetEntry(
+        date: .now,
+        activeBlockTitle: "",
+        blockEndDate: .now,
+        nextBlockTitle: nil,
+        nextBlockStartTime: nil,
+        sunsetTime: nil,
+        eventName: nil,
         eventID: nil,
         isEventLive: false
     )

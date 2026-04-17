@@ -333,6 +333,7 @@ struct LiveDashboardView: View {
             activeBlockTitle: active.title,
             blockEndDate: active.scheduledStart.addingTimeInterval(active.duration),
             nextBlockTitle: nextUp?.title,
+            nextBlockStartTime: nextUp?.scheduledStart,
             sunsetTime: event.sunsetTime,
             eventID: event.id,
             eventName: event.title,
