@@ -69,6 +69,7 @@ struct shiftTimelineApp: App {
                     watchSessionManager.activate()
                     await CloudKitIdentity.shared.fetchAndCache()
                     backfillOwnerRecordNames()
+                    await SharedZoneSubscriptionManager.shared.registerIfNeeded()
                 }
         }
         .modelContainer(PersistenceController.shared.container)
@@ -80,19 +81,59 @@ struct shiftTimelineApp: App {
     }
 }
 
-// MARK: - CloudKit Share Acceptance
+// MARK: - CloudKit Share Acceptance & Silent Push
 
-/// Handles incoming CKShare invitations when a vendor taps a share link.
-///
-/// `NSPersistentCloudKitContainer` (which backs SwiftData) automatically
-/// mirrors the accepted share's records into the local store once
-/// `CKAcceptSharesOperation` succeeds.
+/// Handles:
+/// 1. Incoming CKShare invitations when a vendor taps a share link.
+/// 2. Remote notification registration for silent-push-based sync.
+/// 3. Silent push handling — triggers shared-zone change fetch so the
+///    vendor's local SwiftData store stays current after planner edits.
 final class AppDelegate: NSObject, UIApplicationDelegate {
 
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline",
         category: "CloudSharing"
     )
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        application.registerForRemoteNotifications()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Self.logger.info("Registered for remote notifications")
+    }
+
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        Self.logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
+    }
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // CloudKit silent push — fetch shared-zone changes.
+        let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
+        guard notification?.subscriptionID == "shared-zone-changes" else {
+            completionHandler(.noData)
+            return
+        }
+
+        Task {
+            let hasNewData = await SharedZoneSubscriptionManager.shared.fetchChanges()
+            completionHandler(hasNewData ? .newData : .noData)
+        }
+    }
 
     func application(
         _ application: UIApplication,
