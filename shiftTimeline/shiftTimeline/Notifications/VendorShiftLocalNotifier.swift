@@ -52,8 +52,11 @@ enum VendorShiftLocalNotifier {
                 VendorShiftNotificationContent.eventIDKey: event.id.uuidString
             ]
 
+            // Deterministic ID per vendor — replaces any prior shift
+            // notification so we don't spam if processAndNotify runs again
+            // before the vendor acknowledges.
             let request = UNNotificationRequest(
-                identifier: "shift-\(vendor.id.uuidString)-\(Date.now.timeIntervalSince1970)",
+                identifier: "shift-\(vendor.id.uuidString)",
                 content: content,
                 trigger: nil
             )
@@ -65,7 +68,9 @@ enum VendorShiftLocalNotifier {
                 logger.error("Failed to post notification for \(vendor.name): \(error.localizedDescription)")
             }
 
-            vendor.pendingShiftDelta = nil
+            // pendingShiftDelta is intentionally preserved — the in-app
+            // acknowledgment banner reads it to display the shift amount.
+            // It is cleared when the vendor taps the banner to acknowledge.
             vendor.hasAcknowledgedLatestShift = false
         }
     }

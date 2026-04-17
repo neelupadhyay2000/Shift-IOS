@@ -1,6 +1,6 @@
 import SwiftUI
-import Models
 import SwiftData
+import Models
 
 /// Lets a vendor adjust their notification threshold — the minimum shift
 /// delta (in minutes) required to trigger a visible push notification.

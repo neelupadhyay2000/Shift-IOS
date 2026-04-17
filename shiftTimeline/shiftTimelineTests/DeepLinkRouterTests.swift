@@ -3,6 +3,7 @@ import Testing
 @testable import shiftTimeline
 
 @Suite("DeepLinkRouter URL Parsing")
+@MainActor
 struct DeepLinkRouterTests {
 
     // MARK: - Event URL
