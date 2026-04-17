@@ -7,7 +7,9 @@
 
 import SwiftUI
 import SwiftData
+import CloudKit
 import Services
+import os
 
 /// SHIFT app entry point.
 ///
@@ -24,6 +26,7 @@ import Services
 @main
 struct shiftTimelineApp: App {
 
+    @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var watchSessionManager = WatchSessionManager()
 
@@ -46,5 +49,39 @@ struct shiftTimelineApp: App {
                 SunsetPrefetchTask.scheduleNextRefresh()
             }
         }
+    }
+}
+
+// MARK: - CloudKit Share Acceptance
+
+/// Handles incoming CKShare invitations when a vendor taps a share link.
+///
+/// `NSPersistentCloudKitContainer` (which backs SwiftData) automatically
+/// mirrors the accepted share's records into the local store once
+/// `CKAcceptSharesOperation` succeeds.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+
+    private static let logger = Logger(
+        subsystem: "com.neelsoftwaresolutions.shiftTimeline",
+        category: "CloudSharing"
+    )
+
+    func application(
+        _ application: UIApplication,
+        userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
+    ) {
+        let container = CKContainer(identifier: cloudKitShareMetadata.containerIdentifier)
+
+        let operation = CKAcceptSharesOperation(shareMetadatas: [cloudKitShareMetadata])
+        operation.perShareResultBlock = { _, result in
+            switch result {
+            case .success:
+                Self.logger.info("Successfully accepted CloudKit share")
+            case .failure(let error):
+                Self.logger.error("Failed to accept share: \(error.localizedDescription)")
+            }
+        }
+        operation.qualityOfService = .userInteractive
+        container.add(operation)
     }
 }
