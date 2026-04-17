@@ -13,6 +13,16 @@ public final class EventModel {
     public var goldenHourStart: Date?
     public var status: EventStatus = EventStatus.planning
 
+    /// The URL string of the CKShare associated with this event, if shared.
+    /// Persisted so re-tapping "Share" opens the existing share for management
+    /// instead of creating a duplicate.
+    public var shareURL: String?
+
+    /// The CloudKit user record name of the event creator.
+    /// Set at creation time so shared recipients can detect they don't own the event.
+    /// `nil` for events created before this field was added — treated as "owned by current user".
+    public var ownerRecordName: String?
+
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
     public var tracks: [TimelineTrack]?
 
@@ -21,6 +31,24 @@ public final class EventModel {
 
     @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
     public var shiftRecords: [ShiftRecord]?
+
+    /// Returns `true` when the current user is the event owner (planner).
+    /// Returns `true` for pre-feature events (`ownerRecordName == nil`).
+    /// Returns `false` when the event has an owner but the current user's
+    /// identity is unknown — this prevents shared events from appearing
+    /// editable before iCloud identity is fetched.
+    public func isOwnedBy(_ currentUserRecordName: String?) -> Bool {
+        guard let ownerRecordName else { return true }
+        guard let currentUserRecordName else { return false }
+        return ownerRecordName == currentUserRecordName
+    }
+
+    /// Returns the `VendorModel` linked to the current iCloud user, if any.
+    /// Used to scope block detail visibility for shared event recipients.
+    public func vendorForUser(_ currentUserRecordName: String?) -> VendorModel? {
+        guard let currentUserRecordName else { return nil }
+        return (vendors ?? []).first { $0.cloudKitRecordName == currentUserRecordName }
+    }
 
     public init(
         id: UUID = UUID(),

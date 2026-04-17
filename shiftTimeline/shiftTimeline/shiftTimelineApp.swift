@@ -7,7 +7,10 @@
 
 import SwiftUI
 import SwiftData
+import CloudKit
+import Models
 import Services
+import os
 
 /// SHIFT app entry point.
 ///
@@ -24,6 +27,7 @@ import Services
 @main
 struct shiftTimelineApp: App {
 
+    @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var watchSessionManager = WatchSessionManager()
 
@@ -32,12 +36,39 @@ struct shiftTimelineApp: App {
         SunsetPrefetchTask.scheduleNextRefresh()
     }
 
+    private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
+
+    /// One-time migration: stamps existing events with the current user's
+    /// CloudKit record name so the shared-event detection works for
+    /// events created before `ownerRecordName` was introduced.
+    @MainActor
+    private func backfillOwnerRecordNames() {
+        guard let recordName = CloudKitIdentity.shared.currentUserRecordName else { return }
+        let context = PersistenceController.shared.container.mainContext
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate<EventModel> { $0.ownerRecordName == nil }
+        )
+        do {
+            let events = try context.fetch(descriptor)
+            guard !events.isEmpty else { return }
+            for event in events {
+                event.ownerRecordName = recordName
+            }
+            try context.save()
+            Self.logger.info("Backfilled ownerRecordName for \(events.count) events")
+        } catch {
+            Self.logger.error("Failed to backfill ownerRecordNames: \(error.localizedDescription)")
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             RootNavigator()
                 .environment(watchSessionManager)
                 .task {
                     watchSessionManager.activate()
+                    await CloudKitIdentity.shared.fetchAndCache()
+                    backfillOwnerRecordNames()
                 }
         }
         .modelContainer(PersistenceController.shared.container)
@@ -46,5 +77,39 @@ struct shiftTimelineApp: App {
                 SunsetPrefetchTask.scheduleNextRefresh()
             }
         }
+    }
+}
+
+// MARK: - CloudKit Share Acceptance
+
+/// Handles incoming CKShare invitations when a vendor taps a share link.
+///
+/// `NSPersistentCloudKitContainer` (which backs SwiftData) automatically
+/// mirrors the accepted share's records into the local store once
+/// `CKAcceptSharesOperation` succeeds.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+
+    private static let logger = Logger(
+        subsystem: "com.neelsoftwaresolutions.shiftTimeline",
+        category: "CloudSharing"
+    )
+
+    func application(
+        _ application: UIApplication,
+        userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
+    ) {
+        let container = CKContainer(identifier: cloudKitShareMetadata.containerIdentifier)
+
+        let operation = CKAcceptSharesOperation(shareMetadatas: [cloudKitShareMetadata])
+        operation.perShareResultBlock = { _, result in
+            switch result {
+            case .success:
+                Self.logger.info("Successfully accepted CloudKit share")
+            case .failure(let error):
+                Self.logger.error("Failed to accept share: \(error.localizedDescription)")
+            }
+        }
+        operation.qualityOfService = .userInteractive
+        container.add(operation)
     }
 }

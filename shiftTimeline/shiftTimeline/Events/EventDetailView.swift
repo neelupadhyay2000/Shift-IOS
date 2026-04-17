@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
+import CloudKit
 import Models
+import Services
 
 /// Displays the details for a single event.
 ///
@@ -13,6 +15,12 @@ struct EventDetailView: View {
 
     @Query private var results: [EventModel]
 
+    @State private var isShowingShareSheet = false
+    @State private var activeShareForSheet: CKShare?
+    @State private var isPreparingShare = false
+    @State private var shareError: String?
+
+    private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
 
     init(eventID: UUID) {
@@ -23,6 +31,10 @@ struct EventDetailView: View {
     }
 
     private var event: EventModel? { results.first }
+
+    private var isOwner: Bool {
+        event?.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) ?? true
+    }
 
     var body: some View {
         Group {
@@ -86,27 +98,29 @@ struct EventDetailView: View {
 
     private func quickAccessCards(_ event: EventModel) -> some View {
         VStack(spacing: 12) {
-            NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
-                HStack(spacing: 10) {
-                    Image(systemName: "dot.radiowaves.left.and.right")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Text(String(localized: "Go Live"))
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.8))
+            if isOwner {
+                NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                        Text(String(localized: "Go Live"))
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .premiumCard()
+                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                .premiumCard()
-                .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .simultaneousGesture(TapGesture().onEnded {
+                    startLiveMode(for: event)
+                })
+                .buttonStyle(.plain)
             }
-            .simultaneousGesture(TapGesture().onEnded {
-                startLiveMode(for: event)
-            })
-            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
@@ -128,6 +142,8 @@ struct EventDetailView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .disabled(!isOwner)
+                .opacity(isOwner ? 1 : 0.5)
             }
 
             NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
@@ -146,6 +162,159 @@ struct EventDetailView: View {
                 .premiumCard()
             }
             .buttonStyle(.plain)
+
+            if isOwner {
+                shareWithVendorsButton(event)
+            }
+        }
+    }
+
+    private func shareWithVendorsButton(_ event: EventModel) -> some View {
+        Button {
+            prepareShareSheet(for: event)
+        } label: {
+            HStack(spacing: 10) {
+                if isPreparingShare {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.green)
+                }
+                Text(event.shareURL != nil
+                     ? String(localized: "Manage Vendor Sharing")
+                     : String(localized: "Share with Vendors"))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .premiumCard()
+        }
+        .buttonStyle(.plain)
+        .disabled(isPreparingShare)
+        .sheet(isPresented: $isShowingShareSheet) {
+            if let share = activeShareForSheet {
+                CloudSharingView(
+                    share: share,
+                    container: cloudKitContainer,
+                    eventTitle: event.title,
+                    onShareSaved: { savedShare in
+                        if let url = savedShare.url {
+                            event.shareURL = url.absoluteString
+                            try? modelContext.save()
+                        }
+                    },
+                    onShareStopped: {
+                        event.shareURL = nil
+                        activeShareForSheet = nil
+                        try? modelContext.save()
+                    },
+                    onError: { error in
+                        shareError = error.localizedDescription
+                    }
+                )
+            }
+        }
+        .alert("Sharing Error", isPresented: Binding(
+            get: { shareError != nil },
+            set: { if !$0 { shareError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            if let shareError {
+                Text(shareError)
+            }
+        }
+    }
+
+    /// Prepares a CKShare (creating or fetching as needed) then presents
+    /// `UICloudSharingController` via the non-deprecated `init(share:container:)`.
+    private func prepareShareSheet(for event: EventModel) {
+        isPreparingShare = true
+
+        if let shareURLString = event.shareURL,
+           let shareURL = URL(string: shareURLString) {
+            // Existing share — fetch it from CloudKit for management.
+            fetchExistingShare(at: shareURL, for: event)
+        } else {
+            // No share yet — create one, save it, then present.
+            createNewShare(for: event)
+        }
+    }
+
+    /// Creates a new `CKShare` tied to the event's CKRecord, saves it, and presents the sheet.
+    private func createNewShare(for event: EventModel) {
+        // Fetch the event's underlying CKRecord so the share is tied to it.
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(recordName: "CD_EventModel_\(event.id.uuidString)", zoneID: zoneID)
+
+        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: recordID) { rootRecord, fetchError in
+            Task { @MainActor in
+                guard let rootRecord else {
+                    self.isPreparingShare = false
+                    self.shareError = fetchError?.localizedDescription ?? String(localized: "Could not find event record")
+                    return
+                }
+
+                let share = CKShare(rootRecord: rootRecord)
+                share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
+                share.publicPermission = .readOnly
+
+                let operation = CKModifyRecordsOperation(recordsToSave: [rootRecord, share], recordIDsToDelete: nil)
+                operation.modifyRecordsResultBlock = { result in
+                    Task { @MainActor in
+                        self.isPreparingShare = false
+                        switch result {
+                        case .success:
+                            event.shareURL = share.url?.absoluteString
+                            try? self.modelContext.save()
+                            self.activeShareForSheet = share
+                            self.isShowingShareSheet = true
+                        case .failure(let error):
+                            self.shareError = error.localizedDescription
+                        }
+                    }
+                }
+                self.cloudKitContainer.privateCloudDatabase.add(operation)
+            }
+        }
+    }
+
+    /// Fetches an existing `CKShare` by its URL and presents the management sheet.
+    private func fetchExistingShare(at shareURL: URL, for event: EventModel) {
+        let metadataOperation = CKFetchShareMetadataOperation(shareURLs: [shareURL])
+        metadataOperation.perShareMetadataResultBlock = { _, result in
+            Task { @MainActor in
+                switch result {
+                case .success(let metadata):
+                    self.resolveShare(from: metadata)
+                case .failure:
+                    // Share may have been deleted externally — clear stale URL and create fresh.
+                    event.shareURL = nil
+                    try? self.modelContext.save()
+                    self.createNewShare(for: event)
+                }
+            }
+        }
+        cloudKitContainer.add(metadataOperation)
+    }
+
+    private func resolveShare(from metadata: CKShare.Metadata) {
+        let shareRecordID = metadata.share.recordID
+        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
+            Task { @MainActor in
+                self.isPreparingShare = false
+                if let share = record as? CKShare {
+                    self.activeShareForSheet = share
+                    self.isShowingShareSheet = true
+                } else {
+                    self.shareError = String(localized: "Could not load share details")
+                }
+            }
         }
     }
 

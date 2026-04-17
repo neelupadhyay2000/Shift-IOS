@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Models
+import Services
 
 /// Inspector for editing an existing time block.
 ///
@@ -17,13 +18,15 @@ struct BlockInspectorView: View {
     let block: TimeBlockModel
     let eventID: UUID
     let isInspectorMode: Bool
+    let isReadOnly: Bool
 
     @Query private var eventResults: [EventModel]
 
-    init(block: TimeBlockModel, eventID: UUID, isInspectorMode: Bool = false) {
+    init(block: TimeBlockModel, eventID: UUID, isInspectorMode: Bool = false, isReadOnly: Bool = false) {
         self.block = block
         self.eventID = eventID
         self.isInspectorMode = isInspectorMode
+        self.isReadOnly = isReadOnly
         _eventResults = Query(
             filter: #Predicate<EventModel> { $0.id == eventID }
         )
@@ -43,6 +46,18 @@ struct BlockInspectorView: View {
             .flatMap { $0.blocks ?? [] }
             .filter { $0.id != block.id }
             .sorted { $0.scheduledStart < $1.scheduledStart }
+    }
+
+    /// Whether the current user (as a vendor) is assigned to this block.
+    /// Owners always see full details. Non-owners only see details if their
+    /// linked VendorModel is in this block's vendors list.
+    private var canSeeDetails: Bool {
+        if !isReadOnly { return true }
+        guard let event else { return false }
+        guard let currentVendor = event.vendorForUser(CloudKitIdentity.shared.currentUserRecordName) else {
+            return false
+        }
+        return (block.vendors ?? []).contains { $0.id == currentVendor.id }
     }
 
     // MARK: - State
@@ -77,11 +92,14 @@ struct BlockInspectorView: View {
     private var inspectorBody: some View {
         Form {
             basicInfoSection
-            detailsSection
-            vendorsSection
-            dependenciesSection
+            if canSeeDetails {
+                detailsSection
+                vendorsSection
+                dependenciesSection
+            }
         }
         .formStyle(.grouped)
+        .disabled(isReadOnly)
         .onAppear { loadState() }
         .onDisappear {
             startTimePickerTask?.cancel()
@@ -108,23 +126,28 @@ struct BlockInspectorView: View {
         NavigationStack {
             Form {
                 basicInfoSection
-                detailsSection
-                vendorsSection
-                dependenciesSection
+                if canSeeDetails {
+                    detailsSection
+                    vendorsSection
+                    dependenciesSection
+                }
             }
-            .navigationTitle(String(localized: "Edit Block"))
+            .disabled(isReadOnly)
+            .navigationTitle(isReadOnly ? String(localized: "Block Details") : String(localized: "Edit Block"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) {
+                    Button(isReadOnly ? String(localized: "Done") : String(localized: "Cancel")) {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Save")) {
-                        saveChanges()
+                if !isReadOnly {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(String(localized: "Save")) {
+                            saveChanges()
+                        }
+                        .disabled(!canSave)
                     }
-                    .disabled(!canSave)
                 }
             }
         }

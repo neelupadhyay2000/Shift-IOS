@@ -10,6 +10,10 @@ public final class VendorModel {
     public var email: String = ""
     public var notificationThreshold: TimeInterval = 300
     public var hasAcknowledgedLatestShift: Bool = false
+    /// The CloudKit user record name of the iCloud account that accepted the share
+    /// for this vendor. Used to scope block details — vendors only see notes/details
+    /// for blocks they are assigned to.
+    public var cloudKitRecordName: String?
     public var event: EventModel?
 
     @Relationship(deleteRule: .nullify)

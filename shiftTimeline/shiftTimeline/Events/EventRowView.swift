@@ -8,6 +8,7 @@ struct EventRowView: View {
     let title: String
     let date: Date
     let status: EventStatus
+    var isShared: Bool = false
 
     private var statusIcon: String {
         switch status {
@@ -42,19 +43,35 @@ struct EventRowView: View {
 
             Spacer(minLength: 4)
 
-            // Status badge
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(status.tintColor)
-                    .frame(width: 6, height: 6)
-                Text(status.label)
-                    .font(.caption)
-                    .fontWeight(.semibold)
+            VStack(alignment: .trailing, spacing: 4) {
+                // Status badge
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(status.tintColor)
+                        .frame(width: 6, height: 6)
+                    Text(status.label)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(status.tintColor.opacity(0.1), in: Capsule())
+                .foregroundStyle(status.tintColor)
+
+                if isShared {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.caption2)
+                        Text(String(localized: "Shared"))
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.1), in: Capsule())
+                    .foregroundStyle(.green)
+                }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(status.tintColor.opacity(0.1), in: Capsule())
-            .foregroundStyle(status.tintColor)
         }
         .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
