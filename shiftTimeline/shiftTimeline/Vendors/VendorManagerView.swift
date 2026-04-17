@@ -45,6 +45,11 @@ struct VendorManagerView: View {
                                     .onTapGesture { vendorToEdit = vendor }
                                     .scrollFade()
                                     .contextMenu {
+                                        NavigationLink {
+                                            VendorNotificationSettingsView(vendor: vendor)
+                                        } label: {
+                                            Label(String(localized: "Notification Settings"), systemImage: "bell.badge")
+                                        }
                                         Button(role: .destructive) {
                                             requestDelete(vendor)
                                         } label: {

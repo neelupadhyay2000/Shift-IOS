@@ -263,6 +263,15 @@ struct LiveDashboardView: View {
             undoManager.commitShift(blocks: result.blocks)
         }
 
+        // Phase 4: evaluate per-vendor notification thresholds
+        if let event {
+            VendorShiftNotifier.applyThresholdNotifications(
+                event: event,
+                blocks: result.blocks,
+                delta: delta
+            )
+        }
+
         do {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()

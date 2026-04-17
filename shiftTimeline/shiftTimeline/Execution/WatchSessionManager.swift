@@ -298,6 +298,12 @@ public final class WatchSessionManager {
             break
         }
 
+        VendorShiftNotifier.applyThresholdNotifications(
+            event: event,
+            blocks: result.blocks,
+            delta: delta
+        )
+
         do {
             try modelContext.save()
         } catch {
