@@ -88,6 +88,10 @@ struct ShiftTimelineIntent: AppIntent {
                 dialog: IntentDialog("A circular dependency prevents this shift.")
             )
         case .clean, .hasCollisions, .impossible:
+            VendorShiftNotifier.applyThresholdNotifications(
+                event: event,
+                blocks: result.blocks
+            )
             do {
                 try context.save()
             } catch {

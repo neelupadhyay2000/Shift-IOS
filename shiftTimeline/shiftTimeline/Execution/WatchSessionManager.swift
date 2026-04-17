@@ -136,6 +136,7 @@ public final class WatchSessionManager {
         }()
 
         let context = WatchContext(
+            eventID: event.id,
             eventTitle: event.title,
             activeBlockTitle: activeBlock.title,
             activeBlockEndTime: activeBlock.scheduledStart.addingTimeInterval(activeBlock.duration),
@@ -181,6 +182,7 @@ public final class WatchSessionManager {
         nextBlock: TimeBlockModel?
     ) {
         let context = WatchContext(
+            eventID: event.id,
             eventTitle: event.title,
             activeBlockTitle: activeBlock.title,
             activeBlockEndTime: activeBlock.scheduledStart.addingTimeInterval(activeBlock.duration),
@@ -298,6 +300,11 @@ public final class WatchSessionManager {
             break
         }
 
+        VendorShiftNotifier.applyThresholdNotifications(
+            event: event,
+            blocks: result.blocks
+        )
+
         do {
             try modelContext.save()
         } catch {
@@ -319,6 +326,7 @@ public final class WatchSessionManager {
 
         if let updatedActive {
             let replyContext = WatchContext(
+                eventID: event.id,
                 eventTitle: event.title,
                 activeBlockTitle: updatedActive.title,
                 activeBlockEndTime: updatedActive.scheduledStart.addingTimeInterval(updatedActive.duration),
@@ -389,6 +397,7 @@ public final class WatchSessionManager {
         }()
 
         let replyContext = WatchContext(
+            eventID: event.id,
             eventTitle: event.title,
             activeBlockTitle: replyActive.title,
             activeBlockEndTime: replyActive.scheduledStart.addingTimeInterval(replyActive.duration),
@@ -423,6 +432,7 @@ public final class WatchSessionManager {
         }()
 
         return WatchContext(
+            eventID: event.id,
             eventTitle: event.title,
             activeBlockTitle: activeBlock.title,
             activeBlockEndTime: activeBlock.scheduledStart.addingTimeInterval(activeBlock.duration),

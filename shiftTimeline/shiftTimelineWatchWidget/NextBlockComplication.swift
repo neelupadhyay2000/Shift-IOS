@@ -6,6 +6,7 @@ import Models
 
 struct NextBlockEntry: TimelineEntry {
     let date: Date
+    let eventID: UUID?
     let blockTitle: String?
     let minutesUntilStart: Int?
     let isLive: Bool
@@ -16,21 +17,21 @@ struct NextBlockEntry: TimelineEntry {
 struct NextBlockProvider: TimelineProvider {
 
     func placeholder(in context: Context) -> NextBlockEntry {
-        NextBlockEntry(date: .now, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
+        NextBlockEntry(date: .now, eventID: nil, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (NextBlockEntry) -> Void) {
         if let stored = WatchContextStore.load(), stored.isLive {
             completion(makeEntry(from: stored, at: .now))
         } else {
-            completion(NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false))
+            completion(NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: false))
         }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NextBlockEntry>) -> Void) {
         guard let stored = WatchContextStore.load(), stored.isLive else {
             // No live event — single fallback entry, retry in 15 minutes.
-            let entry = NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false)
+            let entry = NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: false)
             completion(Timeline(entries: [entry], policy: .after(.now.addingTimeInterval(15 * 60))))
             return
         }
@@ -57,11 +58,11 @@ struct NextBlockProvider: TimelineProvider {
         guard let nextTitle = stored.nextBlockTitle,
               let nextStart = stored.nextBlockStartTime else {
             // Live but no next block — last block of the day.
-            return NextBlockEntry(date: date, blockTitle: nil, minutesUntilStart: nil, isLive: true)
+            return NextBlockEntry(date: date, eventID: stored.eventID, blockTitle: nil, minutesUntilStart: nil, isLive: true)
         }
 
         let minutes = max(0, Int(nextStart.timeIntervalSince(date) / 60))
-        return NextBlockEntry(date: date, blockTitle: nextTitle, minutesUntilStart: minutes, isLive: true)
+        return NextBlockEntry(date: date, eventID: stored.eventID, blockTitle: nextTitle, minutesUntilStart: minutes, isLive: true)
     }
 }
 
@@ -156,6 +157,7 @@ struct NextBlockComplication: Widget {
         StaticConfiguration(kind: kind, provider: NextBlockProvider()) { entry in
             NextBlockComplicationView(entry: entry)
                 .privacySensitive(false)
+                .widgetURL(entry.eventID.map { URL(string: "shift://live/\($0.uuidString)")! })
         }
         .configurationDisplayName(String(localized: "Next Block"))
         .description(String(localized: "Shows the next block on your timeline."))
@@ -172,21 +174,21 @@ struct NextBlockComplication: Widget {
 #Preview(as: .accessoryInline) {
     NextBlockComplication()
 } timeline: {
-    NextBlockEntry(date: .now, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
-    NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: false)
 }
 
 #Preview(as: .accessoryRectangular) {
     NextBlockComplication()
 } timeline: {
-    NextBlockEntry(date: .now, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
-    NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: true)
-    NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: true)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: false)
 }
 
 #Preview(as: .accessoryCorner) {
     NextBlockComplication()
 } timeline: {
-    NextBlockEntry(date: .now, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
-    NextBlockEntry(date: .now, blockTitle: nil, minutesUntilStart: nil, isLive: false)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: "Cocktail Hour", minutesUntilStart: 12, isLive: true)
+    NextBlockEntry(date: .now, eventID: nil, blockTitle: nil, minutesUntilStart: nil, isLive: false)
 }

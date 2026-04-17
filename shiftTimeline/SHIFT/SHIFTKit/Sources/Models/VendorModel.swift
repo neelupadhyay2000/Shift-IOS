@@ -8,8 +8,13 @@ public final class VendorModel {
     public var role: VendorRole = VendorRole.custom
     public var phone: String = ""
     public var email: String = ""
-    public var notificationThreshold: TimeInterval = 300
+    public var notificationThreshold: TimeInterval = 600
     public var hasAcknowledgedLatestShift: Bool = false
+    /// Non-nil when the planner has determined that a shift exceeded this
+    /// vendor's threshold and a visible notification is warranted.
+    /// The vendor's device reads this after CloudKit sync and posts a local
+    /// notification, then clears it.
+    public var pendingShiftDelta: TimeInterval?
     /// The CloudKit user record name of the iCloud account that accepted the share
     /// for this vendor. Used to scope block details — vendors only see notes/details
     /// for blocks they are assigned to.
@@ -25,7 +30,7 @@ public final class VendorModel {
         role: VendorRole,
         phone: String = "",
         email: String = "",
-        notificationThreshold: TimeInterval = 300,
+        notificationThreshold: TimeInterval = 600,
         hasAcknowledgedLatestShift: Bool = false
     ) {
         self.id = id

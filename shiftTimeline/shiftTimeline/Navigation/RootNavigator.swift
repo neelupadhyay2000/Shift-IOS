@@ -58,6 +58,7 @@ enum SettingsDestination: Hashable {
 struct RootNavigator: View {
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     // MARK: Shared selection state
 
@@ -124,6 +125,10 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.settings.rawValue, systemImage: Tab.settings.systemImage) }
             .tag(Tab.settings)
         }
+        .onChange(of: deepLinkRouter.pendingDestination) { _, destination in
+            guard let destination else { return }
+            routeToDestination(destination)
+        }
     }
 
     // MARK: - iPad layout
@@ -165,6 +170,11 @@ struct RootNavigator: View {
                 sidebarSelection = selectedTab
             }
         }
+        .onChange(of: deepLinkRouter.pendingDestination) { _, destination in
+            guard let destination else { return }
+            sidebarSelection = .events
+            routeToDestination(destination)
+        }
     }
 
     @ViewBuilder
@@ -192,6 +202,21 @@ struct RootNavigator: View {
                     }
             }
         }
+    }
+
+    // MARK: - Deep-Link Routing
+
+    private func routeToDestination(_ destination: DeepLinkDestination) {
+        selectedTab = .events
+        switch destination {
+        case .event(let id):
+            eventPath = [.eventDetail(id: id)]
+        case .live(let id):
+            eventPath = [.eventDetail(id: id), .liveDashboard(eventID: id)]
+        case .roster:
+            eventPath = []
+        }
+        deepLinkRouter.pendingDestination = nil
     }
 
     // MARK: - Destination routing

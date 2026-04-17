@@ -6,6 +6,7 @@ import Foundation
 /// countdown, the next block preview, sunset time, and live status.
 /// Encoded/decoded as `[String: Any]` for WCSession compatibility.
 public struct WatchContext: Codable, Sendable, Equatable {
+    public let eventID: UUID
     public let eventTitle: String
     public let activeBlockTitle: String
     public let activeBlockEndTime: Date
@@ -15,6 +16,7 @@ public struct WatchContext: Codable, Sendable, Equatable {
     public let isLive: Bool
 
     public init(
+        eventID: UUID,
         eventTitle: String,
         activeBlockTitle: String,
         activeBlockEndTime: Date,
@@ -23,6 +25,7 @@ public struct WatchContext: Codable, Sendable, Equatable {
         sunsetTime: Date? = nil,
         isLive: Bool
     ) {
+        self.eventID = eventID
         self.eventTitle = eventTitle
         self.activeBlockTitle = activeBlockTitle
         self.activeBlockEndTime = activeBlockEndTime
@@ -38,6 +41,7 @@ public struct WatchContext: Codable, Sendable, Equatable {
     /// `WCSession.updateApplicationContext(_:)`.
     public func toDictionary() -> [String: Any] {
         var dict: [String: Any] = [
+            "eventID": eventID.uuidString,
             "eventTitle": eventTitle,
             "activeBlockTitle": activeBlockTitle,
             "activeBlockEndTime": activeBlockEndTime.timeIntervalSince1970,
@@ -58,7 +62,9 @@ public struct WatchContext: Codable, Sendable, Equatable {
     /// Decodes from a `[String: Any]` dictionary received via
     /// `session(_:didReceiveApplicationContext:)`.
     public init?(dictionary: [String: Any]) {
-        guard let eventTitle = dictionary["eventTitle"] as? String,
+        guard let eventIDString = dictionary["eventID"] as? String,
+              let eventID = UUID(uuidString: eventIDString),
+              let eventTitle = dictionary["eventTitle"] as? String,
               let activeBlockTitle = dictionary["activeBlockTitle"] as? String,
               let activeBlockEndTimeInterval = dictionary["activeBlockEndTime"] as? TimeInterval,
               let isLive = dictionary["isLive"] as? Bool
@@ -66,6 +72,7 @@ public struct WatchContext: Codable, Sendable, Equatable {
             return nil
         }
 
+        self.eventID = eventID
         self.eventTitle = eventTitle
         self.activeBlockTitle = activeBlockTitle
         self.activeBlockEndTime = Date(timeIntervalSince1970: activeBlockEndTimeInterval)
