@@ -18,7 +18,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Constants
 
-    private static let subscriptionID = "shared-zone-changes"
+    public static let subscriptionID = "shared-zone-changes"
     private static let subscriptionSavedKey = "com.shift.sharedZoneSubscriptionSaved"
     private static let serverChangeTokenKey = "com.shift.sharedDBServerChangeToken"
     private static let zoneChangeTokenKeyPrefix = "com.shift.sharedZoneChangeToken."
@@ -114,20 +114,19 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     /// Fetches which zones have changed since the last server change token.
     private func fetchDatabaseChanges() async throws -> [CKRecordZone.ID] {
-        let previousToken = loadServerChangeToken()
+        var currentToken = loadServerChangeToken()
 
         var changedZoneIDs: [CKRecordZone.ID] = []
         var purgedZoneIDs: [CKRecordZone.ID] = []
-        var newToken: CKServerChangeToken?
         var moreComing = true
 
         while moreComing {
-            let changes = try await sharedDB.databaseChanges(since: previousToken)
+            let changes = try await sharedDB.databaseChanges(since: currentToken)
             let modifications = changes.modifications.map(\.zoneID)
             let deletions = changes.deletions.map(\.zoneID)
             changedZoneIDs.append(contentsOf: modifications)
             purgedZoneIDs.append(contentsOf: deletions)
-            newToken = changes.changeToken
+            currentToken = changes.changeToken
             moreComing = changes.moreComing
         }
 
@@ -136,8 +135,8 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             clearZoneChangeToken(for: zoneID)
         }
 
-        if let newToken {
-            saveServerChangeToken(newToken)
+        if let currentToken {
+            saveServerChangeToken(currentToken)
         }
 
         return changedZoneIDs
@@ -151,19 +150,20 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     /// state immediately rather than waiting for the next automatic sync cycle.
     private func fetchZoneChanges(in zoneIDs: [CKRecordZone.ID]) async throws {
         for zoneID in zoneIDs {
-            let previousToken = loadZoneChangeToken(for: zoneID)
+            var currentToken = loadZoneChangeToken(for: zoneID)
             var moreComing = true
 
             while moreComing {
                 let changes = try await sharedDB.recordZoneChanges(
                     inZoneWith: zoneID,
-                    since: previousToken
+                    since: currentToken
                 )
 
                 Self.logger.info(
                     "Zone \(zoneID.zoneName): \(changes.modificationResultsByID.count) modified, \(changes.deletions.count) deleted"
                 )
 
+                currentToken = changes.changeToken
                 saveZoneChangeToken(changes.changeToken, for: zoneID)
 
                 moreComing = changes.moreComing

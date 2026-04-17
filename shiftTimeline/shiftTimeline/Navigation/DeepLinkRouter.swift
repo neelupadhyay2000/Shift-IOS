@@ -53,8 +53,6 @@ final class DeepLinkRouter {
         guard url.scheme == "shift",
               let host = url.host else { return false }
 
-        // URL structure: shift://event/{uuid} or shift://live/{uuid}
-        let pathID = url.pathComponents.count > 1 ? url.pathComponents[1] : host
         // Support both shift://event/UUID and shift://event?id=UUID
         let rawID: String
         if let queryID = URLComponents(url: url, resolvingAgainstBaseURL: false)?

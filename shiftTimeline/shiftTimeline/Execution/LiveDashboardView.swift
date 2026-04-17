@@ -267,8 +267,7 @@ struct LiveDashboardView: View {
         if let event {
             VendorShiftNotifier.applyThresholdNotifications(
                 event: event,
-                blocks: result.blocks,
-                delta: delta
+                blocks: result.blocks
             )
         }
 

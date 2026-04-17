@@ -9,7 +9,6 @@ import SwiftData
 struct VendorNotificationSettingsView: View {
 
     @Bindable var vendor: VendorModel
-    @Environment(\.modelContext) private var modelContext
 
     /// Threshold in minutes, backed by the model's `TimeInterval` (seconds).
     private var thresholdMinutes: Binding<Double> {
@@ -39,7 +38,7 @@ struct VendorNotificationSettingsView: View {
                 .listRowSeparator(.hidden)
 
                 HStack {
-                    Text("\(Int(thresholdMinutes.wrappedValue)) minutes")
+                    Text("\(Int(thresholdMinutes.wrappedValue)) minutes", tableName: "Localizable", comment: "Notification threshold in minutes")
                         .font(.title3.monospacedDigit())
                         .fontWeight(.semibold)
                     Spacer()

@@ -2,15 +2,20 @@ import SwiftData
 
 /// Describes the evolution of the SHIFT schema across app versions.
 ///
-/// Currently contains only V1 with no migration stages.
-/// When a V2 is added, insert a `.lightweight(fromVersion:toVersion:)`
-/// or `.custom(fromVersion:toVersion:willMigrate:didMigrate:)` stage.
+/// V1 → V2: Adds vendor notification fields (`notificationThreshold`,
+/// `pendingShiftDelta`, `hasAcknowledgedLatestShift`) to `VendorModel`.
+/// All new properties have defaults, so lightweight migration suffices.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self]
     }
 
     public static var stages: [MigrationStage] {
-        []
+        [migrateV1toV2]
     }
+
+    private static let migrateV1toV2 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV1.self,
+        toVersion: SHIFTSchemaV2.self
+    )
 }

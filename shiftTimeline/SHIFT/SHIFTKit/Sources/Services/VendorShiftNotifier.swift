@@ -23,11 +23,9 @@ public enum VendorShiftNotifier {
     /// - Parameters:
     ///   - event: The event whose vendors to evaluate.
     ///   - blocks: The blocks after the engine has mutated them.
-    ///   - delta: The original shift delta (seconds) requested by the planner.
     public static func applyThresholdNotifications(
         event: EventModel,
-        blocks: [TimeBlockModel],
-        delta: TimeInterval
+        blocks: [TimeBlockModel]
     ) {
         // Compute per-block deltas (how much each block actually moved).
         var blockDeltas: [UUID: TimeInterval] = [:]

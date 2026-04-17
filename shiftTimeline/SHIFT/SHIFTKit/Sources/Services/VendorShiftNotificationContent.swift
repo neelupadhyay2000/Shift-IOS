@@ -35,10 +35,10 @@ public enum VendorShiftNotificationContent {
     }
 
     /// Returns the vendor's next upcoming assigned block (sorted by `scheduledStart`),
-    /// excluding completed blocks.
+    /// excluding completed, active, and overtime blocks.
     public static func nextUpcomingBlock(for vendor: VendorModel) -> TimeBlockModel? {
         (vendor.assignedBlocks ?? [])
-            .filter { $0.status != .completed }
+            .filter { $0.status == .upcoming }
             .sorted { $0.scheduledStart < $1.scheduledStart }
             .first
     }

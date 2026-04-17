@@ -133,7 +133,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) {
         // CloudKit silent push — fetch shared-zone changes.
         let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        guard notification?.subscriptionID == "shared-zone-changes" else {
+        guard notification?.subscriptionID == SharedZoneSubscriptionManager.subscriptionID else {
             completionHandler(.noData)
             return
         }

@@ -90,8 +90,7 @@ struct ShiftTimelineIntent: AppIntent {
         case .clean, .hasCollisions, .impossible:
             VendorShiftNotifier.applyThresholdNotifications(
                 event: event,
-                blocks: result.blocks,
-                delta: delta
+                blocks: result.blocks
             )
             do {
                 try context.save()
