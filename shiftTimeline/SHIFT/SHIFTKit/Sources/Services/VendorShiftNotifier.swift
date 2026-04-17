@@ -39,25 +39,39 @@ public enum VendorShiftNotifier {
 
         guard !blockDeltas.isEmpty else { return }
 
+        let allVendors = event.vendors ?? []
+        let eventMaxDelta = blockDeltas.values
+            .max(by: { abs($0) < abs($1) }) ?? 0
+
+        // Phase 1: Reset ALL vendors atomically — a new shift invalidates
+        // every prior acknowledgment regardless of threshold.
+        for vendor in allVendors {
+            vendor.hasAcknowledgedLatestShift = false
+            vendor.pendingShiftDelta = eventMaxDelta
+        }
+
+        // Phase 2: Evaluate per-vendor thresholds. Vendors with assigned
+        // blocks that shifted get their own precise delta; the threshold
+        // flag is used by VendorShiftLocalNotifier to decide whether to
+        // post a visible push notification.
         let decisions = VendorNotificationEvaluator.evaluate(
             event: event,
             shiftedBlockDeltas: blockDeltas
         )
 
         for decision in decisions {
-            guard let vendor = (event.vendors ?? []).first(where: { $0.id == decision.vendorID }) else {
+            guard let vendor = allVendors.first(where: { $0.id == decision.vendorID }) else {
                 continue
             }
 
+            // Overwrite with the vendor-specific max delta for precision.
+            vendor.pendingShiftDelta = decision.maxDelta
+
             if decision.shouldNotifyVisibly {
-                vendor.pendingShiftDelta = decision.maxDelta
-                vendor.hasAcknowledgedLatestShift = false
                 logger.info(
                     "Vendor \(vendor.name): shift \(Int(decision.maxDelta / 60))min >= threshold \(Int(decision.threshold / 60))min — visible notification"
                 )
             } else {
-                // Below threshold — clear any stale pending alert, silent sync suffices.
-                vendor.pendingShiftDelta = nil
                 logger.info(
                     "Vendor \(vendor.name): shift \(Int(decision.maxDelta / 60))min < threshold \(Int(decision.threshold / 60))min — silent only"
                 )
