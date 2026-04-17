@@ -1,7 +1,4 @@
 import SwiftUI
-#if canImport(UIKit)
-import UIKit
-#endif
 import Models
 
 /// Grid of vendor avatars showing acknowledgment status for the active event.
@@ -40,44 +37,52 @@ struct VendorAckGrid: View {
 
     // MARK: - Cell
 
+    @ViewBuilder
     private func vendorCell(_ vendor: VendorModel) -> some View {
         let isPending = !vendor.hasAcknowledgedLatestShift
             && vendor.pendingShiftDelta != nil
 
-        return Menu {
-            if isPending {
+        if isPending {
+            Menu {
                 callButton(for: vendor)
+            } label: {
+                vendorCellContent(vendor, isPending: true)
             }
-        } label: {
-            VStack(spacing: 4) {
-                ZStack(alignment: .bottomTrailing) {
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 48, height: 48)
-                        .overlay {
-                            Text(initials(for: vendor.name))
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.primary)
-                        }
-
-                    statusBadge(isPending: isPending)
-                }
-
-                Text(vendor.name)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(maxWidth: 64)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(
-                isPending
-                    ? String(localized: "\(vendor.name), pending acknowledgment")
-                    : String(localized: "\(vendor.name), acknowledged")
-            )
+            .menuStyle(.borderlessButton)
+        } else {
+            vendorCellContent(vendor, isPending: false)
         }
-        .menuStyle(.borderlessButton)
-        .disabled(!isPending)
+    }
+
+    private func vendorCellContent(_ vendor: VendorModel, isPending: Bool) -> some View {
+        VStack(spacing: 4) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 48, height: 48)
+                    .overlay {
+                        Text(initials(for: vendor.name))
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                    }
+
+                statusBadge(isPending: isPending)
+            }
+
+            Text(vendor.name)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(maxWidth: 64)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            isPending
+                ? String(localized: "\(vendor.name), pending acknowledgment",
+                         comment: "Accessibility: vendor name followed by pending status")
+                : String(localized: "\(vendor.name), acknowledged",
+                         comment: "Accessibility: vendor name followed by acknowledged status")
+        )
     }
 
     // MARK: - Status Badge
@@ -97,14 +102,15 @@ struct VendorAckGrid: View {
 
     @ViewBuilder
     private func callButton(for vendor: VendorModel) -> some View {
-        let digits = normalizedPhone(vendor.phone)
+        let digits = vendor.phone.normalizedPhoneDigits
 
         if !digits.isEmpty, let telURL = URL(string: "tel://\(digits)") {
             Button {
                 openURL(telURL)
             } label: {
                 Label(
-                    String(localized: "Call \(vendor.name)"),
+                    String(localized: "Call \(vendor.name)",
+                           comment: "Quick-call menu action for a vendor"),
                     systemImage: "phone.fill"
                 )
             }
@@ -127,13 +133,5 @@ struct VendorAckGrid: View {
             let last = components[components.count - 1].prefix(1)
             return "\(first)\(last)".uppercased()
         }
-    }
-
-    private func normalizedPhone(_ raw: String) -> String {
-        let stripped = raw.filter { $0.isNumber || $0 == "+" }
-        let hasLeadingPlus = stripped.hasPrefix("+")
-        let digitsOnly = stripped.filter { $0.isNumber }
-        guard !digitsOnly.isEmpty else { return "" }
-        return hasLeadingPlus ? "+\(digitsOnly)" : digitsOnly
     }
 }

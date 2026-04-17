@@ -2,13 +2,21 @@ import Foundation
 import Models
 import os
 
-/// After the planner commits a shift, this helper evaluates each vendor's
-/// notification threshold and stamps `pendingShiftDelta` on vendors whose
-/// assigned blocks shifted enough to warrant a visible notification.
+/// After the planner commits a shift, this helper resets all vendor
+/// acknowledgment flags and stamps `pendingShiftDelta` on every vendor
+/// attached to the event.
 ///
-/// The `pendingShiftDelta` value syncs to the vendor's device via CloudKit,
-/// where it triggers a local notification. Vendors below threshold still
-/// receive the data via silent sync — they just don't get an alert.
+/// `pendingShiftDelta` serves two purposes:
+///   1. **In-app acknowledgment tracking** — the vendor-facing
+///      `ShiftAcknowledgmentBanner` and the planner-facing `VendorAckGrid`
+///      both read it to decide whether a vendor has an unacknowledged shift.
+///      It is set on ALL vendors (even those below threshold or unassigned)
+///      so the planner's grid shows every vendor as pending after a shift.
+///   2. **Push notification trigger** — `VendorShiftLocalNotifier` reads it
+///      on the vendor's device after CloudKit sync and posts a visible local
+///      notification only when `abs(pendingShiftDelta) >= notificationThreshold`.
+///
+/// The field is cleared when the vendor taps the acknowledgment banner.
 public enum VendorShiftNotifier {
 
     private static let logger = Logger(
@@ -16,9 +24,10 @@ public enum VendorShiftNotifier {
         category: "VendorShiftNotifier"
     )
 
-    /// Evaluates threshold logic and stamps `pendingShiftDelta` on qualifying vendors.
+    /// Resets all vendor acknowledgment flags and stamps `pendingShiftDelta`.
     ///
-    /// Call after `RippleEngine.recalculate()` succeeds and before `modelContext.save()`.
+    /// Call after `RippleEngine.recalculate()` succeeds and before
+    /// `modelContext.save()` so the reset is atomic with the shift persist.
     ///
     /// - Parameters:
     ///   - event: The event whose vendors to evaluate.

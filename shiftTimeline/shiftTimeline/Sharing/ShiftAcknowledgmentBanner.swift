@@ -35,11 +35,13 @@ struct ShiftAcknowledgmentBanner: View {
                     .foregroundStyle(.white)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Timeline updated \(formattedDelta)")
+                    Text(String(localized: "Timeline updated \(formattedDelta)",
+                                comment: "Banner title showing shift delta e.g. Timeline updated +15 min"))
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
-                    Text("Tap to acknowledge.")
+                    Text(String(localized: "Tap to acknowledge.",
+                                comment: "Banner subtitle prompting vendor to tap"))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.85))
                 }
@@ -62,6 +64,9 @@ struct ShiftAcknowledgmentBanner: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("Timeline updated \(formattedDelta). Tap to acknowledge."))
+        .accessibilityLabel(
+            String(localized: "Timeline updated \(formattedDelta). Tap to acknowledge.",
+                   comment: "Accessibility label for shift acknowledgment banner")
+        )
     }
 }

@@ -42,7 +42,7 @@ struct VendorQuickContactRow: View {
 
     @ViewBuilder
     private func contextMenuItems(for vendor: VendorModel) -> some View {
-        let digits = normalizedPhone(vendor.phone)
+        let digits = vendor.phone.normalizedPhoneDigits
         let canCall = !digits.isEmpty && canOpen("tel://")
         let canMessage = !digits.isEmpty && canOpen("sms:")
 
@@ -94,18 +94,9 @@ struct VendorQuickContactRow: View {
 
     /// Whether this vendor has at least one contactable action on this device.
     private func hasContactActions(for vendor: VendorModel) -> Bool {
-        let digits = normalizedPhone(vendor.phone)
+        let digits = vendor.phone.normalizedPhoneDigits
         guard !digits.isEmpty else { return false }
         return canOpen("tel://") || canOpen("sms:")
-    }
-
-    /// Normalizes a phone string to an optional leading "+" followed by digits only.
-    private func normalizedPhone(_ raw: String) -> String {
-        let stripped = raw.filter { $0.isNumber || $0 == "+" }
-        let hasLeadingPlus = stripped.hasPrefix("+")
-        let digitsOnly = stripped.filter { $0.isNumber }
-        guard !digitsOnly.isEmpty else { return "" }
-        return hasLeadingPlus ? "+\(digitsOnly)" : digitsOnly
     }
 
     private func canOpen(_ scheme: String) -> Bool {
