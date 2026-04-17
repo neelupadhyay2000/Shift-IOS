@@ -31,13 +31,17 @@ enum VendorShiftLocalNotifier {
 
     // MARK: - Scan & Post
 
-    /// Scans all vendors on the given event for a non-nil `pendingShiftDelta`.
-    /// For each qualifying vendor, posts a personalised local notification
-    /// and clears the pending delta.
+    /// Scans all vendors on the given event for a non-nil `pendingShiftDelta`
+    /// that exceeds their personal notification threshold. Posts a visible
+    /// local notification only for above-threshold vendors.
     static func processAndNotify(event: EventModel) async {
         let vendors = event.vendors ?? []
         for vendor in vendors {
             guard let delta = vendor.pendingShiftDelta else { continue }
+            // Only post a visible push for vendors whose shift exceeds
+            // their configured threshold. All vendors still have
+            // pendingShiftDelta set for the in-app banner/grid.
+            guard abs(delta) >= vendor.notificationThreshold else { continue }
 
             let body = VendorShiftNotificationContent.body(
                 delta: delta,
@@ -52,8 +56,11 @@ enum VendorShiftLocalNotifier {
                 VendorShiftNotificationContent.eventIDKey: event.id.uuidString
             ]
 
+            // Deterministic ID per vendor — replaces any prior shift
+            // notification so we don't spam if processAndNotify runs again
+            // before the vendor acknowledges.
             let request = UNNotificationRequest(
-                identifier: "shift-\(vendor.id.uuidString)-\(Date.now.timeIntervalSince1970)",
+                identifier: "shift-\(vendor.id.uuidString)",
                 content: content,
                 trigger: nil
             )
@@ -65,7 +72,9 @@ enum VendorShiftLocalNotifier {
                 logger.error("Failed to post notification for \(vendor.name): \(error.localizedDescription)")
             }
 
-            vendor.pendingShiftDelta = nil
+            // pendingShiftDelta is intentionally preserved — the in-app
+            // acknowledgment banner reads it to display the shift amount.
+            // It is cleared when the vendor taps the banner to acknowledge.
             vendor.hasAcknowledgedLatestShift = false
         }
     }

@@ -36,6 +36,17 @@ struct EventDetailView: View {
         event?.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) ?? true
     }
 
+    /// The VendorModel linked to the current iCloud user, if this is a shared event.
+    private var currentVendor: VendorModel? {
+        event?.vendorForUser(CloudKitIdentity.shared.currentUserRecordName)
+    }
+
+    /// True when the current vendor has an unacknowledged shift with a known delta.
+    private var showAcknowledgmentBanner: Bool {
+        guard !isOwner, let vendor = currentVendor else { return false }
+        return !vendor.hasAcknowledgedLatestShift && vendor.pendingShiftDelta != nil
+    }
+
     var body: some View {
         Group {
             if let event {
@@ -54,6 +65,9 @@ struct EventDetailView: View {
     private func eventContent(_ event: EventModel) -> some View {
         ScrollView {
             VStack(spacing: 16) {
+                if showAcknowledgmentBanner, let vendor = currentVendor {
+                    ShiftAcknowledgmentBanner(vendor: vendor)
+                }
                 heroHeader(event)
                 quickAccessCards(event)
                 locationSection(event)
