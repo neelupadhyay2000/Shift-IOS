@@ -182,6 +182,35 @@ struct EventRosterTests {
         #expect((mainTrack.blocks ?? []).first?.title == "Ceremony")
     }
 
+    // MARK: - Share URL Persistence
+
+    /// AC: shareURL persists through SwiftData save/fetch cycle and can be cleared.
+    @Test @MainActor func shareURLPersistsAndClears() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Shared Event", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        try context.save()
+
+        // Initially nil
+        #expect(event.shareURL == nil)
+
+        // Set and persist
+        event.shareURL = "https://www.icloud.com/share/abc123"
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(fetched.first?.shareURL == "https://www.icloud.com/share/abc123")
+
+        // Clear and persist
+        fetched.first?.shareURL = nil
+        try context.save()
+
+        let refetched = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(refetched.first?.shareURL == nil)
+    }
+
     /// AC: Cascade delete removes the auto-created Main track and its blocks.
     @Test @MainActor func deleteEventCascadesAutoCreatedMainTrack() async throws {
         let container = try PersistenceController.forTesting()
