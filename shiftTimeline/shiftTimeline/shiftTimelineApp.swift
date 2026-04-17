@@ -68,6 +68,9 @@ struct shiftTimelineApp: App {
             RootNavigator()
                 .environment(watchSessionManager)
                 .environment(deepLinkRouter)
+                .onOpenURL { url in
+                    deepLinkRouter.handle(url: url)
+                }
                 .task {
                     watchSessionManager.activate()
                     await CloudKitIdentity.shared.fetchAndCache()
@@ -155,6 +158,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             switch result {
             case .success:
                 Self.logger.info("Successfully accepted CloudKit share")
+                // Switch to Events tab so the vendor sees the shared event
+                // once NSPersistentCloudKitContainer mirrors the records.
+                Task { @MainActor in
+                    DeepLinkRouter.shared.pendingDestination = .roster
+                }
             case .failure(let error):
                 Self.logger.error("Failed to accept share: \(error.localizedDescription)")
             }

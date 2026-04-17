@@ -13,6 +13,7 @@ struct WatchContextTests {
     @Test func fullContextRoundTripsViaDictionary() {
         let now = Date.now
         let context = WatchContext(
+            eventID: UUID(),
             eventTitle: "Smith Wedding",
             activeBlockTitle: "Ceremony",
             activeBlockEndTime: now.addingTimeInterval(1800),
@@ -26,6 +27,7 @@ struct WatchContextTests {
         let decoded = WatchContext(dictionary: dict)
 
         #expect(decoded != nil)
+        #expect(decoded?.eventID == context.eventID)
         #expect(decoded?.eventTitle == "Smith Wedding")
         #expect(decoded?.activeBlockTitle == "Ceremony")
         #expect(decoded?.nextBlockTitle == "Cocktail Hour")
@@ -44,6 +46,7 @@ struct WatchContextTests {
 
     @Test func contextWithNilOptionalsRoundTrips() {
         let context = WatchContext(
+            eventID: UUID(),
             eventTitle: "Gala",
             activeBlockTitle: "Setup",
             activeBlockEndTime: .now.addingTimeInterval(600),
@@ -70,7 +73,7 @@ struct WatchContextTests {
     }
 
     @Test func contextFromPartialDictionaryReturnsNil() {
-        // Missing activeBlockEndTime
+        // Missing activeBlockEndTime and eventID
         let dict: [String: Any] = [
             "eventTitle": "Test",
             "activeBlockTitle": "Block",
@@ -81,6 +84,7 @@ struct WatchContextTests {
 
     @Test func contextDictionaryOmitsNilOptionals() {
         let context = WatchContext(
+            eventID: UUID(),
             eventTitle: "E",
             activeBlockTitle: "B",
             activeBlockEndTime: .now,
@@ -131,6 +135,7 @@ struct WatchContextTests {
 
     @Test func watchContextCodableRoundTrip() throws {
         let context = WatchContext(
+            eventID: UUID(),
             eventTitle: "Event",
             activeBlockTitle: "Block",
             activeBlockEndTime: .now,

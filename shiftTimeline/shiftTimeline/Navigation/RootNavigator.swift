@@ -125,11 +125,9 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.settings.rawValue, systemImage: Tab.settings.systemImage) }
             .tag(Tab.settings)
         }
-        .onChange(of: deepLinkRouter.pendingEventID) { _, eventID in
-            guard let eventID else { return }
-            selectedTab = .events
-            eventPath = [.eventDetail(id: eventID)]
-            deepLinkRouter.pendingEventID = nil
+        .onChange(of: deepLinkRouter.pendingDestination) { _, destination in
+            guard let destination else { return }
+            routeToDestination(destination)
         }
     }
 
@@ -172,12 +170,10 @@ struct RootNavigator: View {
                 sidebarSelection = selectedTab
             }
         }
-        .onChange(of: deepLinkRouter.pendingEventID) { _, eventID in
-            guard let eventID else { return }
-            selectedTab = .events
+        .onChange(of: deepLinkRouter.pendingDestination) { _, destination in
+            guard let destination else { return }
             sidebarSelection = .events
-            eventPath = [.eventDetail(id: eventID)]
-            deepLinkRouter.pendingEventID = nil
+            routeToDestination(destination)
         }
     }
 
@@ -206,6 +202,21 @@ struct RootNavigator: View {
                     }
             }
         }
+    }
+
+    // MARK: - Deep-Link Routing
+
+    private func routeToDestination(_ destination: DeepLinkDestination) {
+        selectedTab = .events
+        switch destination {
+        case .event(let id):
+            eventPath = [.eventDetail(id: id)]
+        case .live(let id):
+            eventPath = [.eventDetail(id: id), .liveDashboard(eventID: id)]
+        case .roster:
+            eventPath = []
+        }
+        deepLinkRouter.pendingDestination = nil
     }
 
     // MARK: - Destination routing
