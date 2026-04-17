@@ -246,42 +246,110 @@ struct EventDetailView: View {
         }
     }
 
-    /// Creates a new `CKShare` tied to the event's CKRecord, saves it, and presents the sheet.
+    /// Creates a new `CKShare` tied to the event's mirrored CloudKit record,
+    /// saves it, and presents the sheet.
     private func createNewShare(for event: EventModel) {
-        // Fetch the event's underlying CKRecord so the share is tied to it.
-        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
-        let recordID = CKRecord.ID(recordName: "CD_EventModel_\(event.id.uuidString)", zoneID: zoneID)
-
-        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: recordID) { rootRecord, fetchError in
+        fetchEventRootRecord(for: event) { result in
             Task { @MainActor in
-                guard let rootRecord else {
-                    self.isPreparingShare = false
-                    self.shareError = fetchError?.localizedDescription ?? String(localized: "Could not find event record")
-                    return
-                }
+                switch result {
+                case .success(let rootRecord):
+                    let share = CKShare(rootRecord: rootRecord)
+                    share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
+                    share.publicPermission = .readOnly
 
-                let share = CKShare(rootRecord: rootRecord)
-                share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
-                share.publicPermission = .readOnly
-
-                let operation = CKModifyRecordsOperation(recordsToSave: [rootRecord, share], recordIDsToDelete: nil)
-                operation.modifyRecordsResultBlock = { result in
-                    Task { @MainActor in
-                        self.isPreparingShare = false
-                        switch result {
-                        case .success:
-                            event.shareURL = share.url?.absoluteString
-                            try? self.modelContext.save()
-                            self.activeShareForSheet = share
-                            self.isShowingShareSheet = true
-                        case .failure(let error):
-                            self.shareError = error.localizedDescription
+                    let operation = CKModifyRecordsOperation(
+                        recordsToSave: [rootRecord, share],
+                        recordIDsToDelete: nil
+                    )
+                    operation.modifyRecordsResultBlock = { result in
+                        Task { @MainActor in
+                            self.isPreparingShare = false
+                            switch result {
+                            case .success:
+                                event.shareURL = share.url?.absoluteString
+                                try? self.modelContext.save()
+                                self.activeShareForSheet = share
+                                self.isShowingShareSheet = true
+                            case .failure(let error):
+                                self.shareError = error.localizedDescription
+                            }
                         }
                     }
+                    self.cloudKitContainer.privateCloudDatabase.add(operation)
+
+                case .failure(let error):
+                    self.isPreparingShare = false
+                    self.shareError = error.localizedDescription
                 }
-                self.cloudKitContainer.privateCloudDatabase.add(operation)
             }
         }
+    }
+
+    /// Finds the mirrored CloudKit root record for an event.
+    ///
+    /// Core Data / SwiftData uses opaque record names, so we must not derive the
+    /// `CKRecord.ID` from the model UUID.
+    private func fetchEventRootRecord(
+        for event: EventModel,
+        completion: @escaping (Result<CKRecord, Error>) -> Void
+    ) {
+        let query = CKQuery(recordType: "CD_EventModel", predicate: NSPredicate(value: true))
+        var foundRecord: CKRecord?
+
+        func runQuery(cursor: CKQueryOperation.Cursor? = nil) {
+            let operation = if let cursor {
+                CKQueryOperation(cursor: cursor)
+            } else {
+                CKQueryOperation(query: query)
+            }
+
+            var pageError: Error?
+
+            operation.recordMatchedBlock = { _, result in
+                switch result {
+                case .success(let record):
+                    let possibleValues: [Any?] = [record["id"], record["CD_id"]]
+                    let isMatch = possibleValues.contains { value in
+                        if let uuid = value as? UUID {
+                            return uuid == event.id
+                        }
+                        if let string = value as? String {
+                            return string == event.id.uuidString
+                        }
+                        return false
+                    }
+
+                    if isMatch {
+                        foundRecord = record
+                    }
+
+                case .failure(let error):
+                    pageError = error
+                }
+            }
+
+            operation.queryResultBlock = { result in
+                switch result {
+                case .success(let nextCursor):
+                    if let foundRecord {
+                        completion(.success(foundRecord))
+                    } else if let nextCursor {
+                        runQuery(cursor: nextCursor)
+                    } else if let pageError {
+                        completion(.failure(pageError))
+                    } else {
+                        completion(.failure(SharingLookupError.eventNotYetSynced))
+                    }
+
+                case .failure(let error):
+                    completion(.failure(error))
+                }
+            }
+
+            cloudKitContainer.privateCloudDatabase.add(operation)
+        }
+
+        runQuery()
     }
 
     /// Fetches an existing `CKShare` by its URL and presents the management sheet.
@@ -315,6 +383,14 @@ struct EventDetailView: View {
                     self.shareError = String(localized: "Could not load share details")
                 }
             }
+        }
+    }
+
+    private enum SharingLookupError: LocalizedError {
+        case eventNotYetSynced
+
+        var errorDescription: String? {
+            String(localized: "This event hasn't synced to iCloud yet. Please wait a moment and try sharing again.")
         }
     }
 
