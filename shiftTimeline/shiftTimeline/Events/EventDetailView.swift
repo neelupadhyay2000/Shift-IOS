@@ -33,7 +33,7 @@ struct EventDetailView: View {
     private var event: EventModel? { results.first }
 
     private var isOwner: Bool {
-        event?.isOwnedBy(CloudKitIdentity.currentUserRecordName) ?? true
+        event?.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) ?? true
     }
 
     var body: some View {
@@ -219,6 +219,16 @@ struct EventDetailView: View {
                 )
             }
         }
+        .alert("Sharing Error", isPresented: Binding(
+            get: { shareError != nil },
+            set: { if !$0 { shareError = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            if let shareError {
+                Text(shareError)
+            }
+        }
     }
 
     /// Prepares a CKShare (creating or fetching as needed) then presents
@@ -236,28 +246,42 @@ struct EventDetailView: View {
         }
     }
 
-    /// Creates a new `CKShare`, saves it to CloudKit, persists the URL, and presents the sheet.
+    /// Creates a new `CKShare` tied to the event's CKRecord, saves it, and presents the sheet.
     private func createNewShare(for event: EventModel) {
-        let share = CKShare(recordZoneID: .default)
-        share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
-        share.publicPermission = .readOnly
+        // Fetch the event's underlying CKRecord so the share is tied to it.
+        let zoneID = CKRecordZone.ID(zoneName: "com.apple.coredata.cloudkit.zone", ownerName: CKCurrentUserDefaultName)
+        let recordID = CKRecord.ID(recordName: "CD_EventModel_\(event.id.uuidString)", zoneID: zoneID)
 
-        let operation = CKModifyRecordsOperation(recordsToSave: [share], recordIDsToDelete: nil)
-        operation.modifyRecordsResultBlock = { result in
+        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: recordID) { rootRecord, fetchError in
             Task { @MainActor in
-                self.isPreparingShare = false
-                switch result {
-                case .success:
-                    event.shareURL = share.url?.absoluteString
-                    try? self.modelContext.save()
-                    self.activeShareForSheet = share
-                    self.isShowingShareSheet = true
-                case .failure(let error):
-                    self.shareError = error.localizedDescription
+                guard let rootRecord else {
+                    self.isPreparingShare = false
+                    self.shareError = fetchError?.localizedDescription ?? String(localized: "Could not find event record")
+                    return
                 }
+
+                let share = CKShare(rootRecord: rootRecord)
+                share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
+                share.publicPermission = .readOnly
+
+                let operation = CKModifyRecordsOperation(recordsToSave: [rootRecord, share], recordIDsToDelete: nil)
+                operation.modifyRecordsResultBlock = { result in
+                    Task { @MainActor in
+                        self.isPreparingShare = false
+                        switch result {
+                        case .success:
+                            event.shareURL = share.url?.absoluteString
+                            try? self.modelContext.save()
+                            self.activeShareForSheet = share
+                            self.isShowingShareSheet = true
+                        case .failure(let error):
+                            self.shareError = error.localizedDescription
+                        }
+                    }
+                }
+                self.cloudKitContainer.privateCloudDatabase.add(operation)
             }
         }
-        cloudKitContainer.privateCloudDatabase.add(operation)
     }
 
     /// Fetches an existing `CKShare` by its URL and presents the management sheet.
@@ -281,7 +305,7 @@ struct EventDetailView: View {
 
     private func resolveShare(from metadata: CKShare.Metadata) {
         let shareRecordID = metadata.share.recordID
-        cloudKitContainer.sharedCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
+        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
             Task { @MainActor in
                 self.isPreparingShare = false
                 if let share = record as? CKShare {

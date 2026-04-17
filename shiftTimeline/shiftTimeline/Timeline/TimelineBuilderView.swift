@@ -49,7 +49,7 @@ struct TimelineBuilderView: View {
     /// True when the current user does not own this event (shared read-only).
     private var isReadOnly: Bool {
         guard let event else { return false }
-        return !event.isOwnedBy(CloudKitIdentity.currentUserRecordName)
+        return !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
     }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.

@@ -36,21 +36,29 @@ struct shiftTimelineApp: App {
         SunsetPrefetchTask.scheduleNextRefresh()
     }
 
+    private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
+
     /// One-time migration: stamps existing events with the current user's
     /// CloudKit record name so the shared-event detection works for
     /// events created before `ownerRecordName` was introduced.
     @MainActor
     private func backfillOwnerRecordNames() {
-        guard let recordName = CloudKitIdentity.currentUserRecordName else { return }
+        guard let recordName = CloudKitIdentity.shared.currentUserRecordName else { return }
         let context = PersistenceController.shared.container.mainContext
         let descriptor = FetchDescriptor<EventModel>(
             predicate: #Predicate<EventModel> { $0.ownerRecordName == nil }
         )
-        guard let events = try? context.fetch(descriptor), !events.isEmpty else { return }
-        for event in events {
-            event.ownerRecordName = recordName
+        do {
+            let events = try context.fetch(descriptor)
+            guard !events.isEmpty else { return }
+            for event in events {
+                event.ownerRecordName = recordName
+            }
+            try context.save()
+            Self.logger.info("Backfilled ownerRecordName for \(events.count) events")
+        } catch {
+            Self.logger.error("Failed to backfill ownerRecordNames: \(error.localizedDescription)")
         }
-        try? context.save()
     }
 
     var body: some Scene {
@@ -59,7 +67,7 @@ struct shiftTimelineApp: App {
                 .environment(watchSessionManager)
                 .task {
                     watchSessionManager.activate()
-                    await CloudKitIdentity.fetchAndCache()
+                    await CloudKitIdentity.shared.fetchAndCache()
                     backfillOwnerRecordNames()
                 }
         }

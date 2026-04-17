@@ -98,14 +98,14 @@ struct EventRosterView: View {
                             title: event.title,
                             date: event.date,
                             status: event.status,
-                            isShared: !event.isOwnedBy(CloudKitIdentity.currentUserRecordName)
+                            isShared: !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
                         )
                         .premiumCard()
                     }
                     .buttonStyle(.plain)
                     .scrollFade()
                     .contextMenu {
-                        if event.isOwnedBy(CloudKitIdentity.currentUserRecordName) {
+                        if event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) {
                             Button(role: .destructive) {
                                 eventPendingDeletion = event
                             } label: {

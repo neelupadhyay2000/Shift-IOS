@@ -1,3 +1,4 @@
+#if canImport(UIKit)
 import SwiftUI
 import UIKit
 import CloudKit
@@ -59,7 +60,7 @@ struct CloudSharingView: UIViewControllerRepresentable {
             self.eventTitle = eventTitle
             self.onShareSaved = onShareSaved
             self.onShareStopped = onShareStopped
-            self.onError = onError
+            self.onError = onError  
         }
 
         func cloudSharingControllerDidSaveShare(_ csc: UICloudSharingController) {
@@ -83,3 +84,4 @@ struct CloudSharingView: UIViewControllerRepresentable {
         }
     }
 }
+#endif

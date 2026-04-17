@@ -31,12 +31,12 @@ struct SharingTests {
         #expect(event.isOwnedBy(nil) == true)
     }
 
-    @Test func isOwnedByReturnsTrueWhenCurrentUserIsNil() {
-        // iCloud unavailable — treat as owned to avoid locking out
+    @Test func isOwnedByReturnsFalseWhenCurrentUserIsNil() {
+        // iCloud unavailable + event has an owner — default to read-only
         let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
         event.ownerRecordName = "user_abc"
 
-        #expect(event.isOwnedBy(nil) == true)
+        #expect(event.isOwnedBy(nil) == false)
     }
 
     // MARK: - EventModel.vendorForUser

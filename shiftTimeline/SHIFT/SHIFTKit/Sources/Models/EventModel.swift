@@ -33,11 +33,13 @@ public final class EventModel {
     public var shiftRecords: [ShiftRecord]?
 
     /// Returns `true` when the current user is the event owner (planner).
-    /// Returns `true` for pre-feature events (`ownerRecordName == nil`) and
-    /// when iCloud identity is unavailable (`currentUserRecordName == nil`).
+    /// Returns `true` for pre-feature events (`ownerRecordName == nil`).
+    /// Returns `false` when the event has an owner but the current user's
+    /// identity is unknown — this prevents shared events from appearing
+    /// editable before iCloud identity is fetched.
     public func isOwnedBy(_ currentUserRecordName: String?) -> Bool {
         guard let ownerRecordName else { return true }
-        guard let currentUserRecordName else { return true }
+        guard let currentUserRecordName else { return false }
         return ownerRecordName == currentUserRecordName
     }
 

@@ -113,7 +113,7 @@ struct TrackColumnView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
-        .draggable(isReadOnly ? "" : block.id.uuidString)
+        .modifier(ConditionalDraggable(isEnabled: !isReadOnly, payload: block.id.uuidString))
         .contextMenu {
             if !isReadOnly {
                 Button {
@@ -155,5 +155,23 @@ struct TrackColumnView: View {
 
         block.track = targetTrack
         return true
+    }
+}
+
+// MARK: - Conditional Draggable
+
+/// Applies `.draggable` only when `isEnabled` is true,
+/// avoiding ghost drag interactions in read-only mode.
+private struct ConditionalDraggable: ViewModifier {
+    let isEnabled: Bool
+    let payload: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.draggable(payload)
+        } else {
+            content
+        }
     }
 }

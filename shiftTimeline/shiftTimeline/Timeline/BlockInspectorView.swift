@@ -54,7 +54,7 @@ struct BlockInspectorView: View {
     private var canSeeDetails: Bool {
         if !isReadOnly { return true }
         guard let event else { return false }
-        guard let currentVendor = event.vendorForUser(CloudKitIdentity.currentUserRecordName) else {
+        guard let currentVendor = event.vendorForUser(CloudKitIdentity.shared.currentUserRecordName) else {
             return false
         }
         return (block.vendors ?? []).contains { $0.id == currentVendor.id }
