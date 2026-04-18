@@ -21,9 +21,9 @@ struct ShiftLiveActivity: Widget {
             // Lock Screen & Banner UI
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(context.attributes.eventName)
+                    Text(context.attributes.eventTitle)
                         .font(.headline)
-                    Text("Current: \(context.state.currentBlockName)")
+                    Text("Current: \(context.state.currentBlockTitle)")
                         .font(.subheadline)
                         .foregroundStyle(.blue)
                 }
@@ -40,7 +40,7 @@ struct ShiftLiveActivity: Widget {
                         Label("SHIFT", systemImage: "calendar.badge.clock")
                             .font(.caption2.bold())
                             .foregroundStyle(.blue)
-                        Text(context.attributes.eventName)
+                        Text(context.attributes.eventTitle)
                             .font(.caption2)
                             .lineLimit(1)
                             .foregroundStyle(.primary)
@@ -57,7 +57,7 @@ struct ShiftLiveActivity: Widget {
                     HStack {
                         Image(systemName: "clock.fill")
                             .foregroundStyle(.blue)
-                        Text(context.state.currentBlockName)
+                        Text(context.state.currentBlockTitle)
                             .font(.footnote.bold())
                             .lineLimit(1)
                         Spacer()

@@ -65,8 +65,11 @@ struct ContentView: View {
     private func startActivity() {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-        let attributes = ShiftActivityAttributes(eventName: "Preet's Bachelor Party")
-        let contentState = ShiftActivityAttributes.ContentState(currentBlockName: "Dinner at Carbone")
+        let attributes = ShiftActivityAttributes(eventTitle: "Preet's Bachelor Party")
+        let contentState = ShiftActivityAttributes.ContentState(
+            currentBlockTitle: "Dinner at Carbone",
+            endTime: .now.addingTimeInterval(1800)
+        )
         let activityContent = ActivityContent(state: contentState, staleDate: nil)
 
         do {
@@ -86,7 +89,10 @@ struct ContentView: View {
         guard let activity = currentActivity else { return }
 
         // Create a new state with updated data
-        let newState = ShiftActivityAttributes.ContentState(currentBlockName: "Speeches & Toasts 🎤")
+        let newState = ShiftActivityAttributes.ContentState(
+            currentBlockTitle: "Speeches & Toasts 🎤",
+            endTime: .now.addingTimeInterval(1200)
+        )
         let updatedContent = ActivityContent(state: newState, staleDate: nil)
 
         Task {
@@ -99,7 +105,10 @@ struct ContentView: View {
         guard let activity = currentActivity else { return }
 
         // Give it a final state before it disappears from the lock screen
-        let finalState = ShiftActivityAttributes.ContentState(currentBlockName: "Event Complete 🏁")
+        let finalState = ShiftActivityAttributes.ContentState(
+            currentBlockTitle: "Event Complete 🏁",
+            endTime: .now
+        )
         let finalContent = ActivityContent(state: finalState, staleDate: nil)
 
         Task {
