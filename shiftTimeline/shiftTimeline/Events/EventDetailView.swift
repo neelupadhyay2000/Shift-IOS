@@ -457,7 +457,8 @@ struct EventDetailView: View {
                 currentBlockTitle: active.title,
                 blockEndTime: active.scheduledStart.addingTimeInterval(active.duration),
                 nextBlockTitle: nextUp?.title,
-                sunsetTime: event.sunsetTime
+                sunsetTime: event.sunsetTime,
+                eventID: event.id
             )
         }
     }

@@ -212,13 +212,27 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         try? context.save()
     }
 
-    /// Handle notification tap — deep-link into the shared event.
+    /// Handle notification tap — deep-link into the shared event or live session.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
+
+        // Live Activity restart notification — deep-link to Live Dashboard.
+        if let isLiveRestart = userInfo["isLiveRestart"] as? Bool,
+           isLiveRestart,
+           let eventIDString = userInfo["eventID"] as? String,
+           let eventID = UUID(uuidString: eventIDString) {
+            Task { @MainActor in
+                DeepLinkRouter.shared.pendingDestination = .live(id: eventID)
+            }
+            completionHandler()
+            return
+        }
+
+        // Vendor shift notification — deep-link to event detail.
         if let eventIDString = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
            let eventID = UUID(uuidString: eventIDString) {
             Task { @MainActor in
