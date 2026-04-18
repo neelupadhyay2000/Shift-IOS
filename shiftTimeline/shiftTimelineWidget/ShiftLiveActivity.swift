@@ -82,45 +82,78 @@ struct ShiftLiveActivity: Widget {
             .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading, priority: 0.5) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("SHIFT", systemImage: "calendar.badge.clock")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.blue)
-                        Text(context.attributes.eventTitle)
-                            .font(.caption2)
-                            .lineLimit(1)
-                            .foregroundStyle(.primary)
-                    }
-                    .frame(minHeight: 36)
+                // Expanded — top: event title
+                DynamicIslandExpandedRegion(.leading) {
+                    Text(context.attributes.eventTitle)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("Live")
+                    Label("Live", systemImage: "circle.fill")
                         .font(.caption2.bold())
                         .foregroundStyle(.green)
-                        .frame(minHeight: 36)
                 }
-                DynamicIslandExpandedRegion(.bottom) {
+                // Expanded — center: current block + countdown
+                DynamicIslandExpandedRegion(.center) {
                     HStack {
-                        Image(systemName: "clock.fill")
-                            .foregroundStyle(.blue)
                         Text(context.state.currentBlockTitle)
-                            .font(.footnote.bold())
+                            .font(.headline)
                             .lineLimit(1)
                         Spacer()
+                        Text(context.state.endTime, style: .timer)
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.orange)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 8)
+                }
+                // Expanded — bottom: next block + sunset
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack {
+                        if let next = context.state.nextBlockTitle {
+                            Label {
+                                Text("Next: \(next)")
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: "forward.fill")
+                                    .font(.caption2)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        } else {
+                            Text("Last block")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if let sunset = context.state.sunsetTime {
+                            Label {
+                                Text(sunset, style: .timer)
+                                    .monospacedDigit()
+                            } icon: {
+                                Image(systemName: "sunset.fill")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
             } compactLeading: {
-                Image(systemName: "clock.fill")
-                    .foregroundStyle(.blue)
-            } compactTrailing: {
-                Text("00:00")
+                // Compact pill — block title
+                Text(context.state.currentBlockTitle)
                     .font(.caption2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } compactTrailing: {
+                // Compact pill — live countdown
+                Text(context.state.endTime, style: .timer)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.orange)
             } minimal: {
-                Image(systemName: "clock")
-                    .foregroundStyle(.blue)
+                // Minimal dot indicator
+                Image(systemName: "timer")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
         }
     }

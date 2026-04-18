@@ -24,6 +24,7 @@ struct LiveDashboardView: View {
     @Query private var results: [EventModel]
 
     @Environment(WatchSessionManager.self) private var watchSessionManager
+    @Environment(LiveActivityManager.self) private var liveActivityManager
 
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
@@ -202,6 +203,7 @@ struct LiveDashboardView: View {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
             writeWidgetData()
+            updateLiveActivity()
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -283,6 +285,7 @@ struct LiveDashboardView: View {
             try modelContext.save()
             watchSessionManager.sendCurrentContext()
             writeWidgetData()
+            updateLiveActivity()
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -297,6 +300,7 @@ struct LiveDashboardView: View {
         for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
             block.status = .upcoming
         }
+        liveActivityManager.end()
         writeNextEventPlaceholder()
         try? modelContext.save()
         dismiss()
@@ -317,8 +321,8 @@ struct LiveDashboardView: View {
 
         guard let active else {
             // No remaining blocks — event is complete.
-            // Write a non-live placeholder with the next event date so
-            // the widget transitions cleanly to "next event" state.
+            // End the Live Activity and write a non-live placeholder.
+            liveActivityManager.end()
             writeNextEventPlaceholder()
             return
         }
@@ -348,6 +352,34 @@ struct LiveDashboardView: View {
     private func reloadShiftWidgetTimelines() {
         WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
         WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
+    }
+
+    /// Updates the Lock Screen / Dynamic Island Live Activity with
+    /// the current block state. Guards against nil activity.
+    private func updateLiveActivity() {
+        guard let event else { return }
+
+        let blocks = sortedBlocks
+        let active = blocks.first(where: { $0.status == .active })
+            ?? blocks.first(where: { $0.status != .completed })
+
+        guard let active else {
+            // Event complete — end was already called from writeWidgetData.
+            return
+        }
+
+        let nextUp: TimeBlockModel? = {
+            guard let idx = blocks.firstIndex(where: { $0.id == active.id }) else { return nil }
+            return blocks.suffix(from: blocks.index(after: idx))
+                .first(where: { $0.status != .completed })
+        }()
+
+        liveActivityManager.update(
+            currentBlockTitle: active.title,
+            blockEndTime: active.scheduledStart.addingTimeInterval(active.duration),
+            nextBlockTitle: nextUp?.title,
+            sunsetTime: event.sunsetTime
+        )
     }
 
     /// Writes a non-live placeholder with the next upcoming event date
@@ -549,11 +581,13 @@ private struct _LiveDashboardContent: View {
 #Preview("System Light") {
     LiveDashboardView(eventID: UUID())
         .environment(WatchSessionManager())
+        .environment(LiveActivityManager())
         .environment(\.colorScheme, .light)
 }
 
 #Preview("System Dark") {
     LiveDashboardView(eventID: UUID())
         .environment(WatchSessionManager())
+        .environment(LiveActivityManager())
         .environment(\.colorScheme, .dark)
 }
