@@ -32,6 +32,7 @@ struct shiftTimelineApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var watchSessionManager = WatchSessionManager()
+    @State private var liveActivityManager = LiveActivityManager()
     private let deepLinkRouter = DeepLinkRouter.shared
 
     init() {
@@ -68,6 +69,7 @@ struct shiftTimelineApp: App {
         WindowGroup {
             RootNavigator()
                 .environment(watchSessionManager)
+                .environment(liveActivityManager)
                 .environment(deepLinkRouter)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
