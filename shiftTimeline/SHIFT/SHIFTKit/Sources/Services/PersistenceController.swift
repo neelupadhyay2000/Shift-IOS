@@ -68,7 +68,6 @@ public final class PersistenceController: Sendable {
         do {
             container = try ModelContainer(
                 for: schema,
-                migrationPlan: SHIFTMigrationPlan.self,
                 configurations: [config]
             )
             Self.logger.info("ModelContainer created successfully")
@@ -78,7 +77,6 @@ public final class PersistenceController: Sendable {
             do {
                 container = try ModelContainer(
                     for: schema,
-                    migrationPlan: SHIFTMigrationPlan.self,
                     configurations: [config]
                 )
             } catch {

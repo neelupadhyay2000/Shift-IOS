@@ -71,6 +71,7 @@ struct BlockInspectorView: View {
     @State private var icon: String = "circle.fill"
     @State private var selectedVendorIDs: Set<UUID> = []
     @State private var selectedDependencyIDs: Set<UUID> = []
+    @State private var isOutdoor: Bool = false
     @State private var startTimePickerID = UUID()
     @State private var startTimePickerTask: Task<Void, Never>?
 
@@ -119,6 +120,7 @@ struct BlockInspectorView: View {
         .onChange(of: selectedDependencyIDs) { _, new in
             block.dependencies = siblingBlocks.filter { new.contains($0.id) }
         }
+        .onChange(of: isOutdoor) { _, new in block.isOutdoor = new }
     }
 
     /// iPhone sheet — NavigationStack with Save/Cancel toolbar.
@@ -163,6 +165,7 @@ struct BlockInspectorView: View {
         notes = block.notes
         colorTag = block.colorTag
         icon = block.icon
+        isOutdoor = block.isOutdoor
         selectedVendorIDs = Set((block.vendors ?? []).map(\.id))
         selectedDependencyIDs = Set((block.dependencies ?? []).map(\.id))
     }
@@ -191,6 +194,7 @@ struct BlockInspectorView: View {
             .pickerStyle(.segmented)
 
             Toggle(String(localized: "Pinned"), isOn: $isPinned)
+            Toggle(String(localized: "Outdoor location"), isOn: $isOutdoor)
         }
     }
 
@@ -347,6 +351,7 @@ struct BlockInspectorView: View {
 
         block.vendors = eventVendors.filter { selectedVendorIDs.contains($0.id) }
         block.dependencies = siblingBlocks.filter { selectedDependencyIDs.contains($0.id) }
+        block.isOutdoor = isOutdoor
 
         dismiss()
     }

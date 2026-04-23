@@ -76,7 +76,7 @@ private final class ActivityKitLiveActivityHandle: LiveActivityHandle {
                         continuation.yield(.ended)
                     case .stale:
                         continuation.yield(.stale)
-                    default:
+                    @unknown default:
                         continuation.yield(.unknown)
                     }
                 }
@@ -102,8 +102,6 @@ private final class ActivityKitLiveActivityHandle: LiveActivityHandle {
             await activity.end(content, dismissalPolicy: .default)
         case .immediate:
             await activity.end(content, dismissalPolicy: .immediate)
-        default:
-            await activity.end(content, dismissalPolicy: .default)
         }
     }
 }
@@ -155,7 +153,7 @@ private struct ActivityAuthorizationChecker: LiveActivityAuthorizationChecking {
 @Observable
 final class LiveActivityManager {
 
-    private static let logger = Logger(
+    nonisolated private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.shift",
         category: "LiveActivityManager"
     )

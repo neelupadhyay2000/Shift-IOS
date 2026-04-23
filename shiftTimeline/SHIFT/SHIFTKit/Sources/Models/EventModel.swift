@@ -11,6 +11,7 @@ public final class EventModel {
     public var venueNames: [String] = []
     public var sunsetTime: Date?
     public var goldenHourStart: Date?
+    public var weatherSnapshot: Data?
     public var status: EventStatus = EventStatus.planning
 
     /// The URL string of the CKShare associated with this event, if shared.

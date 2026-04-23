@@ -610,4 +610,69 @@ struct BlockInspectorTests {
         #expect(block.title == "Changed Title")
         #expect(block.colorTag == "#FF3B30")
     }
+
+    // MARK: - Outdoor Location Toggle
+
+    /// AC: A new block defaults isOutdoor to false.
+    @Test @MainActor func newBlockDefaultsIsOutdoorToFalse() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Concert", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: event)
+        context.insert(track)
+        let block = TimeBlockModel(title: "Opening Act", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+        #expect(result.isOutdoor == false)
+    }
+
+    /// AC: Setting isOutdoor to true persists across a SwiftData round-trip.
+    @Test @MainActor func isOutdoorTruePersistedAfterSave() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Outdoor Gig", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Stage", sortOrder: 0, event: event)
+        context.insert(track)
+        let block = TimeBlockModel(title: "Headliner", scheduledStart: .now, duration: 3600)
+        block.track = track
+        block.isOutdoor = true
+        context.insert(block)
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<TimeBlockModel>())
+        let result = try #require(fetched.first)
+        #expect(result.isOutdoor == true)
+    }
+
+    /// AC: Inspector live-write correctly flips isOutdoor from false to true.
+    @Test @MainActor func inspectorModeLiveWriteIsOutdoor() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let event = EventModel(title: "Festival", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        let track = TimelineTrack(name: "Main Stage", sortOrder: 0, event: event)
+        context.insert(track)
+        let block = TimeBlockModel(title: "Warmup", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        #expect(block.isOutdoor == false)
+
+        // Simulate onChange(of: isOutdoor) live-write
+        block.isOutdoor = true
+        #expect(block.isOutdoor == true)
+
+        block.isOutdoor = false
+        #expect(block.isOutdoor == false)
+    }
 }
