@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 import CloudKit
 import WidgetKit
-import ActivityKit
 import Models
 import Services
 

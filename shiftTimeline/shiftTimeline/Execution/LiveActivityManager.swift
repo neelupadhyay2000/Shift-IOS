@@ -3,6 +3,140 @@ import Foundation
 import UserNotifications
 import os
 
+@MainActor
+protocol LiveActivityHandle: AnyObject {
+    var attributes: ShiftActivityAttributes { get }
+    var contentState: ShiftActivityAttributes.ContentState { get }
+    var activityStateUpdates: AsyncStream<LiveActivityState> { get }
+
+    func update(_ content: ActivityContent<ShiftActivityAttributes.ContentState>) async
+    func end(
+        _ content: ActivityContent<ShiftActivityAttributes.ContentState>,
+        dismissalPolicy: LiveActivityDismissalPolicy
+    ) async
+}
+
+@MainActor
+protocol LiveActivityClient {
+    func request(
+        attributes: ShiftActivityAttributes,
+        content: ActivityContent<ShiftActivityAttributes.ContentState>
+    ) throws -> LiveActivityHandle
+
+    var activities: [LiveActivityHandle] { get }
+}
+
+@MainActor
+protocol NotificationScheduling {
+    func add(_ request: UNNotificationRequest, completion: (@Sendable (Error?) -> Void)?)
+}
+
+@MainActor
+protocol LiveActivityAuthorizationChecking {
+    var areActivitiesEnabled: Bool { get }
+}
+
+enum LiveActivityState {
+    case active
+    case dismissed
+    case ended
+    case stale
+    case unknown
+}
+
+enum LiveActivityDismissalPolicy {
+    case `default`
+    case immediate
+}
+
+@MainActor
+private final class ActivityKitLiveActivityHandle: LiveActivityHandle {
+    private let activity: Activity<ShiftActivityAttributes>
+
+    init(activity: Activity<ShiftActivityAttributes>) {
+        self.activity = activity
+    }
+
+    var attributes: ShiftActivityAttributes { activity.attributes }
+
+    var contentState: ShiftActivityAttributes.ContentState {
+        activity.content.state
+    }
+
+    var activityStateUpdates: AsyncStream<LiveActivityState> {
+        AsyncStream { continuation in
+            let task = Task {
+                for await state in activity.activityStateUpdates {
+                    switch state {
+                    case .active:
+                        continuation.yield(.active)
+                    case .dismissed:
+                        continuation.yield(.dismissed)
+                    case .ended:
+                        continuation.yield(.ended)
+                    case .stale:
+                        continuation.yield(.stale)
+                    default:
+                        continuation.yield(.unknown)
+                    }
+                }
+                continuation.finish()
+            }
+
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
+    }
+
+    func update(_ content: ActivityContent<ShiftActivityAttributes.ContentState>) async {
+        await activity.update(content)
+    }
+
+    func end(
+        _ content: ActivityContent<ShiftActivityAttributes.ContentState>,
+        dismissalPolicy: LiveActivityDismissalPolicy
+    ) async {
+        switch dismissalPolicy {
+        case .default:
+            await activity.end(content, dismissalPolicy: .default)
+        case .immediate:
+            await activity.end(content, dismissalPolicy: .immediate)
+        default:
+            await activity.end(content, dismissalPolicy: .default)
+        }
+    }
+}
+
+@MainActor
+private struct ActivityKitLiveActivityClient: LiveActivityClient {
+    func request(
+        attributes: ShiftActivityAttributes,
+        content: ActivityContent<ShiftActivityAttributes.ContentState>
+    ) throws -> LiveActivityHandle {
+        let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
+        return ActivityKitLiveActivityHandle(activity: activity)
+    }
+
+    var activities: [LiveActivityHandle] {
+        Activity<ShiftActivityAttributes>.activities.map(ActivityKitLiveActivityHandle.init)
+    }
+}
+
+@MainActor
+private struct UNNotificationCenterScheduler: NotificationScheduling {
+    func add(_ request: UNNotificationRequest, completion: (@Sendable (Error?) -> Void)?) {
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: completion)
+    }
+}
+
+@MainActor
+private struct ActivityAuthorizationChecker: LiveActivityAuthorizationChecking {
+    var areActivitiesEnabled: Bool {
+        ActivityAuthorizationInfo().areActivitiesEnabled
+    }
+}
+
 /// Manages the lifecycle of the SHIFT Live Activity (start, update, end).
 ///
 /// Stored as an `@Observable` environment object so both `EventDetailView`
@@ -14,10 +148,12 @@ import os
 /// regardless of whether the event is still running. For SHIFT events that
 /// exceed this window (e.g. full wedding days), this manager monitors the
 /// activity's state via `activityStateUpdates` and attempts an automatic
-/// restart. If the restart fails (e.g. ActivityKit budget exhausted or app
-/// terminated), a local notification prompts the user to reopen the app.
+/// restart while the app process is running. If restart fails (e.g.
+/// ActivityKit budget exhausted), a local notification prompts the user to
+/// reopen the live session.
+@MainActor
 @Observable
-final class LiveActivityManager: @unchecked Sendable {
+final class LiveActivityManager {
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "com.shift",
@@ -27,8 +163,12 @@ final class LiveActivityManager: @unchecked Sendable {
     /// Notification category used for the "restart Live Activity" prompt.
     static let restartNotificationCategory = "SHIFT_LIVE_ACTIVITY_RESTART"
 
+    private let activityClient: LiveActivityClient
+    private let notificationScheduler: NotificationScheduling
+    private let authorizationChecker: LiveActivityAuthorizationChecking
+
     /// The currently running Live Activity, if any.
-    private(set) var currentActivity: Activity<ShiftActivityAttributes>?
+    private(set) var currentActivity: LiveActivityHandle?
 
     /// The event ID associated with the current Live Activity, used for
     /// deep-linking when scheduling the restart notification.
@@ -44,6 +184,16 @@ final class LiveActivityManager: @unchecked Sendable {
     /// Task monitoring the activity state for unexpected dismissals.
     private var monitorTask: Task<Void, Never>?
 
+    init(
+        activityClient: LiveActivityClient? = nil,
+        notificationScheduler: NotificationScheduling? = nil,
+        authorizationChecker: LiveActivityAuthorizationChecking? = nil
+    ) {
+        self.activityClient = activityClient ?? ActivityKitLiveActivityClient()
+        self.notificationScheduler = notificationScheduler ?? UNNotificationCenterScheduler()
+        self.authorizationChecker = authorizationChecker ?? ActivityAuthorizationChecker()
+    }
+
     // MARK: - Start
 
     /// Starts a new Live Activity for the given event and first active block.
@@ -58,14 +208,22 @@ final class LiveActivityManager: @unchecked Sendable {
         sunsetTime: Date? = nil,
         eventID: UUID? = nil
     ) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard authorizationChecker.areActivitiesEnabled else {
             Self.logger.info("Live Activities disabled — skipping start")
             return
         }
 
         // End any lingering activity from a previous session.
-        if currentActivity != nil {
-            Task { await endImmediately() }
+        if let oldActivity = currentActivity {
+            let oldState = ShiftActivityAttributes.ContentState(
+                currentBlockTitle: String(localized: "Event Complete"),
+                endTime: .now
+            )
+            let oldContent = ActivityContent(state: oldState, staleDate: nil)
+            Task {
+                await oldActivity.end(oldContent, dismissalPolicy: .immediate)
+            }
+            currentActivity = nil
         }
 
         let attributes = ShiftActivityAttributes(eventTitle: eventTitle)
@@ -78,10 +236,9 @@ final class LiveActivityManager: @unchecked Sendable {
         let content = ActivityContent(state: state, staleDate: nil)
 
         do {
-            currentActivity = try Activity.request(
+            currentActivity = try activityClient.request(
                 attributes: attributes,
-                content: content,
-                pushType: nil
+                content: content
             )
             lastAttributes = attributes
             lastContentState = state
@@ -124,13 +281,13 @@ final class LiveActivityManager: @unchecked Sendable {
     /// Ends the Live Activity with a final state, allowing it to linger
     /// briefly on the Lock Screen before dismissing.
     func end(
-        finalBlockTitle: String = "Event Complete",
+        finalBlockTitle: String? = nil,
         blockEndTime: Date = .now
     ) {
         guard let activity = currentActivity else { return }
 
         let state = ShiftActivityAttributes.ContentState(
-            currentBlockTitle: finalBlockTitle,
+            currentBlockTitle: finalBlockTitle ?? String(localized: "Event Complete"),
             endTime: blockEndTime
         )
         let content = ActivityContent(state: state, staleDate: nil)
@@ -156,7 +313,7 @@ final class LiveActivityManager: @unchecked Sendable {
         monitorTask = nil
 
         let state = ShiftActivityAttributes.ContentState(
-            currentBlockTitle: "Event Complete",
+            currentBlockTitle: String(localized: "Event Complete"),
             endTime: .now
         )
         let content = ActivityContent(state: state, staleDate: nil)
@@ -173,11 +330,11 @@ final class LiveActivityManager: @unchecked Sendable {
     /// (e.g. after the 8-hour system kill). Returns `true` if one was found.
     @discardableResult
     func reclaimExistingActivity() -> Bool {
-        let running = Activity<ShiftActivityAttributes>.activities
+        let running = activityClient.activities
         if let existing = running.first {
             currentActivity = existing
             lastAttributes = existing.attributes
-            lastContentState = existing.content.state
+            lastContentState = existing.contentState
             Self.logger.info("Reclaimed existing Live Activity")
             startMonitoring()
             return true
@@ -203,37 +360,33 @@ final class LiveActivityManager: @unchecked Sendable {
             for await activityState in activity.activityStateUpdates {
                 guard !Task.isCancelled else { return }
 
-                if activityState == .dismissed {
-                    // The system killed the activity. Check whether
-                    // we still have cached state (i.e. event is still live).
-                    guard let self,
-                          let attributes = self.lastAttributes,
-                          let state = self.lastContentState else {
-                        return
-                    }
-
-                    Self.logger.warning(
-                        "Live Activity dismissed by system — attempting restart"
-                    )
-
-                    await MainActor.run {
-                        self.currentActivity = nil
-                        self.attemptRestart(attributes: attributes, state: state)
-                    }
-                    return // Exit the loop — restart starts a new monitor.
-                }
+                guard activityState == .dismissed else { continue }
+                self?.handleDismissedActivity()
+                return // Exit the loop — restart starts a new monitor.
             }
         }
     }
 
+    private func handleDismissedActivity() {
+        // The system killed the activity. Check whether we still have cached
+        // state (i.e. event is still live).
+        guard let attributes = lastAttributes,
+              let state = lastContentState else {
+            return
+        }
+
+        Self.logger.warning("Live Activity dismissed by system — attempting restart")
+        currentActivity = nil
+        attemptRestart(attributes: attributes, state: state)
+    }
+
     /// Tries to start a fresh Live Activity with the cached state.
     /// If ActivityKit's budget is exhausted, falls back to a local notification.
-    @MainActor
     private func attemptRestart(
         attributes: ShiftActivityAttributes,
         state: ShiftActivityAttributes.ContentState
     ) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard authorizationChecker.areActivitiesEnabled else {
             scheduleRestartNotification()
             return
         }
@@ -241,10 +394,9 @@ final class LiveActivityManager: @unchecked Sendable {
         let content = ActivityContent(state: state, staleDate: nil)
 
         do {
-            currentActivity = try Activity.request(
+            currentActivity = try activityClient.request(
                 attributes: attributes,
-                content: content,
-                pushType: nil
+                content: content
             )
             Self.logger.info("Live Activity restarted after system kill")
             startMonitoring()
@@ -262,8 +414,8 @@ final class LiveActivityManager: @unchecked Sendable {
     /// the live timeline. The notification deep-links to `shift://live/{id}`.
     private func scheduleRestartNotification() {
         let content = UNMutableNotificationContent()
-        content.title = "SHIFT"
-        content.body = "Tap to restart live timeline"
+        content.title = String(localized: "SHIFT")
+        content.body = String(localized: "Tap to restart live timeline")
         content.sound = .default
         content.categoryIdentifier = Self.restartNotificationCategory
 
@@ -277,7 +429,7 @@ final class LiveActivityManager: @unchecked Sendable {
             trigger: nil // Fire immediately.
         )
 
-        UNUserNotificationCenter.current().add(request) { error in
+        notificationScheduler.add(request) { error in
             if let error {
                 Self.logger.error("Failed to schedule restart notification: \(error.localizedDescription)")
             } else {

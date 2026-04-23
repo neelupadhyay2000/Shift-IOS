@@ -76,6 +76,7 @@ struct shiftTimelineApp: App {
                 }
                 .task {
                     watchSessionManager.activate()
+                    liveActivityManager.reclaimExistingActivity()
                     await CloudKitIdentity.shared.fetchAndCache()
                     backfillOwnerRecordNames()
                     await SharedZoneSubscriptionManager.shared.registerIfNeeded()
