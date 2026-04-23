@@ -296,10 +296,21 @@ struct LiveDashboardView: View {
             dismiss()
             return
         }
-        event.status = .planning
-        for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
-            block.status = .upcoming
+
+        let resolvedStatus = event.resolveStatusOnExitLiveMode()
+        event.status = resolvedStatus
+
+        // Only roll back in-flight block progress when we're reverting the
+        // event itself back to planning (user was rehearsing ahead of / after
+        // the event day). A genuinely-live event keeps its block progress
+        // so re-entering the dashboard restores the user where they left off.
+        if resolvedStatus == .planning {
+            for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] })
+                where block.status != .completed {
+                block.status = .upcoming
+            }
         }
+
         liveActivityManager.end()
         writeNextEventPlaceholder()
         try? modelContext.save()
