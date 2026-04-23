@@ -512,17 +512,20 @@ private struct _LiveDashboardContent: View {
                 .frame(maxWidth: .infinity)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.horizontal, 20)
+                .padding(.top, 12)
                 .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
 
                 // Siri tip — suggested when event is live
                 SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
                     .siriTipViewStyle(.dark)
                     .padding(.horizontal, 20)
+                    .padding(.top, 16)
 
                 // Slide-to-advance track
                 SlideToAdvanceView(onAdvance: onAdvance)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 28)
             }
         }
     }
