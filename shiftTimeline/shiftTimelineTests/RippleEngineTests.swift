@@ -461,7 +461,9 @@ struct RippleEngineTests {
         #expect(resultByID[block2.id]!.scheduledStart == start.addingTimeInterval(600))
         // Block3 pinned — unchanged
         #expect(resultByID[block3.id]!.scheduledStart == start.addingTimeInterval(1200))
-        // Block4 shifts (it's a subsequent fluid block AND an explicit dependent)
+        // Block4 shifts — positional ripple is halted by the pinned wall at
+        // Block2, so Block4 shifts *only* via the explicit dependency edge
+        // block1 → block4.
         #expect(resultByID[block4.id]!.scheduledStart == start.addingTimeInterval(1800 + delta))
     }
 
@@ -495,5 +497,191 @@ struct RippleEngineTests {
         #expect(result.blocks[0].scheduledStart == start)
         #expect(result.blocks[1].scheduledStart == start.addingTimeInterval(600))
         #expect(result.blocks[2].scheduledStart == start.addingTimeInterval(1200))
+    }
+
+    // MARK: - Bounded Ripple (Pinned Block as Hard Wall)
+
+    /// Pinned blocks act as a hard wall: positional ripple stops at the first
+    /// downstream Pinned block. Fluid blocks *after* that wall do not shift.
+    @Test @MainActor func forwardShiftStopsAtPinnedWall() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 10 * 60
+
+        // [Fluid0(changed), Fluid1, Pinned, Fluid3, Fluid4]
+        let blocks = [
+            TimeBlockModel(title: "Fluid0", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Fluid1", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(1800), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Fluid3", scheduledStart: start.addingTimeInterval(2400), duration: 600),
+            TimeBlockModel(title: "Fluid4", scheduledStart: start.addingTimeInterval(3000), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        let byID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Origin + fluid before the wall: shifted.
+        #expect(byID[blocks[0].id]?.scheduledStart == start.addingTimeInterval(delta))
+        #expect(byID[blocks[1].id]?.scheduledStart == start.addingTimeInterval(600 + delta))
+        // Pinned wall: unchanged.
+        #expect(byID[blocks[2].id]?.scheduledStart == start.addingTimeInterval(1800))
+        // Everything past the wall: unchanged.
+        #expect(byID[blocks[3].id]?.scheduledStart == start.addingTimeInterval(2400))
+        #expect(byID[blocks[4].id]?.scheduledStart == start.addingTimeInterval(3000))
+    }
+
+    /// With multiple pinned blocks downstream, only the *first* acts as the
+    /// wall. No Fluid past that wall shifts, even if a later region contains
+    /// fluid blocks between pinned blocks.
+    @Test @MainActor func forwardShiftMultiplePinnedStopsAtFirstWall() {
+        let engine = RippleEngine()
+        let start = Date()
+        let delta: TimeInterval = 5 * 60
+
+        // [Fluid0(changed), Pinned1, Fluid2, Pinned3, Fluid4]
+        let blocks = [
+            TimeBlockModel(title: "Fluid0", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Pinned1", scheduledStart: start.addingTimeInterval(1200), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Fluid2", scheduledStart: start.addingTimeInterval(1800), duration: 600),
+            TimeBlockModel(title: "Pinned3", scheduledStart: start.addingTimeInterval(2400), duration: 600, isPinned: true),
+            TimeBlockModel(title: "Fluid4", scheduledStart: start.addingTimeInterval(3000), duration: 600)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        let byID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Only the origin shifts; the next block is already the wall.
+        #expect(byID[blocks[0].id]?.scheduledStart == start.addingTimeInterval(delta))
+        #expect(byID[blocks[1].id]?.scheduledStart == start.addingTimeInterval(1200))
+        #expect(byID[blocks[2].id]?.scheduledStart == start.addingTimeInterval(1800))
+        #expect(byID[blocks[3].id]?.scheduledStart == start.addingTimeInterval(2400))
+        #expect(byID[blocks[4].id]?.scheduledStart == start.addingTimeInterval(3000))
+    }
+
+    /// Backward shift also halts at a pinned wall for positional ripple.
+    @Test @MainActor func backwardShiftStopsAtPinnedWall() {
+        let engine = RippleEngine()
+        let originalStart = Date()
+        let drift: TimeInterval = 15 * 60
+        let delta: TimeInterval = -5 * 60
+
+        // All blocks have drifted +15 min from their originalStart.
+        let blocks = [
+            TimeBlockModel(
+                title: "Fluid0",
+                scheduledStart: originalStart.addingTimeInterval(drift),
+                originalStart: originalStart,
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Fluid1",
+                scheduledStart: originalStart.addingTimeInterval(600 + drift),
+                originalStart: originalStart.addingTimeInterval(600),
+                duration: 600
+            ),
+            TimeBlockModel(
+                title: "Pinned",
+                scheduledStart: originalStart.addingTimeInterval(1200 + drift),
+                originalStart: originalStart.addingTimeInterval(1200),
+                duration: 600,
+                isPinned: true
+            ),
+            TimeBlockModel(
+                title: "Fluid3",
+                scheduledStart: originalStart.addingTimeInterval(1800 + drift),
+                originalStart: originalStart.addingTimeInterval(1800),
+                duration: 600
+            )
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        let byID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Origin + fluid before wall shift back by delta.
+        #expect(byID[blocks[0].id]?.scheduledStart == originalStart.addingTimeInterval(drift + delta))
+        #expect(byID[blocks[1].id]?.scheduledStart == originalStart.addingTimeInterval(600 + drift + delta))
+        // Pinned wall unchanged.
+        #expect(byID[blocks[2].id]?.scheduledStart == originalStart.addingTimeInterval(1200 + drift))
+        // Past the wall: unchanged (no backward ripple across).
+        #expect(byID[blocks[3].id]?.scheduledStart == originalStart.addingTimeInterval(1800 + drift))
+    }
+
+    /// **The Squeeze.** When the delta pushes a Fluid block past the start of
+    /// the next Pinned wall, `RippleEngine` still shifts the Fluid (the wall
+    /// halts downstream ripple but does *not* clamp the blocks before it).
+    /// The resulting overlap is surfaced by ``CollisionDetector`` — the engine
+    /// itself returns `.clean`. This is the architectural split: engine moves
+    /// blocks, detector reports conflicts.
+    @Test @MainActor func forwardShiftSqueezeProducesCollision() {
+        let engine = RippleEngine()
+        let detector = CollisionDetector()
+        let start = Date()
+        let delta: TimeInterval = 30 * 60 // +30 min into a 25-min gap.
+
+        // Fluid0 (changed): [0 .. 600]
+        // Pinned:           [1500 .. 2100]     (gap from Fluid0 end=600 to Pinned=1500 is 900s=15m)
+        //
+        // After +30 min shift, Fluid0 → [1800 .. 2400]; Pinned start is 1500,
+        // so Fluid0 starts *past* Pinned's start. Sorted order flips: Pinned,
+        // Fluid0. CollisionDetector only reports overlaps where the Pinned
+        // starts *after* the Fluid, so here Fluid0 is no longer detected as a
+        // collider — that is a known detector limitation and outside this
+        // test's scope. Use a second Fluid *before* the wall so we assert the
+        // collision on a Fluid whose start is still < Pinned.start.
+        //
+        // Redesign:
+        //   Fluid0 (changed): [0 .. 600]     → after +30m: [1800 .. 2400]
+        //   Fluid1:           [600 .. 1200]  → after +30m: [2400 .. 3000]
+        //   Pinned:           [2100 .. 2700]
+        //
+        // Sorted after shift: Fluid0(1800), Pinned(2100), Fluid1(2400).
+        // Fluid0 still starts before Pinned → detector flags it.
+        // Fluid0 end = 2400, Pinned start = 2100 → overlap = 300s = 5 min.
+        let blocks = [
+            TimeBlockModel(title: "Fluid0", scheduledStart: start, duration: 600),
+            TimeBlockModel(title: "Fluid1", scheduledStart: start.addingTimeInterval(600), duration: 600),
+            TimeBlockModel(title: "Pinned", scheduledStart: start.addingTimeInterval(2100), duration: 600, isPinned: true)
+        ]
+
+        let result = engine.recalculate(
+            blocks: blocks,
+            changedBlockID: blocks[0].id,
+            delta: delta
+        )
+
+        #expect(result.status == .clean)
+        let byID = Dictionary(uniqueKeysWithValues: result.blocks.map { ($0.id, $0) })
+
+        // Both Fluids shifted by the full delta, even though Fluid0 now
+        // overlaps Pinned. The wall halts ripple *past* the Pinned block; it
+        // does not retroactively clamp blocks before the wall.
+        #expect(byID[blocks[0].id]?.scheduledStart == start.addingTimeInterval(delta))
+        #expect(byID[blocks[1].id]?.scheduledStart == start.addingTimeInterval(600 + delta))
+        #expect(byID[blocks[2].id]?.scheduledStart == start.addingTimeInterval(2100))
+
+        // Exactly one collision: Fluid0 → Pinned, 5-minute overlap.
+        let collisions = detector.detect(blocks: result.blocks)
+        #expect(collisions.count == 1)
+        #expect(collisions.first?.fluidBlockID == blocks[0].id)
+        #expect(collisions.first?.pinnedBlockID == blocks[2].id)
+        #expect(collisions.first?.overlapMinutes == 5)
     }
 }

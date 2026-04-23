@@ -296,10 +296,21 @@ struct LiveDashboardView: View {
             dismiss()
             return
         }
-        event.status = .planning
-        for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] }) where block.status != .completed {
-            block.status = .upcoming
+
+        let resolvedStatus = event.resolveStatusOnExitLiveMode()
+        event.status = resolvedStatus
+
+        // Only roll back in-flight block progress when we're reverting the
+        // event itself back to planning (user was rehearsing ahead of / after
+        // the event day). A genuinely-live event keeps its block progress
+        // so re-entering the dashboard restores the user where they left off.
+        if resolvedStatus == .planning {
+            for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] })
+                where block.status != .completed {
+                block.status = .upcoming
+            }
         }
+
         liveActivityManager.end()
         writeNextEventPlaceholder()
         try? modelContext.save()
@@ -501,17 +512,20 @@ private struct _LiveDashboardContent: View {
                 .frame(maxWidth: .infinity)
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.horizontal, 20)
+                .padding(.top, 12)
                 .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
 
                 // Siri tip — suggested when event is live
                 SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
                     .siriTipViewStyle(.dark)
                     .padding(.horizontal, 20)
+                    .padding(.top, 16)
 
                 // Slide-to-advance track
                 SlideToAdvanceView(onAdvance: onAdvance)
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 28)
             }
         }
     }

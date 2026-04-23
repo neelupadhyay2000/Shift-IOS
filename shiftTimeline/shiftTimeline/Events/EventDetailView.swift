@@ -83,7 +83,10 @@ struct EventDetailView: View {
             .padding(.vertical, 8)
         }
         .background { WarmBackground() }
-        .task {
+        // Re-runs when weatherSnapshot becomes nil (cache busted by block location change)
+        // and again when the fresh snapshot is written back. The second run hits the fresh
+        // cache immediately and is a no-op.
+        .task(id: event.weatherSnapshot) {
             let service = WeatherService()
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()
@@ -170,7 +173,7 @@ struct EventDetailView: View {
                     quickCard(
                         icon: "calendar.day.timeline.leading",
                         value: "\((event.tracks ?? []).flatMap { $0.blocks ?? [] }.count)",
-                        subtitle: String(localized: "blocks_count_label", defaultValue: "blocks"),
+                        subtitle: String(localized: "timeline_card_label", defaultValue: "Timeline"),
                         color: .blue
                     )
                 }

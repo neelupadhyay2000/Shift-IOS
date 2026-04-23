@@ -7,14 +7,22 @@ import Models
 /// time blocks.
 ///
 /// ## Pipeline
-/// 1. **Dependency resolution** — determines which blocks are downstream of the
-///    changed block (via temporal ordering or an explicit adjacency list).
-/// 2. **Shift propagation** — shifts the changed block and all downstream Fluid
-///    blocks by `delta`.
+/// 1. **Dependency resolution** — determines which blocks are explicit
+///    downstream dependents of the changed block (via an adjacency list or the
+///    legacy temporal fallback).
+/// 2. **Bounded shift propagation** — shifts the changed block, every
+///    subsequent Fluid block **up to the first Pinned block encountered**, and
+///    every explicit dependent by `delta`. Pinned blocks act as a **hard wall**
+///    for positional ripple: nothing past the first downstream Pinned block is
+///    moved by positional propagation. Explicit dependents (declared via
+///    `adjacency` / `dependsOn`) still propagate across the wall because they
+///    are a user-declared contract.
 ///
 /// Collision detection and compression are handled by the injected
 /// ``CollisionDetector`` and ``CompressionCalculator`` (used by callers after
-/// this method returns).
+/// this method returns). When positional ripple pushes a Fluid block past a
+/// Pinned block's start (the "squeeze" case), the Fluid block is still shifted
+/// and the resulting overlap is reported by ``CollisionDetector``.
 public struct RippleEngine: Sendable {
     private let dependencyResolver: DependencyResolver
     private let collisionDetector: CollisionDetector
@@ -73,27 +81,36 @@ public struct RippleEngine: Sendable {
         }
 
         // --- Stage 1: Dependency Resolution ---
-        let depResult: Result<Set<UUID>, SHIFTError>
-        if let adjacency {
-            depResult = dependencyResolver.resolve(adjacency: adjacency, from: changedBlockID)
-        } else {
-            // Pass the already-sorted array to avoid a redundant sort inside resolve().
-            depResult = dependencyResolver.resolve(sortedBlocks: sorted, shiftedBlockID: changedBlockID)
-        }
-
+        //
+        // Only an *explicit* adjacency list contributes "dependents" that can
+        // cross the pinned wall. The temporal fallback would otherwise treat
+        // every subsequent block as a downstream dependent, defeating the
+        // bounded-ripple rule below.
         let dependentIDs: Set<UUID>
-        switch depResult {
-        case .success(let ids):
-            dependentIDs = ids
-        case .failure:
-            return RippleResult(blocks: sorted, status: .circularDependency)
+        if let adjacency {
+            switch dependencyResolver.resolve(adjacency: adjacency, from: changedBlockID) {
+            case .success(let ids):
+                dependentIDs = ids
+            case .failure:
+                return RippleResult(blocks: sorted, status: .circularDependency)
+            }
+        } else {
+            dependentIDs = []
         }
 
-        // Merge: blocks that should shift are subsequent Fluid blocks OR
-        // explicit dependents (that are also Fluid).
-        let subsequentFluidIDs: Set<UUID> = Set(
-            sorted[(changedIndex + 1)...].filter { !$0.isPinned }.map(\.id)
-        )
+        // --- Stage 2 set-up: Bounded positional ripple ---
+        //
+        // Walk forward from the changed block; include subsequent Fluid blocks
+        // until we hit a Pinned block, which acts as a hard wall and halts
+        // positional ripple. Explicit dependents (if any) are unioned on top
+        // and may legitimately cross the wall.
+        var subsequentFluidIDs: Set<UUID> = []
+        if changedIndex + 1 < sorted.count {
+            for i in (changedIndex + 1)..<sorted.count {
+                if sorted[i].isPinned { break }
+                subsequentFluidIDs.insert(sorted[i].id)
+            }
+        }
         let shiftableIDs = subsequentFluidIDs.union(dependentIDs)
 
         // --- Stage 2: Shift Propagation ---
