@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import Models
 import Services
 
@@ -129,6 +130,7 @@ private struct UseTemplateSheet: View {
     @State private var startTime: Date = Calendar.current.date(
         bySettingHour: 10, minute: 0, second: 0, of: .now
     ) ?? .now
+    @State private var locationResult: BlockLocationResult? = nil
     @State private var startTimePickerID = UUID()
     @State private var startTimePickerTask: Task<Void, Never>?
 
@@ -152,6 +154,15 @@ private struct UseTemplateSheet: View {
                                     startTimePickerID = UUID()
                                 }
                             }
+                }
+
+                Section(String(localized: "Location")) {
+                    BlockLocationPickerView(
+                        currentAddress: locationResult?.venueAddress ?? "",
+                        currentVenueName: locationResult?.venueName ?? ""
+                    ) { result in
+                        locationResult = result.coordinate == nil ? nil : result
+                    }
                 }
 
                 Section {
@@ -189,13 +200,21 @@ private struct UseTemplateSheet: View {
 
     private func createEventFromTemplate() -> UUID {
         let trimmedTitle = eventTitle.trimmingCharacters(in: .whitespaces)
+        let latitude = locationResult?.coordinate?.latitude ?? 0
+        let longitude = locationResult?.coordinate?.longitude ?? 0
+        let venueNames: [String] = {
+            guard let name = locationResult?.venueName, !name.isEmpty else { return [] }
+            return [name]
+        }()
 
         let event = EventModel(
             title: trimmedTitle,
             date: eventDate,
-            latitude: 0,
-            longitude: 0
+            latitude: latitude,
+            longitude: longitude,
+            venueNames: venueNames
         )
+        event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         modelContext.insert(event)
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
@@ -215,6 +234,15 @@ private struct UseTemplateSheet: View {
             )
             block.track = mainTrack
             modelContext.insert(block)
+        }
+
+        // Fire-and-forget sunset fetch when both coordinates are provided.
+        if latitude != 0 && longitude != 0 {
+            Task { @MainActor in
+                let service = SunsetService()
+                _ = await service.fetchIfNeeded(for: event)
+                try? modelContext.save()
+            }
         }
 
         return event.id
