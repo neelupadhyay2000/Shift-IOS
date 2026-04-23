@@ -27,7 +27,7 @@ public struct WeatherService: Sendable {
 
     /// Cache-first fetch of weather data for an event.
     ///
-    /// - If `event.latitude == 0 && event.longitude == 0`: returns `nil` immediately.
+    /// - If neither the event nor any block has coordinates: returns `nil` immediately.
     /// - If `event.weatherSnapshot` decodes to a fresh snapshot (< 30 min old): returns it without a network call.
     /// - Otherwise: fetches from WeatherKit, encodes the result to `event.weatherSnapshot`, and returns the new snapshot.
     /// - On any error (auth denied, network, parse): logs the error and returns the cached snapshot (decoded) or `nil`.
@@ -36,8 +36,11 @@ public struct WeatherService: Sendable {
     ///   after this method returns — the service only mutates the model property.
     @MainActor
     public func fetchIfNeeded(for event: EventModel) async -> WeatherSnapshot? {
-        // Guard: no coordinates — nothing to fetch
-        guard event.latitude != 0 || event.longitude != 0 else {
+        // Guard: no coordinates at event level AND no blocks have their own venue coordinates.
+        let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+        let hasEventCoords = event.latitude != 0 || event.longitude != 0
+        let hasAnyBlockCoords = allBlocks.contains { $0.blockLatitude != 0 || $0.blockLongitude != 0 }
+        guard hasEventCoords || hasAnyBlockCoords else {
             return nil
         }
 
@@ -49,22 +52,23 @@ public struct WeatherService: Sendable {
             return cachedSnapshot
         }
 
-        // Collect block identity + schedule as plain value types before leaving @MainActor
-        let blockTokens: [(id: UUID, scheduledStart: Date)] = (event.tracks ?? [])
-            .flatMap { $0.blocks ?? [] }
-            .sorted { $0.scheduledStart < $1.scheduledStart }
-            .map { (id: $0.id, scheduledStart: $0.scheduledStart) }
-
-        let latitude = event.latitude
-        let longitude = event.longitude
-        let date = event.date
+        // Collect block identity + schedule + per-block coordinates as plain value types
+        // before leaving @MainActor. Blocks with no venue lat/lng fall back to the event location.
+        let eventLatitude = event.latitude
+        let eventLongitude = event.longitude
+        let blockTokens: [(id: UUID, scheduledStart: Date, latitude: Double, longitude: Double)] =
+            (event.tracks ?? [])
+                .flatMap { $0.blocks ?? [] }
+                .sorted { $0.scheduledStart < $1.scheduledStart }
+                .map { block in
+                    let lat = block.blockLatitude != 0 ? block.blockLatitude : eventLatitude
+                    let lng = block.blockLongitude != 0 ? block.blockLongitude : eventLongitude
+                    return (id: block.id, scheduledStart: block.scheduledStart, latitude: lat, longitude: lng)
+                }
 
         // Fetch fresh data from WeatherKit
         do {
             let snapshot = try await fetch(
-                latitude: latitude,
-                longitude: longitude,
-                date: date,
                 blockTokens: blockTokens
             )
             // Write back to model — caller saves context
@@ -81,40 +85,70 @@ public struct WeatherService: Sendable {
 
     /// Fetches WeatherKit hourly data and resolves per-block rain probabilities.
     ///
-    /// Each block's `scheduledStart` is matched to the nearest `HourWeather` entry
-    /// within 3600 seconds. Blocks with no matching entry are omitted from the result.
+    /// Blocks are grouped by their resolved location (rounded to 4 decimal places
+    /// ≈11 m) so nearby blocks share a single WeatherKit request. Each block's
+    /// `scheduledStart` is then matched to the nearest `HourWeather` entry within
+    /// a 1-hour window. Blocks with no matching entry are omitted.
     ///
-    /// - Parameter blockTokens: Lightweight value-type snapshots of each block's
-    ///   identity and schedule, extracted on `@MainActor` before this call.
-    /// - Throws: `WeatherError` (including `.permissionDenied`) or any underlying network error.
+    /// - Parameter blockTokens: Value-type snapshots of each block including the
+    ///   resolved coordinates, extracted on `@MainActor` before this call.
+    /// - Throws: Any underlying WeatherKit or network error.
+    public func fetch(
+        blockTokens: [(id: UUID, scheduledStart: Date, latitude: Double, longitude: Double)]
+    ) async throws -> WeatherSnapshot {
+        // Round coordinates to 4dp to group blocks at the same venue into one request
+        typealias CoordKey = String
+        func key(_ lat: Double, _ lng: Double) -> CoordKey {
+            String(format: "%.4f,%.4f", lat, lng)
+        }
+
+        // Build a mapping: coordKey -> [blockToken]
+        var groups: [CoordKey: [(id: UUID, scheduledStart: Date)]] = [:]
+        var coordForKey: [CoordKey: (Double, Double)] = [:]
+        for token in blockTokens {
+            let k = key(token.latitude, token.longitude)
+            groups[k, default: []].append((id: token.id, scheduledStart: token.scheduledStart))
+            coordForKey[k] = (token.latitude, token.longitude)
+        }
+
+        let wk = WKWeatherService()
+        var allEntries: [BlockRainEntry] = []
+
+        for (k, tokens) in groups {
+            guard let (lat, lng) = coordForKey[k], lat != 0 || lng != 0 else { continue }
+            let location = CLLocation(latitude: lat, longitude: lng)
+            let forecast = try await wk.weather(for: location, including: .hourly)
+
+            let entries: [BlockRainEntry] = tokens.compactMap { token in
+                guard let match = forecast.forecast.min(by: {
+                    abs($0.date.timeIntervalSince(token.scheduledStart)) <
+                        abs($1.date.timeIntervalSince(token.scheduledStart))
+                }) else { return nil }
+
+                guard abs(match.date.timeIntervalSince(token.scheduledStart)) < 3600 else {
+                    return nil
+                }
+
+                return BlockRainEntry(
+                    blockId: token.id,
+                    rainProbability: match.precipitationChance
+                )
+            }
+            allEntries.append(contentsOf: entries)
+        }
+
+        return WeatherSnapshot(entries: allEntries, fetchedAt: Date())
+    }
+
+    /// Legacy overload kept for test compatibility — delegates to the grouped fetch.
     public func fetch(
         latitude: Double,
         longitude: Double,
         date: Date,
         blockTokens: [(id: UUID, scheduledStart: Date)]
     ) async throws -> WeatherSnapshot {
-        let location = CLLocation(latitude: latitude, longitude: longitude)
-        let wk = WKWeatherService()
-        let forecast = try await wk.weather(for: location, including: .hourly)
-
-        let entries: [BlockRainEntry] = blockTokens.compactMap { token in
-            guard let match = forecast.forecast.min(by: {
-                abs($0.date.timeIntervalSince(token.scheduledStart)) <
-                    abs($1.date.timeIntervalSince(token.scheduledStart))
-            }) else { return nil }
-
-            // Only associate if the nearest entry is within a 1-hour window
-            guard abs(match.date.timeIntervalSince(token.scheduledStart)) < 3600 else {
-                return nil
-            }
-
-            return BlockRainEntry(
-                blockId: token.id,
-                rainProbability: match.precipitationChance
-            )
-        }
-
-        return WeatherSnapshot(entries: entries, fetchedAt: Date())
+        let enriched = blockTokens.map { (id: $0.id, scheduledStart: $0.scheduledStart, latitude: latitude, longitude: longitude) }
+        return try await fetch(blockTokens: enriched)
     }
 
     // MARK: - Helpers

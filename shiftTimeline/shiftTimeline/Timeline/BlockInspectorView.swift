@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import Models
 import Services
 
@@ -14,6 +15,7 @@ import Services
 struct BlockInspectorView: View {
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     let block: TimeBlockModel
     let eventID: UUID
@@ -72,6 +74,10 @@ struct BlockInspectorView: View {
     @State private var selectedVendorIDs: Set<UUID> = []
     @State private var selectedDependencyIDs: Set<UUID> = []
     @State private var isOutdoor: Bool = false
+    @State private var venueAddress: String = ""
+    @State private var venueName: String = ""
+    @State private var blockLatitude: Double = 0
+    @State private var blockLongitude: Double = 0
     @State private var startTimePickerID = UUID()
     @State private var startTimePickerTask: Task<Void, Never>?
 
@@ -91,36 +97,51 @@ struct BlockInspectorView: View {
 
     /// iPad inspector panel — no NavigationStack, live-write on change.
     private var inspectorBody: some View {
+        inspectorForm
+            .formStyle(.grouped)
+            .disabled(isReadOnly)
+            .onAppear { loadState() }
+            .onDisappear {
+                startTimePickerTask?.cancel()
+                startTimePickerTask = nil
+            }
+            .onChange(of: block.id) { _, _ in loadState() }
+            .onChange(of: blockLatitude) { _, new in
+                // Bust weather cache when a block venue location is resolved in inspector mode.
+                if new != 0, let event {
+                    event.weatherSnapshot = nil
+                    try? modelContext.save()
+                }
+            }
+            .modifier(InspectorLiveWriteModifier(block: block,
+                                                 title: title,
+                                                 startTime: startTime,
+                                                 duration: duration,
+                                                 isPinned: isPinned,
+                                                 notes: notes,
+                                                 colorTag: colorTag,
+                                                 icon: icon,
+                                                 isOutdoor: isOutdoor,
+                                                 venueAddress: venueAddress,
+                                                 venueName: venueName,
+                                                 blockLatitude: blockLatitude,
+                                                 blockLongitude: blockLongitude,
+                                                 eventVendors: eventVendors,
+                                                 siblingBlocks: siblingBlocks,
+                                                 selectedVendorIDs: selectedVendorIDs,
+                                                 selectedDependencyIDs: selectedDependencyIDs))
+    }
+
+    private var inspectorForm: some View {
         Form {
             basicInfoSection
+            locationSection
             if canSeeDetails {
                 detailsSection
                 vendorsSection
                 dependenciesSection
             }
         }
-        .formStyle(.grouped)
-        .disabled(isReadOnly)
-        .onAppear { loadState() }
-        .onDisappear {
-            startTimePickerTask?.cancel()
-            startTimePickerTask = nil
-        }
-        .onChange(of: block.id) { _, _ in loadState() }
-        .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
-        .onChange(of: startTime) { _, new in block.scheduledStart = new }
-        .onChange(of: duration) { _, new in block.duration = new }
-        .onChange(of: isPinned) { _, new in block.isPinned = new }
-        .onChange(of: notes) { _, new in block.notes = new }
-        .onChange(of: colorTag) { _, new in block.colorTag = new }
-        .onChange(of: icon) { _, new in block.icon = new }
-        .onChange(of: selectedVendorIDs) { _, new in
-            block.vendors = eventVendors.filter { new.contains($0.id) }
-        }
-        .onChange(of: selectedDependencyIDs) { _, new in
-            block.dependencies = siblingBlocks.filter { new.contains($0.id) }
-        }
-        .onChange(of: isOutdoor) { _, new in block.isOutdoor = new }
     }
 
     /// iPhone sheet — NavigationStack with Save/Cancel toolbar.
@@ -128,6 +149,7 @@ struct BlockInspectorView: View {
         NavigationStack {
             Form {
                 basicInfoSection
+                locationSection
                 if canSeeDetails {
                     detailsSection
                     vendorsSection
@@ -166,6 +188,10 @@ struct BlockInspectorView: View {
         colorTag = block.colorTag
         icon = block.icon
         isOutdoor = block.isOutdoor
+        venueAddress = block.venueAddress
+        venueName = block.venueName
+        blockLatitude = block.blockLatitude
+        blockLongitude = block.blockLongitude
         selectedVendorIDs = Set((block.vendors ?? []).map(\.id))
         selectedDependencyIDs = Set((block.dependencies ?? []).map(\.id))
     }
@@ -198,7 +224,23 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 2: Details
+    // MARK: - Section 2: Venue Location
+
+    private var locationSection: some View {
+        Section(String(localized: "Venue Location")) {
+            BlockLocationPickerView(
+                currentAddress: venueAddress,
+                currentVenueName: venueName
+            ) { result in
+                venueAddress = result.venueAddress
+                venueName = result.venueName
+                blockLatitude = result.latitude
+                blockLongitude = result.longitude
+            }
+        }
+    }
+
+    // MARK: - Section 3: Details
 
     private var detailsSection: some View {
         Section(String(localized: "Details")) {
@@ -261,7 +303,7 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 3: Vendors
+    // MARK: - Section 4: Vendors
 
     private var vendorsSection: some View {
         Section(String(localized: "Vendors")) {
@@ -298,7 +340,7 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 4: Dependencies
+    // MARK: - Section 5: Dependencies
 
     private var dependenciesSection: some View {
         Section(String(localized: "Dependencies")) {
@@ -352,6 +394,16 @@ struct BlockInspectorView: View {
         block.vendors = eventVendors.filter { selectedVendorIDs.contains($0.id) }
         block.dependencies = siblingBlocks.filter { selectedDependencyIDs.contains($0.id) }
         block.isOutdoor = isOutdoor
+        block.venueAddress = venueAddress
+        block.venueName = venueName
+        block.blockLatitude = blockLatitude
+        block.blockLongitude = blockLongitude
+
+        // Bust the weather cache so EventDetailView re-fetches with the new location.
+        if blockLatitude != 0 || blockLongitude != 0 {
+            event?.weatherSnapshot = nil
+            try? modelContext.save()
+        }
 
         dismiss()
     }
@@ -383,4 +435,57 @@ struct BlockInspectorView: View {
         ("Gift", "gift", "gift.fill"),
         ("Custom", "custom", "circle.fill"),
     ]
+}
+
+// MARK: - InspectorLiveWriteModifier
+
+/// Breaks the long `.onChange` chain from `BlockInspectorView.inspectorBody`
+/// into a dedicated `ViewModifier` so the Swift type-checker can resolve it.
+private struct InspectorLiveWriteModifier: ViewModifier {
+
+    let block: TimeBlockModel
+
+    // Basic info
+    let title: String
+    let startTime: Date
+    let duration: TimeInterval
+    let isPinned: Bool
+    let notes: String
+    let colorTag: String
+    let icon: String
+    let isOutdoor: Bool
+
+    // Location
+    let venueAddress: String
+    let venueName: String
+    let blockLatitude: Double
+    let blockLongitude: Double
+
+    // Relationships
+    let eventVendors: [VendorModel]
+    let siblingBlocks: [TimeBlockModel]
+    let selectedVendorIDs: Set<UUID>
+    let selectedDependencyIDs: Set<UUID>
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
+            .onChange(of: startTime) { _, new in block.scheduledStart = new }
+            .onChange(of: duration) { _, new in block.duration = new }
+            .onChange(of: isPinned) { _, new in block.isPinned = new }
+            .onChange(of: notes) { _, new in block.notes = new }
+            .onChange(of: colorTag) { _, new in block.colorTag = new }
+            .onChange(of: icon) { _, new in block.icon = new }
+            .onChange(of: isOutdoor) { _, new in block.isOutdoor = new }
+            .onChange(of: venueAddress) { _, new in block.venueAddress = new }
+            .onChange(of: venueName) { _, new in block.venueName = new }
+            .onChange(of: blockLatitude) { _, new in block.blockLatitude = new }
+            .onChange(of: blockLongitude) { _, new in block.blockLongitude = new }
+            .onChange(of: selectedVendorIDs) { _, new in
+                block.vendors = eventVendors.filter { new.contains($0.id) }
+            }
+            .onChange(of: selectedDependencyIDs) { _, new in
+                block.dependencies = siblingBlocks.filter { new.contains($0.id) }
+            }
+    }
 }

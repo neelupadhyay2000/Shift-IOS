@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import Models
 
 /// Sheet for creating a new time block within an event.
@@ -19,6 +20,10 @@ struct CreateBlockSheet: View {
     @State private var startTime = Date.now
     @State private var duration: TimeInterval = 1800
     @State private var isPinned = false
+    @State private var venueAddress: String = ""
+    @State private var venueName: String = ""
+    @State private var blockLatitude: Double = 0
+    @State private var blockLongitude: Double = 0
     @State private var startTimePickerID = UUID()
     @State private var startTimePickerTask: Task<Void, Never>?
 
@@ -65,6 +70,18 @@ struct CreateBlockSheet: View {
 
                 Section {
                     Toggle(String(localized: "Pinned"), isOn: $isPinned)
+                }
+
+                Section(String(localized: "Venue Location")) {
+                    BlockLocationPickerView(
+                        currentAddress: venueAddress,
+                        currentVenueName: venueName
+                    ) { result in
+                        venueAddress = result.venueAddress
+                        venueName = result.venueName
+                        blockLatitude = result.latitude
+                        blockLongitude = result.longitude
+                    }
                 }
             }
             .navigationTitle(String(localized: "New Block"))
@@ -118,6 +135,10 @@ struct CreateBlockSheet: View {
             duration: duration,
             isPinned: isPinned
         )
+        block.venueAddress = venueAddress
+        block.venueName = venueName
+        block.blockLatitude = blockLatitude
+        block.blockLongitude = blockLongitude
         block.track = track
         modelContext.insert(block)
         dismiss()

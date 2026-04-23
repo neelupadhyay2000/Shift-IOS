@@ -17,6 +17,14 @@ public final class TimeBlockModel {
     public var status: BlockStatus = BlockStatus.upcoming
     public var requiresReview: Bool = false
     public var isOutdoor: Bool = false
+    /// Human-readable venue address for this specific block (e.g. "St. Mary's Church, 123 Main St").
+    public var venueAddress: String = ""
+    /// Display name of the venue resolved from MapKit (e.g. "St. Mary's Church").
+    public var venueName: String = ""
+    /// Latitude resolved from MapKit for this block's venue. 0 means not set.
+    public var blockLatitude: Double = 0
+    /// Longitude resolved from MapKit for this block's venue. 0 means not set.
+    public var blockLongitude: Double = 0
     public var track: TimelineTrack?
 
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)

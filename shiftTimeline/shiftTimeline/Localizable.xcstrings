@@ -93,6 +93,9 @@
     "Add Track" : {
       "extractionState" : "manual"
     },
+    "Add venue location…" : {
+
+    },
     "Add your first block" : {
       "extractionState" : "manual"
     },
@@ -539,6 +542,9 @@
     "Save" : {
       "extractionState" : "manual"
     },
+    "Search address or venue…" : {
+
+    },
     "Search events" : {
       "extractionState" : "manual"
     },
@@ -707,6 +713,9 @@
     },
     "Vendors" : {
       "extractionState" : "manual"
+    },
+    "Venue Location" : {
+
     },
     "Venue Name" : {
       "extractionState" : "manual"

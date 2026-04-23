@@ -83,7 +83,10 @@ struct EventDetailView: View {
             .padding(.vertical, 8)
         }
         .background { WarmBackground() }
-        .task {
+        // Re-runs when weatherSnapshot becomes nil (cache busted by block location change)
+        // and again when the fresh snapshot is written back. The second run hits the fresh
+        // cache immediately and is a no-op.
+        .task(id: event.weatherSnapshot) {
             let service = WeatherService()
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()
