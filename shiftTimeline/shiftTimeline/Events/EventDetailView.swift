@@ -67,6 +67,10 @@ struct EventDetailView: View {
     private func eventContent(_ event: EventModel) -> some View {
         ScrollView {
             VStack(spacing: 16) {
+                let atRisk = atRiskOutdoorBlocks(for: event)
+                ForEach(Array(atRisk.enumerated()), id: \.offset) { _, item in
+                    RainWarningBanner(blockTitle: item.blockTitle, rainProbability: item.probability)
+                }
                 if showAcknowledgmentBanner, let vendor = currentVendor {
                     ShiftAcknowledgmentBanner(vendor: vendor)
                 }
@@ -79,6 +83,29 @@ struct EventDetailView: View {
             .padding(.vertical, 8)
         }
         .background { WarmBackground() }
+        .task {
+            let service = WeatherService()
+            _ = await service.fetchIfNeeded(for: event)
+            try? modelContext.save()
+        }
+    }
+
+    /// Returns the list of outdoor blocks with `rainProbability > 0.5` from a fresh snapshot.
+    /// Returns an empty array if the snapshot is missing, corrupt, or stale (≥ 30 min old).
+    private func atRiskOutdoorBlocks(for event: EventModel) -> [(blockTitle: String, probability: Double)] {
+        guard let data = event.weatherSnapshot,
+              let snapshot = try? JSONDecoder().decode(WeatherSnapshot.self, from: data),
+              snapshot.isFresh else {
+            return []
+        }
+        let allBlocks = (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        let riskEntries = snapshot.atRiskEntries(for: allBlocks.map { (id: $0.id, isOutdoor: $0.isOutdoor) })
+        return riskEntries.compactMap { entry in
+            guard let block = allBlocks.first(where: { $0.id == entry.blockId }) else { return nil }
+            return (blockTitle: block.title, probability: entry.rainProbability)
+        }
     }
 
     private func heroHeader(_ event: EventModel) -> some View {

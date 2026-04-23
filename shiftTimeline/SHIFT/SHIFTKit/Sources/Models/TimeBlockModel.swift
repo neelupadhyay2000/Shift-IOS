@@ -16,6 +16,7 @@ public final class TimeBlockModel {
     public var icon: String = "circle.fill"
     public var status: BlockStatus = BlockStatus.upcoming
     public var requiresReview: Bool = false
+    public var isOutdoor: Bool = false
     public var track: TimelineTrack?
 
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
