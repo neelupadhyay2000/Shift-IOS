@@ -339,15 +339,25 @@ struct EventDetailView: View {
         for event: EventModel,
         completion: @escaping (Result<CKRecord, Error>) -> Void
     ) {
+        // SwiftData / NSPersistentCloudKitContainer mirrors all records into
+        // this custom zone. Querying the default zone returns empty; querying
+        // against a container whose schema hasn't been pushed yet surfaces
+        // the "Did not find record type" error — we translate that into a
+        // user-actionable message below.
+        let coreDataZoneID = CKRecordZone.ID(
+            zoneName: "com.apple.coredata.cloudkit.zone",
+            ownerName: CKCurrentUserDefaultName
+        )
         let query = CKQuery(recordType: "CD_EventModel", predicate: NSPredicate(value: true))
         var foundRecord: CKRecord?
 
         func runQuery(cursor: CKQueryOperation.Cursor? = nil) {
-            let operation = if let cursor {
+            let operation: CKQueryOperation = if let cursor {
                 CKQueryOperation(cursor: cursor)
             } else {
                 CKQueryOperation(query: query)
             }
+            operation.zoneID = coreDataZoneID
 
             var pageError: Error?
 
@@ -388,7 +398,16 @@ struct EventDetailView: View {
                     }
 
                 case .failure(let error):
-                    completion(.failure(error))
+                    // CloudKit returns an "unknown item" error when the record
+                    // type hasn't been published yet, and "zoneNotFound" before
+                    // the first SwiftData push creates the mirror zone. Treat
+                    // both as "not yet synced" rather than a hard failure.
+                    if let ckError = error as? CKError,
+                       ckError.code == .unknownItem || ckError.code == .zoneNotFound {
+                        completion(.failure(SharingLookupError.eventNotYetSynced))
+                    } else {
+                        completion(.failure(error))
+                    }
                 }
             }
 
