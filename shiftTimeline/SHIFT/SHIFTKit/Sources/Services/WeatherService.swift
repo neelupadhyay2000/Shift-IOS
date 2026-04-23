@@ -112,29 +112,43 @@ public struct WeatherService: Sendable {
         }
 
         let wk = WKWeatherService()
-        var allEntries: [BlockRainEntry] = []
 
-        for (k, tokens) in groups {
-            guard let (lat, lng) = coordForKey[k], lat != 0 || lng != 0 else { continue }
-            let location = CLLocation(latitude: lat, longitude: lng)
-            let forecast = try await wk.weather(for: location, including: .hourly)
+        // Fetch each unique coordinate's hourly forecast concurrently. WeatherKit's
+        // rate limiter is per-request, not per-connection, so issuing these in
+        // parallel is the supported pattern and dramatically reduces latency for
+        // multi-venue events (weddings with ceremony/reception at separate sites).
+        let allEntries: [BlockRainEntry] = try await withThrowingTaskGroup(
+            of: [BlockRainEntry].self
+        ) { group in
+            for (k, tokens) in groups {
+                guard let (lat, lng) = coordForKey[k], lat != 0 || lng != 0 else { continue }
+                group.addTask {
+                    let location = CLLocation(latitude: lat, longitude: lng)
+                    let forecast = try await wk.weather(for: location, including: .hourly)
 
-            let entries: [BlockRainEntry] = tokens.compactMap { token in
-                guard let match = forecast.forecast.min(by: {
-                    abs($0.date.timeIntervalSince(token.scheduledStart)) <
-                        abs($1.date.timeIntervalSince(token.scheduledStart))
-                }) else { return nil }
+                    return tokens.compactMap { token in
+                        guard let match = forecast.forecast.min(by: {
+                            abs($0.date.timeIntervalSince(token.scheduledStart)) <
+                                abs($1.date.timeIntervalSince(token.scheduledStart))
+                        }) else { return nil }
 
-                guard abs(match.date.timeIntervalSince(token.scheduledStart)) < 3600 else {
-                    return nil
+                        guard abs(match.date.timeIntervalSince(token.scheduledStart)) < 3600 else {
+                            return nil
+                        }
+
+                        return BlockRainEntry(
+                            blockId: token.id,
+                            rainProbability: match.precipitationChance
+                        )
+                    }
                 }
-
-                return BlockRainEntry(
-                    blockId: token.id,
-                    rainProbability: match.precipitationChance
-                )
             }
-            allEntries.append(contentsOf: entries)
+
+            var collected: [BlockRainEntry] = []
+            for try await entries in group {
+                collected.append(contentsOf: entries)
+            }
+            return collected
         }
 
         return WeatherSnapshot(entries: allEntries, fetchedAt: Date())

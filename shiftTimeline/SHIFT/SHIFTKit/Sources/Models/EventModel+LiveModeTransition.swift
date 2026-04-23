@@ -10,12 +10,15 @@
 //  persisted `EventStatus` honest about whether the event is actually
 //  underway.
 //
-//  Rules:
+//  Rules (evaluated in order):
 //    1. `.completed` events are terminal and never revert.
-//    2. If `now` and `event.date` fall on the same calendar day,
-//       the event is genuinely live — keep `.live`.
-//    3. Otherwise (user was testing the UI ahead of / after the
-//       scheduled date), revert to `.planning`.
+//    2. Any status other than `.live` is returned unchanged. This
+//       function only *demotes* a `.live` event; it never promotes
+//       `.planning` → `.live`. Promotion is a deliberate user action
+//       handled elsewhere (entering Live Mode from the event detail).
+//    3. `.live` + same calendar day as `now`  → remain `.live`.
+//    4. `.live` + different day               → revert to `.planning`
+//       (user was rehearsing ahead of / after the scheduled date).
 //
 
 import Foundation
@@ -23,6 +26,12 @@ import Foundation
 public extension EventModel {
     /// Resolves what the persisted `status` should be when the user
     /// dismisses the Live Mode UI.
+    ///
+    /// This function only **demotes** a `.live` event back to `.planning`
+    /// when the calendar day no longer matches. It does not promote any
+    /// other status. Callers entering Live Mode are responsible for setting
+    /// `status = .live` — this helper simply undoes that if the user was
+    /// merely previewing the UI.
     ///
     /// Pure function — does **not** mutate the model. The caller is
     /// responsible for assigning the returned value and saving the
@@ -42,6 +51,12 @@ public extension EventModel {
         // Terminal state — never revert.
         if status == .completed {
             return .completed
+        }
+
+        // Only `.live` is subject to demotion. Every other status is
+        // returned as-is to keep this function strictly a demotion step.
+        guard status == .live else {
+            return status
         }
 
         // Same calendar day → the event is actually happening.

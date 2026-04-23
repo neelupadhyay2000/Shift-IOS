@@ -81,16 +81,18 @@ struct EventExitLiveModeTransitionTests {
         #expect(resolved == .planning)
     }
 
-    @Test("Planning + same day stays .live (promoted because user entered live mode)")
-    func planningSameDayPromotedToLive() {
-        // The user may have exited Live Mode without ever flipping status,
-        // but if the calendar day matches, we keep the UI state consistent.
+    @Test("Planning status is returned unchanged — this helper only demotes .live")
+    func planningStatusReturnedUnchanged() {
+        // The transition helper is a one-way demoter: .live → .planning
+        // when the calendar day no longer matches. It must never promote
+        // .planning → .live. Promotion is a deliberate user action handled
+        // when entering Live Mode, not when exiting it.
         let now = Date()
         let event = makeEvent(status: .planning, date: now)
 
         let resolved = event.resolveStatusOnExitLiveMode(now: now, calendar: calendar)
 
-        #expect(resolved == .live)
+        #expect(resolved == .planning)
     }
 
     @Test("Midnight boundary — event 1 second after midnight same day remains .live")

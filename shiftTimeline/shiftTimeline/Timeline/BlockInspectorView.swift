@@ -108,9 +108,12 @@ struct BlockInspectorView: View {
             .onChange(of: block.id) { _, _ in loadState() }
             .onChange(of: blockLatitude) { _, new in
                 // Bust weather cache when a block venue location is resolved in inspector mode.
+                // Do NOT call modelContext.save() here — the sibling .onChange in
+                // InspectorLiveWriteModifier writes `block.blockLatitude` in the same
+                // runloop tick. Let SwiftData's autosave coalesce both mutations into
+                // a single transaction so Ripple/Weather don't see a half-written state.
                 if new != 0, let event {
                     event.weatherSnapshot = nil
-                    try? modelContext.save()
                 }
             }
             .modifier(InspectorLiveWriteModifier(block: block,
@@ -234,8 +237,8 @@ struct BlockInspectorView: View {
             ) { result in
                 venueAddress = result.venueAddress
                 venueName = result.venueName
-                blockLatitude = result.latitude
-                blockLongitude = result.longitude
+                blockLatitude = result.coordinate?.latitude ?? 0
+                blockLongitude = result.coordinate?.longitude ?? 0
             }
         }
     }

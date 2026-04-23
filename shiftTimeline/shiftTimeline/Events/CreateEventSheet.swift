@@ -34,7 +34,7 @@ struct CreateEventSheet: View {
                         currentAddress: locationResult?.venueAddress ?? "",
                         currentVenueName: locationResult?.venueName ?? ""
                     ) { result in
-                        locationResult = (result.latitude == 0 && result.longitude == 0) ? nil : result
+                        locationResult = result.coordinate == nil ? nil : result
                     }
                 }
             }
@@ -58,8 +58,8 @@ struct CreateEventSheet: View {
 
     private func createEvent() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        let latitude = locationResult?.latitude ?? 0
-        let longitude = locationResult?.longitude ?? 0
+        let latitude = locationResult?.coordinate?.latitude ?? 0
+        let longitude = locationResult?.coordinate?.longitude ?? 0
         let venueNames: [String] = {
             guard let name = locationResult?.venueName, !name.isEmpty else { return [] }
             return [name]

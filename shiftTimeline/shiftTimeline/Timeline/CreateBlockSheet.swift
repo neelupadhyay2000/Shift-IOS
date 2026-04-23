@@ -79,8 +79,8 @@ struct CreateBlockSheet: View {
                     ) { result in
                         venueAddress = result.venueAddress
                         venueName = result.venueName
-                        blockLatitude = result.latitude
-                        blockLongitude = result.longitude
+                        blockLatitude = result.coordinate?.latitude ?? 0
+                        blockLongitude = result.coordinate?.longitude ?? 0
                     }
                 }
             }

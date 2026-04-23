@@ -3,11 +3,23 @@ import MapKit
 
 // MARK: - Result Type
 
+/// A resolved venue selection emitted by `BlockLocationPickerView`.
+///
+/// `coordinate` is `nil` when the user clears the location or when
+/// MapKit could not attach a geocoded coordinate to the selection.
+/// Callers MUST treat `nil` as "no location" rather than falling
+/// back to `(0, 0)`, which is a valid point in the Gulf of Guinea.
 struct BlockLocationResult: Equatable {
     let venueName: String
     let venueAddress: String
-    let latitude: Double
-    let longitude: Double
+    let coordinate: CLLocationCoordinate2D?
+
+    static func == (lhs: BlockLocationResult, rhs: BlockLocationResult) -> Bool {
+        lhs.venueName == rhs.venueName
+            && lhs.venueAddress == rhs.venueAddress
+            && lhs.coordinate?.latitude == rhs.coordinate?.latitude
+            && lhs.coordinate?.longitude == rhs.coordinate?.longitude
+    }
 }
 
 // MARK: - Search Completer Bridge
@@ -87,8 +99,7 @@ final class LocationSearchCompleter: NSObject, MKLocalSearchCompleterDelegate {
             return BlockLocationResult(
                 venueName: item.name ?? completion.title,
                 venueAddress: address.isEmpty ? completion.subtitle : address,
-                latitude: coord.latitude,
-                longitude: coord.longitude
+                coordinate: coord
             )
         } catch {
             errorMessage = error.localizedDescription
@@ -109,8 +120,8 @@ final class LocationSearchCompleter: NSObject, MKLocalSearchCompleterDelegate {
 /// ) { result in
 ///     block.venueAddress = result.venueAddress
 ///     block.venueName = result.venueName
-///     block.blockLatitude = result.latitude
-///     block.blockLongitude = result.longitude
+///     block.blockLatitude = result.coordinate?.latitude ?? 0
+///     block.blockLongitude = result.coordinate?.longitude ?? 0
 /// }
 /// ```
 struct BlockLocationPickerView: View {
@@ -252,8 +263,7 @@ struct BlockLocationPickerView: View {
         onSelect(BlockLocationResult(
             venueName: "",
             venueAddress: "",
-            latitude: 0,
-            longitude: 0
+            coordinate: nil
         ))
     }
 }
