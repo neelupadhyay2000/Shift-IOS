@@ -1,11 +1,12 @@
 import SwiftUI
 import SwiftData
+import MapKit
 import Models
 import Services
 
 /// Sheet for creating a new event.
 ///
-/// Fields: Title (required), Date, Venue Name (optional).
+/// Fields: Title (required), Date, Location (optional address search).
 /// The "Create" button is disabled when title is empty.
 struct CreateEventSheet: View {
 
@@ -14,9 +15,7 @@ struct CreateEventSheet: View {
 
     @State private var title: String = ""
     @State private var date: Date = .now
-    @State private var venueName: String = ""
-    @State private var latitudeText: String = ""
-    @State private var longitudeText: String = ""
+    @State private var locationResult: BlockLocationResult? = nil
 
     private var canCreate: Bool {
         !title.trimmingCharacters(in: .whitespaces).isEmpty
@@ -28,14 +27,15 @@ struct CreateEventSheet: View {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
                     DatePicker(String(localized: "Date"), selection: $date, displayedComponents: .date)
-                    TextField(String(localized: "Venue Name"), text: $venueName)
                 }
 
                 Section(String(localized: "Location")) {
-                    TextField(String(localized: "Latitude"), text: $latitudeText)
-                        .keyboardType(.numbersAndPunctuation)
-                    TextField(String(localized: "Longitude"), text: $longitudeText)
-                        .keyboardType(.numbersAndPunctuation)
+                    BlockLocationPickerView(
+                        currentAddress: locationResult?.venueAddress ?? "",
+                        currentVenueName: locationResult?.venueName ?? ""
+                    ) { result in
+                        locationResult = (result.latitude == 0 && result.longitude == 0) ? nil : result
+                    }
                 }
             }
             .navigationTitle(String(localized: "New Event"))
@@ -58,11 +58,12 @@ struct CreateEventSheet: View {
 
     private func createEvent() {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
-        let trimmedVenue = venueName.trimmingCharacters(in: .whitespaces)
-        let venueNames = trimmedVenue.isEmpty ? [] : [trimmedVenue]
-
-        let latitude = Double(latitudeText.trimmingCharacters(in: .whitespaces)) ?? 0
-        let longitude = Double(longitudeText.trimmingCharacters(in: .whitespaces)) ?? 0
+        let latitude = locationResult?.latitude ?? 0
+        let longitude = locationResult?.longitude ?? 0
+        let venueNames: [String] = {
+            guard let name = locationResult?.venueName, !name.isEmpty else { return [] }
+            return [name]
+        }()
 
         let event = EventModel(
             title: trimmedTitle,
