@@ -18,62 +18,142 @@ import Foundation
 struct ShiftLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: ShiftActivityAttributes.self) { context in
-            // Lock Screen & Banner UI
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(context.attributes.eventName)
-                        .font(.headline)
-                    Text("Current: \(context.state.currentBlockName)")
-                        .font(.subheadline)
-                        .foregroundStyle(.blue)
-                }
-                Spacer()
-                Image(systemName: "calendar.badge.clock")
-                    .font(.title2)
-                    .foregroundStyle(.blue)
-            }
-            .padding()
-        } dynamicIsland: { context in
-            DynamicIsland {
-                DynamicIslandExpandedRegion(.leading, priority: 0.5) {
+            // Lock Screen & StandBy UI
+            VStack(spacing: 0) {
+                HStack(alignment: .center) {
+                    // Leading — current block title
                     VStack(alignment: .leading, spacing: 2) {
-                        Label("SHIFT", systemImage: "calendar.badge.clock")
-                            .font(.caption2.bold())
-                            .foregroundStyle(.blue)
-                        Text(context.attributes.eventName)
-                            .font(.caption2)
+                        Text(context.attributes.eventTitle)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+
+                        Text(context.state.currentBlockTitle)
+                            .font(.headline)
                             .lineLimit(1)
                             .foregroundStyle(.primary)
                     }
-                    .frame(minHeight: 36)
+
+                    Spacer()
+
+                    // Trailing — live countdown timer (system-managed)
+                    Text(context.state.endTime, style: .timer)
+                        .font(.title.weight(.bold).monospacedDigit())
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.trailing)
+                }
+
+                // Bottom — next block subtitle
+                HStack {
+                    if let next = context.state.nextBlockTitle {
+                        Label {
+                            Text("Next: \(next)")
+                                .font(.subheadline)
+                                .lineLimit(1)
+                                .foregroundStyle(.secondary)
+                        } icon: {
+                            Image(systemName: "forward.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Last block of the day")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+
+                    // Sunset pill
+                    if let sunset = context.state.sunsetTime {
+                        Label {
+                            Text(sunset, style: .timer)
+                                .font(.caption.monospacedDigit())
+                        } icon: {
+                            Image(systemName: "sunset.fill")
+                                .font(.caption2)
+                        }
+                        .foregroundStyle(.yellow)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .padding()
+            .activityBackgroundTint(.black.opacity(0.75))
+            .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                // Expanded — top: event title
+                DynamicIslandExpandedRegion(.leading) {
+                    Text(context.attributes.eventTitle)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("Live")
+                    Label("Live", systemImage: "circle.fill")
                         .font(.caption2.bold())
                         .foregroundStyle(.green)
-                        .frame(minHeight: 36)
                 }
-                DynamicIslandExpandedRegion(.bottom) {
+                // Expanded — center: current block + countdown
+                DynamicIslandExpandedRegion(.center) {
                     HStack {
-                        Image(systemName: "clock.fill")
-                            .foregroundStyle(.blue)
-                        Text(context.state.currentBlockName)
-                            .font(.footnote.bold())
+                        Text(context.state.currentBlockTitle)
+                            .font(.headline)
                             .lineLimit(1)
                         Spacer()
+                        Text(context.state.endTime, style: .timer)
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.orange)
                     }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 8)
+                }
+                // Expanded — bottom: next block + sunset
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack {
+                        if let next = context.state.nextBlockTitle {
+                            Label {
+                                Text("Next: \(next)")
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: "forward.fill")
+                                    .font(.caption2)
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        } else {
+                            Text("Last block")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if let sunset = context.state.sunsetTime {
+                            Label {
+                                Text(sunset, style: .timer)
+                                    .monospacedDigit()
+                            } icon: {
+                                Image(systemName: "sunset.fill")
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.yellow)
+                        }
+                    }
+                    .padding(.top, 2)
                 }
             } compactLeading: {
-                Image(systemName: "clock.fill")
-                    .foregroundStyle(.blue)
-            } compactTrailing: {
-                Text("00:00")
+                // Compact pill — block title
+                Text(context.state.currentBlockTitle)
                     .font(.caption2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } compactTrailing: {
+                // Compact pill — live countdown
+                Text(context.state.endTime, style: .timer)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.orange)
             } minimal: {
-                Image(systemName: "clock")
-                    .foregroundStyle(.blue)
+                // Minimal dot indicator
+                Image(systemName: "timer")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
             }
         }
     }

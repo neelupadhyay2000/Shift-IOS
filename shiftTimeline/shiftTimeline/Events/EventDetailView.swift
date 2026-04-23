@@ -13,6 +13,7 @@ struct EventDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(WatchSessionManager.self) private var watchSessionManager
+    @Environment(LiveActivityManager.self) private var liveActivityManager
 
     @Query private var results: [EventModel]
 
@@ -448,6 +449,16 @@ struct EventDetailView: View {
             WidgetDataStore.save(data)
             WidgetCenter.shared.reloadTimelines(ofKind: "shiftTimelineWidget")
             WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
+
+            // Start the Lock Screen / Dynamic Island Live Activity.
+            liveActivityManager.start(
+                eventTitle: event.title,
+                currentBlockTitle: active.title,
+                blockEndTime: active.scheduledStart.addingTimeInterval(active.duration),
+                nextBlockTitle: nextUp?.title,
+                sunsetTime: event.sunsetTime,
+                eventID: event.id
+            )
         }
     }
 

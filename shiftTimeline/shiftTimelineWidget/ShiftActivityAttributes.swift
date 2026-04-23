@@ -12,19 +12,33 @@ import ActivityKit
 import Foundation
 
 public struct ShiftActivityAttributes: ActivityAttributes {
-    public struct ContentState: Codable, Hashable {
-        /// Dynamic data that updates (e.g., current block name)
-        public var currentBlockName: String
+    public struct ContentState: Codable, Hashable, Sendable {
+        /// Title of the currently active block (e.g. "Ceremony").
+        public var currentBlockTitle: String
+        /// Scheduled end time of the active block — drives the countdown timer.
+        public var endTime: Date
+        /// Title of the next upcoming block, if any.
+        public var nextBlockTitle: String?
+        /// Sunset time for the event day, if available.
+        public var sunsetTime: Date?
 
-        public init(currentBlockName: String) {
-            self.currentBlockName = currentBlockName
+        public init(
+            currentBlockTitle: String,
+            endTime: Date,
+            nextBlockTitle: String? = nil,
+            sunsetTime: Date? = nil
+        ) {
+            self.currentBlockTitle = currentBlockTitle
+            self.endTime = endTime
+            self.nextBlockTitle = nextBlockTitle
+            self.sunsetTime = sunsetTime
         }
     }
 
-    /// Static data that doesn't change for the lifetime of the activity
-    public var eventName: String
+    /// Event title — set once when the Live Activity starts, never changes.
+    public var eventTitle: String
 
-    public init(eventName: String) {
-        self.eventName = eventName
+    public init(eventTitle: String) {
+        self.eventTitle = eventTitle
     }
 }
