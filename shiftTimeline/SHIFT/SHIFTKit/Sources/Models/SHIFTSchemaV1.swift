@@ -1,10 +1,12 @@
+import Foundation
 import SwiftData
 
-/// V1 schema snapshot wrapping all `@Model` classes as they existed at launch.
+/// V1 schema snapshot — the launch-day schema before any migrations.
 ///
-/// Future schema changes must define a new version and add a migration stage
-/// in `SHIFTMigrationPlan`. Do **not** mutate this enum — version identity is
-/// how SwiftData (and, crucially, CloudKit mirroring) tracks store evolution.
+/// Each nested `@Model` class is a frozen copy of the live model at the
+/// time this version shipped. SwiftData hashes these declarations to
+/// compute version checksums for `SHIFTMigrationPlan`. Never mutate a
+/// shipped version — add a new `SHIFTSchemaVN` instead.
 public enum SHIFTSchemaV1: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 
@@ -16,5 +18,105 @@ public enum SHIFTSchemaV1: VersionedSchema {
             VendorModel.self,
             ShiftRecord.self,
         ]
+    }
+
+    @Model
+    public final class EventModel {
+        public var id: UUID = UUID()
+        public var title: String = ""
+        public var date: Date = Date.distantPast
+        public var latitude: Double = 0
+        public var longitude: Double = 0
+        public var venueNames: [String] = []
+        public var sunsetTime: Date?
+        public var goldenHourStart: Date?
+        public var status: EventStatus = EventStatus.planning
+        public var shareURL: String?
+        public var ownerRecordName: String?
+
+        @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
+        public var tracks: [TimelineTrack]?
+
+        @Relationship(deleteRule: .cascade, inverse: \VendorModel.event)
+        public var vendors: [VendorModel]?
+
+        @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
+        public var shiftRecords: [ShiftRecord]?
+
+        public init() {}
+    }
+
+    @Model
+    public final class TimeBlockModel {
+        public var id: UUID = UUID()
+        public var title: String = ""
+        public var scheduledStart: Date = Date.distantPast
+        public var originalStart: Date = Date.distantPast
+        public var duration: TimeInterval = 0
+        public var minimumDuration: TimeInterval = 0
+        public var isPinned: Bool = false
+        public var notes: String = ""
+        public var voiceMemoURL: URL?
+        public var colorTag: String = "#007AFF"
+        public var icon: String = "circle.fill"
+        public var status: BlockStatus = BlockStatus.upcoming
+        public var requiresReview: Bool = false
+        public var track: TimelineTrack?
+
+        @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
+        public var shiftRecords: [ShiftRecord]?
+
+        @Relationship(deleteRule: .nullify, inverse: \VendorModel.assignedBlocks)
+        public var vendors: [VendorModel]?
+
+        @Relationship(deleteRule: .nullify, inverse: \TimeBlockModel.dependents)
+        public var dependencies: [TimeBlockModel]?
+
+        @Relationship(deleteRule: .nullify)
+        public var dependents: [TimeBlockModel]?
+
+        public init() {}
+    }
+
+    @Model
+    public final class TimelineTrack {
+        public var id: UUID = UUID()
+        public var name: String = ""
+        public var sortOrder: Int = 0
+        public var isDefault: Bool = false
+        public var event: EventModel?
+
+        @Relationship(deleteRule: .cascade, inverse: \TimeBlockModel.track)
+        public var blocks: [TimeBlockModel]?
+
+        public init() {}
+    }
+
+    @Model
+    public final class VendorModel {
+        public var id: UUID = UUID()
+        public var name: String = ""
+        public var role: VendorRole = VendorRole.custom
+        public var phone: String = ""
+        public var email: String = ""
+        public var cloudKitRecordName: String?
+        public var event: EventModel?
+
+        @Relationship(deleteRule: .nullify)
+        public var assignedBlocks: [TimeBlockModel]?
+
+        public init() {}
+    }
+
+    @Model
+    public final class ShiftRecord {
+        public var id: UUID = UUID()
+        public var timestamp: Date = Date()
+        public var deltaMinutes: Int = 0
+        public var triggeredBy: ShiftSource = ShiftSource.manual
+        public var sourceBlock: TimeBlockModel?
+        public var event: EventModel?
+
+        public init() {}
     }
 }

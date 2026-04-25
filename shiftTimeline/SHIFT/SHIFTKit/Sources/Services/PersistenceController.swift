@@ -18,6 +18,11 @@ public final class PersistenceController: Sendable {
 
     public let container: ModelContainer
 
+    /// `false` when the controller fell back to a local-only or in-memory
+    /// store because the CloudKit-enabled `ModelContainer` could not be
+    /// created. Views can read this to surface a sync-degraded warning.
+    public let isCloudKitEnabled: Bool
+
     public static var schema: Schema {
         Schema([
             EventModel.self,
@@ -66,16 +71,7 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .automatic
         )
 
-        // First attempt: open with the full migration plan. This can fail two ways:
-        //   (a) A plain Swift error from `ModelContainer.init` — caught by `catch`.
-        //   (b) An Objective-C `NSException` thrown from
-        //       `NSLightweightMigrationStage initWithVersionChecksums:` when the
-        //       on-disk store's schema checksum doesn't line up with any version
-        //       in `SHIFTMigrationPlan`. Swift can't catch NSExceptions directly,
-        //       so `tryBuildContainer` wraps the init in an ObjC `@try/@catch` shim.
-        //
-        // On failure we delete the local store and retry with several
-        // progressively more aggressive fallbacks so the app always launches.
+        // Attempt 1: existing store with full migration plan (happy path).
         if let built = Self.tryBuildContainer(
             schema: schema,
             configuration: config,
@@ -83,26 +79,15 @@ public final class PersistenceController: Sendable {
             label: "existing store with migration plan"
         ) {
             container = built
+            isCloudKitEnabled = true
             return
         }
 
-        Self.logger.error("Initial ModelContainer init failed — deleting store and retrying")
+        // Attempt 2: delete corrupt/outdated store, retry with migration plan.
+        // CloudKit will re-download the user's data after the container syncs.
+        Self.logger.error("Initial ModelContainer init failed — deleting store and retrying with migration plan")
         Self.deleteStoreFiles(at: url)
 
-        // Retry #1: fresh store on disk, no migration plan (nothing to migrate from).
-        // CloudKit will re-hydrate user data after the container comes up.
-        if let built = Self.tryBuildContainer(
-            schema: schema,
-            configuration: config,
-            migrationPlan: nil,
-            label: "fresh store without migration plan"
-        ) {
-            container = built
-            return
-        }
-
-        // Retry #2: fresh store with migration plan, in case SwiftData requires it
-        // to register schema identity with CloudKit mirroring.
         if let built = Self.tryBuildContainer(
             schema: schema,
             configuration: config,
@@ -110,12 +95,30 @@ public final class PersistenceController: Sendable {
             label: "fresh store with migration plan"
         ) {
             container = built
+            isCloudKitEnabled = true
             return
         }
 
-        // Retry #3: disable CloudKit mirroring entirely — local-only store.
-        // Data will come back when the user relaunches after the next update,
-        // but at least the app launches instead of aborting on startup.
+        // Attempt 3: fresh store WITHOUT migration plan but WITH CloudKit.
+        // CloudKit mirroring may degrade (silent record-type errors), but
+        // at least sync is attempted rather than fully disabled.
+        Self.logger.error("Migration plan failed on fresh store — retrying without migration plan")
+        Self.deleteStoreFiles(at: url)
+
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: nil,
+            label: "fresh store without migration plan (CloudKit still enabled)"
+        ) {
+            container = built
+            isCloudKitEnabled = true
+            Self.logger.error("CloudKit enabled WITHOUT migration plan — sync may be degraded")
+            return
+        }
+
+        // Attempt 4: local-only store. The app launches but CloudKit is dead.
+        Self.logger.fault("All CloudKit-enabled attempts failed — falling back to local-only store. CloudKit sync is DISABLED.")
         Self.deleteStoreFiles(at: url)
         let localOnly = ModelConfiguration(
             schema: schema,
@@ -126,15 +129,15 @@ public final class PersistenceController: Sendable {
             schema: schema,
             configuration: localOnly,
             migrationPlan: nil,
-            label: "fresh store local-only (CloudKit disabled)"
+            label: "local-only store (CloudKit DISABLED)"
         ) {
             container = built
+            isCloudKitEnabled = false
             return
         }
 
-        // Last-resort: in-memory container. User data will not persist across
-        // launches, but the app will not crash on launch.
-        Self.logger.error("All on-disk ModelContainer attempts failed — using in-memory container as last resort")
+        // Last resort: in-memory. Data won't persist across launches.
+        Self.logger.fault("All on-disk attempts failed — using in-memory container")
         let memoryConfig = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: true,
@@ -147,6 +150,7 @@ public final class PersistenceController: Sendable {
             label: "in-memory fallback"
         ) {
             container = built
+            isCloudKitEnabled = false
             return
         }
 

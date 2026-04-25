@@ -1,12 +1,15 @@
 import Foundation
 import SwiftData
 
-/// V2 schema — adds vendor notification fields to `VendorModel`:
-///   - `notificationThreshold: TimeInterval` (default 600)
-///   - `pendingShiftDelta: TimeInterval?`
-///   - `hasAcknowledgedLatestShift: Bool`
-public enum SHIFTSchemaV2: VersionedSchema {
-    public static var versionIdentifier: Schema.Version { Schema.Version(2, 0, 0) }
+/// V4 schema — adds per-block location fields to `TimeBlockModel`:
+///   - `venueAddress: String` (default `""`)
+///   - `venueName: String` (default `""`)
+///   - `blockLatitude: Double` (default `0`)
+///   - `blockLongitude: Double` (default `0`)
+///
+/// All new properties have defaults, so a lightweight migration from V3 suffices.
+public enum SHIFTSchemaV4: VersionedSchema {
+    public static var versionIdentifier: Schema.Version { Schema.Version(4, 0, 0) }
 
     public static var models: [any PersistentModel.Type] {
         [
@@ -28,6 +31,7 @@ public enum SHIFTSchemaV2: VersionedSchema {
         public var venueNames: [String] = []
         public var sunsetTime: Date?
         public var goldenHourStart: Date?
+        public var weatherSnapshot: Data?
         public var status: EventStatus = EventStatus.planning
         public var shareURL: String?
         public var ownerRecordName: String?
@@ -59,6 +63,11 @@ public enum SHIFTSchemaV2: VersionedSchema {
         public var icon: String = "circle.fill"
         public var status: BlockStatus = BlockStatus.upcoming
         public var requiresReview: Bool = false
+        public var isOutdoor: Bool = false
+        public var venueAddress: String = ""
+        public var venueName: String = ""
+        public var blockLatitude: Double = 0
+        public var blockLongitude: Double = 0
         public var track: TimelineTrack?
 
         @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
