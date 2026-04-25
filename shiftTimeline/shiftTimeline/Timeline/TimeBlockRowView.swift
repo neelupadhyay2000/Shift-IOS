@@ -3,6 +3,10 @@ import Models
 
 /// A single row in the timeline builder list.
 /// Displays color accent, icon, title, start time, duration, and a Fluid/Pinned indicator.
+///
+/// When `isCompact` is true, renders a slim single-line variant suitable for short
+/// blocks (e.g. transit blocks) that don't have enough vertical real estate for the
+/// full layout. The compact mode fits cleanly in ~36pt of height.
 struct TimeBlockRowView: View {
 
     let title: String
@@ -11,12 +15,23 @@ struct TimeBlockRowView: View {
     let isPinned: Bool
     let colorTag: String
     let icon: String
+    var isCompact: Bool = false
 
     private var accentColor: Color {
         isPinned ? Color(.systemRed) : Color(hex: colorTag)
     }
 
     var body: some View {
+        if isCompact {
+            compactBody
+        } else {
+            fullBody
+        }
+    }
+
+    // MARK: - Full layout
+
+    private var fullBody: some View {
         HStack(spacing: 0) {
             // Left accent bar — gradient strip
             UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 2, topTrailingRadius: 2)
@@ -76,6 +91,45 @@ struct TimeBlockRowView: View {
             .padding(.trailing, 12)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Compact layout
+
+    /// Slim single-line row for short blocks. ~32pt tall.
+    private var compactBody: some View {
+        HStack(spacing: 0) {
+            // Thinner accent bar
+            UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 2, topTrailingRadius: 2)
+                .fill(accentColor.gradient)
+                .frame(width: 4)
+                .padding(.vertical, 3)
+
+            HStack(spacing: 8) {
+                // Smaller icon, no background tile
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(hex: colorTag))
+                    .frame(width: 18, height: 18)
+
+                Text(title)
+                    .font(.footnote)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+
+                // Inline time · duration
+                Text(formattedDuration)
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            .padding(.leading, 8)
+            .padding(.trailing, 10)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title), \(formattedDuration)")
     }
 
     private var formattedDuration: String {

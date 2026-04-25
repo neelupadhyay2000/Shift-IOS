@@ -77,9 +77,15 @@ struct TrackColumnView: View {
 
     private func columnBlockCard(_ block: TimeBlockModel, maxY: CGFloat? = nil) -> some View {
         let yOffset = layout.yOffset(for: block.scheduledStart)
-        let naturalHeight = max(layout.height(for: block.duration), 52)
-        let gap = (maxY ?? .infinity) - yOffset
-        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        let durationHeight = layout.height(for: block.duration)
+        let useCompact = durationHeight < 50
+        let minHeight: CGFloat = useCompact ? 32 : 52
+        let naturalHeight = max(durationHeight, minHeight)
+        let height: CGFloat = {
+            guard !useCompact, let maxY else { return naturalHeight }
+            let gap = maxY - yOffset
+            return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        }()
 
         return Button {
             onTapBlock(block)
@@ -90,7 +96,8 @@ struct TrackColumnView: View {
                 duration: block.duration,
                 isPinned: block.isPinned,
                 colorTag: block.colorTag,
-                icon: block.icon
+                icon: block.icon,
+                isCompact: useCompact
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)

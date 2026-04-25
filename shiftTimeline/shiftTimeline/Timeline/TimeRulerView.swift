@@ -24,7 +24,7 @@ struct TimeRulerLayout {
         CGFloat(duration / 60) * pointsPerMinute
     }
 
-    /// Hour dates from rulerStart to rulerEnd (inclusive of both boundary hours).
+    /// Hour and quarter-hour dates from rulerStart to rulerEnd at 15-minute intervals.
     var hourMarkers: [Date] {
         let calendar = Calendar.current
         guard let firstHour = calendar.nextDate(
@@ -37,7 +37,7 @@ struct TimeRulerLayout {
         var current = firstHour
         while current <= rulerEnd {
             markers.append(current)
-            guard let next = calendar.date(byAdding: .minute, value: 30, to: current) else { break }
+            guard let next = calendar.date(byAdding: .minute, value: 15, to: current) else { break }
             current = next
         }
         return markers
@@ -48,7 +48,7 @@ struct TimeRulerLayout {
     /// Rounds start down and end up to the nearest hour, with padding.
     static func adaptive(
         blocks: [some TimeRulerBlock],
-        pointsPerMinute: CGFloat = 2.5
+        pointsPerMinute: CGFloat = 4.0
     ) -> TimeRulerLayout {
         let calendar = Calendar.current
 
@@ -135,26 +135,41 @@ struct TimeRulerView: View {
 
             ForEach(layout.hourMarkers, id: \.self) { marker in
                 let y = layout.yOffset(for: marker)
-                let isFullHour = Calendar.current.component(.minute, from: marker) == 0
+                let minuteComponent = Calendar.current.component(.minute, from: marker)
+                let isFullHour = minuteComponent == 0
+                let isHalfHour = minuteComponent == 30
+                let showLabel = isFullHour || isHalfHour
 
                 HStack(spacing: 6) {
-                    Text(isFullHour
-                         ? Self.hourFormatter.string(from: marker)
-                         : Self.halfHourFormatter.string(from: marker))
-                        .font(.caption2)
-                        .fontWeight(isFullHour ? .bold : .regular)
-                        .foregroundStyle(isFullHour ? .secondary : .tertiary)
-                        .frame(width: 42, alignment: .trailing)
-                        .monospacedDigit()
+                    Group {
+                        if showLabel {
+                            Text(isFullHour
+                                 ? Self.hourFormatter.string(from: marker)
+                                 : Self.halfHourFormatter.string(from: marker))
+                                .font(.caption2)
+                                .fontWeight(isFullHour ? .bold : .regular)
+                                .foregroundStyle(isFullHour ? .secondary : .tertiary)
+                                .monospacedDigit()
+                        } else {
+                            // Quarter-hour markers — no label, just the tick
+                            Color.clear
+                        }
+                    }
+                    .frame(width: 42, alignment: .trailing)
 
-                    // Tick mark — larger for full hours, subtle for half-hours
+                    // Tick mark — larger for full hours, smaller for halves, smallest for quarters
+                    let outer: CGFloat = isFullHour ? 7 : (isHalfHour ? 5 : 3)
+                    let halo: CGFloat = isFullHour ? 13 : (isHalfHour ? 9 : 6)
+                    let opacity: Double = isFullHour ? 0.4 : (isHalfHour ? 0.2 : 0.12)
+                    let haloOpacity: Double = isFullHour ? 0.15 : (isHalfHour ? 0.08 : 0.05)
+
                     Circle()
-                        .fill(Color.accentColor.opacity(isFullHour ? 0.4 : 0.2))
-                        .frame(width: isFullHour ? 7 : 5, height: isFullHour ? 7 : 5)
+                        .fill(Color.accentColor.opacity(opacity))
+                        .frame(width: outer, height: outer)
                         .overlay(
                             Circle()
-                                .fill(Color.accentColor.opacity(isFullHour ? 0.15 : 0.08))
-                                .frame(width: isFullHour ? 13 : 9, height: isFullHour ? 13 : 9)
+                                .fill(Color.accentColor.opacity(haloOpacity))
+                                .frame(width: halo, height: halo)
                         )
                 }
                 .offset(y: y - 3)

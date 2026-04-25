@@ -1,3 +1,4 @@
+import CoreLocation
 import SwiftUI
 import SwiftData
 import Models
@@ -43,6 +44,12 @@ struct TimelineBuilderView: View {
 
     // Track filtering — nil means "All", otherwise filters to a specific track
     @State private var selectedTrackID: UUID?
+
+    // Transit block prompt
+    @State private var transitPromptContext: TransitPromptContext?
+    @State private var skippedVenuePairs: Set<String> = []
+    @State private var transitCheckTask: Task<Void, Never>?
+    @State private var travelTimeService = TravelTimeService()
 
     private var event: EventModel? { results.first }
 
@@ -118,13 +125,31 @@ struct TimelineBuilderView: View {
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { if !isReadOnly { toolbarItems } }
-        .sheet(isPresented: $isShowingCreateSheet) {
+        .sheet(isPresented: $isShowingCreateSheet, onDismiss: { scanForVenueSwitches() }) {
             CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
         }
         // iPhone: sheet presentation
-        .sheet(item: sheetBinding) { block in
+        .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
             BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
                 .presentationDetents([.medium, .large])
+        }
+        // Transit block prompt — fires whenever a venue location changes anywhere
+        // in the timeline (new block saved, inspector edit, etc).
+        .sheet(item: $transitPromptContext) { ctx in
+            TransitBlockPromptView(
+                context: ctx,
+                onAdd: { minutes in
+                    insertTransitBlock(minutes: minutes, after: ctx.originBlock, before: ctx.destinationBlock)
+                },
+                onSkip: {
+                    skippedVenuePairs.insert(pairKey(origin: ctx.originBlock, destination: ctx.destinationBlock))
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: venueFingerprint) { _, _ in
+            scanForVenueSwitches()
         }
         // iPad: trailing inspector panel
         .inspector(isPresented: $isInspectorOpen) {
@@ -139,7 +164,11 @@ struct TimelineBuilderView: View {
             }
         }
         .onChange(of: isInspectorOpen) { _, isOpen in
-            if !isOpen { blockToInspect = nil }
+            if !isOpen {
+                blockToInspect = nil
+                // iPad live-write inspector closed — re-scan in case venue changed.
+                scanForVenueSwitches()
+            }
         }
         .alert(
             String(localized: "Delete Pinned Block"),
@@ -349,9 +378,19 @@ struct TimelineBuilderView: View {
         maxY: CGFloat? = nil
     ) -> some View {
         let yOffset = currentLayout.yOffset(for: block.scheduledStart)
-        let naturalHeight = max(currentLayout.height(for: block.duration), 52)
-        let gap = (maxY ?? .infinity) - yOffset
-        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        let durationHeight = currentLayout.height(for: block.duration)
+        // Use compact rendering when the block's duration occupies less than the
+        // full-card minimum (52pt). The compact row fits cleanly in ~36pt.
+        let useCompact = durationHeight < 50
+        let minHeight: CGFloat = useCompact ? 32 : 52
+        let naturalHeight = max(durationHeight, minHeight)
+        // Only clamp full-size cards. Compact cards always render at their
+        // natural height — they're short enough that overlap isn't an issue.
+        let height: CGFloat = {
+            guard !useCompact, let maxY else { return naturalHeight }
+            let gap = maxY - yOffset
+            return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        }()
         let isDragging = draggingBlockID == block.id
 
         return Button {
@@ -365,7 +404,8 @@ struct TimelineBuilderView: View {
                 duration: block.duration,
                 isPinned: block.isPinned,
                 colorTag: block.colorTag,
-                icon: block.icon
+                icon: block.icon,
+                isCompact: useCompact
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
@@ -699,6 +739,10 @@ struct TimelineBuilderView: View {
 
         // Commit after-state for undo
         undoManager.commitShift(blocks: blocks)
+
+        // Order changed — invalidate session skips. The .onChange(venueFingerprint)
+        // observer will fire automatically since scheduledStart values changed.
+        skippedVenuePairs.removeAll()
     }
 
     // MARK: - Delete
@@ -724,6 +768,109 @@ struct TimelineBuilderView: View {
                 cursor = cursor.addingTimeInterval(block.duration)
             }
         }
+    }
+
+    // MARK: - Transit Block Detection
+
+    /// Stable fingerprint of the timeline's venue layout. Used as the trigger key
+    /// for `.onChange` so the scan reactively re-runs whenever a block is added,
+    /// removed, reordered, or has its venue coordinates edited.
+    private var venueFingerprint: String {
+        sortedBlocks
+            .map { "\($0.id.uuidString):\($0.blockLatitude),\($0.blockLongitude):\(Int($0.scheduledStart.timeIntervalSinceReferenceDate))" }
+            .joined(separator: "|")
+    }
+
+    /// Scans consecutive block pairs for differing venue coordinates and presents
+    /// the transit block prompt for the first unhandled pair found.
+    private func scanForVenueSwitches() {
+        guard !isReadOnly else { return }
+        // Don't stack prompts on top of an existing one.
+        guard transitPromptContext == nil else { return }
+
+        transitCheckTask?.cancel()
+        transitCheckTask = Task { @MainActor in
+            // Wait long enough for any other sheet's dismiss animation + SwiftUI's
+            // presentation cooldown to finish. SwiftUI silently drops a sheet
+            // presentation if another sheet is still mid-dismiss on the same view.
+            try? await Task.sleep(for: .milliseconds(550))
+            guard !Task.isCancelled else { return }
+            // Re-check after the sleep — another scan may have already presented.
+            guard transitPromptContext == nil else { return }
+
+            let blocks = sortedBlocks
+            guard blocks.count >= 2 else { return }
+
+            for index in 0..<(blocks.count - 1) {
+                guard !Task.isCancelled else { return }
+
+                let origin = blocks[index]
+                let dest = blocks[index + 1]
+
+                // Skip blocks with no location set (zero coords = not set)
+                guard origin.blockLatitude != 0 || origin.blockLongitude != 0,
+                      dest.blockLatitude != 0 || dest.blockLongitude != 0 else { continue }
+
+                // Skip if venues round to the same 4dp coordinate key
+                let originVenueKey = String(format: "%.4f,%.4f", origin.blockLatitude, origin.blockLongitude)
+                let destVenueKey = String(format: "%.4f,%.4f", dest.blockLatitude, dest.blockLongitude)
+                guard originVenueKey != destVenueKey else { continue }
+
+                // Skip if either block is already a transit block
+                guard !origin.isTransitBlock, !dest.isTransitBlock else { continue }
+
+                // Skip if this exact pair (with these coords) was dismissed this session.
+                // Pair key embeds coords so re-saving with a new location re-prompts.
+                let pair = pairKey(origin: origin, destination: dest)
+                guard !skippedVenuePairs.contains(pair) else { continue }
+
+                // Fetch travel time; fall back to nil on error
+                let originCoord = CLLocationCoordinate2D(latitude: origin.blockLatitude, longitude: origin.blockLongitude)
+                let destCoord = CLLocationCoordinate2D(latitude: dest.blockLatitude, longitude: dest.blockLongitude)
+
+                let minutes: Int?
+                do {
+                    minutes = try await travelTimeService.travelTime(from: originCoord, to: destCoord)
+                } catch {
+                    minutes = nil
+                }
+
+                guard !Task.isCancelled, transitPromptContext == nil else { return }
+                transitPromptContext = TransitPromptContext(
+                    originBlock: origin,
+                    destinationBlock: dest,
+                    travelMinutes: minutes
+                )
+                return // Only prompt for the first unhandled pair at a time
+            }
+        }
+    }
+
+    /// Inserts a Fluid transit block titled "Transit to [Destination]" immediately
+    /// after `originBlock`. Delegates the scheduling math to
+    /// ``TransitBlockInserter`` so the View stays a thin coordinator.
+    private func insertTransitBlock(
+        minutes: Int,
+        after originBlock: TimeBlockModel,
+        before destinationBlock: TimeBlockModel
+    ) {
+        TransitBlockInserter.insert(
+            minutes: minutes,
+            after: originBlock,
+            before: destinationBlock,
+            allBlocks: sortedBlocks,
+            defaultTrack: defaultTrack,
+            context: modelContext
+        )
+    }
+
+    /// Stable string key for a consecutive venue-switching pair. Includes both block
+    /// IDs and their current rounded coordinates so a re-save with a new location
+    /// invalidates the previous skip and prompts again.
+    private func pairKey(origin: TimeBlockModel, destination: TimeBlockModel) -> String {
+        let originKey = String(format: "%.4f,%.4f", origin.blockLatitude, origin.blockLongitude)
+        let destKey = String(format: "%.4f,%.4f", destination.blockLatitude, destination.blockLongitude)
+        return "\(origin.id.uuidString)@\(originKey)→\(destination.id.uuidString)@\(destKey)"
     }
 }
 
