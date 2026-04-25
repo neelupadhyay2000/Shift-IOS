@@ -97,3 +97,9 @@ openspec/specs/weather-service/spec.md
 .github/Context/SHIFT_CONTEXT.md
 .github/skills/ios-code-review/skill.md
 shiftTimeline/SHIFT/SHIFTKit/Sources/ObjCException/SHIFTObjCException.m
+openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/.openspec.yaml
+openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/design.md
+openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/proposal.md
+openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/tasks.md
+openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/specs/cloudkit-sync-integrity/spec.md
+openspec/specs/cloudkit-sync-integrity/spec.md
