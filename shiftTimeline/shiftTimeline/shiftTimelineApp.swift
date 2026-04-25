@@ -10,6 +10,7 @@ import SwiftData
 import CloudKit
 import UserNotifications
 import WidgetKit
+import TipKit
 import Models
 import Services
 import os
@@ -38,6 +39,7 @@ struct shiftTimelineApp: App {
     init() {
         SunsetPrefetchTask.register()
         SunsetPrefetchTask.scheduleNextRefresh()
+        try? Tips.configure()
     }
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")

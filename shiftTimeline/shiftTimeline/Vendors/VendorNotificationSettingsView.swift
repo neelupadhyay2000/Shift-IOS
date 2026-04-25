@@ -1,6 +1,25 @@
 import SwiftUI
 import SwiftData
+import TipKit
 import Models
+
+struct NotificationThresholdTip: Tip {
+    var title: Text {
+        Text("Customize Your Alert Sensitivity")
+    }
+
+    var message: Text? {
+        Text("Adjust how much the timeline must shift before you get a notification. Small changes sync silently in the background.")
+    }
+
+    var image: Image? {
+        Image(systemName: "bell.badge")
+    }
+
+    var options: [any TipOption] {
+        MaxDisplayCount(1)
+    }
+}
 
 /// Lets a vendor adjust their notification threshold — the minimum shift
 /// delta (in minutes) required to trigger a visible push notification.
@@ -25,13 +44,17 @@ struct VendorNotificationSettingsView: View {
         ("30 min", 30),
     ]
 
+    private let thresholdTip = NotificationThresholdTip()
+
     var body: some View {
         Form {
             Section {
+                TipView(thresholdTip)
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Notification Threshold")
                         .font(.headline)
-                    Text("You'll only receive a visible notification when the timeline shifts by at least this amount. Smaller shifts sync silently.")
+                    Text("You'll only be notified when the timeline shifts by more than \(Int(thresholdMinutes.wrappedValue)) minutes. Smaller shifts will sync silently.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
