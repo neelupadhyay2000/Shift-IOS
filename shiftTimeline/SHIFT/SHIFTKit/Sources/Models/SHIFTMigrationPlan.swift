@@ -6,6 +6,7 @@ import SwiftData
 /// - V2 → V3: adds `EventModel.weatherSnapshot` and `TimeBlockModel.isOutdoor`.
 /// - V3 → V4: adds per-block location fields (`venueAddress`, `venueName`,
 ///             `blockLatitude`, `blockLongitude`) to `TimeBlockModel`.
+/// - V4 → V5: adds `TimeBlockModel.isTransitBlock` (default `false`).
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -21,11 +22,11 @@ import SwiftData
 /// silently disables CloudKit mirroring.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -41,5 +42,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV3toV4 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV3.self,
         toVersion: SHIFTSchemaV4.self
+    )
+
+    private static let migrateV4toV5 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV4.self,
+        toVersion: SHIFTSchemaV5.self
     )
 }
