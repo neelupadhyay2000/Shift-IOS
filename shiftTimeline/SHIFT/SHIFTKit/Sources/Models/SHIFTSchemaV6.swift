@@ -21,12 +21,18 @@ public enum SHIFTSchemaV6: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(6, 0, 0) }
 
     public static var models: [any PersistentModel.Type] {
+        // Fully-qualified to guarantee these resolve to the frozen V6 snapshot
+        // types declared below — never to the live `Models.*` types. An
+        // unqualified `EventModel.self` here would silently rebind to a
+        // live type if anyone ever added `import Models` or a typealias,
+        // collapsing the V5/V6 schema checksums and triggering the exact
+        // SHIFT-303 sync regression this file exists to prevent.
         [
-            EventModel.self,
-            TimeBlockModel.self,
-            TimelineTrack.self,
-            VendorModel.self,
-            ShiftRecord.self,
+            SHIFTSchemaV6.EventModel.self,
+            SHIFTSchemaV6.TimeBlockModel.self,
+            SHIFTSchemaV6.TimelineTrack.self,
+            SHIFTSchemaV6.VendorModel.self,
+            SHIFTSchemaV6.ShiftRecord.self,
         ]
     }
 

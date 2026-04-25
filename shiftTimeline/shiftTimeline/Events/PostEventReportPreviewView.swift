@@ -24,6 +24,7 @@ struct PostEventReportPreviewView: View {
     @State private var pdfData: Data?
     @State private var pdfFileURL: URL?
     @State private var isGenerating = true
+    @State private var shareError: String?
 
     private var event: EventModel? { results.first }
 
@@ -67,6 +68,17 @@ struct PostEventReportPreviewView: View {
         .task {
             await generateReport()
         }
+        .alert(
+            String(localized: "Unable to Save Report"),
+            isPresented: Binding(
+                get: { shareError != nil },
+                set: { if !$0 { shareError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(shareError ?? "")
+        }
     }
 
     private func generateReport() async {
@@ -76,23 +88,35 @@ struct PostEventReportPreviewView: View {
         }
         #if os(iOS)
         // Ensure a report exists. This is a no-op when one is already cached.
+        // All access to the live `@Model` happens here on `@MainActor` —
+        // we extract a `Sendable` snapshot before hopping off the actor so
+        // the (CPU-heavy) PDF render does not jank the UI.
         let report = event.postEventReport ?? PostEventReportGenerator.generate(for: event)
-        let generator = PostEventReportPDFGenerator()
-        let fileName = generator.fileName(for: event)
-        let data = generator.generate(report: report, event: event)
+        let summary = PostEventReportPDFGenerator.EventSummary(
+            title: event.title,
+            date: event.date
+        )
 
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-        let writtenURL: URL? = {
+        let result = await Task.detached(priority: .userInitiated) {
+            () -> (data: Data, url: URL?, writeError: String?) in
+            let pdfGenerator = PostEventReportPDFGenerator()
+            let data = pdfGenerator.generate(report: report, event: summary)
+            let fileName = pdfGenerator.fileName(for: summary)
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(fileName)
             do {
                 try data.write(to: tempURL, options: .atomic)
-                return tempURL
+                return (data, tempURL, nil)
             } catch {
-                return nil
+                return (data, nil, error.localizedDescription)
             }
-        }()
+        }.value
 
-        pdfData = data
-        pdfFileURL = writtenURL
+        pdfData = result.data
+        pdfFileURL = result.url
+        if let writeError = result.writeError {
+            shareError = writeError
+        }
         #endif
         isGenerating = false
     }
@@ -114,8 +138,10 @@ private struct PDFKitView: UIViewRepresentable {
     }
 
     func updateUIView(_ pdfView: PDFView, context: Context) {
-        if pdfView.document?.dataRepresentation() != data {
-            pdfView.document = PDFDocument(data: data)
-        }
+        // `data` is a `let` from a single parent `@State` write; an identity
+        // check is sufficient. Avoid `dataRepresentation()` which serialises
+        // the entire document on every SwiftUI update pass.
+        guard pdfView.document == nil else { return }
+        pdfView.document = PDFDocument(data: data)
     }
 }

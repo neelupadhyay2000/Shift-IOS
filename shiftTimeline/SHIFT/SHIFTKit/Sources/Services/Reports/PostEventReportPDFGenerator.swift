@@ -65,19 +65,23 @@ public final class PostEventReportPDFGenerator: Sendable {
         static let footer = UIFont.systemFont(ofSize: 8, weight: .regular)
     }
 
-    private static let timeFormatter: DateFormatter = {
+    // `DateFormatter` is not `Sendable`, but these are configured once at
+    // load time and only read from afterwards. `nonisolated(unsafe)` asserts
+    // the single-writer guarantee so this `Sendable` class can hold them
+    // under `-strict-concurrency=complete`.
+    private nonisolated(unsafe) static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter
     }()
 
-    private static let dateFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         return formatter
     }()
 
-    private static let fileDateFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let fileDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
@@ -89,10 +93,29 @@ public final class PostEventReportPDFGenerator: Sendable {
 
     // MARK: - Public API
 
+    /// Sendable snapshot of the only `EventModel` fields the renderer reads.
+    /// Lets callers hop off `@MainActor` for the (CPU-heavy) PDF render pass
+    /// without dragging the live `@Model` across actor boundaries.
+    public struct EventSummary: Sendable, Equatable {
+        public let title: String
+        public let date: Date
+        public init(title: String, date: Date) {
+            self.title = title
+            self.date = date
+        }
+    }
+
     /// Generates the PDF for `report` describing `event`. The two are passed
     /// separately because the report is a value type that may be re-rendered
     /// from a stored snapshot without the live model graph.
     public func generate(report: PostEventReport, event: EventModel) -> Data {
+        generate(report: report, event: EventSummary(title: event.title, date: event.date))
+    }
+
+    /// Sendable-friendly overload — preferred when calling from off-MainActor
+    /// contexts (e.g. `Task.detached` in the preview view) so no `@Model`
+    /// crosses the boundary.
+    public func generate(report: PostEventReport, event: EventSummary) -> Data {
         let renderer = UIGraphicsPDFRenderer(
             bounds: CGRect(x: 0, y: 0, width: Layout.pageWidth, height: Layout.pageHeight)
         )
@@ -131,6 +154,11 @@ public final class PostEventReportPDFGenerator: Sendable {
     /// `SHIFT_Report_[EventName]_[Date].pdf`. Title is sanitised to
     /// alphanumerics + `_`; characters such as `/`, `:`, `&` are stripped.
     public func fileName(for event: EventModel) -> String {
+        fileName(for: EventSummary(title: event.title, date: event.date))
+    }
+
+    /// Sendable-friendly overload — see `generate(report:event:)`.
+    public func fileName(for event: EventSummary) -> String {
         let safeTitle = event.title
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }
@@ -215,7 +243,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         cursor.y = Layout.marginV
     }
 
-    private func drawHeader(event: EventModel, summaryLine: String, cursor: inout Cursor) {
+    private func drawHeader(event: EventSummary, summaryLine: String, cursor: inout Cursor) {
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: PDFFont.title,
             .foregroundColor: PDFColor.bodyText,
@@ -230,8 +258,10 @@ public final class PostEventReportPDFGenerator: Sendable {
             .font: PDFFont.subtitle,
             .foregroundColor: PDFColor.subtitle,
         ]
+        // Plain text — emoji glyphs render as missing rectangles in many
+        // PDF viewers (Windows, enterprise DMS, older macOS, printers).
         let dateString = Self.dateFormatter.string(from: event.date)
-        (("📅  " + dateString) as NSString).draw(
+        (("Date: " + dateString) as NSString).draw(
             at: CGPoint(x: Layout.marginH, y: cursor.y),
             withAttributes: subtitleAttrs
         )
