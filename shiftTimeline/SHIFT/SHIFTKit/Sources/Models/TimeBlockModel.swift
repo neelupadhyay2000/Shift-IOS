@@ -25,6 +25,10 @@ public final class TimeBlockModel {
     public var blockLatitude: Double = 0
     /// Longitude resolved from MapKit for this block's venue. 0 means not set.
     public var blockLongitude: Double = 0
+    /// True when this block was auto-inserted as a transit/driving block between
+    /// two venues. Used to exclude it from venue-switch detection so transit
+    /// blocks don't trigger nested transit prompts.
+    public var isTransitBlock: Bool = false
     public var track: TimelineTrack?
 
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)

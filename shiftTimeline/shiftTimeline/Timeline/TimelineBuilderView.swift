@@ -146,6 +146,7 @@ struct TimelineBuilderView: View {
                 }
             )
             .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
         .onChange(of: venueFingerprint) { _, _ in
             scanForVenueSwitches()
@@ -816,8 +817,7 @@ struct TimelineBuilderView: View {
                 guard originVenueKey != destVenueKey else { continue }
 
                 // Skip if either block is already a transit block
-                guard !origin.title.hasPrefix("Transit to"),
-                      !dest.title.hasPrefix("Transit to") else { continue }
+                guard !origin.isTransitBlock, !dest.isTransitBlock else { continue }
 
                 // Skip if this exact pair (with these coords) was dismissed this session.
                 // Pair key embeds coords so re-saving with a new location re-prompts.
@@ -847,56 +847,21 @@ struct TimelineBuilderView: View {
     }
 
     /// Inserts a Fluid transit block titled "Transit to [Destination]" immediately
-    /// after `originBlock`. Preserves the destination block's scheduled start (and
-    /// every subsequent block's timing) by shrinking the origin block's duration
-    /// to make room for the transit. Falls back to shifting the destination forward
-    /// only when origin can't be shortened enough.
+    /// after `originBlock`. Delegates the scheduling math to
+    /// ``TransitBlockInserter`` so the View stays a thin coordinator.
     private func insertTransitBlock(
         minutes: Int,
         after originBlock: TimeBlockModel,
         before destinationBlock: TimeBlockModel
     ) {
-        let destinationName = destinationBlock.venueName.isEmpty
-            ? destinationBlock.title
-            : destinationBlock.venueName
-
-        let transitDuration = TimeInterval(minutes * 60)
-        let originEnd = originBlock.scheduledStart.addingTimeInterval(originBlock.duration)
-        let gap = destinationBlock.scheduledStart.timeIntervalSince(originEnd)
-
-        // 1. Consume any existing gap between origin and destination first.
-        let neededFromOrigin = max(0, transitDuration - gap)
-
-        // 2. Pull from origin's duration, respecting its minimum duration.
-        let originSlack = max(0, originBlock.duration - originBlock.minimumDuration)
-        let pulledFromOrigin = min(neededFromOrigin, originSlack)
-        if pulledFromOrigin > 0 {
-            originBlock.duration -= pulledFromOrigin
-        }
-
-        // 3. If origin couldn't absorb everything (and we don't have enough gap),
-        //    shift destination + subsequent non-pinned blocks forward by the remainder.
-        let stillNeeded = neededFromOrigin - pulledFromOrigin
-        if stillNeeded > 0 {
-            for block in sortedBlocks
-                where block.scheduledStart >= destinationBlock.scheduledStart && !block.isPinned {
-                block.scheduledStart = block.scheduledStart.addingTimeInterval(stillNeeded)
-            }
-        }
-
-        // Transit slots in starting at the (possibly shortened) origin's new end.
-        let transitStart = originBlock.scheduledStart.addingTimeInterval(originBlock.duration)
-
-        let transit = TimeBlockModel(
-            title: "Transit to \(destinationName)",
-            scheduledStart: transitStart,
-            duration: transitDuration,
-            isPinned: false,
-            colorTag: "#8E8E93",
-            icon: "car.fill"
+        TransitBlockInserter.insert(
+            minutes: minutes,
+            after: originBlock,
+            before: destinationBlock,
+            allBlocks: sortedBlocks,
+            defaultTrack: defaultTrack,
+            context: modelContext
         )
-        transit.track = originBlock.track ?? defaultTrack
-        modelContext.insert(transit)
     }
 
     /// Stable string key for a consecutive venue-switching pair. Includes both block

@@ -98,14 +98,12 @@ struct TransitBlockPromptTests {
         #expect(keyA == keyB)
     }
 
-    @Test func transitBlockTitlePrefixExcludesPairFromDetection() {
+    @Test func transitBlockFlagExcludesPairFromDetection() {
         let transit = TimeBlockModel(title: "Transit to Venue B", scheduledStart: .now, duration: 600)
+        transit.isTransitBlock = true
         let regular = TimeBlockModel(title: "Reception", scheduledStart: .now, duration: 3600)
 
-        let originIsTransit = transit.title.hasPrefix("Transit to")
-        let destinationIsTransit = regular.title.hasPrefix("Transit to")
-
-        #expect(originIsTransit)
-        #expect(!destinationIsTransit)
+        #expect(transit.isTransitBlock)
+        #expect(!regular.isTransitBlock)
     }
 }

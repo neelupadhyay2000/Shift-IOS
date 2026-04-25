@@ -75,10 +75,18 @@ struct TransitBlockPromptView: View {
 
     private func normalPrompt(minutes: Int) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Add \(minutes)-min transit block?")
-                .font(.title3.weight(.semibold))
             Text(
-                "Between \"\(context.originBlock.title)\" and \"\(context.destinationBlock.title)\"."
+                String(
+                    localized: "Add \(minutes)-min transit block?",
+                    comment: "Transit block prompt — shows calculated driving minutes"
+                )
+            )
+            .font(.title3.weight(.semibold))
+            Text(
+                String(
+                    localized: "Between \"\(context.originBlock.title)\" and \"\(context.destinationBlock.title)\".",
+                    comment: "Transit block prompt — names the two venue blocks"
+                )
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
