@@ -40,6 +40,7 @@ enum LiveActivityState {
     case active
     case dismissed
     case ended
+    case pending
     case stale
     case unknown
 }
@@ -74,6 +75,8 @@ private final class ActivityKitLiveActivityHandle: LiveActivityHandle {
                         continuation.yield(.dismissed)
                     case .ended:
                         continuation.yield(.ended)
+                    case .pending:
+                        continuation.yield(.pending)
                     case .stale:
                         continuation.yield(.stale)
                     @unknown default:
