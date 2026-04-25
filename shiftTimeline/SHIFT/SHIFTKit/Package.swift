@@ -16,7 +16,11 @@ let package = Package(
     targets: [
         .target(name: "Models"),
         .target(name: "Engine", dependencies: ["Models"]),
-        .target(name: "Services", dependencies: ["Models", "Engine"], resources: [
+        .target(
+            name: "ObjCException",
+            publicHeadersPath: "include"
+        ),
+        .target(name: "Services", dependencies: ["Models", "Engine", "ObjCException"], resources: [
             .copy("Resources/Templates"),
         ]),
     ]

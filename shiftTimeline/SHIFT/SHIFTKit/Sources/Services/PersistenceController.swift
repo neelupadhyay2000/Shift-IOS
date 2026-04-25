@@ -2,6 +2,7 @@ import Foundation
 import os
 import SwiftData
 import Models
+import ObjCException
 
 public final class PersistenceController: Sendable {
 
@@ -65,26 +66,137 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .automatic
         )
 
-        do {
-            container = try ModelContainer(
-                for: schema,
-                migrationPlan: SHIFTMigrationPlan.self,
-                configurations: [config]
-            )
-            Self.logger.info("ModelContainer created successfully")
-        } catch {
-            Self.logger.error("ModelContainer failed: \(error.localizedDescription) — deleting store and retrying")
-            Self.deleteStoreFiles(at: url)
-            do {
-                container = try ModelContainer(
-                    for: schema,
-                    migrationPlan: SHIFTMigrationPlan.self,
-                    configurations: [config]
-                )
-            } catch {
-                fatalError("Could not create ModelContainer after store reset: \(error)")
-            }
+        // First attempt: open with the full migration plan. This can fail two ways:
+        //   (a) A plain Swift error from `ModelContainer.init` — caught by `catch`.
+        //   (b) An Objective-C `NSException` thrown from
+        //       `NSLightweightMigrationStage initWithVersionChecksums:` when the
+        //       on-disk store's schema checksum doesn't line up with any version
+        //       in `SHIFTMigrationPlan`. Swift can't catch NSExceptions directly,
+        //       so `tryBuildContainer` wraps the init in an ObjC `@try/@catch` shim.
+        //
+        // On failure we delete the local store and retry with several
+        // progressively more aggressive fallbacks so the app always launches.
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "existing store with migration plan"
+        ) {
+            container = built
+            return
         }
+
+        Self.logger.error("Initial ModelContainer init failed — deleting store and retrying")
+        Self.deleteStoreFiles(at: url)
+
+        // Retry #1: fresh store on disk, no migration plan (nothing to migrate from).
+        // CloudKit will re-hydrate user data after the container comes up.
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: nil,
+            label: "fresh store without migration plan"
+        ) {
+            container = built
+            return
+        }
+
+        // Retry #2: fresh store with migration plan, in case SwiftData requires it
+        // to register schema identity with CloudKit mirroring.
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "fresh store with migration plan"
+        ) {
+            container = built
+            return
+        }
+
+        // Retry #3: disable CloudKit mirroring entirely — local-only store.
+        // Data will come back when the user relaunches after the next update,
+        // but at least the app launches instead of aborting on startup.
+        Self.deleteStoreFiles(at: url)
+        let localOnly = ModelConfiguration(
+            schema: schema,
+            url: url,
+            cloudKitDatabase: .none
+        )
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: localOnly,
+            migrationPlan: nil,
+            label: "fresh store local-only (CloudKit disabled)"
+        ) {
+            container = built
+            return
+        }
+
+        // Last-resort: in-memory container. User data will not persist across
+        // launches, but the app will not crash on launch.
+        Self.logger.error("All on-disk ModelContainer attempts failed — using in-memory container as last resort")
+        let memoryConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: memoryConfig,
+            migrationPlan: nil,
+            label: "in-memory fallback"
+        ) {
+            container = built
+            return
+        }
+
+        fatalError("Could not create any ModelContainer, even in-memory")
+    }
+
+    /// Attempts to build a `ModelContainer` while converting any Obj-C
+    /// `NSException` (e.g. from `NSLightweightMigrationStage`) into a
+    /// recoverable error. Returns `nil` on failure of either kind.
+    private static func tryBuildContainer(
+        schema: Schema,
+        configuration: ModelConfiguration,
+        migrationPlan: (any SchemaMigrationPlan.Type)?,
+        label: String
+    ) -> ModelContainer? {
+        var built: ModelContainer?
+        var swiftError: Error?
+        var objcError: NSError?
+        let succeeded = SHIFTTryBlock({
+            do {
+                if let migrationPlan {
+                    built = try ModelContainer(
+                        for: schema,
+                        migrationPlan: migrationPlan,
+                        configurations: [configuration]
+                    )
+                } else {
+                    built = try ModelContainer(
+                        for: schema,
+                        configurations: [configuration]
+                    )
+                }
+            } catch {
+                swiftError = error
+            }
+        }, &objcError)
+
+        if succeeded, let built, swiftError == nil {
+            logger.info("ModelContainer built via: \(label)")
+            return built
+        }
+
+        if let swiftError {
+            logger.error("ModelContainer attempt '\(label)' failed: \(swiftError.localizedDescription)")
+        } else if let objcError {
+            logger.error("ModelContainer attempt '\(label)' threw NSException: \(objcError.localizedDescription)")
+        } else {
+            logger.error("ModelContainer attempt '\(label)' failed with unknown error")
+        }
+        return nil
     }
 
     private static func deleteStoreFiles(at url: URL) {
