@@ -209,6 +209,26 @@ struct EventDetailView: View {
             }
             .buttonStyle(.plain)
 
+            if event.status == .completed {
+                NavigationLink(value: EventDestination.postEventReport(eventID: event.id)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "chart.bar.doc.horizontal")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.indigo)
+                        Text(String(localized: "Export Report"))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .premiumCard()
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("exportPostEventReportButton")
+            }
+
             if isOwner {
                 shareWithVendorsButton(event)
             }
