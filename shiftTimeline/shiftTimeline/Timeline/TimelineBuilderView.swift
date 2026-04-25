@@ -377,9 +377,19 @@ struct TimelineBuilderView: View {
         maxY: CGFloat? = nil
     ) -> some View {
         let yOffset = currentLayout.yOffset(for: block.scheduledStart)
-        let naturalHeight = max(currentLayout.height(for: block.duration), 52)
-        let gap = (maxY ?? .infinity) - yOffset
-        let height = gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        let durationHeight = currentLayout.height(for: block.duration)
+        // Use compact rendering when the block's duration occupies less than the
+        // full-card minimum (52pt). The compact row fits cleanly in ~36pt.
+        let useCompact = durationHeight < 50
+        let minHeight: CGFloat = useCompact ? 32 : 52
+        let naturalHeight = max(durationHeight, minHeight)
+        // Only clamp full-size cards. Compact cards always render at their
+        // natural height — they're short enough that overlap isn't an issue.
+        let height: CGFloat = {
+            guard !useCompact, let maxY else { return naturalHeight }
+            let gap = maxY - yOffset
+            return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
+        }()
         let isDragging = draggingBlockID == block.id
 
         return Button {
@@ -393,7 +403,8 @@ struct TimelineBuilderView: View {
                 duration: block.duration,
                 isPinned: block.isPinned,
                 colorTag: block.colorTag,
-                icon: block.icon
+                icon: block.icon,
+                isCompact: useCompact
             )
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: height)
@@ -836,10 +847,10 @@ struct TimelineBuilderView: View {
     }
 
     /// Inserts a Fluid transit block titled "Transit to [Destination]" immediately
-    /// after `originBlock`. Shifts the destination block and every subsequent
-    /// non-pinned block forward by the full transit duration so the transit slot
-    /// cleanly fits between them with no `scheduledStart` ties (which would cause
-    /// unstable sort order and re-trigger the venue-switch detection).
+    /// after `originBlock`. Preserves the destination block's scheduled start (and
+    /// every subsequent block's timing) by shrinking the origin block's duration
+    /// to make room for the transit. Falls back to shifting the destination forward
+    /// only when origin can't be shortened enough.
     private func insertTransitBlock(
         minutes: Int,
         after originBlock: TimeBlockModel,
@@ -850,15 +861,31 @@ struct TimelineBuilderView: View {
             : destinationBlock.venueName
 
         let transitDuration = TimeInterval(minutes * 60)
-        let transitStart = originBlock.scheduledStart.addingTimeInterval(originBlock.duration)
+        let originEnd = originBlock.scheduledStart.addingTimeInterval(originBlock.duration)
+        let gap = destinationBlock.scheduledStart.timeIntervalSince(originEnd)
 
-        // Always shift destination + subsequent fluid blocks forward by the full
-        // transit duration. Preserves any existing gap between origin and dest,
-        // and guarantees transit sorts strictly before destination.
-        for block in sortedBlocks
-            where block.scheduledStart >= destinationBlock.scheduledStart && !block.isPinned {
-            block.scheduledStart = block.scheduledStart.addingTimeInterval(transitDuration)
+        // 1. Consume any existing gap between origin and destination first.
+        let neededFromOrigin = max(0, transitDuration - gap)
+
+        // 2. Pull from origin's duration, respecting its minimum duration.
+        let originSlack = max(0, originBlock.duration - originBlock.minimumDuration)
+        let pulledFromOrigin = min(neededFromOrigin, originSlack)
+        if pulledFromOrigin > 0 {
+            originBlock.duration -= pulledFromOrigin
         }
+
+        // 3. If origin couldn't absorb everything (and we don't have enough gap),
+        //    shift destination + subsequent non-pinned blocks forward by the remainder.
+        let stillNeeded = neededFromOrigin - pulledFromOrigin
+        if stillNeeded > 0 {
+            for block in sortedBlocks
+                where block.scheduledStart >= destinationBlock.scheduledStart && !block.isPinned {
+                block.scheduledStart = block.scheduledStart.addingTimeInterval(stillNeeded)
+            }
+        }
+
+        // Transit slots in starting at the (possibly shortened) origin's new end.
+        let transitStart = originBlock.scheduledStart.addingTimeInterval(originBlock.duration)
 
         let transit = TimeBlockModel(
             title: "Transit to \(destinationName)",
