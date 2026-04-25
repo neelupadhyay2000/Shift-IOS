@@ -2,6 +2,7 @@ import Foundation
 import os
 import SwiftData
 import Models
+import ObjCException
 
 public final class PersistenceController: Sendable {
 
@@ -16,6 +17,11 @@ public final class PersistenceController: Sendable {
     public static let shared = PersistenceController()
 
     public let container: ModelContainer
+
+    /// `false` when the controller fell back to a local-only or in-memory
+    /// store because the CloudKit-enabled `ModelContainer` could not be
+    /// created. Views can read this to surface a sync-degraded warning.
+    public let isCloudKitEnabled: Bool
 
     public static var schema: Schema {
         Schema([
@@ -65,26 +71,136 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .automatic
         )
 
-        do {
-            container = try ModelContainer(
-                for: schema,
-                migrationPlan: SHIFTMigrationPlan.self,
-                configurations: [config]
-            )
-            Self.logger.info("ModelContainer created successfully")
-        } catch {
-            Self.logger.error("ModelContainer failed: \(error.localizedDescription) — deleting store and retrying")
-            Self.deleteStoreFiles(at: url)
-            do {
-                container = try ModelContainer(
-                    for: schema,
-                    migrationPlan: SHIFTMigrationPlan.self,
-                    configurations: [config]
-                )
-            } catch {
-                fatalError("Could not create ModelContainer after store reset: \(error)")
-            }
+        // Attempt 1: existing store with full migration plan (happy path).
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "existing store with migration plan"
+        ) {
+            container = built
+            isCloudKitEnabled = true
+            return
         }
+
+        // Attempt 2: delete corrupt/outdated store, retry with migration plan.
+        // CloudKit will re-download the user's data after the container syncs.
+        Self.logger.error("Initial ModelContainer init failed — deleting store and retrying with migration plan")
+        Self.deleteStoreFiles(at: url)
+
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "fresh store with migration plan"
+        ) {
+            container = built
+            isCloudKitEnabled = true
+            return
+        }
+
+        // Attempt 3: fresh store WITHOUT migration plan but WITH CloudKit.
+        // CloudKit mirroring may degrade (silent record-type errors), but
+        // at least sync is attempted rather than fully disabled.
+        Self.logger.error("Migration plan failed on fresh store — retrying without migration plan")
+        Self.deleteStoreFiles(at: url)
+
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: nil,
+            label: "fresh store without migration plan (CloudKit still enabled)"
+        ) {
+            container = built
+            isCloudKitEnabled = true
+            Self.logger.error("CloudKit enabled WITHOUT migration plan — sync may be degraded")
+            return
+        }
+
+        // Attempt 4: local-only store. The app launches but CloudKit is dead.
+        Self.logger.fault("All CloudKit-enabled attempts failed — falling back to local-only store. CloudKit sync is DISABLED.")
+        Self.deleteStoreFiles(at: url)
+        let localOnly = ModelConfiguration(
+            schema: schema,
+            url: url,
+            cloudKitDatabase: .none
+        )
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: localOnly,
+            migrationPlan: nil,
+            label: "local-only store (CloudKit DISABLED)"
+        ) {
+            container = built
+            isCloudKitEnabled = false
+            return
+        }
+
+        // Last resort: in-memory. Data won't persist across launches.
+        Self.logger.fault("All on-disk attempts failed — using in-memory container")
+        let memoryConfig = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: memoryConfig,
+            migrationPlan: nil,
+            label: "in-memory fallback"
+        ) {
+            container = built
+            isCloudKitEnabled = false
+            return
+        }
+
+        fatalError("Could not create any ModelContainer, even in-memory")
+    }
+
+    /// Attempts to build a `ModelContainer` while converting any Obj-C
+    /// `NSException` (e.g. from `NSLightweightMigrationStage`) into a
+    /// recoverable error. Returns `nil` on failure of either kind.
+    private static func tryBuildContainer(
+        schema: Schema,
+        configuration: ModelConfiguration,
+        migrationPlan: (any SchemaMigrationPlan.Type)?,
+        label: String
+    ) -> ModelContainer? {
+        var built: ModelContainer?
+        var swiftError: Error?
+        var objcError: NSError?
+        let succeeded = SHIFTTryBlock({
+            do {
+                if let migrationPlan {
+                    built = try ModelContainer(
+                        for: schema,
+                        migrationPlan: migrationPlan,
+                        configurations: [configuration]
+                    )
+                } else {
+                    built = try ModelContainer(
+                        for: schema,
+                        configurations: [configuration]
+                    )
+                }
+            } catch {
+                swiftError = error
+            }
+        }, &objcError)
+
+        if succeeded, let built, swiftError == nil {
+            logger.info("ModelContainer built via: \(label)")
+            return built
+        }
+
+        if let swiftError {
+            logger.error("ModelContainer attempt '\(label)' failed: \(swiftError.localizedDescription)")
+        } else if let objcError {
+            logger.error("ModelContainer attempt '\(label)' threw NSException: \(objcError.localizedDescription)")
+        } else {
+            logger.error("ModelContainer attempt '\(label)' failed with unknown error")
+        }
+        return nil
     }
 
     private static func deleteStoreFiles(at url: URL) {
