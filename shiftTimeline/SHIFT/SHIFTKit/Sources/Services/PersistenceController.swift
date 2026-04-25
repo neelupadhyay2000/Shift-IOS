@@ -18,10 +18,10 @@ public final class PersistenceController: Sendable {
 
     public let container: ModelContainer
 
-    /// `false` when the controller fell back to a local-only or in-memory
-    /// store because the CloudKit-enabled `ModelContainer` could not be
-    /// created. Views can read this to surface a sync-degraded warning.
-    public let isCloudKitEnabled: Bool
+    /// Tri-state CloudKit mirror health, set deterministically by the
+    /// fallback chain in `init`. UI consumers branch on `.degraded` to
+    /// surface a sync banner; `.disabled` means CloudKit is not running.
+    public let cloudKitMirrorState: CloudKitMirrorState
 
     public static var schema: Schema {
         Schema([
@@ -79,7 +79,7 @@ public final class PersistenceController: Sendable {
             label: "existing store with migration plan"
         ) {
             container = built
-            isCloudKitEnabled = true
+            cloudKitMirrorState = .from(attempt: .existingStoreWithPlan)
             return
         }
 
@@ -95,7 +95,7 @@ public final class PersistenceController: Sendable {
             label: "fresh store with migration plan"
         ) {
             container = built
-            isCloudKitEnabled = true
+            cloudKitMirrorState = .from(attempt: .freshStoreWithPlan)
             return
         }
 
@@ -112,7 +112,7 @@ public final class PersistenceController: Sendable {
             label: "fresh store without migration plan (CloudKit still enabled)"
         ) {
             container = built
-            isCloudKitEnabled = true
+            cloudKitMirrorState = .from(attempt: .freshStoreWithoutPlan)
             Self.logger.error("CloudKit enabled WITHOUT migration plan — sync may be degraded")
             return
         }
@@ -132,7 +132,7 @@ public final class PersistenceController: Sendable {
             label: "local-only store (CloudKit DISABLED)"
         ) {
             container = built
-            isCloudKitEnabled = false
+            cloudKitMirrorState = .from(attempt: .localOnly)
             return
         }
 
@@ -150,7 +150,7 @@ public final class PersistenceController: Sendable {
             label: "in-memory fallback"
         ) {
             container = built
-            isCloudKitEnabled = false
+            cloudKitMirrorState = .from(attempt: .inMemory)
             return
         }
 

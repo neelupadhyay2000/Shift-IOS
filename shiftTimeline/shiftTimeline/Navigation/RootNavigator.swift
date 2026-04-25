@@ -28,6 +28,7 @@ enum EventDestination: Hashable {
     case timelineBuilder(eventID: UUID)
     case vendorManager(eventID: UUID)
     case pdfExport(eventID: UUID)
+    case postEventReport(eventID: UUID)
     case liveDashboard(eventID: UUID)
 }
 
@@ -232,6 +233,8 @@ struct RootNavigator: View {
             VendorManagerView(eventID: eventID)
         case .pdfExport(let eventID):
             PDFExportPreviewView(eventID: eventID)
+        case .postEventReport(let eventID):
+            PostEventReportPreviewView(eventID: eventID)
         case .liveDashboard(let eventID):
             LiveDashboardView(eventID: eventID)
         }

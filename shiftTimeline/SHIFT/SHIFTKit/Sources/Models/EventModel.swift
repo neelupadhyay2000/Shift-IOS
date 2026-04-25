@@ -24,6 +24,26 @@ public final class EventModel {
     /// `nil` for events created before this field was added — treated as "owned by current user".
     public var ownerRecordName: String?
 
+    /// JSON-encoded `PostEventReport` produced when this event transitioned to
+    /// `.completed`. Stored as raw `Data` so SwiftData can persist and CloudKit
+    /// can mirror it without a custom value transformer. Access through the
+    /// `postEventReport` computed property — never read this field directly.
+    public var postEventReportData: Data?
+
+    /// Decoded post-event report, or `nil` if no report has been generated yet
+    /// (or if the stored payload can't be decoded — e.g. cross-version drift).
+    /// Setting this property re-encodes and writes back to `postEventReportData`;
+    /// setting `nil` clears the stored payload.
+    public var postEventReport: PostEventReport? {
+        get {
+            guard let data = postEventReportData else { return nil }
+            return try? JSONDecoder().decode(PostEventReport.self, from: data)
+        }
+        set {
+            postEventReportData = newValue.flatMap { try? JSONEncoder().encode($0) }
+        }
+    }
+
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
     public var tracks: [TimelineTrack]?
 

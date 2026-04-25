@@ -209,6 +209,26 @@ struct EventDetailView: View {
             }
             .buttonStyle(.plain)
 
+            if event.status == .completed {
+                NavigationLink(value: EventDestination.postEventReport(eventID: event.id)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "chart.bar.doc.horizontal")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.indigo)
+                        Text(String(localized: "Export Report"))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .premiumCard()
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("exportPostEventReportButton")
+            }
+
             if isOwner {
                 shareWithVendorsButton(event)
             }
@@ -280,6 +300,27 @@ struct EventDetailView: View {
     /// Prepares a CKShare (creating or fetching as needed) then presents
     /// `UICloudSharingController` via the non-deprecated `init(share:container:)`.
     private func prepareShareSheet(for event: EventModel) {
+        // Gate share traffic on mirror health. A degraded mirror means the
+        // schema can't reconcile and CKQuery against `CD_EventModel` will
+        // never find the record — surface a distinct, actionable error
+        // instead of looping the user through "please wait a moment".
+        switch CloudKitShareGate.decide(for: PersistenceController.shared.cloudKitMirrorState) {
+        case .blockDegradedSync:
+            shareError = String(
+                localized: "sharing_error_mirror_degraded",
+                defaultValue: "Sync is paused because this version of the app is out of date. Please update the app to resume iCloud sync, then try sharing again."
+            )
+            return
+        case .blockCloudKitUnavailable:
+            shareError = String(
+                localized: "sharing_error_cloudkit_unavailable",
+                defaultValue: "iCloud sync is unavailable. Sign in to iCloud in Settings, then try sharing again."
+            )
+            return
+        case .proceed:
+            break
+        }
+
         isPreparingShare = true
 
         if let shareURLString = event.shareURL,
