@@ -366,6 +366,9 @@ public final class WatchSessionManager {
 
         // Advance: complete current, activate next.
         activeBlock.status = .completed
+        // Stamp wall-clock completion so the post-event report can
+        // compare planned vs. actual for this block.
+        activeBlock.completedTime = Date()
         let nextBlock = blocks
             .drop(while: { $0.id != activeBlock.id })
             .dropFirst()
@@ -375,6 +378,10 @@ public final class WatchSessionManager {
             nextBlock.status = .active
         } else {
             event.status = .completed
+            // Final block — build the post-event report now so the
+            // iPhone UI sees a populated `event.postEventReport` the
+            // moment the watch save propagates back.
+            PostEventReportGenerator.generate(for: event)
         }
 
         do {

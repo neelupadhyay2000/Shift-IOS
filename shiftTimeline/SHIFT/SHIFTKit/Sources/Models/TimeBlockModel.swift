@@ -29,6 +29,11 @@ public final class TimeBlockModel {
     /// two venues. Used to exclude it from venue-switch detection so transit
     /// blocks don't trigger nested transit prompts.
     public var isTransitBlock: Bool = false
+    /// Wall-clock time the block was marked `.completed` during live execution.
+    /// `nil` for blocks that were never completed (cancelled, skipped, or the
+    /// event ended early). Sourced by `PostEventReportGenerator` as the
+    /// `actualCompletion` time when comparing planned vs. actual drift.
+    public var completedTime: Date?
     public var track: TimelineTrack?
 
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)

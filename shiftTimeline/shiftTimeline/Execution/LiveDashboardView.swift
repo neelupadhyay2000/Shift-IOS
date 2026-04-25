@@ -217,11 +217,20 @@ struct LiveDashboardView: View {
     ) {
         guard let activeBlock else { return }
         activeBlock.status = .completed
+        // Stamp the wall-clock completion time so the post-event report
+        // can compare planned vs. actual for this block.
+        activeBlock.completedTime = Date()
 
         if let nextBlock {
             nextBlock.status = .active
         } else {
             event?.status = .completed
+            // Final block — generate the post-event report now so
+            // EventModel.postEventReport is populated before any UI
+            // navigates to the completion screen.
+            if let event {
+                PostEventReportGenerator.generate(for: event)
+            }
         }
     }
 
