@@ -266,6 +266,8 @@ struct BlockInspectorView: View {
                                 }
                             }
                             .accessibilityLabel(option.label)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityValue(colorTag == option.value ? String(localized: "Selected") : "")
                             .onTapGesture {
                                 colorTag = option.value
                             }
@@ -296,6 +298,8 @@ struct BlockInspectorView: View {
                                 }
                             }
                             .accessibilityLabel(option.label)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityValue(icon == option.systemImage ? String(localized: "Selected") : "")
                             .onTapGesture {
                                 icon = option.systemImage
                             }
@@ -334,10 +338,13 @@ struct BlockInspectorView: View {
                             if isSelected {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.blue)
+                                    .accessibilityHidden(true)
                             }
                         }
                     }
                     .tint(.primary)
+                    .accessibilityLabel("\(vendor.name), \(vendor.role.rawValue.capitalized)")
+                    .accessibilityValue(isSelected ? String(localized: "Assigned") : String(localized: "Not assigned"))
                 }
             }
         }
@@ -364,6 +371,7 @@ struct BlockInspectorView: View {
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(sibling.isPinned ? Color.red : Color.blue)
                                 .frame(width: 4, height: 24)
+                                .accessibilityHidden(true)
                             VStack(alignment: .leading) {
                                 Text(sibling.title)
                                 Text(sibling.scheduledStart, format: .dateTime.hour().minute())
@@ -374,10 +382,13 @@ struct BlockInspectorView: View {
                             if isSelected {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.blue)
+                                    .accessibilityHidden(true)
                             }
                         }
                     }
                     .tint(.primary)
+                    .accessibilityLabel("\(sibling.title), \(sibling.scheduledStart.formatted(.dateTime.hour().minute()))")
+                    .accessibilityValue(isSelected ? String(localized: "Depends on this block") : String(localized: "No dependency"))
                 }
             }
         }

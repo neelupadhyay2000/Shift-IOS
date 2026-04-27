@@ -97,9 +97,9 @@ struct SlideToAdvanceView: View {
             .frame(height: trackHeight)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(String(localized: "Advance to next block"))
-            .accessibilityHint(String(localized: "Slide right to complete the current block, or double-tap"))
+            .accessibilityHint(String(localized: "Slide right to complete the current block"))
             .accessibilityAddTraits(.allowsDirectInteraction)
-            .accessibilityAction {
+            .accessibilityAction(named: String(localized: "Complete block")) {
                 guard !isCompleted else { return }
                 completeSlide(maxOffset: max(trackWidth - thumbSize - 8, 0))
             }

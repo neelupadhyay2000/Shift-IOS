@@ -259,16 +259,18 @@ struct TimelineBuilderView: View {
             let maxYMap = nextBlockYMap(for: blocks, layout: currentLayout)
 
             ZStack(alignment: .topLeading) {
-                // Full-width guide lines at every marker
+                // Full-width guide lines at every marker — decorative only
                 ForEach(currentLayout.hourMarkers, id: \.self) { marker in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.10))
                         .frame(height: 0.5)
                         .offset(y: currentLayout.yOffset(for: marker) - 3)
+                        .accessibilityHidden(true)
                 }
 
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                    .accessibilityHidden(true)
 
                 // Golden hour / sunset markers
                 SunsetMarkerView(
@@ -276,9 +278,11 @@ struct TimelineBuilderView: View {
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
+                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
+                        .accessibilityHidden(true)
 
                     ZStack(alignment: .topLeading) {
                         Color.clear
@@ -288,7 +292,7 @@ struct TimelineBuilderView: View {
                             blockCard(block, in: currentLayout, maxY: maxYMap[block.id])
                         }
 
-                        // Drop position indicator — shown while dragging
+                        // Drop position indicator — shown while dragging, decorative only
                         if let dragID = draggingBlockID,
                            let dragBlock = blocks.first(where: { $0.id == dragID }) {
                             HStack(spacing: 4) {
@@ -304,6 +308,7 @@ struct TimelineBuilderView: View {
                             .shadow(color: Color.accentColor.opacity(0.5), radius: 6)
                             .offset(y: dropIndicatorY(forDragging: dragBlock, in: blocks, layout: currentLayout))
                             .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                             .animation(.easeInOut(duration: 0.08), value: dragTranslation)
                         }
                     }
@@ -323,16 +328,18 @@ struct TimelineBuilderView: View {
             let currentLayout = sharedLayout
 
             ZStack(alignment: .topLeading) {
-                // Full-width hour guide lines
+                // Full-width hour guide lines — decorative only
                 ForEach(currentLayout.hourMarkers, id: \.self) { hour in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.10))
                         .frame(height: 0.5)
                         .offset(y: currentLayout.yOffset(for: hour) - 3)
+                        .accessibilityHidden(true)
                 }
 
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                    .accessibilityHidden(true)
 
                 // Golden hour / sunset markers
                 SunsetMarkerView(
@@ -340,9 +347,11 @@ struct TimelineBuilderView: View {
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
+                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
+                        .accessibilityHidden(true)
 
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(sortedTracks) { track in
@@ -428,6 +437,7 @@ struct TimelineBuilderView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
+        .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))
         .scaleEffect(isDragging ? 1.04 : 1.0)
         .opacity(isDragging ? 0.85 : 1.0)
         .zIndex(isDragging ? 100 : 0)

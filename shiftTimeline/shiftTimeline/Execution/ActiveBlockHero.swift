@@ -34,6 +34,7 @@ struct ActiveBlockHero: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.65)
                 .padding(.horizontal, 20)
+                .accessibilityAddTraits(.isHeader)
 
             // Countdown — 72pt monospace, per-second via TimelineView
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -58,6 +59,13 @@ struct ActiveBlockHero: View {
                         .foregroundStyle(isOvertime ? Color.red : Color.secondary)
                         .animation(.easeInOut(duration: 0.3), value: isOvertime)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    isOvertime
+                        ? String(localized: "Overtime by \(formatCountdown(remaining))")
+                        : String(localized: "\(formatCountdown(remaining)) remaining")
+                )
+                .accessibilityAddTraits(.updatesFrequently)
                 // Fire haptic exactly once when we cross the 00:00 boundary
                 .onChange(of: isOvertime) { _, isNowOvertime in
                     guard isNowOvertime, !overtimeHapticFired else { return }
@@ -77,6 +85,7 @@ struct ActiveBlockHero: View {
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
 
             Spacer()
         }

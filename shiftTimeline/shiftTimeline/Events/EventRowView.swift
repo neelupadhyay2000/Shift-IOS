@@ -75,6 +75,14 @@ struct EventRowView: View {
         }
         .padding(.vertical, 6)
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        let dateStr = date.formatted(.dateTime.month(.wide).day().year())
+        var parts = ["\(title), \(dateStr), \(status.label)"]
+        if isShared { parts.append(String(localized: "Shared")) }
+        return parts.joined(separator: ", ")
     }
 }
 

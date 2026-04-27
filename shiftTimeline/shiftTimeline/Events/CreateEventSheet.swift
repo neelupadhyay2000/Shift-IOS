@@ -51,6 +51,7 @@ struct CreateEventSheet: View {
                         createEvent()
                     }
                     .disabled(!canCreate)
+                    .accessibilityHint(canCreate ? "" : String(localized: "Enter an event title to continue"))
                 }
             }
         }

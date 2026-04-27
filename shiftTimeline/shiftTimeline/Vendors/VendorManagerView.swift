@@ -39,10 +39,18 @@ struct VendorManagerView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach((event.vendors ?? []).sorted(by: { $0.name < $1.name })) { vendor in
+                                let blockCount = assignedBlockCount(for: vendor)
                                 vendorRow(vendor)
                                     .premiumCard(padding: 12)
                                     .contentShape(Rectangle())
                                     .onTapGesture { vendorToEdit = vendor }
+                                    .accessibilityLabel(
+                                        blockCount > 0
+                                            ? "\(vendor.name), \(vendor.role.displayName), \(blockCount) blocks"
+                                            : "\(vendor.name), \(vendor.role.displayName)"
+                                    )
+                                    .accessibilityHint(String(localized: "Double-tap to edit"))
+                                    .accessibilityAddTraits(.isButton)
                                     .scrollFade()
                                     .contextMenu {
                                         NavigationLink {
@@ -73,6 +81,7 @@ struct VendorManagerView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel(String(localized: "Add Vendor"))
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -110,13 +119,14 @@ struct VendorManagerView: View {
         let blockCount = assignedBlockCount(for: vendor)
 
         HStack(spacing: 14) {
-            // Role icon with role-specific color
+            // Role icon — decorative; role is conveyed via the text badge below
             Image(systemName: vendor.role.systemImage)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 42, height: 42)
                 .background(roleColor.gradient, in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
                 .symbolEffect(.bounce, value: vendor.id)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(vendor.name)
@@ -177,9 +187,14 @@ struct VendorManagerView: View {
                     canCall ? roleColor.opacity(0.12) : Color.gray.opacity(0.08),
                     in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                 )
+                .accessibilityHidden(true)
         }
         .buttonStyle(.plain)
         .disabled(!canCall)
+        .accessibilityLabel(canCall
+            ? String(localized: "Call \(vendor.name)")
+            : String(localized: "Call unavailable"))
+        .accessibilityHint(canCall ? "" : String(localized: "No phone number on file or device cannot make calls"))
     }
 
     private var canMakePhoneCalls: Bool {

@@ -129,6 +129,7 @@ struct EventDetailView: View {
                     Circle()
                         .fill(event.status.tintColor)
                         .frame(width: 7, height: 7)
+                        .accessibilityHidden(true)
                     Text(event.status.label)
                         .font(.caption)
                         .fontWeight(.bold)
@@ -137,6 +138,8 @@ struct EventDetailView: View {
                 .padding(.vertical, 6)
                 .background(event.status.tintColor.opacity(0.12), in: Capsule())
                 .foregroundStyle(event.status.tintColor)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(event.status.label)
             }
         }
         .premiumCard()
@@ -150,6 +153,7 @@ struct EventDetailView: View {
                         Image(systemName: "dot.radiowaves.left.and.right")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.white)
+                            .accessibilityHidden(true)
                         Text(String(localized: "Go Live"))
                             .font(.subheadline)
                             .fontWeight(.bold)
@@ -158,6 +162,7 @@ struct EventDetailView: View {
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.8))
+                            .accessibilityHidden(true)
                     }
                     .premiumCard()
                     .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -166,23 +171,29 @@ struct EventDetailView: View {
                     startLiveMode(for: event)
                 })
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Go Live"))
+                .accessibilityHint(String(localized: "Starts live event execution mode"))
             }
 
             HStack(spacing: 12) {
+                let blockCount = (event.tracks ?? []).flatMap { $0.blocks ?? [] }.count
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
                     quickCard(
                         icon: "calendar.day.timeline.leading",
-                        value: "\((event.tracks ?? []).flatMap { $0.blocks ?? [] }.count)",
+                        value: "\(blockCount)",
                         subtitle: String(localized: "timeline_card_label", defaultValue: "Timeline"),
                         color: .blue
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "\(blockCount) timeline blocks"))
+                .accessibilityHint(String(localized: "Opens timeline builder"))
 
+                let vendorCount = (event.vendors ?? []).count
                 NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
                     quickCard(
                         icon: "person.2.fill",
-                        value: "\((event.vendors ?? []).count)",
+                        value: "\(vendorCount)",
                         subtitle: String(localized: "assigned"),
                         color: .purple
                     )
@@ -190,6 +201,8 @@ struct EventDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(!isOwner)
                 .opacity(isOwner ? 1 : 0.5)
+                .accessibilityLabel(String(localized: "\(vendorCount) vendors assigned"))
+                .accessibilityHint(isOwner ? String(localized: "Opens vendor manager") : String(localized: "Only available to event owner"))
             }
 
             NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
@@ -197,6 +210,7 @@ struct EventDetailView: View {
                     Image(systemName: "doc.richtext")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.orange)
+                        .accessibilityHidden(true)
                     Text(String(localized: "Export PDF"))
                         .font(.subheadline)
                         .fontWeight(.semibold)
@@ -204,10 +218,12 @@ struct EventDetailView: View {
                     Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
+                        .accessibilityHidden(true)
                 }
                 .premiumCard()
             }
             .buttonStyle(.plain)
+            .accessibilityHint(String(localized: "Generates a PDF timeline document"))
 
             if event.status == .completed {
                 NavigationLink(value: EventDestination.postEventReport(eventID: event.id)) {
@@ -215,6 +231,7 @@ struct EventDetailView: View {
                         Image(systemName: "chart.bar.doc.horizontal")
                             .font(.system(size: 18, weight: .semibold))
                             .foregroundStyle(.indigo)
+                            .accessibilityHidden(true)
                         Text(String(localized: "Export Report"))
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -222,11 +239,14 @@ struct EventDetailView: View {
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
                     .premiumCard()
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("exportPostEventReportButton")
+                .accessibilityLabel(String(localized: "Export Post-Event Report"))
+                .accessibilityHint(String(localized: "Generates a post-event summary report"))
             }
 
             if isOwner {
@@ -243,10 +263,12 @@ struct EventDetailView: View {
                 if isPreparingShare {
                     ProgressView()
                         .controlSize(.small)
+                        .accessibilityHidden(true)
                 } else {
                     Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundStyle(.green)
+                        .accessibilityHidden(true)
                 }
                 Text(event.shareURL != nil
                      ? String(localized: "Manage Vendor Sharing")
@@ -257,11 +279,13 @@ struct EventDetailView: View {
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .premiumCard()
         }
         .buttonStyle(.plain)
         .disabled(isPreparingShare)
+        .accessibilityHint(isPreparingShare ? String(localized: "Preparing share link, please wait") : "")
         .sheet(isPresented: $isShowingShareSheet) {
             if let share = activeShareForSheet {
                 CloudSharingView(
@@ -581,6 +605,7 @@ struct EventDetailView: View {
         HStack(spacing: 6) {
             Image(systemName: "sunset.fill")
                 .foregroundStyle(.orange)
+                .accessibilityHidden(true)
             Text(String(localized: "Sunset"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -589,12 +614,15 @@ struct EventDetailView: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Sunset at \(time.formatted(.dateTime.hour().minute()))"))
     }
 
     private func goldenHourRow(_ time: Date) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "sun.and.horizon.fill")
                 .foregroundStyle(.yellow)
+                .accessibilityHidden(true)
             Text(String(localized: "Golden Hour"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -603,6 +631,8 @@ struct EventDetailView: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Golden hour starts at \(time.formatted(.dateTime.hour().minute()))"))
     }
 
     private func tracksSummary(_ event: EventModel) -> some View {
@@ -646,6 +676,7 @@ struct EventDetailView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(color)
                 .symbolEffect(.bounce, options: .nonRepeating, value: true)
+                .accessibilityHidden(true)
 
             Text(value)
                 .font(.title)
@@ -657,6 +688,8 @@ struct EventDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .premiumCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value) \(subtitle)")
     }
 
     private func locationItem(label: String, value: String) -> some View {
