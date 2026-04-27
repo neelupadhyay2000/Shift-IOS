@@ -35,7 +35,7 @@ struct EventRowView: View {
                 Text(title)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Text(date, format: .dateTime.month(.wide).day().year())
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

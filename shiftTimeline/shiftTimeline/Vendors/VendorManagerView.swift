@@ -16,6 +16,7 @@ struct VendorManagerView: View {
     @State private var vendorToEdit: VendorModel?
     @State private var vendorToDelete: VendorModel?
     @State private var showDeleteConfirmation = false
+    @ScaledMetric private var phoneButtonSize: CGFloat = 38
 
     private var event: EventModel? { results.first }
 
@@ -132,7 +133,7 @@ struct VendorManagerView: View {
                 Text(vendor.name)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
                 HStack(spacing: 6) {
                     Text(vendor.role.displayName)
@@ -182,7 +183,7 @@ struct VendorManagerView: View {
             Image(systemName: "phone.fill")
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(canCall ? roleColor : .gray)
-                .frame(width: 38, height: 38)
+                .frame(width: phoneButtonSize, height: phoneButtonSize)
                 .background(
                     canCall ? roleColor.opacity(0.12) : Color.gray.opacity(0.08),
                     in: RoundedRectangle(cornerRadius: 10, style: .continuous)

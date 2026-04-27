@@ -82,7 +82,7 @@ private struct TemplateCardView: View {
 
             Text(template.name)
                 .font(.headline)
-                .lineLimit(1)
+                .lineLimit(2)
 
             Text(template.description)
                 .font(.caption)

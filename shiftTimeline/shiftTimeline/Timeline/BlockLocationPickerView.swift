@@ -173,13 +173,11 @@ struct BlockLocationPickerView: View {
                                 if !currentVenueName.isEmpty {
                                     Text(currentVenueName)
                                         .foregroundStyle(.primary)
-                                        .lineLimit(1)
                                 }
                                 if !currentAddress.isEmpty {
                                     Text(currentAddress)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                        .lineLimit(1)
                                 }
                             }
                         }

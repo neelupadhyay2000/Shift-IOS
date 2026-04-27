@@ -55,7 +55,7 @@ struct TimeBlockRowView: View {
                     Text(title)
                         .font(.callout)
                         .fontWeight(.semibold)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     HStack(spacing: 5) {
                         Image(systemName: "clock")
                             .font(.system(size: 9))
