@@ -186,10 +186,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             switch result {
             case .success:
                 Self.logger.info("Successfully accepted CloudKit share")
-                // Switch to Events tab so the vendor sees the shared event
-                // once NSPersistentCloudKitContainer mirrors the records.
                 Task { @MainActor in
+                    // Signal the roster to show a syncing indicator while
+                    // NSPersistentCloudKitContainer mirrors the shared records.
+                    DeepLinkRouter.shared.isAcceptingShare = true
                     DeepLinkRouter.shared.pendingDestination = .roster
+                }
+                // Best-effort: pull shared-zone changes immediately so the
+                // container's mirror cycle has fresh data to work with.
+                Task {
+                    await SharedZoneSubscriptionManager.shared.fetchChanges()
                 }
             case .failure(let error):
                 Self.logger.error("Failed to accept share: \(error.localizedDescription)")
