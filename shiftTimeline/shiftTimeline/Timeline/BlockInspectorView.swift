@@ -316,11 +316,23 @@ struct BlockInspectorView: View {
 
     @ViewBuilder
     private var voiceMemoSection: some View {
-        if let url = block.voiceMemoURL {
+        if block.voiceMemoURL != nil {
             Section(String(localized: "Voice Memo")) {
-                VoiceMemoPlaybackRow(url: url) {
-                    try? FileManager.default.removeItem(at: url)
-                    block.voiceMemoURL = nil
+                if let resolved = VoiceMemoStorage.resolve(block.voiceMemoURL) {
+                    VoiceMemoPlaybackRow(url: resolved) {
+                        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
+                        block.voiceMemoURL = nil
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: "icloud.slash")
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                        Text(String(localized: "Voice memo not yet available on this device"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
                 }
             }
         }

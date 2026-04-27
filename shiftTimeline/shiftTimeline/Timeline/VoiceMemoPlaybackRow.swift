@@ -13,7 +13,7 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
     var loadFailed = false
 
     @ObservationIgnored private var player: AVAudioPlayer?
-    @ObservationIgnored private var progressTimer: Timer?
+    @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
 
     func load(url: URL) {
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -35,37 +35,63 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
         if isPlaying {
             player.pause()
             isPlaying = false
-            stopProgressTimer()
         } else {
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
             try? AVAudioSession.sharedInstance().setActive(true)
+            registerInterruptionObserver()
             player.play()
             isPlaying = true
-            startProgressTimer()
         }
     }
 
     func stop() {
         player?.stop()
         player?.currentTime = 0
+        player?.prepareToPlay()
         isPlaying = false
         currentTime = 0
-        stopProgressTimer()
+        unregisterInterruptionObserver()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    private func startProgressTimer() {
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            MainActor.assumeIsolated {
-                self.currentTime = self.player?.currentTime ?? 0
+    /// Refreshes `currentTime` from the underlying player. Driven by a
+    /// `TimelineView` in the row so we don't need a `Timer` (which would
+    /// require runtime MainActor assumptions under strict concurrency).
+    func refreshCurrentTime() {
+        guard isPlaying, let player else { return }
+        currentTime = player.currentTime
+    }
+
+    // MARK: Interruptions
+
+    private func registerInterruptionObserver() {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: nil
+        ) { [weak self] note in
+            guard
+                let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: raw),
+                type == .began
+            else { return }
+            Task { @MainActor [weak self] in
+                self?.pauseForInterruption()
             }
         }
     }
 
-    private func stopProgressTimer() {
-        progressTimer?.invalidate()
-        progressTimer = nil
+    private func unregisterInterruptionObserver() {
+        if let observer = interruptionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            interruptionObserver = nil
+        }
+    }
+
+    private func pauseForInterruption() {
+        player?.pause()
+        isPlaying = false
     }
 
     // MARK: AVAudioPlayerDelegate
@@ -75,7 +101,9 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
             self.isPlaying = false
             self.currentTime = 0
             self.player?.currentTime = 0
-            self.stopProgressTimer()
+            // Re-arm so the next play call doesn't stall.
+            self.player?.prepareToPlay()
+            self.unregisterInterruptionObserver()
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
     }
@@ -84,7 +112,11 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
 // MARK: - Row view
 
 /// Playback control row shown in BlockInspector when a voice memo exists.
-/// Automatically clears the block's memo reference if the file is missing on disk.
+///
+/// If the file is missing on disk (e.g. CloudKit-synced record whose audio
+/// has not been transferred to this device) the row shows an unavailable
+/// state but does **not** clear the model field — the file may still arrive
+/// later, or be present on another device.
 struct VoiceMemoPlaybackRow: View {
 
     let url: URL
@@ -99,9 +131,10 @@ struct VoiceMemoPlaybackRow: View {
             } label: {
                 Image(systemName: playback.isPlaying ? "pause.circle.fill" : "play.circle.fill")
                     .font(.title2)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(playback.loadFailed ? Color.gray : Color.accentColor)
             }
             .buttonStyle(.plain)
+            .disabled(playback.loadFailed)
             .accessibilityLabel(
                 playback.isPlaying
                     ? String(localized: "Pause voice memo")
@@ -113,18 +146,24 @@ struct VoiceMemoPlaybackRow: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
 
-                HStack(spacing: 4) {
-                    if playback.isPlaying {
-                        Text(formatDuration(playback.currentTime))
+                if playback.loadFailed {
+                    Text(String(localized: "Audio unavailable on this device"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    HStack(spacing: 4) {
+                        if playback.isPlaying {
+                            Text(formatDuration(playback.currentTime))
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                            Text(String(localized: "of"))
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Text(formatDuration(playback.duration))
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
-                        Text("of")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
                     }
-                    Text(formatDuration(playback.duration))
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -144,8 +183,14 @@ struct VoiceMemoPlaybackRow: View {
         .onAppear {
             playback.load(url: url)
         }
-        .onChange(of: playback.loadFailed) { _, failed in
-            if failed { onDelete() }
+        .task(id: playback.isPlaying) {
+            // Polls AVAudioPlayer for the current playback position while
+            // playing; cancelled automatically when isPlaying flips or the
+            // view disappears.
+            while !Task.isCancelled, playback.isPlaying {
+                playback.refreshCurrentTime()
+                try? await Task.sleep(for: .milliseconds(250))
+            }
         }
         .onDisappear {
             playback.stop()

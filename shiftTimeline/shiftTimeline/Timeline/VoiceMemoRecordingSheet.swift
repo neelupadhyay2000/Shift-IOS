@@ -8,6 +8,9 @@ import Models
 @Observable
 final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
 
+    /// Hard cap to prevent runaway recordings from filling storage / CloudKit.
+    static let maxRecordingDuration: TimeInterval = 5 * 60
+
     var isRecording = false
     var permissionDenied = false
     var recordingFailed = false
@@ -15,18 +18,10 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
     var completedURL: URL?
 
     @ObservationIgnored private var recorder: AVAudioRecorder?
+    @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
 
     func requestAndStart(for blockID: UUID) async {
-        let granted: Bool
-        if #available(iOS 17.0, *) {
-            granted = await AVAudioApplication.requestRecordPermission()
-        } else {
-            granted = await withCheckedContinuation { continuation in
-                AVAudioSession.sharedInstance().requestRecordPermission { result in
-                    continuation.resume(returning: result)
-                }
-            }
-        }
+        let granted = await AVAudioApplication.requestRecordPermission()
 
         guard !Task.isCancelled else { return }
 
@@ -35,26 +30,40 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
             return
         }
 
+        guard let url = VoiceMemoStorage.makeRecordingURL(for: blockID) else {
+            recordingFailed = true
+            return
+        }
+
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: .defaultToSpeaker)
+            try session.setCategory(.record, mode: .default)
             try session.setActive(true)
 
-            let url = Self.newFileURL(for: blockID)
+            // Speech-quality mono — keeps file size reasonable for sync.
             let settings: [String: Any] = [
                 AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-                AVSampleRateKey: 44100.0,
+                AVSampleRateKey: 22050.0,
                 AVNumberOfChannelsKey: 1,
-                AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue,
+                AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
             ]
-            recorder = try AVAudioRecorder(url: url, settings: settings)
-            recorder?.delegate = self
-            recorder?.record()
+            let newRecorder = try AVAudioRecorder(url: url, settings: settings)
+            newRecorder.delegate = self
+            let started = newRecorder.record(forDuration: Self.maxRecordingDuration)
+            guard started else {
+                newRecorder.deleteRecording()
+                recordingFailed = true
+                try? session.setActive(false, options: .notifyOthersOnDeactivation)
+                return
+            }
+            recorder = newRecorder
             completedURL = url
             recordingStartDate = .now
             isRecording = true
+            registerInterruptionObserver()
         } catch {
             recordingFailed = true
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
     }
 
@@ -63,6 +72,7 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
         recorder = nil
         isRecording = false
         recordingStartDate = nil
+        unregisterInterruptionObserver()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -73,13 +83,35 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
         isRecording = false
         recordingStartDate = nil
         completedURL = nil
+        unregisterInterruptionObserver()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    static func newFileURL(for blockID: UUID) -> URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let timestamp = Int(Date.now.timeIntervalSince1970)
-        return docs.appendingPathComponent("voicememo_\(blockID.uuidString)_\(timestamp).m4a")
+    // MARK: Interruptions
+
+    private func registerInterruptionObserver() {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: nil
+        ) { [weak self] note in
+            guard
+                let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: raw),
+                type == .began
+            else { return }
+            Task { @MainActor [weak self] in
+                self?.cancel()
+            }
+        }
+    }
+
+    private func unregisterInterruptionObserver() {
+        if let observer = interruptionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            interruptionObserver = nil
+        }
     }
 
     // MARK: AVAudioRecorderDelegate
@@ -88,6 +120,8 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
         Task { @MainActor in
             if !flag { self.completedURL = nil }
             self.isRecording = false
+            self.recordingStartDate = nil
+            self.unregisterInterruptionObserver()
         }
     }
 
@@ -95,6 +129,9 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
         Task { @MainActor in
             self.completedURL = nil
             self.isRecording = false
+            self.recordingFailed = true
+            self.recordingStartDate = nil
+            self.unregisterInterruptionObserver()
         }
     }
 }
@@ -109,6 +146,7 @@ struct VoiceMemoRecordingSheet: View {
     @Environment(\.openURL) private var openURL
     @State private var coordinator = AudioRecordingCoordinator()
     @State private var showPermissionAlert = false
+    @State private var showFailureAlert = false
 
     var body: some View {
         NavigationStack {
@@ -120,6 +158,7 @@ struct VoiceMemoRecordingSheet: View {
                         .font(.system(size: 56))
                         .foregroundStyle(.red)
                         .symbolEffect(.variableColor.iterative, isActive: coordinator.isRecording)
+                        .accessibilityHidden(true)
 
                     Text(block.title)
                         .font(.headline)
@@ -137,6 +176,8 @@ struct VoiceMemoRecordingSheet: View {
                         .monospacedDigit()
                         .foregroundStyle(coordinator.isRecording ? .red : .secondary)
                         .contentTransition(.numericText())
+                        .accessibilityLabel(String(localized: "Recording, \(Int(elapsed)) seconds"))
+                        .accessibilityAddTraits(.updatesFrequently)
                 }
 
                 VStack(spacing: 8) {
@@ -179,18 +220,27 @@ struct VoiceMemoRecordingSheet: View {
         .onChange(of: coordinator.permissionDenied) { _, denied in
             if denied { showPermissionAlert = true }
         }
+        .onChange(of: coordinator.recordingFailed) { _, failed in
+            if failed { showFailureAlert = true }
+        }
         .alert(String(localized: "Microphone Access Required"), isPresented: $showPermissionAlert) {
             Button(String(localized: "Open Settings")) {
                 if let url = URL(string: "app-settings:") {
                     openURL(url)
                 }
-                dismiss()
             }
             Button(String(localized: "Cancel"), role: .cancel) {
                 dismiss()
             }
         } message: {
             Text(String(localized: "SHIFT needs microphone access to record voice memos. Enable it in Settings."))
+        }
+        .alert(String(localized: "Recording Unavailable"), isPresented: $showFailureAlert) {
+            Button(String(localized: "OK"), role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            Text(String(localized: "Voice memo recording could not start. Please try again."))
         }
     }
 

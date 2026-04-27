@@ -77,8 +77,8 @@ struct TransitBlockPromptView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(
                 String(
-                    localized: "Add \(minutes)-min transit block?",
-                    comment: "Transit block prompt — shows calculated driving minutes"
+                    localized: "Add \(DurationFormatter.compact(minutes: minutes)) transit block?",
+                    comment: "Transit block prompt — shows calculated driving time"
                 )
             )
             .font(.title3.weight(.semibold))

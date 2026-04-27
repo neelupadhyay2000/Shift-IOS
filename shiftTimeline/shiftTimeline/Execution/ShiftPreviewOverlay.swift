@@ -86,7 +86,7 @@ struct ShiftPreviewOverlay: View {
             Text(String(localized: "Shift Preview"))
                 .font(.title2.weight(.bold))
 
-            Text(String(localized: "+\(minutes) min — \(affectedBlocks.count) blocks affected"))
+            Text(String(localized: "\(DurationFormatter.compact(minutes: minutes, signed: true)) — \(affectedBlocks.count) blocks affected"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -111,7 +111,7 @@ struct ShiftPreviewOverlay: View {
         let beforeDate = block.scheduledStart.addingTimeInterval(-diff)
         let afterDate = block.scheduledStart
         let diffMinutes = Int(diff / 60)
-        let sign = diffMinutes > 0 ? "+" : ""
+        let formattedDiff = DurationFormatter.compact(minutes: diffMinutes, signed: true)
 
         return HStack(spacing: 12) {
             // Block title + pin indicator
@@ -140,7 +140,7 @@ struct ShiftPreviewOverlay: View {
                 }
                 .font(.caption.weight(.medium))
 
-                Text(String(localized: "\(sign)\(diffMinutes) min"))
+                Text(String(localized: "\(formattedDiff)"))
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(diffMinutes > 0 ? Color.orange : Color.green)
             }

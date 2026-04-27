@@ -788,14 +788,15 @@ struct TimelineBuilderView: View {
     // MARK: - Delete
 
     private func deleteBlock(_ block: TimeBlockModel) {
+        // Clean up any attached voice memo file before removing the block —
+        // SwiftData's nullify cascade won't remove on-disk audio.
+        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
         modelContext.delete(block)
         recalculateStartTimesAfterDelete()
     }
 
     private func deleteVoiceMemo(for block: TimeBlockModel) {
-        if let url = block.voiceMemoURL {
-            try? FileManager.default.removeItem(at: url)
-        }
+        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
         block.voiceMemoURL = nil
     }
 

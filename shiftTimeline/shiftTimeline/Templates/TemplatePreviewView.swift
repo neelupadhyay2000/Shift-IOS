@@ -309,12 +309,8 @@ private struct TemplateBlockRow: View {
     }
 
     private var formattedDuration: String {
-        let minutes = Int(block.duration) / 60
-        if minutes >= 60 {
-            let h = minutes / 60
-            let m = minutes % 60
-            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
-        }
-        return "\(minutes)m"
+        let totalMinutes = Int(block.duration) / 60
+        return DurationFormatter.compact(minutes: totalMinutes)
+            .replacingOccurrences(of: " min", with: "m")
     }
 }

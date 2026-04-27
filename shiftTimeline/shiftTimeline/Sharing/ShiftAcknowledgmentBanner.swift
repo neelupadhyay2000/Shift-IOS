@@ -16,9 +16,7 @@ struct ShiftAcknowledgmentBanner: View {
 
     private var formattedDelta: String {
         guard let delta = vendor.pendingShiftDelta else { return "" }
-        let minutes = Int(delta / 60)
-        let sign = minutes >= 0 ? "+" : ""
-        return "\(sign)\(minutes) min"
+        return DurationFormatter.compact(seconds: delta, signed: true)
     }
 
     var body: some View {

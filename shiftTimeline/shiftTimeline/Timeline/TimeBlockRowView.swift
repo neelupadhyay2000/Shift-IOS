@@ -90,7 +90,7 @@ struct TimeBlockRowView: View {
             .padding(.leading, 10)
             .padding(.trailing, 12)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
     }
 
@@ -129,18 +129,13 @@ struct TimeBlockRowView: View {
             .padding(.leading, 8)
             .padding(.trailing, 10)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
     }
 
     private var formattedDuration: String {
-        let minutes = Int(duration) / 60
-        if minutes >= 60 {
-            let h = minutes / 60
-            let m = minutes % 60
-            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
-        }
-        return "\(minutes)m"
+        DurationFormatter.compact(minutes: Int(duration) / 60)
+            .replacingOccurrences(of: " min", with: "m")
     }
 
     /// Spoken label: "[Title], [N minutes/hours], [Fluid/Pinned], starts at [HH:MM]"

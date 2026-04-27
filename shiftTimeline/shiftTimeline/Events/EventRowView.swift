@@ -74,7 +74,7 @@ struct EventRowView: View {
             }
         }
         .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
     }
 
