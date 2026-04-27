@@ -141,6 +141,7 @@ struct BlockInspectorView: View {
             locationSection
             if canSeeDetails {
                 detailsSection
+                voiceMemoSection
                 vendorsSection
                 dependenciesSection
             }
@@ -155,6 +156,7 @@ struct BlockInspectorView: View {
                 locationSection
                 if canSeeDetails {
                     detailsSection
+                    voiceMemoSection
                     vendorsSection
                     dependenciesSection
                 }
@@ -266,6 +268,8 @@ struct BlockInspectorView: View {
                                 }
                             }
                             .accessibilityLabel(option.label)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityValue(colorTag == option.value ? String(localized: "Selected") : "")
                             .onTapGesture {
                                 colorTag = option.value
                             }
@@ -296,6 +300,8 @@ struct BlockInspectorView: View {
                                 }
                             }
                             .accessibilityLabel(option.label)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityValue(icon == option.systemImage ? String(localized: "Selected") : "")
                             .onTapGesture {
                                 icon = option.systemImage
                             }
@@ -306,7 +312,33 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 4: Vendors
+    // MARK: - Section 4: Voice Memo
+
+    @ViewBuilder
+    private var voiceMemoSection: some View {
+        if block.voiceMemoURL != nil {
+            Section(String(localized: "Voice Memo")) {
+                if let resolved = VoiceMemoStorage.resolve(block.voiceMemoURL) {
+                    VoiceMemoPlaybackRow(url: resolved) {
+                        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
+                        block.voiceMemoURL = nil
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: "icloud.slash")
+                            .foregroundStyle(.secondary)
+                            .accessibilityHidden(true)
+                        Text(String(localized: "Voice memo not yet available on this device"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Section 5: Vendors
 
     private var vendorsSection: some View {
         Section(String(localized: "Vendors")) {
@@ -334,16 +366,19 @@ struct BlockInspectorView: View {
                             if isSelected {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.blue)
+                                    .accessibilityHidden(true)
                             }
                         }
                     }
                     .tint(.primary)
+                    .accessibilityLabel("\(vendor.name), \(vendor.role.rawValue.capitalized)")
+                    .accessibilityValue(isSelected ? String(localized: "Assigned") : String(localized: "Not assigned"))
                 }
             }
         }
     }
 
-    // MARK: - Section 5: Dependencies
+    // MARK: - Section 6: Dependencies
 
     private var dependenciesSection: some View {
         Section(String(localized: "Dependencies")) {
@@ -364,6 +399,7 @@ struct BlockInspectorView: View {
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(sibling.isPinned ? Color.red : Color.blue)
                                 .frame(width: 4, height: 24)
+                                .accessibilityHidden(true)
                             VStack(alignment: .leading) {
                                 Text(sibling.title)
                                 Text(sibling.scheduledStart, format: .dateTime.hour().minute())
@@ -374,10 +410,13 @@ struct BlockInspectorView: View {
                             if isSelected {
                                 Image(systemName: "checkmark")
                                     .foregroundStyle(.blue)
+                                    .accessibilityHidden(true)
                             }
                         }
                     }
                     .tint(.primary)
+                    .accessibilityLabel("\(sibling.title), \(sibling.scheduledStart.formatted(.dateTime.hour().minute()))")
+                    .accessibilityValue(isSelected ? String(localized: "Depends on this block") : String(localized: "No dependency"))
                 }
             }
         }

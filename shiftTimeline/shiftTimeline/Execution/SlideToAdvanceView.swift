@@ -13,10 +13,8 @@ struct SlideToAdvanceView: View {
     /// Called when the user completes the full slide (>80%).
     let onAdvance: () -> Void
 
-    /// Height of the track capsule.
-    private let trackHeight: CGFloat = 56
-    /// Diameter of the draggable thumb.
-    private let thumbSize: CGFloat = 48
+    @ScaledMetric private var trackHeight: CGFloat = 56
+    @ScaledMetric private var thumbSize: CGFloat = 48
     /// Fraction of track width the user must drag to trigger completion.
     static let completionThreshold: CGFloat = 0.8
 
@@ -97,9 +95,9 @@ struct SlideToAdvanceView: View {
             .frame(height: trackHeight)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(String(localized: "Advance to next block"))
-            .accessibilityHint(String(localized: "Slide right to complete the current block, or double-tap"))
+            .accessibilityHint(String(localized: "Slide right to complete the current block"))
             .accessibilityAddTraits(.allowsDirectInteraction)
-            .accessibilityAction {
+            .accessibilityAction(named: String(localized: "Complete block")) {
                 guard !isCompleted else { return }
                 completeSlide(maxOffset: max(trackWidth - thumbSize - 8, 0))
             }

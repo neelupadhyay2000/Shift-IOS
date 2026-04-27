@@ -70,6 +70,7 @@ struct CreateBlockSheet: View {
 
                 Section {
                     Toggle(String(localized: "Pinned"), isOn: $isPinned)
+                        .accessibilityHint(String(localized: "Pinned blocks stay at their scheduled time when the timeline shifts"))
                 }
 
                 Section(String(localized: "Venue Location")) {
@@ -101,6 +102,7 @@ struct CreateBlockSheet: View {
                         saveBlock()
                     }
                     .disabled(!canSave)
+                    .accessibilityHint(canSave ? "" : String(localized: "Enter a block title to continue"))
                 }
             }
         }

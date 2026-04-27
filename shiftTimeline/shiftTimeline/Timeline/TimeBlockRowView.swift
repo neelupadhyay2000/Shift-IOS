@@ -55,7 +55,7 @@ struct TimeBlockRowView: View {
                     Text(title)
                         .font(.callout)
                         .fontWeight(.semibold)
-                        .lineLimit(1)
+                        .lineLimit(2)
                     HStack(spacing: 5) {
                         Image(systemName: "clock")
                             .font(.system(size: 9))
@@ -90,7 +90,8 @@ struct TimeBlockRowView: View {
             .padding(.leading, 10)
             .padding(.trailing, 12)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
     }
 
     // MARK: - Compact layout
@@ -128,18 +129,30 @@ struct TimeBlockRowView: View {
             .padding(.leading, 8)
             .padding(.trailing, 10)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(formattedDuration)")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
     }
 
     private var formattedDuration: String {
-        let minutes = Int(duration) / 60
-        if minutes >= 60 {
-            let h = minutes / 60
-            let m = minutes % 60
-            return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+        DurationFormatter.compact(minutes: Int(duration) / 60)
+            .replacingOccurrences(of: " min", with: "m")
+    }
+
+    /// Spoken label: "[Title], [N minutes/hours], [Fluid/Pinned], starts at [HH:MM]"
+    private var accessibilityDescription: String {
+        let totalMinutes = Int(duration) / 60
+        let durationStr: String
+        if totalMinutes < 60 {
+            durationStr = "\(totalMinutes) minutes"
+        } else {
+            let h = totalMinutes / 60
+            let m = totalMinutes % 60
+            let hoursStr = h == 1 ? String(localized: "hour") : String(localized: "hours")
+            durationStr = m > 0 ? "\(h) \(hoursStr) \(m) minutes" : "\(h) \(hoursStr)"
         }
-        return "\(minutes)m"
+        let typeStr = isPinned ? String(localized: "Pinned") : String(localized: "Fluid")
+        let timeStr = scheduledStart.formatted(.dateTime.hour().minute())
+        return "\(title), \(durationStr), \(typeStr), starts at \(timeStr)"
     }
 }
 

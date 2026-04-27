@@ -35,7 +35,7 @@ struct EventRowView: View {
                 Text(title)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .lineLimit(1)
+                    .lineLimit(2)
                 Text(date, format: .dateTime.month(.wide).day().year())
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -74,7 +74,15 @@ struct EventRowView: View {
             }
         }
         .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var accessibilityDescription: String {
+        let dateStr = date.formatted(.dateTime.month(.wide).day().year())
+        var parts = ["\(title), \(dateStr), \(status.label)"]
+        if isShared { parts.append(String(localized: "Shared")) }
+        return parts.joined(separator: ", ")
     }
 }
 

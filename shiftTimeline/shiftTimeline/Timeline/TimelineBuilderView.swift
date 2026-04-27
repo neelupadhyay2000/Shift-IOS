@@ -45,6 +45,9 @@ struct TimelineBuilderView: View {
     // Track filtering — nil means "All", otherwise filters to a specific track
     @State private var selectedTrackID: UUID?
 
+    // Voice memo recording
+    @State private var blockForRecording: TimeBlockModel?
+
     // Transit block prompt
     @State private var transitPromptContext: TransitPromptContext?
     @State private var skippedVenuePairs: Set<String> = []
@@ -132,6 +135,12 @@ struct TimelineBuilderView: View {
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
             BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
                 .presentationDetents([.medium, .large])
+        }
+        // Voice memo recording sheet
+        .sheet(item: $blockForRecording) { block in
+            VoiceMemoRecordingSheet(block: block)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         // Transit block prompt — fires whenever a venue location changes anywhere
         // in the timeline (new block saved, inspector edit, etc).
@@ -259,16 +268,18 @@ struct TimelineBuilderView: View {
             let maxYMap = nextBlockYMap(for: blocks, layout: currentLayout)
 
             ZStack(alignment: .topLeading) {
-                // Full-width guide lines at every marker
+                // Full-width guide lines at every marker — decorative only
                 ForEach(currentLayout.hourMarkers, id: \.self) { marker in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.10))
                         .frame(height: 0.5)
                         .offset(y: currentLayout.yOffset(for: marker) - 3)
+                        .accessibilityHidden(true)
                 }
 
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                    .accessibilityHidden(true)
 
                 // Golden hour / sunset markers
                 SunsetMarkerView(
@@ -276,9 +287,11 @@ struct TimelineBuilderView: View {
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
+                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
+                        .accessibilityHidden(true)
 
                     ZStack(alignment: .topLeading) {
                         Color.clear
@@ -288,7 +301,7 @@ struct TimelineBuilderView: View {
                             blockCard(block, in: currentLayout, maxY: maxYMap[block.id])
                         }
 
-                        // Drop position indicator — shown while dragging
+                        // Drop position indicator — shown while dragging, decorative only
                         if let dragID = draggingBlockID,
                            let dragBlock = blocks.first(where: { $0.id == dragID }) {
                             HStack(spacing: 4) {
@@ -304,6 +317,7 @@ struct TimelineBuilderView: View {
                             .shadow(color: Color.accentColor.opacity(0.5), radius: 6)
                             .offset(y: dropIndicatorY(forDragging: dragBlock, in: blocks, layout: currentLayout))
                             .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                             .animation(.easeInOut(duration: 0.08), value: dragTranslation)
                         }
                     }
@@ -323,16 +337,18 @@ struct TimelineBuilderView: View {
             let currentLayout = sharedLayout
 
             ZStack(alignment: .topLeading) {
-                // Full-width hour guide lines
+                // Full-width hour guide lines — decorative only
                 ForEach(currentLayout.hourMarkers, id: \.self) { hour in
                     Rectangle()
                         .fill(Color.secondary.opacity(0.10))
                         .frame(height: 0.5)
                         .offset(y: currentLayout.yOffset(for: hour) - 3)
+                        .accessibilityHidden(true)
                 }
 
                 // Pinned block anchor lines
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                    .accessibilityHidden(true)
 
                 // Golden hour / sunset markers
                 SunsetMarkerView(
@@ -340,9 +356,11 @@ struct TimelineBuilderView: View {
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
+                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
+                        .accessibilityHidden(true)
 
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(sortedTracks) { track in
@@ -428,6 +446,7 @@ struct TimelineBuilderView: View {
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
+        .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))
         .scaleEffect(isDragging ? 1.04 : 1.0)
         .opacity(isDragging ? 0.85 : 1.0)
         .zIndex(isDragging ? 100 : 0)
@@ -464,6 +483,27 @@ struct TimelineBuilderView: View {
                 } label: {
                     Label(String(localized: "Edit"), systemImage: "pencil")
                 }
+
+                if block.voiceMemoURL == nil {
+                    Button {
+                        blockToInspect = nil
+                        blockForRecording = block
+                    } label: {
+                        Label(String(localized: "Record Voice Memo"), systemImage: "mic")
+                    }
+                } else {
+                    Button {
+                        blockToInspect = block
+                    } label: {
+                        Label(String(localized: "Play Voice Memo"), systemImage: "play.circle")
+                    }
+                    Button(role: .destructive) {
+                        deleteVoiceMemo(for: block)
+                    } label: {
+                        Label(String(localized: "Delete Voice Memo"), systemImage: "waveform.slash")
+                    }
+                }
+
                 Button(role: .destructive) {
                     if block.isPinned {
                         blockPendingDeletion = block
@@ -748,8 +788,16 @@ struct TimelineBuilderView: View {
     // MARK: - Delete
 
     private func deleteBlock(_ block: TimeBlockModel) {
+        // Clean up any attached voice memo file before removing the block —
+        // SwiftData's nullify cascade won't remove on-disk audio.
+        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
         modelContext.delete(block)
         recalculateStartTimesAfterDelete()
+    }
+
+    private func deleteVoiceMemo(for block: TimeBlockModel) {
+        VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
+        block.voiceMemoURL = nil
     }
 
     private func recalculateStartTimesAfterDelete() {

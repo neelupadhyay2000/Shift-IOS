@@ -97,6 +97,7 @@ struct LiveDashboardView: View {
                     Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
                 }
                 .disabled(isEventComplete)
+                .accessibilityHint(isEventComplete ? String(localized: "Event is complete") : "")
             }
         }
         .sheet(isPresented: $isShowingQuickShift, onDismiss: {
@@ -467,6 +468,7 @@ private struct _LiveDashboardContent: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .padding(.top, 16)
+                .accessibilityAddTraits(.isHeader)
 
             // ── Sunset / Golden Hour banner ───────────────────────────
             if let sunset = event.sunsetTime,
@@ -500,6 +502,14 @@ private struct _LiveDashboardContent: View {
 
             // ── Next block card ───────────────────────────────────────
             if activeBlock != nil {
+                let upNextLabel: String = {
+                    if let nextBlock {
+                        let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
+                        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)")
+                    }
+                    return String(localized: "Last block of the day")
+                }()
+
                 VStack(spacing: 4) {
                     if let nextBlock {
                         Text(String(localized: "Up Next"))
@@ -523,6 +533,8 @@ private struct _LiveDashboardContent: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(upNextLabel)
 
                 // Siri tip — suggested when event is live
                 SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
@@ -549,10 +561,12 @@ private struct _LiveDashboardContent: View {
                 .font(.system(size: 72))
                 .foregroundStyle(.green)
                 .symbolEffect(.bounce, value: isEventComplete)
+                .accessibilityHidden(true)
 
             Text(String(localized: "Event Complete"))
                 .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
 
             Text(event.title)
                 .font(.title3.weight(.medium))
@@ -579,6 +593,8 @@ private struct _LiveDashboardContent: View {
             .padding(.vertical, 16)
             .padding(.horizontal, 32)
             .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(String(localized: "\(totalBlocks) blocks completed on \(event.date.formatted(.dateTime.month().day()))"))
 
             Spacer()
 
@@ -594,6 +610,8 @@ private struct _LiveDashboardContent: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)
+            .accessibilityLabel(String(localized: "Done"))
+            .accessibilityHint(String(localized: "Exits live mode"))
         }
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
     }

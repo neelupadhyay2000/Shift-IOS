@@ -72,7 +72,8 @@ struct VendorAckGrid: View {
             Text(vendor.name)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
                 .frame(maxWidth: 64)
         }
         .accessibilityElement(children: .combine)

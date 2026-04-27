@@ -18,6 +18,7 @@ struct ActiveBlockHero: View {
     /// Tracks whether we have already fired the overtime haptic for this block,
     /// so it only fires once at the transition boundary.
     @State private var overtimeHapticFired = false
+    @ScaledMetric(relativeTo: .largeTitle) private var countdownFontSize: CGFloat = 72
 
     private var blockEnd: Date {
         block.scheduledStart.addingTimeInterval(block.duration)
@@ -27,13 +28,12 @@ struct ActiveBlockHero: View {
         VStack(spacing: 12) {
             Spacer()
 
-            // Block title — 32pt bold
             Text(block.title)
-                .font(.system(size: 32, weight: .bold))
+                .font(.largeTitle.weight(.bold))
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.65)
                 .padding(.horizontal, 20)
+                .accessibilityAddTraits(.isHeader)
 
             // Countdown — 72pt monospace, per-second via TimelineView
             TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -42,12 +42,10 @@ struct ActiveBlockHero: View {
 
                 VStack(spacing: 6) {
                     Text(formatCountdown(remaining))
-                        .font(.system(size: 72, weight: .bold, design: .monospaced))
+                        .font(.system(size: countdownFontSize, weight: .bold, design: .monospaced))
                         .foregroundStyle(isOvertime ? Color.red : Color.primary)
                         .contentTransition(.numericText())
                         .monospacedDigit()
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
                         .animation(.easeInOut(duration: 0.3), value: isOvertime)
 
                     Text(isOvertime
@@ -58,6 +56,13 @@ struct ActiveBlockHero: View {
                         .foregroundStyle(isOvertime ? Color.red : Color.secondary)
                         .animation(.easeInOut(duration: 0.3), value: isOvertime)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    isOvertime
+                        ? String(localized: "Overtime by \(formatCountdown(remaining))")
+                        : String(localized: "\(formatCountdown(remaining)) remaining")
+                )
+                .accessibilityAddTraits(.updatesFrequently)
                 // Fire haptic exactly once when we cross the 00:00 boundary
                 .onChange(of: isOvertime) { _, isNowOvertime in
                     guard isNowOvertime, !overtimeHapticFired else { return }
@@ -77,6 +82,7 @@ struct ActiveBlockHero: View {
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
 
             Spacer()
         }
