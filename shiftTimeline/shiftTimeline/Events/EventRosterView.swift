@@ -13,6 +13,7 @@ struct EventRosterView: View {
     private var events: [EventModel]
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
@@ -37,6 +38,11 @@ struct EventRosterView: View {
                 emptyState
             } else {
                 eventList
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if deepLinkRouter.isAcceptingShare {
+                shareAcceptanceBanner
             }
         }
         .searchable(text: $searchText, prompt: String(localized: "Search events"))
@@ -79,6 +85,22 @@ struct EventRosterView: View {
     }
 
     // MARK: - Subviews
+
+    private var shareAcceptanceBanner: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text(String(localized: "Syncing shared event…"))
+                .font(.subheadline)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Syncing shared event"))
+        .accessibilityAddTraits(.updatesFrequently)
+    }
 
     private var eventList: some View {
         ScrollView {
