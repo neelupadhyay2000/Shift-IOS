@@ -1,10 +1,3 @@
-//
-//  shiftTimelineApp.swift
-//  shiftTimeline
-//
-//  Created by Neel Upadhyay on 2026-04-07.
-//
-
 import SwiftUI
 import SwiftData
 import CloudKit
@@ -36,10 +29,59 @@ struct shiftTimelineApp: App {
     @State private var liveActivityManager = LiveActivityManager()
     private let deepLinkRouter = DeepLinkRouter.shared
 
+    // MARK: - UI Test Mode
+
+    /// `true` when the process was launched by the XCUITest runner with `-UITestMode 1`.
+    /// Evaluated once at process start; safe to read from any context.
+    static let isUITestMode = CommandLine.arguments.contains("-UITestMode")
+
+    /// The active `ModelContainer` for this process.
+    ///
+    /// UI test runs receive an in-memory container with no CloudKit connectivity so
+    /// tests never touch real user data. Production runs use the CloudKit-backed
+    /// shared container from `PersistenceController`.
+    private static let modelContainer: ModelContainer = {
+        guard !isUITestMode else {
+            do {
+                return try PersistenceController.forTesting()
+            } catch {
+                fatalError("Failed to create in-memory ModelContainer for UI tests: \(error)")
+            }
+        }
+        return PersistenceController.shared.container
+    }()
+
     init() {
+        guard !Self.isUITestMode else {
+            Self.resetDataIfRequested()
+            return
+        }
         SunsetPrefetchTask.register()
         SunsetPrefetchTask.scheduleNextRefresh()
         try? Tips.configure()
+    }
+
+    /// Wipes all persistent state when the test runner passes `-ResetData 1`.
+    ///
+    /// Called synchronously in `init()` before SwiftUI renders the first scene,
+    /// guaranteeing each test starts from a blank slate.
+    ///
+    /// What is reset:
+    /// - Main-bundle `UserDefaults` domain (onboarding flags, cached preferences, etc.)
+    /// - App Group `UserDefaults` domain (widget data store, shared prefs)
+    ///
+    /// What does NOT need resetting:
+    /// - The `ModelContainer` — it is in-memory (`isStoredInMemoryOnly: true`) and
+    ///   created fresh for every process launch, so it is already empty.
+    private static func resetDataIfRequested() {
+        guard CommandLine.arguments.contains("-ResetData") else { return }
+
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+
+        let appGroupID = "group.com.neelsoftwaresolutions.shiftTimeline"
+        UserDefaults(suiteName: appGroupID)?.removePersistentDomain(forName: appGroupID)
     }
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
@@ -77,6 +119,7 @@ struct shiftTimelineApp: App {
                     deepLinkRouter.handle(url: url)
                 }
                 .task {
+                    guard !Self.isUITestMode else { return }
                     watchSessionManager.activate()
                     liveActivityManager.reclaimExistingActivity()
                     await CloudKitIdentity.shared.fetchAndCache()
@@ -84,8 +127,9 @@ struct shiftTimelineApp: App {
                     await SharedZoneSubscriptionManager.shared.registerIfNeeded()
                 }
         }
-        .modelContainer(PersistenceController.shared.container)
+        .modelContainer(Self.modelContainer)
         .onChange(of: scenePhase) { _, newPhase in
+            guard !Self.isUITestMode else { return }
             if newPhase == .background {
                 SunsetPrefetchTask.scheduleNextRefresh()
             }
@@ -134,6 +178,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        guard !shiftTimelineApp.isUITestMode else { return true }
         application.registerForRemoteNotifications()
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }

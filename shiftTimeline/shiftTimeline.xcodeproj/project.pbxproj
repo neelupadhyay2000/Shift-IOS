@@ -55,6 +55,13 @@
 			remoteGlobalIDString = 5F9C4F552F9089FF00331621;
 			remoteInfo = shiftTimelineWatchWidgetExtension;
 		};
+		5FF066ED2FA0256C00B6152E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5F21CF6A2F85C1B000110808 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5F21CF712F85C1B000110808;
+			remoteInfo = shiftTimeline;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -102,6 +109,7 @@
 		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
 		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWatchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -172,6 +180,11 @@
 			path = shiftTimelineWatchWidget;
 			sourceTree = "<group>";
 		};
+		5FF066E82FA0256C00B6152E /* shiftTimelineUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = shiftTimelineUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -224,6 +237,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5FF066E42FA0256C00B6152E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -236,6 +256,7 @@
 				5F21CFA22F85CA0900110808 /* shiftTimelineWidget */,
 				5F21CFF82F85F2BF00110808 /* shiftTimelineTests */,
 				5F9C4F592F9089FF00331621 /* shiftTimelineWatchWidget */,
+				5FF066E82FA0256C00B6152E /* shiftTimelineUITests */,
 				5F21CF9D2F85CA0900110808 /* Frameworks */,
 				5F21CF732F85C1B000110808 /* Products */,
 			);
@@ -249,6 +270,7 @@
 				5F21CF9C2F85CA0900110808 /* shiftTimelineWidgetExtension.appex */,
 				5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */,
 				5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */,
+				5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -392,6 +414,29 @@
 			productReference = 5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		5FF066E62FA0256C00B6152E /* shiftTimelineUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5FF066EF2FA0256C00B6152E /* Build configuration list for PBXNativeTarget "shiftTimelineUITests" */;
+			buildPhases = (
+				5FF066E32FA0256C00B6152E /* Sources */,
+				5FF066E42FA0256C00B6152E /* Frameworks */,
+				5FF066E52FA0256C00B6152E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5FF066EE2FA0256C00B6152E /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5FF066E82FA0256C00B6152E /* shiftTimelineUITests */,
+			);
+			name = shiftTimelineUITests;
+			packageProductDependencies = (
+			);
+			productName = shiftTimelineUITests;
+			productReference = 5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -418,6 +463,10 @@
 					5F9C4F552F9089FF00331621 = {
 						CreatedOnToolsVersion = 26.4;
 					};
+					5FF066E62FA0256C00B6152E = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = 5F21CF712F85C1B000110808;
+					};
 				};
 			};
 			buildConfigurationList = 5F21CF6D2F85C1B000110808 /* Build configuration list for PBXProject "shiftTimeline" */;
@@ -442,6 +491,7 @@
 				5F21CF9B2F85CA0900110808 /* shiftTimelineWidgetExtension */,
 				5F21CFF62F85F2BF00110808 /* shiftTimelineTests */,
 				5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */,
+				5FF066E62FA0256C00B6152E /* shiftTimelineUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -476,6 +526,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5F9C4F542F9089FF00331621 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FF066E52FA0256C00B6152E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -520,6 +577,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5FF066E32FA0256C00B6152E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -543,6 +607,11 @@
 			target = 5F9C4F552F9089FF00331621 /* shiftTimelineWatchWidgetExtension */;
 			targetProxy = 5F9C4F632F9089FF00331621 /* PBXContainerItemProxy */;
 		};
+		5FF066EE2FA0256C00B6152E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5F21CF712F85C1B000110808 /* shiftTimeline */;
+			targetProxy = 5FF066ED2FA0256C00B6152E /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -554,7 +623,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -594,7 +663,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -754,7 +823,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -789,7 +858,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -825,7 +894,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
@@ -859,7 +928,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
@@ -940,7 +1009,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
@@ -974,7 +1043,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
@@ -998,6 +1067,46 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
 				WATCHOS_DEPLOYMENT_TARGET = 26.4;
+			};
+			name = Release;
+		};
+		5FF066F02FA0256C00B6152E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimelineUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = shiftTimeline;
+			};
+			name = Debug;
+		};
+		5FF066F12FA0256C00B6152E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23WXR2JP8Z;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.neelsoftwaresolutions.shiftTimelineUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = shiftTimeline;
 			};
 			name = Release;
 		};
@@ -1054,6 +1163,15 @@
 			buildConfigurations = (
 				5F9C4F672F9089FF00331621 /* Debug */,
 				5F9C4F682F9089FF00331621 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5FF066EF2FA0256C00B6152E /* Build configuration list for PBXNativeTarget "shiftTimelineUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5FF066F02FA0256C00B6152E /* Debug */,
+				5FF066F12FA0256C00B6152E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

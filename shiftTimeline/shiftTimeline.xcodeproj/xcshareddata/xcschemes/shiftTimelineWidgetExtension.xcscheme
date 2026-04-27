@@ -56,6 +56,17 @@
                ReferencedContainer = "container:shiftTimeline.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5FF066E62FA0256C00B6152E"
+               BuildableName = "shiftTimelineUITests.xctest"
+               BlueprintName = "shiftTimelineUITests"
+               ReferencedContainer = "container:shiftTimeline.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
