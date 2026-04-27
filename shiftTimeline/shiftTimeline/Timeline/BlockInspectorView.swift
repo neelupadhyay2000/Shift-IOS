@@ -141,6 +141,7 @@ struct BlockInspectorView: View {
             locationSection
             if canSeeDetails {
                 detailsSection
+                voiceMemoSection
                 vendorsSection
                 dependenciesSection
             }
@@ -155,6 +156,7 @@ struct BlockInspectorView: View {
                 locationSection
                 if canSeeDetails {
                     detailsSection
+                    voiceMemoSection
                     vendorsSection
                     dependenciesSection
                 }
@@ -310,7 +312,21 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 4: Vendors
+    // MARK: - Section 4: Voice Memo
+
+    @ViewBuilder
+    private var voiceMemoSection: some View {
+        if let url = block.voiceMemoURL {
+            Section(String(localized: "Voice Memo")) {
+                VoiceMemoPlaybackRow(url: url) {
+                    try? FileManager.default.removeItem(at: url)
+                    block.voiceMemoURL = nil
+                }
+            }
+        }
+    }
+
+    // MARK: - Section 5: Vendors
 
     private var vendorsSection: some View {
         Section(String(localized: "Vendors")) {
@@ -350,7 +366,7 @@ struct BlockInspectorView: View {
         }
     }
 
-    // MARK: - Section 5: Dependencies
+    // MARK: - Section 6: Dependencies
 
     private var dependenciesSection: some View {
         Section(String(localized: "Dependencies")) {

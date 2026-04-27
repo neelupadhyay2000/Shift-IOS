@@ -45,6 +45,9 @@ struct TimelineBuilderView: View {
     // Track filtering — nil means "All", otherwise filters to a specific track
     @State private var selectedTrackID: UUID?
 
+    // Voice memo recording
+    @State private var blockForRecording: TimeBlockModel?
+
     // Transit block prompt
     @State private var transitPromptContext: TransitPromptContext?
     @State private var skippedVenuePairs: Set<String> = []
@@ -132,6 +135,12 @@ struct TimelineBuilderView: View {
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
             BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
                 .presentationDetents([.medium, .large])
+        }
+        // Voice memo recording sheet
+        .sheet(item: $blockForRecording) { block in
+            VoiceMemoRecordingSheet(block: block)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         // Transit block prompt — fires whenever a venue location changes anywhere
         // in the timeline (new block saved, inspector edit, etc).
@@ -474,6 +483,27 @@ struct TimelineBuilderView: View {
                 } label: {
                     Label(String(localized: "Edit"), systemImage: "pencil")
                 }
+
+                if block.voiceMemoURL == nil {
+                    Button {
+                        blockToInspect = nil
+                        blockForRecording = block
+                    } label: {
+                        Label(String(localized: "Record Voice Memo"), systemImage: "mic")
+                    }
+                } else {
+                    Button {
+                        blockToInspect = block
+                    } label: {
+                        Label(String(localized: "Play Voice Memo"), systemImage: "play.circle")
+                    }
+                    Button(role: .destructive) {
+                        deleteVoiceMemo(for: block)
+                    } label: {
+                        Label(String(localized: "Delete Voice Memo"), systemImage: "waveform.slash")
+                    }
+                }
+
                 Button(role: .destructive) {
                     if block.isPinned {
                         blockPendingDeletion = block
@@ -760,6 +790,13 @@ struct TimelineBuilderView: View {
     private func deleteBlock(_ block: TimeBlockModel) {
         modelContext.delete(block)
         recalculateStartTimesAfterDelete()
+    }
+
+    private func deleteVoiceMemo(for block: TimeBlockModel) {
+        if let url = block.voiceMemoURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        block.voiceMemoURL = nil
     }
 
     private func recalculateStartTimesAfterDelete() {
