@@ -89,6 +89,7 @@ struct LiveDashboardView: View {
                 } label: {
                     Label(String(localized: "Back"), systemImage: "chevron.backward")
                 }
+                .accessibilityIdentifier(AccessibilityID.Live.exitLiveButton)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -98,6 +99,7 @@ struct LiveDashboardView: View {
                 }
                 .disabled(isEventComplete)
                 .accessibilityHint(isEventComplete ? String(localized: "Event is complete") : "")
+                .accessibilityIdentifier(AccessibilityID.Live.shiftTimelineButton)
             }
         }
         .sheet(isPresented: $isShowingQuickShift, onDismiss: {
@@ -481,6 +483,7 @@ private struct _LiveDashboardContent: View {
             if let activeBlock {
                 ActiveBlockHero(block: activeBlock)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier(AccessibilityID.Live.activeBlockHero)
 
                 // ── Vendor quick-contact avatars ────────────────────
                 VendorQuickContactRow(vendors: activeBlock.vendors ?? [])
@@ -547,6 +550,7 @@ private struct _LiveDashboardContent: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                     .padding(.bottom, 28)
+                    .accessibilityIdentifier(AccessibilityID.Live.slideToAdvance)
             }
         }
     }

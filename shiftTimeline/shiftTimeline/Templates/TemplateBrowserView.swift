@@ -44,6 +44,7 @@ struct TemplateBrowserView: View {
             }
         }
         .background { WarmBackground() }
+        .accessibilityIdentifier(AccessibilityID.Templates.templateList)
         .navigationTitle(String(localized: "Templates"))
         .navigationBarTitleDisplayMode(.large)
         .task {

@@ -26,7 +26,9 @@ struct CreateEventSheet: View {
             Form {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
+                        .accessibilityIdentifier(AccessibilityID.EventCreation.titleField)
                     DatePicker(String(localized: "Date"), selection: $date, displayedComponents: .date)
+                        .accessibilityIdentifier(AccessibilityID.EventCreation.datePicker)
                 }
 
                 Section(String(localized: "Location")) {
@@ -45,6 +47,7 @@ struct CreateEventSheet: View {
                     Button(String(localized: "Cancel")) {
                         dismiss()
                     }
+                    .accessibilityIdentifier(AccessibilityID.EventCreation.cancelButton)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Create")) {
@@ -52,6 +55,7 @@ struct CreateEventSheet: View {
                     }
                     .disabled(!canCreate)
                     .accessibilityHint(canCreate ? "" : String(localized: "Enter an event title to continue"))
+                    .accessibilityIdentifier(AccessibilityID.EventCreation.createButton)
                 }
             }
         }

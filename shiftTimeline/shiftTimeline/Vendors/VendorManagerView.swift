@@ -71,6 +71,7 @@ struct VendorManagerView: View {
                         .padding(.vertical, 8)
                     }
                     .background { WarmBackground() }
+                    .accessibilityIdentifier(AccessibilityID.Vendors.vendorList)
                 }
             }
         }
@@ -83,6 +84,7 @@ struct VendorManagerView: View {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel(String(localized: "Add Vendor"))
+                .accessibilityIdentifier(AccessibilityID.Vendors.addVendorButton)
             }
         }
         .sheet(isPresented: $showingAddSheet) {
