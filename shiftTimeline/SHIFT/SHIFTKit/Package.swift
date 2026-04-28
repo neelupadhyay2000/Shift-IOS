@@ -12,6 +12,7 @@ let package = Package(
         .library(name: "Models", targets: ["Models"]),
         .library(name: "Engine", targets: ["Engine"]),
         .library(name: "Services", targets: ["Services"]),
+        .library(name: "TestSupport", targets: ["TestSupport"]),
     ],
     targets: [
         .target(name: "Models"),
@@ -23,5 +24,6 @@ let package = Package(
         .target(name: "Services", dependencies: ["Models", "Engine", "ObjCException"], resources: [
             .copy("Resources/Templates"),
         ]),
+        .target(name: "TestSupport", dependencies: ["Models"]),
     ]
 )

@@ -24,6 +24,8 @@
 		5F9C4F582F9089FF00331621 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
 		5F9C4F652F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5F9C4F722F908A9100331621 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F9C4F702F908A0000331621 /* Models */; };
+		5FB9FB772FA04DB900FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB762FA04DB900FBA0A1 /* TestSupport */; };
+		5FB9FB792FA04DD200FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB782FA04DD200FBA0A1 /* TestSupport */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -192,6 +194,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5FB9FB772FA04DB900FBA0A1 /* TestSupport in Frameworks */,
 				5F21CFE52F85EF6500110808 /* Services in Frameworks */,
 				5F21CFE32F85EF6500110808 /* Models in Frameworks */,
 				5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
@@ -241,6 +244,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5FB9FB792FA04DD200FBA0A1 /* TestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -311,6 +315,7 @@
 				5F21CFE02F85EF6500110808 /* Engine */,
 				5F21CFE22F85EF6500110808 /* Models */,
 				5F21CFE42F85EF6500110808 /* Services */,
+				5FB9FB762FA04DB900FBA0A1 /* TestSupport */,
 			);
 			productName = shiftTimeline;
 			productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
@@ -432,6 +437,7 @@
 			);
 			name = shiftTimelineUITests;
 			packageProductDependencies = (
+				5FB9FB782FA04DD200FBA0A1 /* TestSupport */,
 			);
 			productName = shiftTimelineUITests;
 			productReference = 5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */;
@@ -1228,6 +1234,16 @@
 		5F9C4F702F908A0000331621 /* Models */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Models;
+		};
+		5FB9FB762FA04DB900FBA0A1 /* TestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+			productName = TestSupport;
+		};
+		5FB9FB782FA04DD200FBA0A1 /* TestSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */;
+			productName = TestSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
