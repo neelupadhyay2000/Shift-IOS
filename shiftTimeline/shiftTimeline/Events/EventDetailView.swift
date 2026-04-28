@@ -244,7 +244,7 @@ struct EventDetailView: View {
                     .premiumCard()
                 }
                 .buttonStyle(.plain)
-                .accessibilityIdentifier("exportPostEventReportButton")
+                .accessibilityIdentifier(AccessibilityID.Report.exportButton)
                 .accessibilityLabel(String(localized: "Export Post-Event Report"))
                 .accessibilityHint(String(localized: "Generates a post-event summary report"))
             }

@@ -36,3 +36,22 @@ excluded:
   - .build
   - DerivedData
   - Pods
+
+# SHIFT-1004.7 — flag interactive SwiftUI controls that ship without a stable
+# accessibilityIdentifier. Identifiers are required for XCUITest queries and
+# must be drawn from `AccessibilityID` (see Design/AccessibilityID.swift).
+#
+# Limitation: SwiftLint custom rules are line-scoped, so the modifier must
+# appear on the SAME line as the control declaration to be detected. When a
+# control's identifier is set further down the view chain, suppress the
+# warning explicitly with `// swiftlint:disable:next accessibility_identifier_required`.
+custom_rules:
+  accessibility_identifier_required:
+    name: "Accessibility Identifier Required"
+    regex: '^\s*(Button|TextField|Toggle)\s*\((?!.*accessibilityIdentifier).*\)\s*\{?\s*$'
+    message: "Interactive SwiftUI controls must declare `.accessibilityIdentifier(AccessibilityID.<screen>.<element>)` for XCUITest coverage."
+    severity: warning
+    excluded:
+      - ".*Tests\\.swift"
+      - ".*UITests/.*"
+      - ".*Preview.*\\.swift"

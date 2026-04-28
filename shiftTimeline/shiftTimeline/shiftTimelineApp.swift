@@ -6,6 +6,7 @@ import WidgetKit
 import TipKit
 import Models
 import Services
+import TestSupport
 import os
 
 /// SHIFT app entry point.
@@ -54,6 +55,7 @@ struct shiftTimelineApp: App {
     init() {
         guard !Self.isUITestMode else {
             Self.resetDataIfRequested()
+            Self.seedFixtureIfRequested()
             return
         }
         SunsetPrefetchTask.register()
@@ -82,6 +84,41 @@ struct shiftTimelineApp: App {
 
         let appGroupID = "group.com.neelsoftwaresolutions.shiftTimeline"
         UserDefaults(suiteName: appGroupID)?.removePersistentDomain(forName: appGroupID)
+    }
+
+    /// Seeds the in-memory `ModelContainer` with a deterministic fixture when
+    /// the test runner passes `-SeedFixture <name>`.
+    ///
+    /// The fixture name is resolved via `TestFixture.named(_:)`. Time-dependent
+    /// fixture data is stamped from `TestClock.fromLaunchArguments`, which
+    /// reads `-FrozenNow <iso8601>` so countdowns and timers are reproducible
+    /// across machines and CI runs.
+    ///
+    /// Silent no-op when:
+    /// - The flag is absent.
+    /// - The flag is present but the fixture name is unknown.
+    /// - Building throws (logged; never crashes the app under test).
+    @MainActor
+    private static func seedFixtureIfRequested() {
+        let args = CommandLine.arguments
+        guard let idx = args.firstIndex(of: "-SeedFixture"),
+              args.indices.contains(idx + 1) else { return }
+
+        let name = args[idx + 1]
+        guard let fixture = TestFixture.named(name) else {
+            logger.error("Unknown -SeedFixture token '\(name, privacy: .public)'")
+            return
+        }
+
+        let context = modelContainer.mainContext
+        let clock = TestClock.fromLaunchArguments
+        do {
+            try fixture.build(into: context, clock: clock)
+            try context.save()
+            logger.info("Seeded fixture '\(name, privacy: .public)'")
+        } catch {
+            logger.error("Failed to seed fixture '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
