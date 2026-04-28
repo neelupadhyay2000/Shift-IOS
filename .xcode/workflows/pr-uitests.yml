@@ -1,0 +1,131 @@
+# Xcode Cloud Workflow: pr-uitests
+#
+# SOURCE OF TRUTH — configure this workflow in App Store Connect → Your App → Xcode Cloud → Workflows.
+# This YAML is the canonical record of every setting; any GUI change must be reflected here.
+#
+# Goal: Sharded UI tests on every pull request. Target wall time ≤ 8 minutes.
+# Sharding: 4 parallel iPhone 16 simulators, one per test-class group (see TestPlans/).
+#
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+# HOW TO CREATE THIS WORKFLOW IN APP STORE CONNECT
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+# 1. App Store Connect → Apps → shiftTimeline → Xcode Cloud → Manage Workflows → (+)
+# 2. Name: "pr-uitests"   Description: "Sharded UI tests on every PR (≤ 8 min)"
+# 3. Environment: Xcode — latest release | macOS — latest release | Clean build: NO
+# 4. Start Conditions: Pull Requests targeting `main` and `develop` from any branch.
+#    Constraint: require all 4 test shards to pass before merge is permitted.
+# 5. Add 4 Test actions (one per shard) as defined in the `actions` section below.
+# 6. Environment Variables: none required for PR builds (no Slack on PR).
+# 7. Save & enable.
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+
+name: pr-uitests
+description: >
+  Run sharded UI tests on every pull request.
+  4 parallel iPhone 16 simulators, sharded by test class, max 8 min wall time.
+  Fails on any red test; quarantined tests are excluded (see UITestQuarantine.swift).
+
+# ── Environment ──────────────────────────────────────────────────────────────────────────────
+
+environment:
+  xcode: latest-release
+  macos: latest-release
+  clean: false          # incremental build — faster PR feedback
+
+# ── Start Conditions ─────────────────────────────────────────────────────────────────────────
+
+start_conditions:
+  pull_request:
+    enabled: true
+    target_branches:
+      - main
+      - develop
+    source_branches:
+      - "**"            # all feature / fix / chore branches
+    auto_cancel_superseded_builds: true
+
+# ── Actions ──────────────────────────────────────────────────────────────────────────────────
+#
+# Xcode Cloud runs Test actions in parallel when they share no dependency.
+# All 4 shards can launch simultaneously once the build step completes.
+#
+# Test Plans live in shiftTimeline/TestPlans/ and must be added to the
+# "SHIFT UITests" scheme via Xcode → Product → Scheme → Edit Scheme → Test.
+
+actions:
+
+  # ── Shard 1 — Foundation & Planning ─────────────────────────────────────────
+  # Classes: AppLaunchSmokeTests, EventRosterTests (SHIFT-1010), EventCreationTests (SHIFT-1010),
+  #          TemplatePickerTests (SHIFT-1010)
+  - name: "UITest Shard 1 — Foundation"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: pr-uitests-shard-1     # shiftTimeline/TestPlans/pr-uitests-shard-1.xctestplan
+    destinations:
+      - platform: iOS Simulator
+        model: iPhone 16
+        os: latest-release
+    max_duration_minutes: 8
+    result_bundle_upload: false       # no artifact upload on PR — keep build fast
+
+  # ── Shard 2 — Live Execution ─────────────────────────────────────────────────
+  # Classes: LiveDashboardTests (SHIFT-1011), ShiftMenuTests (SHIFT-1011),
+  #          BlockInspectorTests (SHIFT-1011)
+  - name: "UITest Shard 2 — Live"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: pr-uitests-shard-2
+    destinations:
+      - platform: iOS Simulator
+        model: iPhone 16
+        os: latest-release
+    max_duration_minutes: 8
+    result_bundle_upload: false
+
+  # ── Shard 3 — Data, Sync & Vendors ──────────────────────────────────────────
+  # Classes: VendorListTests (SHIFT-1010/1013), TimelineTests (SHIFT-1010),
+  #          SyncTests (SHIFT-1013), PostEventReportTests (SHIFT-1014)
+  - name: "UITest Shard 3 — Data"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: pr-uitests-shard-3
+    destinations:
+      - platform: iOS Simulator
+        model: iPhone 16
+        os: latest-release
+    max_duration_minutes: 8
+    result_bundle_upload: false
+
+  # ── Shard 4 — E2E, Accessibility & Polish ───────────────────────────────────
+  # Classes: EndToEndTests (SHIFT-1015, nightly-only), PerformanceUITests (SHIFT-1016),
+  #          AccessibilityUITests (SHIFT-1019), LocalizationUITests (SHIFT-1020)
+  - name: "UITest Shard 4 — E2E"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: pr-uitests-shard-4
+    destinations:
+      - platform: iOS Simulator
+        model: iPhone 16
+        os: latest-release
+    max_duration_minutes: 8
+    result_bundle_upload: false
+
+# ── Post-Actions ─────────────────────────────────────────────────────────────────────────────
+
+post_actions:
+  notifications:
+    email:
+      on: failure
+      recipients: []   # rely on GitHub/source host PR status check; no email noise on PR
+
+# ── Sharding Convention (maintain this as new test classes land) ──────────────────────────────
+#
+# When adding a new test class, register it in the CORRECT shard's .xctestplan
+# (add to that shard's selectedTests) AND add it to the skippedTests of all OTHER shards.
+#
+# Shard  | Domain              | Future class examples
+# ───────┼─────────────────────┼──────────────────────────────────────────────────────
+# 1      | Foundation          | AppLaunchSmokeTests, EventRosterTests, EventCreationTests, TemplatePickerTests
+# 2      | Live Execution      | LiveDashboardTests, ShiftMenuTests, BlockInspectorTests
+# 3      | Data / Sync         | VendorListTests, TimelineTests, SyncTests, PostEventReportTests
+# 4      | E2E / Edge / Polish | EndToEndTests, PerformanceUITests, AccessibilityUITests, LocalizationUITests

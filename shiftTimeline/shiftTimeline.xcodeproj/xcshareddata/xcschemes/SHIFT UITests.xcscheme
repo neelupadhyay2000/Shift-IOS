@@ -55,19 +55,24 @@
             ReferencedContainer = "container:shiftTimeline.xcodeproj">
          </BuildableReference>
       </CodeCoverageTargets>
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "5FF066E62FA0256C00B6152E"
-               BuildableName = "shiftTimelineUITests.xctest"
-               BlueprintName = "shiftTimelineUITests"
-               ReferencedContainer = "container:shiftTimeline.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
+      <TestPlans>
+         <TestPlanReference
+            reference = "container:TestPlans/nightly-full.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/pr-uitests-shard-1.xctestplan"
+            default = "YES">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/pr-uitests-shard-2.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/pr-uitests-shard-3.xctestplan">
+         </TestPlanReference>
+         <TestPlanReference
+            reference = "container:TestPlans/pr-uitests-shard-4.xctestplan">
+         </TestPlanReference>
+      </TestPlans>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
