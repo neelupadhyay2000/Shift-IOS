@@ -169,6 +169,7 @@ struct BlockInspectorView: View {
                     Button(isReadOnly ? String(localized: "Done") : String(localized: "Cancel")) {
                         dismiss()
                     }
+                    .accessibilityIdentifier(AccessibilityID.Inspector.cancelButton)
                 }
                 if !isReadOnly {
                     ToolbarItem(placement: .confirmationAction) {
@@ -176,6 +177,7 @@ struct BlockInspectorView: View {
                             saveChanges()
                         }
                         .disabled(!canSave)
+                        .accessibilityIdentifier(AccessibilityID.Inspector.saveButton)
                     }
                 }
             }
@@ -206,6 +208,7 @@ struct BlockInspectorView: View {
     private var basicInfoSection: some View {
         Section(String(localized: "Basic Info")) {
             TextField(String(localized: "Title"), text: $title)
+                .accessibilityIdentifier(AccessibilityID.Inspector.titleField)
             DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
                     .id(startTimePickerID)
                     .onChange(of: startTime) { _, _ in
@@ -223,6 +226,7 @@ struct BlockInspectorView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier(AccessibilityID.Inspector.durationField)
 
             Toggle(String(localized: "Pinned"), isOn: $isPinned)
             Toggle(String(localized: "Outdoor location"), isOn: $isOutdoor)

@@ -38,6 +38,7 @@ struct QuickShiftSheet: View {
                             shiftButtonLabel(minutes: minutes)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("shift.preset_\(minutes)min")
                     }
 
                     // Custom button
@@ -75,6 +76,7 @@ struct QuickShiftSheet: View {
                     Button(String(localized: "Cancel")) {
                         dismiss()
                     }
+                    .accessibilityIdentifier(AccessibilityID.Shift.cancelButton)
                 }
             }
         }
@@ -134,6 +136,7 @@ struct QuickShiftSheet: View {
                         .font(.title2.weight(.bold))
                         .monospacedDigit()
                         .frame(minWidth: 44)
+                        .accessibilityIdentifier(AccessibilityID.Shift.amountStepper)
 
                     Button {
                         customMinutes = min(120, customMinutes + 5)
@@ -166,6 +169,7 @@ struct QuickShiftSheet: View {
                 .foregroundStyle(.orange)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier(AccessibilityID.Shift.applyShiftButton)
         }
         .padding(.vertical, 12)
         .background(

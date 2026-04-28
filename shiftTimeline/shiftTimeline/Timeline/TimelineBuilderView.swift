@@ -105,6 +105,7 @@ struct TimelineBuilderView: View {
             // iPhone compact: show track tab bar when multiple tracks
             if sizeClass == .compact && sortedTracks.count > 1 {
                 TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
+                    .accessibilityIdentifier(AccessibilityID.Timeline.trackTabBar)
             }
 
             Group {
@@ -329,6 +330,7 @@ struct TimelineBuilderView: View {
         }
         .scrollIndicators(.hidden)
         .background { WarmBackground() }
+        .accessibilityIdentifier(AccessibilityID.Timeline.blockList)
     }
 
     /// iPad: multi-column layout with shared time ruler and side-by-side track columns.
@@ -570,6 +572,7 @@ struct TimelineBuilderView: View {
                 Image(systemName: "plus")
             }
             .accessibilityLabel(String(localized: "Add Block"))
+            .accessibilityIdentifier(AccessibilityID.Timeline.addBlockButton)
         }
 
         ToolbarItem(placement: .topBarLeading) {

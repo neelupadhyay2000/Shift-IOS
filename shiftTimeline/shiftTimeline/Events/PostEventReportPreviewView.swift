@@ -62,6 +62,7 @@ struct PostEventReportPreviewView: View {
                         )
                     )
                     .accessibilityLabel(String(localized: "Share Report"))
+                    .accessibilityIdentifier(AccessibilityID.Report.exportButton)
                 }
             }
         }

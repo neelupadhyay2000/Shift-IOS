@@ -56,6 +56,7 @@ struct EventRosterView: View {
                     Image(systemName: "plus")
                 }
                 .accessibilityLabel(String(localized: "Add Event"))
+                .accessibilityIdentifier(AccessibilityID.Roster.addEventButton)
             }
         }
         .sheet(isPresented: $isShowingCreateSheet) {
@@ -113,6 +114,7 @@ struct EventRosterView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 16)
+                .accessibilityIdentifier(AccessibilityID.Roster.statusFilter)
 
                 ForEach(filteredEvents) { event in
                     NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
@@ -141,6 +143,7 @@ struct EventRosterView: View {
             .padding(.vertical, 8)
         }
         .background { WarmBackground() }
+        .accessibilityIdentifier(AccessibilityID.Roster.eventList)
     }
 
     private var emptyState: some View {
@@ -150,6 +153,7 @@ struct EventRosterView: View {
             Button(String(localized: "Create Event")) {
                 isShowingCreateSheet = true
             }
+            .accessibilityIdentifier(AccessibilityID.Roster.createEventButton)
         }
     }
 }
