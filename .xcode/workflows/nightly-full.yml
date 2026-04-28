@@ -1,0 +1,108 @@
+# Xcode Cloud Workflow: nightly-full
+#
+# SOURCE OF TRUTH — configure this workflow in App Store Connect → Your App → Xcode Cloud → Workflows.
+# This YAML is the canonical record of every setting; any GUI change must be reflected here.
+#
+# Goal: Full UI + unit test suite across 3 simulator profiles.
+# Schedule: nightly at 02:00 UTC. Also triggerable manually.
+# Uploads: .xcresult bundles to Xcode Cloud artifacts.
+# Notification: Slack webhook on failure (ci_post_xcodebuild.sh).
+#
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+# HOW TO CREATE THIS WORKFLOW IN APP STORE CONNECT
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+# 1. App Store Connect → Apps → shiftTimeline → Xcode Cloud → Manage Workflows → (+)
+# 2. Name: "nightly-full"   Description: "Full suite — iPhone 16, SE3, iPad Pro 13 nightly"
+# 3. Environment: Xcode — latest release | macOS — latest release | Clean build: YES
+# 4. Start Conditions: Schedule — Daily at 02:00 UTC. Also enable Manual start.
+# 5. Add 3 Test actions (one per simulator profile) as defined below.
+# 6. Environment Variables (mark SLACK_WEBHOOK_URL as Secret):
+#      SLACK_WEBHOOK_URL = <your Slack incoming webhook URL>
+# 7. Save & enable.
+# ──────────────────────────────────────────────────────────────────────────────────────────────
+
+name: nightly-full
+description: >
+  Full UI test suite on iPhone 16 + iPhone SE (3rd gen) + iPad Pro 13-inch.
+  Runs nightly at 02:00 UTC. Includes quarantined tests for flake monitoring.
+  Uploads .xcresult to artifacts. Slack webhook on red.
+
+# ── Environment ──────────────────────────────────────────────────────────────────────────────
+
+environment:
+  xcode: latest-release
+  macos: latest-release
+  clean: true           # clean build nightly to flush stale artifact issues
+  variables:
+    # Mark SLACK_WEBHOOK_URL as a Secret in App Store Connect (never commit the value).
+    SLACK_WEBHOOK_URL: ""   # filled in App Store Connect UI — mark as Secret
+
+# ── Start Conditions ─────────────────────────────────────────────────────────────────────────
+
+start_conditions:
+  schedule:
+    enabled: true
+    frequency: daily
+    hour: 2             # 02:00 UTC
+    days: [mon, tue, wed, thu, fri, sat, sun]
+  manual:
+    enabled: true       # allow on-demand runs for hotfix validation
+
+# ── Actions ──────────────────────────────────────────────────────────────────────────────────
+
+actions:
+
+  # ── Full suite — iPhone 16 (primary form factor) ─────────────────────────────
+  - name: "UITests — iPhone 16"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: nightly-full           # shiftTimeline/TestPlans/nightly-full.xctestplan
+    destinations:
+      - platform: iOS Simulator
+        model: iPhone 16
+        os: latest-release
+    max_duration_minutes: 25
+    result_bundle_upload: true        # upload .xcresult to Xcode Cloud artifacts
+
+  # ── Full suite — iPhone SE (3rd generation) ──────────────────────────────────
+  # Validates compact screen / smaller safe-area edge cases.
+  - name: "UITests — iPhone SE 3"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: nightly-full
+    destinations:
+      - platform: iOS Simulator
+        model: "iPhone SE (3rd generation)"
+        os: latest-release
+    max_duration_minutes: 25
+    result_bundle_upload: true
+
+  # ── Full suite — iPad Pro 13-inch ────────────────────────────────────────────
+  # Validates regular-width split-view / .regularHorizontalSizeClass adaptive layout.
+  - name: "UITests — iPad Pro 13"
+    type: test
+    scheme: "SHIFT UITests"
+    test_plan: nightly-full
+    destinations:
+      - platform: iOS Simulator
+        model: "iPad Pro 13-inch (M4)"
+        os: latest-release
+    max_duration_minutes: 25
+    result_bundle_upload: true
+
+# ── Post-Actions ─────────────────────────────────────────────────────────────────────────────
+# Slack notification is wired via ci_post_xcodebuild.sh using $SLACK_WEBHOOK_URL secret.
+
+post_actions:
+  notifications:
+    email:
+      on: failure
+      recipients: []   # email list can be added here if desired
+
+# ── Notes ────────────────────────────────────────────────────────────────────────────────────
+#
+# - Quarantined tests (UITestQuarantine.skipIfPR) DO run on nightly — CI_WORKFLOW starts
+#   with "nightly-" so the skip guard is not triggered.
+# - .xcresult bundles are accessible in App Store Connect → Build → Artifacts.
+# - E2E rehearsal tests (SHIFT-1015) run nightly-only; they are excluded from all PR shards.
+# - Performance tests (SHIFT-1016) run nightly-only; XCTMetric baselines drift on shared CI.

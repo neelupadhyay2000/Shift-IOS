@@ -1,0 +1,43 @@
+{
+  "configurations" : [
+    {
+      "id" : "A1A33333-0000-0000-0000-000000000003",
+      "name" : "Shard 3 — Data, Sync & Vendors",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "defaultTestExecutionTimeAllowance" : 120,
+    "language" : "en",
+    "maximumTestExecutionTimeAllowance" : 300,
+    "region" : "US",
+    "testTimeoutsEnabled" : true
+  },
+  "testTargets" : [
+    {
+      "skippedTests" : [
+        "AccessibilityUITests",
+        "AppLaunchSmokeTests",
+        "BlockInspectorTests",
+        "CrashRecoveryTests",
+        "EndToEndTests",
+        "EventCreationTests",
+        "EventRosterTests",
+        "LiveDashboardTests",
+        "LocalizationUITests",
+        "PerformanceUITests",
+        "PermissionTests",
+        "ShiftMenuTests",
+        "TemplatePickerTests"
+      ],
+      "target" : {
+        "containerPath" : "container:shiftTimeline.xcodeproj",
+        "identifier" : "5FF066E62FA0256C00B6152E",
+        "name" : "shiftTimelineUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

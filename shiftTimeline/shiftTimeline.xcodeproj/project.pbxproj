@@ -110,6 +110,11 @@
 		5F21CFA02F85CA0900110808 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
 		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F7D43A62FA05C1D00828028 /* nightly-full.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "nightly-full.xctestplan"; path = "TestPlans/nightly-full.xctestplan"; sourceTree = "<group>"; };
+		5F7D43A72FA05C5900828028 /* pr-uitests-shard-1.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "pr-uitests-shard-1.xctestplan"; path = "TestPlans/pr-uitests-shard-1.xctestplan"; sourceTree = "<group>"; };
+		5F7D43A82FA05C5900828028 /* pr-uitests-shard-2.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "pr-uitests-shard-2.xctestplan"; path = "TestPlans/pr-uitests-shard-2.xctestplan"; sourceTree = "<group>"; };
+		5F7D43A92FA05C5900828028 /* pr-uitests-shard-3.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "pr-uitests-shard-3.xctestplan"; path = "TestPlans/pr-uitests-shard-3.xctestplan"; sourceTree = "<group>"; };
+		5F7D43AA2FA05C5900828028 /* pr-uitests-shard-4.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "pr-uitests-shard-4.xctestplan"; path = "TestPlans/pr-uitests-shard-4.xctestplan"; sourceTree = "<group>"; };
 		5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWatchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -254,6 +259,11 @@
 		5F21CF692F85C1B000110808 = {
 			isa = PBXGroup;
 			children = (
+				5F7D43AA2FA05C5900828028 /* pr-uitests-shard-4.xctestplan */,
+				5F7D43A92FA05C5900828028 /* pr-uitests-shard-3.xctestplan */,
+				5F7D43A82FA05C5900828028 /* pr-uitests-shard-2.xctestplan */,
+				5F7D43A72FA05C5900828028 /* pr-uitests-shard-1.xctestplan */,
+				5F7D43A62FA05C1D00828028 /* nightly-full.xctestplan */,
 				5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */,
 				5F21CF742F85C1B000110808 /* shiftTimeline */,
 				5F21CF8A2F85C7FA00110808 /* shiftTimelineWatch Watch App */,
