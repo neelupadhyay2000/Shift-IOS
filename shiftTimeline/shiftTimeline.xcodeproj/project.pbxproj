@@ -24,6 +24,8 @@
 		5F9C4F582F9089FF00331621 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5F21CFA02F85CA0900110808 /* SwiftUI.framework */; };
 		5F9C4F652F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5F9C4F722F908A9100331621 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F9C4F702F908A0000331621 /* Models */; };
+		5FB232272FA1B2E200E611FF /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB232262FA1B2E200E611FF /* TelemetryClient */; };
+		5FB232292FA1B2E200E611FF /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB232282FA1B2E200E611FF /* TelemetryDeck */; };
 		5FB9FB772FA04DB900FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB762FA04DB900FBA0A1 /* TestSupport */; };
 		5FB9FB792FA04DD200FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB782FA04DD200FBA0A1 /* TestSupport */; };
 /* End PBXBuildFile section */
@@ -194,10 +196,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5FB232272FA1B2E200E611FF /* TelemetryClient in Frameworks */,
 				5FB9FB772FA04DB900FBA0A1 /* TestSupport in Frameworks */,
 				5F21CFE52F85EF6500110808 /* Services in Frameworks */,
 				5F21CFE32F85EF6500110808 /* Models in Frameworks */,
 				5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
+				5FB232292FA1B2E200E611FF /* TelemetryDeck in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -316,6 +320,8 @@
 				5F21CFE22F85EF6500110808 /* Models */,
 				5F21CFE42F85EF6500110808 /* Services */,
 				5FB9FB762FA04DB900FBA0A1 /* TestSupport */,
+				5FB232262FA1B2E200E611FF /* TelemetryClient */,
+				5FB232282FA1B2E200E611FF /* TelemetryDeck */,
 			);
 			productName = shiftTimeline;
 			productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
@@ -486,6 +492,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */,
+				5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5F21CF732F85C1B000110808 /* Products */;
@@ -1191,6 +1198,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.12.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		5F21CFE02F85EF6500110808 /* Engine */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -1234,6 +1252,16 @@
 		5F9C4F702F908A0000331621 /* Models */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Models;
+		};
+		5FB232262FA1B2E200E611FF /* TelemetryClient */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryClient;
+		};
+		5FB232282FA1B2E200E611FF /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
 		};
 		5FB9FB762FA04DB900FBA0A1 /* TestSupport */ = {
 			isa = XCSwiftPackageProductDependency;

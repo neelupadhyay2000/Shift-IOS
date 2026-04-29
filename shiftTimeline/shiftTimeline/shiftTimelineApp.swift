@@ -4,6 +4,7 @@ import CloudKit
 import UserNotifications
 import WidgetKit
 import TipKit
+import TelemetryDeck
 import Models
 import Services
 import TestSupport
@@ -61,6 +62,9 @@ struct shiftTimelineApp: App {
         SunsetPrefetchTask.register()
         SunsetPrefetchTask.scheduleNextRefresh()
         try? Tips.configure()
+
+        TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))
+        TelemetryDeck.signal("appLaunched")
     }
 
     /// Wipes all persistent state when the test runner passes `-ResetData 1`.
