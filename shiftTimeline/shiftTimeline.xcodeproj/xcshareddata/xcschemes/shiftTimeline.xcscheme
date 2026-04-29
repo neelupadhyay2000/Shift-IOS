@@ -27,25 +27,8 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
-      <TestPlans>
-         <TestPlanReference
-            reference = "container:TestPlans/nightly-full.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-3.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-4.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-2.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-1.xctestplan"
-            default = "YES">
-         </TestPlanReference>
-      </TestPlans>
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      shouldAutocreateTestPlan = "YES">
       <Testables>
          <TestableReference
             skipped = "NO"
@@ -92,6 +75,9 @@
             ReferencedContainer = "container:shiftTimeline.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <StoreKitConfigurationFileReference
+         identifier = "../../shiftTimeline/Products.storekit">
+      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

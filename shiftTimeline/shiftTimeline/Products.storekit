@@ -1,0 +1,86 @@
+{
+  "identifier": "shift-pro-products",
+  "nonConsumableProducts": [
+    {
+      "displayPrice": "49.99",
+      "familyShareable": true,
+      "internalID": "AEB3EC0A-0001-4567-8901-AAAAAAAAAAAA",
+      "localizations": [
+        {
+          "description": "Unlock every SHIFT Pro feature forever with a single one-time purchase.",
+          "displayName": "SHIFT Pro Lifetime",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "shift.pro.sub.lifetime",
+      "referenceName": "SHIFT Pro Lifetime",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_storefront": "USA",
+    "_storeKitErrors": [
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups": [
+    {
+      "id": "BEB3EC0A-0001-4567-8901-BBBBBBBBBBBB",
+      "localizations": [],
+      "name": "SHIFT Pro",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "3.99",
+          "familyShareable": true,
+          "groupNumber": 1,
+          "internalID": "CEB3EC0A-0001-4567-8901-CCCCCCCCCCCC",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Access every SHIFT Pro feature on a monthly basis.",
+              "displayName": "SHIFT Pro Monthly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "shift.pro.sub.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "SHIFT Pro Monthly",
+          "subscriptionGroupID": "BEB3EC0A-0001-4567-8901-BBBBBBBBBBBB",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": true,
+          "groupNumber": 2,
+          "internalID": "DEB3EC0A-0001-4567-8901-DDDDDDDDDDDD",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "Access every SHIFT Pro feature at the best yearly value.",
+              "displayName": "SHIFT Pro Yearly",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "shift.pro.sub.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "SHIFT Pro Yearly",
+          "subscriptionGroupID": "BEB3EC0A-0001-4567-8901-BBBBBBBBBBBB",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 2,
+    "minor": 0
+  }
+}
