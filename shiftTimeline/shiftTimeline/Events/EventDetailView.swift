@@ -21,6 +21,7 @@ struct EventDetailView: View {
     @State private var activeShareForSheet: CKShare?
     @State private var isPreparingShare = false
     @State private var shareError: String?
+    @State private var paywallTrigger: PaywallTrigger?
 
     private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
@@ -62,6 +63,9 @@ struct EventDetailView: View {
         }
         .navigationTitle(event?.title ?? String(localized: "Event"))
         .navigationBarTitleDisplayMode(.large)
+        .sheet(item: $paywallTrigger) { trigger in
+            PaywallView(trigger: trigger)
+        }
     }
 
     private func eventContent(_ event: EventModel) -> some View {
@@ -257,6 +261,10 @@ struct EventDetailView: View {
 
     private func shareWithVendorsButton(_ event: EventModel) -> some View {
         Button {
+            guard SubscriptionManager.shared.isProUser else {
+                paywallTrigger = .vendorSharing
+                return
+            }
             prepareShareSheet(for: event)
         } label: {
             HStack(spacing: 10) {
@@ -542,6 +550,11 @@ struct EventDetailView: View {
         } catch {
             // Save failed — don't push stale context to Watch.
         }
+
+        // Widgets and Live Activities are Pro-only features. Free users still enter live
+        // mode (the core function), but we silently skip the Pro side-effects rather than
+        // interrupting their flow with a mid-action paywall. Upsell happens elsewhere.
+        guard SubscriptionManager.shared.isProUser else { return }
 
         // Write initial widget data so the home screen widget updates immediately.
         if let active = activeBlock {

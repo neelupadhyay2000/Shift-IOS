@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "2640"
-   version = "1.8">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
@@ -42,37 +42,20 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      codeCoverageEnabled = "YES"
-      testExecutionOrdering = "random"
-      maximumTestRepetitions = "3"
-      testRepetitionMode = "retryOnFailure">
-      <CodeCoverageTargets>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "5F21CF712F85C1B000110808"
-            BuildableName = "shiftTimeline.app"
-            BlueprintName = "shiftTimeline"
-            ReferencedContainer = "container:shiftTimeline.xcodeproj">
-         </BuildableReference>
-      </CodeCoverageTargets>
-      <TestPlans>
-         <TestPlanReference
-            reference = "container:TestPlans/nightly-full.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-1.xctestplan"
-            default = "YES">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-2.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-3.xctestplan">
-         </TestPlanReference>
-         <TestPlanReference
-            reference = "container:TestPlans/pr-uitests-shard-4.xctestplan">
-         </TestPlanReference>
-      </TestPlans>
+      shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5FF066E62FA0256C00B6152E"
+               BuildableName = "shiftTimelineUITests.xctest"
+               BlueprintName = "shiftTimelineUITests"
+               ReferencedContainer = "container:shiftTimeline.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

@@ -118,7 +118,7 @@ struct RootNavigator: View {
 
             // Settings tab
             NavigationStack(path: $settingsPath) {
-                ContentPlaceholderView(tab: .settings)
+                SettingsView()
                     .navigationDestination(for: SettingsDestination.self) { destination in
                         settingsDestinationView(for: destination)
                     }
@@ -197,7 +197,7 @@ struct RootNavigator: View {
             }
         case .settings:
             NavigationStack(path: $settingsPath) {
-                ContentPlaceholderView(tab: .settings)
+                SettingsView()
                     .navigationDestination(for: SettingsDestination.self) { destination in
                         settingsDestinationView(for: destination)
                     }
