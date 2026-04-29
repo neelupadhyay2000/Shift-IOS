@@ -228,6 +228,7 @@ struct LiveDashboardView: View {
             nextBlock.status = .active
         } else {
             event?.status = .completed
+            AnalyticsService.send(.eventCompleted)
             // Final block — generate the post-event report now so
             // EventModel.postEventReport is populated before any UI
             // navigates to the completion screen.
@@ -283,6 +284,7 @@ struct LiveDashboardView: View {
             return
         case .clean, .hasCollisions, .impossible:
             undoManager.commitShift(blocks: result.blocks)
+            AnalyticsService.send(.shiftApplied, parameters: ["minutes": String(abs(minutes))])
         }
 
         // Phase 4: evaluate per-vendor notification thresholds

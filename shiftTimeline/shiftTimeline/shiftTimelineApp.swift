@@ -64,7 +64,7 @@ struct shiftTimelineApp: App {
         try? Tips.configure()
 
         TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))
-        TelemetryDeck.signal("appLaunched")
+        AnalyticsService.send(.appLaunched)
     }
 
     /// Wipes all persistent state when the test runner passes `-ResetData 1`.

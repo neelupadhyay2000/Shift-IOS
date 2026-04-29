@@ -79,6 +79,7 @@ struct CreateEventSheet: View {
         )
         event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         modelContext.insert(event)
+        AnalyticsService.send(.eventCreated)
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         modelContext.insert(mainTrack)

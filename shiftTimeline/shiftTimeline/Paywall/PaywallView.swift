@@ -96,7 +96,10 @@ struct PaywallView: View {
                 }
             }
         }
-        .onAppear { preselectYearly() }
+        .onAppear {
+            preselectYearly()
+            AnalyticsService.send(.paywallShown)
+        }
         .onChange(of: SubscriptionManager.shared.availableProducts.count) { _, _ in
             preselectYearly()
         }
@@ -416,6 +419,7 @@ struct PaywallView: View {
             let outcome = try await SubscriptionManager.shared.purchase(product)
             switch outcome {
             case .success:
+                AnalyticsService.send(.purchaseCompleted, parameters: ["productID": product.id])
                 dismiss()
             case .pending:
                 showPendingPurchaseAlert = true
