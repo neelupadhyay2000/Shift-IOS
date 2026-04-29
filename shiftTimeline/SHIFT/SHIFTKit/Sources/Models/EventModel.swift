@@ -24,6 +24,16 @@ public final class EventModel {
     /// `nil` for events created before this field was added — treated as "owned by current user".
     public var ownerRecordName: String?
 
+    /// Wall-clock timestamp when the event transitioned to `.live`.
+    /// Set by `EventDetailView.startLiveMode`. Used to compute live-session
+    /// duration for the `sessionCompleted` analytics signal.
+    public var wentLiveAt: Date?
+
+    /// Wall-clock timestamp when the final block was marked `.completed`.
+    /// Set by `LiveDashboardView.performAdvance`. Used together with
+    /// `wentLiveAt` to compute live-session duration in analytics.
+    public var completedAt: Date?
+
     /// JSON-encoded `PostEventReport` produced when this event transitioned to
     /// `.completed`. Stored as raw `Data` so SwiftData can persist and CloudKit
     /// can mirror it without a custom value transformer. Access through the

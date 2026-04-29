@@ -228,14 +228,34 @@ struct LiveDashboardView: View {
             nextBlock.status = .active
         } else {
             event?.status = .completed
+            event?.completedAt = Date()
             AnalyticsService.send(.eventCompleted)
-            // Final block — generate the post-event report now so
-            // EventModel.postEventReport is populated before any UI
-            // navigates to the completion screen.
             if let event {
+                sendSessionCompleted(event: event)
                 PostEventReportGenerator.generate(for: event)
             }
         }
+    }
+
+    /// Fires the aggregate `sessionCompleted` analytics signal with five
+    /// metadata fields derived from the just-completed event.
+    private static func sendSessionCompleted(event: EventModel) {
+        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+        let records = event.shiftRecords ?? []
+        let totalShiftMins = records.reduce(0) { $0 + abs($1.deltaMinutes) }
+        let liveMinutes: Int = {
+            guard let start = event.wentLiveAt, let end = event.completedAt else { return 0 }
+            return max(0, Int(end.timeIntervalSince(start) / 60))
+        }()
+        let sources = Set(records.map { $0.triggeredBy.rawValue })
+            .sorted().joined(separator: ",")
+        AnalyticsService.send(.sessionCompleted, parameters: [
+            "blockCount": String(blocks.count),
+            "shiftCount": String(records.count),
+            "totalShiftMinutes": String(totalShiftMins),
+            "liveSessionMinutes": String(liveMinutes),
+            "shiftSources": sources.isEmpty ? "none" : sources
+        ])
     }
 
     /// Binding that bridges `ShiftPreview?` to `.sheet(item:)`.

@@ -538,6 +538,7 @@ struct EventDetailView: View {
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
         event.status = .live
+        event.wentLiveAt = Date()
         AnalyticsService.send(.eventGoLive)
         for block in allBlocks where block.status != .completed {
             block.status = .upcoming

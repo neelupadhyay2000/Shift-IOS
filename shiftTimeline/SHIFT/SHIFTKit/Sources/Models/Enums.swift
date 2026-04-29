@@ -26,6 +26,7 @@ public enum ShiftSource: String, Codable, CaseIterable, Sendable {
     case manual
     case dependency
     case undo
+    case watch
 }
 
 public enum BlockColor: String, Codable, CaseIterable, Sendable {

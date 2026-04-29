@@ -16,6 +16,7 @@ enum AnalyticsService {
         case undoUsed
         case paywallShown
         case purchaseCompleted
+        case sessionCompleted
     }
 
     static func send(_ signal: Signal) {

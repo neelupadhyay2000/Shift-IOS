@@ -9,6 +9,8 @@ import SwiftData
 /// - V4 → V5: adds `TimeBlockModel.isTransitBlock` (default `false`).
 /// - V5 → V6: adds `TimeBlockModel.completedTime` (`Date?`) and
 ///             `EventModel.postEventReportData` (`Data?`).
+/// - V6 → V7: adds `EventModel.wentLiveAt` (`Date?`) and
+///             `EventModel.completedAt` (`Date?`) for analytics.
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -24,11 +26,11 @@ import SwiftData
 /// silently disables CloudKit mirroring.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -54,5 +56,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV5toV6 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV5.self,
         toVersion: SHIFTSchemaV6.self
+    )
+
+    private static let migrateV6toV7 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV6.self,
+        toVersion: SHIFTSchemaV7.self
     )
 }
