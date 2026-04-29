@@ -2,7 +2,7 @@
   "identifier": "shift-pro-products",
   "nonConsumableProducts": [
     {
-      "displayPrice": "49.99",
+      "displayPrice": "59.99",
       "familyShareable": true,
       "internalID": "AEB3EC0A-0001-4567-8901-AAAAAAAAAAAA",
       "localizations": [
@@ -37,7 +37,7 @@
         {
           "adHocOffers": [],
           "codeOffers": [],
-          "displayPrice": "3.99",
+          "displayPrice": "5.99",
           "familyShareable": true,
           "groupNumber": 1,
           "internalID": "CEB3EC0A-0001-4567-8901-CCCCCCCCCCCC",
@@ -58,7 +58,7 @@
         {
           "adHocOffers": [],
           "codeOffers": [],
-          "displayPrice": "29.99",
+          "displayPrice": "44.99",
           "familyShareable": true,
           "groupNumber": 2,
           "internalID": "DEB3EC0A-0001-4567-8901-DDDDDDDDDDDD",
