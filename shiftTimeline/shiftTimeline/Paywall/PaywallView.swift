@@ -28,6 +28,7 @@ struct PaywallView: View {
     @State private var isPurchasing = false
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
+    @State private var showRestoreErrorAlert = false
     @State private var purchaseErrorMessage: String?
 
     var body: some View {
@@ -66,7 +67,12 @@ struct PaywallView: View {
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
             Button(String(localized: "OK"), role: .cancel) { }
         } message: {
-            Text(String(localized: "No purchases found for this Apple ID."))
+            Text(String(localized: "We couldn't find any active purchases for this Apple ID. If you believe this is an error, contact support."))
+        }
+        .alert(String(localized: "Restore Failed"), isPresented: $showRestoreErrorAlert) {
+            Button(String(localized: "OK"), role: .cancel) { }
+        } message: {
+            Text(String(localized: "Restore failed. Please check your connection and try again."))
         }
         .alert(
             String(localized: "Purchase Error"),
@@ -341,7 +347,7 @@ struct PaywallView: View {
                 showNoRestoreAlert = true
             }
         } catch {
-            showNoRestoreAlert = true
+            showRestoreErrorAlert = true
         }
     }
 
