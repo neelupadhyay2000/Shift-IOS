@@ -551,11 +551,10 @@ struct EventDetailView: View {
             // Save failed — don't push stale context to Watch.
         }
 
-        // Widget data and Live Activity are Pro-only features.
-        guard SubscriptionManager.shared.isProUser else {
-            paywallTrigger = .liveActivity
-            return
-        }
+        // Widgets and Live Activities are Pro-only features. Free users still enter live
+        // mode (the core function), but we silently skip the Pro side-effects rather than
+        // interrupting their flow with a mid-action paywall. Upsell happens elsewhere.
+        guard SubscriptionManager.shared.isProUser else { return }
 
         // Write initial widget data so the home screen widget updates immediately.
         if let active = activeBlock {

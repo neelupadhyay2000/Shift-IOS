@@ -573,7 +573,7 @@ struct TimelineBuilderView: View {
     private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Button {
-                if sortedBlocks.count >= 15 && !SubscriptionManager.shared.isProUser {
+                if sortedBlocks.count >= FreeTier.maxBlocksPerEvent && !SubscriptionManager.shared.isProUser {
                     isShowingPaywall = true
                 } else {
                     isShowingCreateSheet = true

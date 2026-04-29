@@ -52,7 +52,7 @@ struct EventRosterView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    if events.count >= 1 && !SubscriptionManager.shared.isProUser {
+                    if events.count >= FreeTier.maxActiveEvents && !SubscriptionManager.shared.isProUser {
                         isShowingPaywall = true
                     } else {
                         isShowingCreateSheet = true
