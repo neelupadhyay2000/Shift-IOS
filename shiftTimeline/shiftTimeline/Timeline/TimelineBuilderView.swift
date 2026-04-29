@@ -48,6 +48,9 @@ struct TimelineBuilderView: View {
     // Voice memo recording
     @State private var blockForRecording: TimeBlockModel?
 
+    // Paywall
+    @State private var isShowingPaywall = false
+
     // Transit block prompt
     @State private var transitPromptContext: TransitPromptContext?
     @State private var skippedVenuePairs: Set<String> = []
@@ -131,6 +134,9 @@ struct TimelineBuilderView: View {
         .toolbar { if !isReadOnly { toolbarItems } }
         .sheet(isPresented: $isShowingCreateSheet, onDismiss: { scanForVenueSwitches() }) {
             CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
+        }
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallView(trigger: .blockLimit)
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
@@ -567,7 +573,11 @@ struct TimelineBuilderView: View {
     private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Button {
-                isShowingCreateSheet = true
+                if sortedBlocks.count >= 15 && !SubscriptionManager.shared.isProUser {
+                    isShowingPaywall = true
+                } else {
+                    isShowingCreateSheet = true
+                }
             } label: {
                 Image(systemName: "plus")
             }

@@ -19,6 +19,7 @@ struct EventRosterView: View {
     @State private var searchText = ""
     @State private var statusFilter: EventStatusFilter = .all
     @State private var eventPendingDeletion: EventModel?
+    @State private var isShowingPaywall = false
 
     private var filteredEvents: [EventModel] {
         events.filter { event in
@@ -51,7 +52,11 @@ struct EventRosterView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    isShowingCreateSheet = true
+                    if events.count >= 1 && !SubscriptionManager.shared.isProUser {
+                        isShowingPaywall = true
+                    } else {
+                        isShowingCreateSheet = true
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -61,6 +66,9 @@ struct EventRosterView: View {
         }
         .sheet(isPresented: $isShowingCreateSheet) {
             CreateEventSheet()
+        }
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallView(trigger: .eventLimit)
         }
         .alert(
             String(localized: "Delete Event"),
