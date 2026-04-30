@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV6() {
+    @Test func latestSchemaVersionIsV7() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 6, "Latest schema must be V6 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 7, "Latest schema must be V7 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V5 → V6 plan continuity
+    // MARK: - V6 → V7 plan continuity
 
-    @Test func planExposesSixSchemasAndFiveStages() {
+    @Test func planExposesSevenSchemasAndSixStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 6,
-            "Expected schemas [V1, V2, V3, V4, V5, V6] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 7,
+            "Expected schemas [V1, V2, V3, V4, V5, V6, V7] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 5,
-            "Expected 5 lightweight stages (V1→V2, V2→V3, V3→V4, V4→V5, V5→V6) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 6,
+            "Expected 6 lightweight stages (V1→V2 … V6→V7) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV6() {
+    @Test func schemasAreOrderedV1ThroughV7() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7])
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`
@@ -168,5 +168,39 @@ struct SchemaMigrationPlanTests {
 
         #expect(block.completedTime == stamp)
         #expect(event.postEventReport?.generatedAt == stamp)
+    }
+
+    /// Lightweight V6 → V7 migration must default the new fields
+    /// (`EventModel.wentLiveAt`, `EventModel.completedAt`) to `nil` for
+    /// legacy rows and round-trip explicit values.
+    @Test @MainActor func freshContainerWithV7PlanRoundTripsSessionTimestamps() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        try context.save()
+
+        #expect(event.wentLiveAt == nil)
+        #expect(event.completedAt == nil)
+
+        let liveStamp = Date(timeIntervalSince1970: 1_760_000_000)
+        let doneStamp = Date(timeIntervalSince1970: 1_760_004_000)
+        event.wentLiveAt = liveStamp
+        event.completedAt = doneStamp
+        try context.save()
+
+        #expect(event.wentLiveAt == liveStamp)
+        #expect(event.completedAt == doneStamp)
     }
 }

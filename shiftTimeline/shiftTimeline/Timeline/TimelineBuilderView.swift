@@ -632,6 +632,7 @@ struct TimelineBuilderView: View {
                 HStack(spacing: 4) {
                     Button {
                         undoManager.undo(applying: sortedBlocks)
+                        AnalyticsService.send(.undoUsed)
                     } label: {
                         Image(systemName: "arrow.uturn.backward")
                     }
@@ -653,6 +654,7 @@ struct TimelineBuilderView: View {
         ToolbarItem(placement: .keyboard) {
             Button {
                 undoManager.undo(applying: sortedBlocks)
+                AnalyticsService.send(.undoUsed)
             } label: {
                 Label(String(localized: "Undo"), systemImage: "arrow.uturn.backward")
             }

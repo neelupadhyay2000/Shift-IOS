@@ -148,6 +148,7 @@ struct VendorFormSheet: View {
             )
             vendor.event = event
             modelContext.insert(vendor)
+            AnalyticsService.send(.vendorInvited)
         }
         dismiss()
     }

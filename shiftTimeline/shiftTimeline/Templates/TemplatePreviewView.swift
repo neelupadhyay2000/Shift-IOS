@@ -216,6 +216,7 @@ private struct UseTemplateSheet: View {
         )
         event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         modelContext.insert(event)
+        AnalyticsService.send(.templateUsed, parameters: ["templateName": template.name])
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         modelContext.insert(mainTrack)

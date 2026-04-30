@@ -228,13 +228,33 @@ struct LiveDashboardView: View {
             nextBlock.status = .active
         } else {
             event?.status = .completed
-            // Final block — generate the post-event report now so
-            // EventModel.postEventReport is populated before any UI
-            // navigates to the completion screen.
+            event?.completedAt = Date()
+            AnalyticsService.send(.eventCompleted)
             if let event {
+                sendSessionCompleted(event: event)
                 PostEventReportGenerator.generate(for: event)
             }
         }
+    }
+
+    /// Fires the aggregate `sessionCompleted` analytics signal with five
+    /// metadata fields derived from the just-completed event.
+    private static func sendSessionCompleted(event: EventModel) {
+        let tracks = event.tracks ?? []
+        let blocks = tracks.flatMap { $0.blocks ?? [] }
+        let records = event.shiftRecords ?? []
+        let liveSessionDuration: Int = {
+            guard let start = event.wentLiveAt, let end = event.completedAt else { return 0 }
+            return max(0, Int(end.timeIntervalSince(start) / 60))
+        }()
+        let watchShiftUsed = records.contains { $0.triggeredBy == .watch }
+        AnalyticsService.send(.sessionCompleted, parameters: [
+            "blocksPerEvent": String(blocks.count),
+            "shiftsPerEvent": String(records.count),
+            "tracksPerEvent": String(tracks.count),
+            "liveSessionDuration": String(liveSessionDuration),
+            "watchShiftUsed": String(watchShiftUsed)
+        ])
     }
 
     /// Binding that bridges `ShiftPreview?` to `.sheet(item:)`.
@@ -283,6 +303,7 @@ struct LiveDashboardView: View {
             return
         case .clean, .hasCollisions, .impossible:
             undoManager.commitShift(blocks: result.blocks)
+            AnalyticsService.send(.shiftApplied, parameters: ["minutes": String(abs(minutes))])
         }
 
         // Phase 4: evaluate per-vendor notification thresholds

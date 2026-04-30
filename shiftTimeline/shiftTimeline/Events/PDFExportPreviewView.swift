@@ -104,6 +104,7 @@ struct PDFExportPreviewView: View {
         if let result {
             pdfData = result.data
             pdfFileURL = result.url
+            AnalyticsService.send(.pdfExported)
         }
         #endif
         isGenerating = false
