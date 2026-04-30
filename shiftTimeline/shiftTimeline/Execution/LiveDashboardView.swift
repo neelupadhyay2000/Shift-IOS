@@ -4,6 +4,7 @@ import UIKit
 #endif
 import SwiftData
 import AppIntents
+import TipKit
 import WidgetKit
 import Models
 import Engine
@@ -34,6 +35,7 @@ struct LiveDashboardView: View {
 
     private let engine = RippleEngine()
     private let previewGenerator = ShiftPreviewGenerator()
+    private let shiftTip = ShiftTimelineTip()
 
     private let eventID: UUID
 
@@ -97,6 +99,12 @@ struct LiveDashboardView: View {
                 } label: {
                     Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
                 }
+                .popoverTip(shiftTip, arrowEdge: .top)
+                .task {
+                    guard case .available = shiftTip.status else { return }
+                    try? await Task.sleep(for: .seconds(5))
+                    shiftTip.invalidate(reason: .tipClosed)
+                }
                 .disabled(isEventComplete)
                 .accessibilityHint(isEventComplete ? String(localized: "Event is complete") : "")
                 .accessibilityIdentifier(AccessibilityID.Live.shiftTimelineButton)
@@ -143,6 +151,7 @@ struct LiveDashboardView: View {
             #endif
             activateFirstIncompleteBlockIfNeeded()
             fetchSunsetIfNeeded()
+            ShiftTimelineTip.hasEnteredLiveMode = true
         }
         .onDisappear {
             #if canImport(UIKit)
@@ -455,6 +464,7 @@ private struct _LiveDashboardContent: View {
     let onDismiss: () -> Void
 
     @State private var isSiriTipVisible = true
+    private let slideToAdvanceTip = SlideToAdvanceTip()
 
     private var totalBlocks: Int {
         (event?.tracks ?? []).flatMap { $0.blocks ?? [] }.count
@@ -568,6 +578,11 @@ private struct _LiveDashboardContent: View {
 
                 // Slide-to-advance track
                 SlideToAdvanceView(onAdvance: onAdvance)
+                    .popoverTip(slideToAdvanceTip, arrowEdge: .bottom)
+                    .task {
+                        try? await Task.sleep(for: .seconds(5))
+                        slideToAdvanceTip.invalidate(reason: .tipClosed)
+                    }
                     .padding(.horizontal, 20)
                     .padding(.top, 20)
                     .padding(.bottom, 28)

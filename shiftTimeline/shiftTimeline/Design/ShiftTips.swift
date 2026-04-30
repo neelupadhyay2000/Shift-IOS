@@ -4,6 +4,9 @@ import TipKit
 
 /// Surfaces after the first event is created. Teaches the + button in TimelineBuilderView.
 struct AddBlockTip: Tip {
+    @Parameter
+    static var hasCreatedFirstEvent: Bool = false
+
     var title: Text {
         Text("Add Your First Block")
     }
@@ -16,6 +19,10 @@ struct AddBlockTip: Tip {
         Image(systemName: "plus.circle")
     }
 
+    var rules: [Rule] {
+        #Rule(Self.$hasCreatedFirstEvent) { $0 == true }
+    }
+
     var options: [any TipOption] {
         MaxDisplayCount(1)
     }
@@ -23,7 +30,7 @@ struct AddBlockTip: Tip {
 
 // MARK: - Reorder Block
 
-/// Surfaces in the timeline builder. Teaches the long-press drag gesture.
+/// Surfaces in the timeline builder when blocks exist. Teaches the long-press drag gesture.
 struct ReorderBlockTip: Tip {
     var title: Text {
         Text("Drag to Reorder")
@@ -46,6 +53,9 @@ struct ReorderBlockTip: Tip {
 
 /// Surfaces when a pinned block is present. Teaches pinning semantics.
 struct PinnedBlockTip: Tip {
+    @Parameter
+    static var hasPinnedBlock: Bool = false
+
     var title: Text {
         Text("Pinned Blocks Stay Put")
     }
@@ -58,6 +68,10 @@ struct PinnedBlockTip: Tip {
         Image(systemName: "pin.fill")
     }
 
+    var rules: [Rule] {
+        #Rule(Self.$hasPinnedBlock) { $0 == true }
+    }
+
     var options: [any TipOption] {
         MaxDisplayCount(1)
     }
@@ -67,6 +81,9 @@ struct PinnedBlockTip: Tip {
 
 /// Surfaces the first time the user enters live mode. Teaches the Quick Shift button.
 struct ShiftTimelineTip: Tip {
+    @Parameter
+    static var hasEnteredLiveMode: Bool = false
+
     var title: Text {
         Text("Shift the Timeline")
     }
@@ -77,6 +94,10 @@ struct ShiftTimelineTip: Tip {
 
     var image: Image? {
         Image(systemName: "clock.arrow.circlepath")
+    }
+
+    var rules: [Rule] {
+        #Rule(Self.$hasEnteredLiveMode) { $0 == true }
     }
 
     var options: [any TipOption] {

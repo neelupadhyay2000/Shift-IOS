@@ -1,6 +1,7 @@
 import SwiftUI
 import SafariServices
 import StoreKit
+import TipKit
 import UIKit
 import Services
 
@@ -45,6 +46,9 @@ struct SettingsView: View {
             accountSection
             notificationsSection
             aboutSection
+            #if DEBUG
+            debugSection
+            #endif
         }
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
@@ -159,6 +163,19 @@ struct SettingsView: View {
             .foregroundStyle(Color.accentColor)
         }
     }
+
+    // MARK: - Debug (only in DEBUG builds)
+
+    #if DEBUG
+    private var debugSection: some View {
+        Section(String(localized: "Developer")) {
+            Button(String(localized: "Reset Tips")) {
+                try? Tips.resetDatastore()
+            }
+            .foregroundStyle(.red)
+        }
+    }
+    #endif
 
     // MARK: - Actions
 
