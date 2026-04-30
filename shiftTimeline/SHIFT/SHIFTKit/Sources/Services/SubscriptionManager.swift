@@ -118,13 +118,25 @@ public final class SubscriptionManager {
             case .verified(let transaction):
                 if Self.productIDs.contains(transaction.productID) {
                     foundPro = true
-                    foundLifetime = transaction.productType == .nonConsumable
-                    foundRenewalDate = transaction.expirationDate
+                    // Treat both `.nonConsumable` and `.nonRenewable` as lifetime, since the
+                    // App Store Connect product type for the lifetime SKU may be configured as either.
+                    let isThisLifetime = transaction.productType == .nonConsumable
+                        || transaction.productType == .nonRenewable
+                    // Lifetime entitlement always wins over an auto-renewing subscription so the user
+                    // is not shown a misleading renewal date when they own both.
+                    if isThisLifetime {
+                        foundLifetime = true
+                        foundRenewalDate = nil
+                    } else if !foundLifetime {
+                        foundRenewalDate = transaction.expirationDate
+                    }
                 }
             case .unverified(let transaction, let error):
                 Self.logger.error("Unverified entitlement for \(transaction.productID, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
-            if foundPro { break }
+            // Stop early only once a lifetime entitlement is confirmed; otherwise keep iterating to
+            // ensure a later lifetime transaction can still upgrade the result.
+            if foundLifetime { break }
         }
         let resolved: EntitlementState = foundPro ? .pro : .free
         entitlementState = resolved

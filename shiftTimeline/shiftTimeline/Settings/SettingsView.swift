@@ -1,7 +1,14 @@
 import SwiftUI
 import SafariServices
 import StoreKit
+import UIKit
 import Services
+
+/// Centralized `UserDefaults` keys exposed to user-facing preferences. Keep all `@AppStorage`
+/// keys here so a typo can't silently disconnect the slider/toggle from its consumer.
+enum SettingsDefaultsKey {
+    static let notificationThresholdMinutes = "notificationThresholdMinutes"
+}
 
 struct SettingsView: View {
 
@@ -9,12 +16,23 @@ struct SettingsView: View {
     @State private var showNoRestoreAlert = false
     @State private var showRestoreErrorAlert = false
     @State private var isShowingPaywall = false
+    @State private var isManagingSubscriptions = false
     @State private var presentedURL: IdentifiableURL?
 
-    @AppStorage("notificationThresholdMinutes") private var thresholdMinutes: Double = 10
+    @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
 
-    private static let privacyPolicyURL = URL(string: "https://shift.app/privacy")!
-    private static let termsURL = URL(string: "https://shift.app/terms")!
+    private static let privacyPolicyURL: URL = {
+        guard let url = URL(string: "https://shift.app/privacy") else {
+            preconditionFailure("Malformed privacy policy URL literal")
+        }
+        return url
+    }()
+    private static let termsURL: URL = {
+        guard let url = URL(string: "https://shift.app/terms") else {
+            preconditionFailure("Malformed terms of service URL literal")
+        }
+        return url
+    }()
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -31,12 +49,13 @@ struct SettingsView: View {
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $isShowingPaywall) {
-            PaywallView(trigger: .eventLimit)
+            PaywallView(trigger: .settings)
         }
         .sheet(item: $presentedURL) { identifiable in
             SafariView(url: identifiable.url)
                 .ignoresSafeArea()
         }
+        .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
             Button(String(localized: "OK"), role: .cancel) { }
         } message: {
@@ -76,7 +95,7 @@ struct SettingsView: View {
                 .foregroundStyle(Color.accentColor)
             } else if !SubscriptionManager.shared.isLifetimePro {
                 Button(String(localized: "Manage Subscription")) {
-                    Task { await showManageSubscriptions() }
+                    isManagingSubscriptions = true
                 }
                 .foregroundStyle(Color.accentColor)
             }
@@ -154,14 +173,6 @@ struct SettingsView: View {
         } catch {
             showRestoreErrorAlert = true
         }
-    }
-
-    @MainActor
-    private func showManageSubscriptions() async {
-        guard let scene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first else { return }
-        try? await AppStore.showManageSubscriptions(in: scene)
     }
 }
 
