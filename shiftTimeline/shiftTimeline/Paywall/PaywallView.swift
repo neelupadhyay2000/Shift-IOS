@@ -12,6 +12,9 @@ enum PaywallTrigger: String, Identifiable, Sendable {
     case pdfExport
     case templates
     case widgets
+    /// User tapped "Upgrade to Pro" intentionally from Settings — not a feature gate.
+    /// Kept distinct so paywall conversion analytics aren't misattributed to in-app gates.
+    case settings
 
     var id: String { rawValue }
 
@@ -26,6 +29,7 @@ enum PaywallTrigger: String, Identifiable, Sendable {
         case .pdfExport:     return String(localized: "Export polished PDFs")
         case .templates:     return String(localized: "Unlock every template")
         case .widgets:       return String(localized: "Add widgets to your Home Screen")
+        case .settings:      return String(localized: "Unlock everything in SHIFT")
         }
     }
 
@@ -45,6 +49,8 @@ enum PaywallTrigger: String, Identifiable, Sendable {
             return String(localized: "Get every starter template — wedding, conference, and more.")
         case .widgets:
             return String(localized: "Glance at your active block straight from the Home Screen.")
+        case .settings:
+            return String(localized: "Unlock unlimited events, vendor sharing, PDF exports, Live Activities, widgets, and every template.")
         }
     }
 }
