@@ -61,6 +61,9 @@ struct shiftTimelineApp: App {
         }
         SunsetPrefetchTask.register()
         SunsetPrefetchTask.scheduleNextRefresh()
+        if CommandLine.arguments.contains("-ResetTipKit") {
+            try? Tips.resetDatastore()
+        }
         try? Tips.configure()
 
         TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))

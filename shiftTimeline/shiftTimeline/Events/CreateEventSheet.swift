@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import MapKit
+import TipKit
 import Models
 import Services
 
@@ -80,6 +81,7 @@ struct CreateEventSheet: View {
         event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         modelContext.insert(event)
         AnalyticsService.send(.eventCreated)
+        AddBlockTip.hasCreatedFirstEvent = true
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         modelContext.insert(mainTrack)

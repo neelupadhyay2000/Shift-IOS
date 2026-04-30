@@ -1,6 +1,7 @@
 import CoreLocation
 import SwiftUI
 import SwiftData
+import TipKit
 import Models
 import Services
 
@@ -50,6 +51,11 @@ struct TimelineBuilderView: View {
 
     // Paywall
     @State private var isShowingPaywall = false
+
+    // Tips
+    private let addBlockTip = AddBlockTip()
+    private let reorderTip = ReorderBlockTip()
+    private let pinnedTip = PinnedBlockTip()
 
     // Transit block prompt
     @State private var transitPromptContext: TransitPromptContext?
@@ -101,6 +107,10 @@ struct TimelineBuilderView: View {
         return sortedBlocks.filter { $0.track?.id == trackID }
     }
 
+    private var hasPinnedBlock: Bool {
+        sortedBlocks.contains { $0.isPinned }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -128,6 +138,12 @@ struct TimelineBuilderView: View {
                     }
                 }
             }
+        }
+        .onAppear {
+            if hasPinnedBlock { PinnedBlockTip.hasPinnedBlock = true }
+        }
+        .onChange(of: hasPinnedBlock) { _, newValue in
+            if newValue { PinnedBlockTip.hasPinnedBlock = true }
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
         .navigationBarTitleDisplayMode(.inline)
@@ -270,6 +286,22 @@ struct TimelineBuilderView: View {
     /// iPhone: single-track timeline with filter tabs.
     private var timelineContent: some View {
         ScrollView {
+            TipView(reorderTip)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .task {
+                    try? await Task.sleep(for: .seconds(5))
+                    reorderTip.invalidate(reason: .tipClosed)
+                }
+            TipView(pinnedTip)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+                .task(id: hasPinnedBlock) {
+                    guard hasPinnedBlock else { return }
+                    try? await Task.sleep(for: .seconds(5))
+                    pinnedTip.invalidate(reason: .tipClosed)
+                }
+
             let currentLayout = layout
             let blocks = filteredBlocks
             let maxYMap = nextBlockYMap(for: blocks, layout: currentLayout)
@@ -580,6 +612,12 @@ struct TimelineBuilderView: View {
                 }
             } label: {
                 Image(systemName: "plus")
+            }
+            .popoverTip(addBlockTip, arrowEdge: .top)
+            .task(id: AddBlockTip.hasCreatedFirstEvent) {
+                guard AddBlockTip.hasCreatedFirstEvent else { return }
+                try? await Task.sleep(for: .seconds(5))
+                addBlockTip.invalidate(reason: .tipClosed)
             }
             .accessibilityLabel(String(localized: "Add Block"))
             .accessibilityIdentifier(AccessibilityID.Timeline.addBlockButton)
