@@ -240,21 +240,20 @@ struct LiveDashboardView: View {
     /// Fires the aggregate `sessionCompleted` analytics signal with five
     /// metadata fields derived from the just-completed event.
     private static func sendSessionCompleted(event: EventModel) {
-        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+        let tracks = event.tracks ?? []
+        let blocks = tracks.flatMap { $0.blocks ?? [] }
         let records = event.shiftRecords ?? []
-        let totalShiftMins = records.reduce(0) { $0 + abs($1.deltaMinutes) }
-        let liveMinutes: Int = {
+        let liveSessionDuration: Int = {
             guard let start = event.wentLiveAt, let end = event.completedAt else { return 0 }
             return max(0, Int(end.timeIntervalSince(start) / 60))
         }()
-        let sources = Set(records.map { $0.triggeredBy.rawValue })
-            .sorted().joined(separator: ",")
+        let watchShiftUsed = records.contains { $0.triggeredBy == .watch }
         AnalyticsService.send(.sessionCompleted, parameters: [
-            "blockCount": String(blocks.count),
-            "shiftCount": String(records.count),
-            "totalShiftMinutes": String(totalShiftMins),
-            "liveSessionMinutes": String(liveMinutes),
-            "shiftSources": sources.isEmpty ? "none" : sources
+            "blocksPerEvent": String(blocks.count),
+            "shiftsPerEvent": String(records.count),
+            "tracksPerEvent": String(tracks.count),
+            "liveSessionDuration": String(liveSessionDuration),
+            "watchShiftUsed": String(watchShiftUsed)
         ])
     }
 
