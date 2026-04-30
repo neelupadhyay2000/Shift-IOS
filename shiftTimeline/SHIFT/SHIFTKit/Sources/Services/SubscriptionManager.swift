@@ -43,6 +43,11 @@ public final class SubscriptionManager {
 
     public private(set) var entitlementState: EntitlementState = .unknown
     public private(set) var availableProducts: [Product] = []
+    /// Renewal / expiration date for the active auto-renewable subscription.
+    /// `nil` for free users and lifetime Pro owners.
+    public private(set) var renewalDate: Date?
+    /// `true` when the active Pro entitlement is a lifetime (non-consumable) purchase.
+    public private(set) var isLifetimePro: Bool = false
 
     /// Returns true only when entitlement is *confirmed* pro.
     /// For *feature-execution* gates, await `waitUntilEntitlementResolved()` first to avoid
@@ -106,11 +111,15 @@ public final class SubscriptionManager {
 
     public func checkCurrentEntitlement() async {
         var foundPro = false
+        var foundLifetime = false
+        var foundRenewalDate: Date?
         for await result in Transaction.currentEntitlements {
             switch result {
             case .verified(let transaction):
                 if Self.productIDs.contains(transaction.productID) {
                     foundPro = true
+                    foundLifetime = transaction.productType == .nonConsumable
+                    foundRenewalDate = transaction.expirationDate
                 }
             case .unverified(let transaction, let error):
                 Self.logger.error("Unverified entitlement for \(transaction.productID, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -119,6 +128,8 @@ public final class SubscriptionManager {
         }
         let resolved: EntitlementState = foundPro ? .pro : .free
         entitlementState = resolved
+        isLifetimePro = foundLifetime
+        renewalDate = foundRenewalDate
         flushEntitlementResolutionContinuations(with: resolved)
     }
 
