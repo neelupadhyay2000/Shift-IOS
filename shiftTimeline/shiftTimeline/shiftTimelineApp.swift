@@ -271,23 +271,34 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let container = CKContainer(identifier: cloudKitShareMetadata.containerIdentifier)
 
         let operation = CKAcceptSharesOperation(shareMetadatas: [cloudKitShareMetadata])
-        operation.perShareResultBlock = { _, result in
+        // Capture shareMetadata (first param) — its rootRecordID.zoneID lets us target
+        // the exact shared zone without relying on fetchDatabaseChanges(), which can
+        // return an empty list in the brief propagation window after acceptance.
+        operation.perShareResultBlock = { acceptedMetadata, result in
             switch result {
             case .success:
-                Self.logger.info("Successfully accepted CloudKit share")
+                Self.logger.info("Successfully accepted CloudKit share in zone: \(acceptedMetadata.rootRecordID.zoneID.zoneName)")
                 Task { @MainActor in
-                    // Signal the roster to show a syncing indicator while
-                    // NSPersistentCloudKitContainer mirrors the shared records.
                     DeepLinkRouter.shared.isAcceptingShare = true
                     DeepLinkRouter.shared.pendingDestination = .roster
                 }
-                // Best-effort: pull shared-zone changes immediately so the
-                // container's mirror cycle has fresh data to work with.
+                // Directly fetch the specific zone we know about from the metadata.
+                // This is faster and more reliable than fetchDatabaseChanges() which
+                // may not yet reflect the newly accepted zone.
+                let zoneID = acceptedMetadata.rootRecordID.zoneID
                 Task {
-                    await SharedZoneSubscriptionManager.shared.fetchChanges()
+                    await SharedZoneSubscriptionManager.shared.fetchAllRecords(inZone: zoneID)
                 }
             case .failure(let error):
-                Self.logger.error("Failed to accept share: \(error.localizedDescription)")
+                Self.logger.error("CKAcceptSharesOperation failed: \(error.localizedDescription)")
+                Task { @MainActor in
+                    DeepLinkRouter.shared.pendingDestination = .roster
+                }
+            }
+        }
+        operation.acceptSharesResultBlock = { result in
+            if case .failure(let error) = result {
+                Self.logger.error("CKAcceptSharesOperation overall failure: \(error.localizedDescription)")
             }
         }
         operation.qualityOfService = .userInteractive

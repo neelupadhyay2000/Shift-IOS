@@ -87,6 +87,27 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Change Fetching
 
+    /// Performs an immediate full fetch of every record in a specific shared zone.
+    ///
+    /// Use this immediately after `CKAcceptSharesOperation` succeeds. It bypasses
+    /// `fetchDatabaseChanges()` entirely — which can return an empty zone list in the
+    /// brief window between share acceptance and CloudKit propagating the new zone into
+    /// the change feed — and instead reads the specific zone we already know about from
+    /// the share metadata.
+    ///
+    /// The caller supplies the zone ID from `shareMetadata.rootRecordID.zoneID`, which
+    /// is the planner's `com.apple.coredata.cloudkit.zone`.
+    public func fetchAllRecords(inZone zoneID: CKRecordZone.ID) async {
+        Self.logger.info("Performing targeted zone fetch for accepted share: \(zoneID.zoneName)")
+        clearZoneChangeToken(for: zoneID)
+        do {
+            try await fetchZoneChanges(in: [zoneID])
+            Self.logger.info("Targeted zone fetch complete")
+        } catch {
+            Self.logger.error("Targeted zone fetch failed: \(error.localizedDescription)")
+        }
+    }
+
     /// Fetches changes from the shared database. Call this from
     /// `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`
     /// or whenever you want to pull the latest shared timeline data.
@@ -144,11 +165,18 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Zone-Level Changes
 
-    /// Fetches record-level changes for the given zones.
-    /// SwiftData's `NSPersistentCloudKitContainer` automatically merges
-    /// mirrored records, but calling this ensures we pull the latest
-    /// state immediately rather than waiting for the next automatic sync cycle.
+    /// Fetches record-level changes for the given zones and merges them into
+    /// the local SwiftData store via `SharedRecordSyncer`.
+    ///
+    /// `NSPersistentCloudKitContainer` only mirrors the private CloudKit database,
+    /// so shared-zone records never reach SwiftData automatically. This method
+    /// performs that bridging manually: every modified/deleted CKRecord is
+    /// collected across all pages and all zones, then handed to `SharedRecordSyncer`
+    /// on the main actor in one atomic merge.
     private func fetchZoneChanges(in zoneIDs: [CKRecordZone.ID]) async throws {
+        var modified: [CKRecord] = []
+        var deleted: [SharedDeletedRecord] = []
+
         for zoneID in zoneIDs {
             var currentToken = loadZoneChangeToken(for: zoneID)
             var moreComing = true
@@ -163,10 +191,37 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
                     "Zone \(zoneID.zoneName): \(changes.modificationResultsByID.count) modified, \(changes.deletions.count) deleted"
                 )
 
+                for (_, result) in changes.modificationResultsByID {
+                    if case .success(let modification) = result {
+                        modified.append(modification.record)
+                    }
+                }
+
+                for deletion in changes.deletions {
+                    deleted.append(SharedDeletedRecord(
+                        recordID: deletion.recordID,
+                        recordType: deletion.recordType
+                    ))
+                }
+
                 currentToken = changes.changeToken
                 saveZoneChangeToken(changes.changeToken, for: zoneID)
 
                 moreComing = changes.moreComing
+            }
+        }
+
+        guard !modified.isEmpty || !deleted.isEmpty else { return }
+
+        let capturedModified = modified
+        let capturedDeleted = deleted
+        await MainActor.run {
+            let context = PersistenceController.shared.container.mainContext
+            let syncer = SharedRecordSyncer(context: context)
+            do {
+                try syncer.merge(modified: capturedModified, deleted: capturedDeleted)
+            } catch {
+                Self.logger.error("SharedRecordSyncer failed: \(error.localizedDescription)")
             }
         }
     }
