@@ -367,17 +367,27 @@ struct EventDetailView: View {
 
     /// Creates a new `CKShare` tied to the event's mirrored CloudKit record,
     /// saves it, and presents the sheet.
+    ///
+    /// Child records (tracks, blocks, vendors) are fetched from CloudKit and
+    /// their `parent` field is set before saving. Without this, CloudKit's
+    /// hierarchical sharing only delivers the root event record to recipients,
+    /// leaving the timeline empty (0 blocks, 0 tracks).
     private func createNewShare(for event: EventModel) {
         fetchEventRootRecord(for: event) { result in
             Task { @MainActor in
                 switch result {
                 case .success(let rootRecord):
+                    let children = await self.fetchChildRecordsForShare(
+                        rootRecord: rootRecord,
+                        zone: rootRecord.recordID.zoneID
+                    )
+
                     let share = CKShare(rootRecord: rootRecord)
                     share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
                     share.publicPermission = .readOnly
 
                     let operation = CKModifyRecordsOperation(
-                        recordsToSave: [rootRecord, share],
+                        recordsToSave: [rootRecord] + children + [share],
                         recordIDsToDelete: nil
                     )
                     operation.modifyRecordsResultBlock = { result in
@@ -394,6 +404,10 @@ struct EventDetailView: View {
                             }
                         }
                     }
+                    // Use .changedKeys so CloudKit only writes the `parent` field we set,
+                    // preventing a serverRecordChanged conflict if NSPersistentCloudKitContainer
+                    // has written to these same records between our fetch and this save.
+                    operation.savePolicy = .changedKeys
                     self.cloudKitContainer.privateCloudDatabase.add(operation)
 
                 case .failure(let error):
@@ -402,6 +416,105 @@ struct EventDetailView: View {
                 }
             }
         }
+    }
+
+    /// Fetches all child records (tracks, blocks, vendors) for a shared event
+    /// and sets their CloudKit `parent` field for hierarchical sharing.
+    ///
+    /// CloudKit's `recordZoneChanges` on the recipient's shared zone only returns
+    /// records that have a `parent` chain leading back to the root record.
+    /// `NSPersistentCloudKitContainer` uses `CD_event`/`CD_track` reference fields
+    /// for Swift relationships but does NOT set the CloudKit-level `parent` field,
+    /// so we must set it explicitly here before saving the share.
+    private func fetchChildRecordsForShare(
+        rootRecord: CKRecord,
+        zone: CKRecordZone.ID
+    ) async -> [CKRecord] {
+        // NSPersistentCloudKitContainer stores relationship fields (CD_event, CD_track)
+        // as STRING (the related record's recordName), not as CKRecord.Reference.
+        // Using a CKRecord.Reference in the predicate causes:
+        //   CKInternalErrorDomain Code=1009 "Field 'CD_event' has a value type of STRING
+        //   and cannot be queried using filter value type REFERENCE"
+        let eventRecordName = rootRecord.recordID.recordName
+        var children: [CKRecord] = []
+
+        let tracks = await queryAllCKRecords(
+            type: "CD_TimelineTrack",
+            predicate: NSPredicate(format: "CD_event == %@", eventRecordName),
+            zone: zone
+        )
+        for track in tracks {
+            // Parent references for CloudKit sharing hierarchy must use .none — using
+            // .deleteSelf triggers an NSAssertionHandler abort in iOS 26 (CKRecord.m:2324).
+            track.parent = CKRecord.Reference(recordID: rootRecord.recordID, action: .none)
+        }
+        children.append(contentsOf: tracks)
+
+        let vendors = await queryAllCKRecords(
+            type: "CD_VendorModel",
+            predicate: NSPredicate(format: "CD_event == %@", eventRecordName),
+            zone: zone
+        )
+        for vendor in vendors {
+            vendor.parent = CKRecord.Reference(recordID: rootRecord.recordID, action: .none)
+        }
+        children.append(contentsOf: vendors)
+
+        for track in tracks {
+            let trackRecordName = track.recordID.recordName
+            let blocks = await queryAllCKRecords(
+                type: "CD_TimeBlockModel",
+                predicate: NSPredicate(format: "CD_track == %@", trackRecordName),
+                zone: zone
+            )
+            for block in blocks {
+                block.parent = CKRecord.Reference(recordID: track.recordID, action: .none)
+            }
+            children.append(contentsOf: blocks)
+        }
+
+        return children
+    }
+
+    /// Pages through a CloudKit query and returns all matching records.
+    /// On query failure, returns whatever records were fetched before the error.
+    private func queryAllCKRecords(
+        type: String,
+        predicate: NSPredicate,
+        zone: CKRecordZone.ID
+    ) async -> [CKRecord] {
+        var allRecords: [CKRecord] = []
+        var currentCursor: CKQueryOperation.Cursor?
+
+        repeat {
+            let page: (records: [CKRecord], cursor: CKQueryOperation.Cursor?) =
+                await withCheckedContinuation { continuation in
+                    var pageRecords: [CKRecord] = []
+                    let op: CKQueryOperation
+                    if let cursor = currentCursor {
+                        op = CKQueryOperation(cursor: cursor)
+                    } else {
+                        op = CKQueryOperation(query: CKQuery(recordType: type, predicate: predicate))
+                    }
+                    op.zoneID = zone
+                    op.recordMatchedBlock = { _, result in
+                        if case .success(let record) = result { pageRecords.append(record) }
+                    }
+                    op.queryResultBlock = { result in
+                        switch result {
+                        case .success(let nextCursor):
+                            continuation.resume(returning: (pageRecords, nextCursor))
+                        case .failure:
+                            continuation.resume(returning: (pageRecords, nil))
+                        }
+                    }
+                    cloudKitContainer.privateCloudDatabase.add(op)
+                }
+            allRecords.append(contentsOf: page.records)
+            currentCursor = page.cursor
+        } while currentCursor != nil
+
+        return allRecords
     }
 
     /// Finds the mirrored CloudKit root record for an event.
@@ -511,16 +624,44 @@ struct EventDetailView: View {
 
     private func resolveShare(from metadata: CKShare.Metadata) {
         let shareRecordID = metadata.share.recordID
+        let rootRecordID = metadata.rootRecordID
         cloudKitContainer.privateCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
             Task { @MainActor in
                 self.isPreparingShare = false
                 if let share = record as? CKShare {
+                    // Repair any children that are missing their CloudKit `parent` field.
+                    // Shares created before the hierarchical-parent fix had 0 children with
+                    // `parent` set, so recipients always received an empty event. Running this
+                    // every time the management sheet opens ensures a one-time self-heal.
+                    Task {
+                        await self.refreshChildParentFields(rootRecordID: rootRecordID)
+                    }
                     self.activeShareForSheet = share
                     self.isShowingShareSheet = true
                 } else {
                     self.shareError = String(localized: "Could not load share details")
                 }
             }
+        }
+    }
+
+    /// Re-fetches child records and (re-)saves their CloudKit `parent` field.
+    ///
+    /// Idempotent and non-blocking: called in the background when an existing share
+    /// management sheet is opened so that pre-fix shares are silently repaired.
+    private func refreshChildParentFields(rootRecordID: CKRecord.ID) async {
+        do {
+            let rootRecord = try await cloudKitContainer.privateCloudDatabase.record(for: rootRecordID)
+            let children = await fetchChildRecordsForShare(
+                rootRecord: rootRecord,
+                zone: rootRecordID.zoneID
+            )
+            guard !children.isEmpty else { return }
+            let operation = CKModifyRecordsOperation(recordsToSave: children, recordIDsToDelete: nil)
+            operation.savePolicy = .changedKeys
+            cloudKitContainer.privateCloudDatabase.add(operation)
+        } catch {
+            // Non-fatal: the share is still valid even if the child refresh fails.
         }
     }
 
