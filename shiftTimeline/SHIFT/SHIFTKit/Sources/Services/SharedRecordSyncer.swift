@@ -114,8 +114,8 @@ public final class SharedRecordSyncer {
         if let v = record["CD_sortOrder"] as? NSNumber { track.sortOrder = v.intValue }
         if let v = record["CD_isDefault"] as? NSNumber { track.isDefault = v.boolValue }
 
-        if let ref = record["CD_event"] as? CKRecord.Reference,
-           let eventUUID = resolve(ref, cache: uuidCache) {
+        if let eventRecordName = record["CD_event"] as? String,
+           let eventUUID = resolve(eventRecordName, cache: uuidCache) {
             track.event = try fetchEvent(id: eventUUID)
         }
     }
@@ -152,8 +152,8 @@ public final class SharedRecordSyncer {
         if let raw = record["CD_status"] as? String,
            let v = BlockStatus(rawValue: raw)               { block.status = v }
 
-        if let ref = record["CD_track"] as? CKRecord.Reference,
-           let trackUUID = resolve(ref, cache: uuidCache) {
+        if let trackRecordName = record["CD_track"] as? String,
+           let trackUUID = resolve(trackRecordName, cache: uuidCache) {
             block.track = try fetchTrack(id: trackUUID)
         }
     }
@@ -183,8 +183,8 @@ public final class SharedRecordSyncer {
         if let raw = record["CD_role"] as? String,
            let v = VendorRole(rawValue: raw)                            { vendor.role = v }
 
-        if let ref = record["CD_event"] as? CKRecord.Reference,
-           let eventUUID = resolve(ref, cache: uuidCache) {
+        if let eventRecordName = record["CD_event"] as? String,
+           let eventUUID = resolve(eventRecordName, cache: uuidCache) {
             vendor.event = try fetchEvent(id: eventUUID)
         }
     }
@@ -252,6 +252,13 @@ public final class SharedRecordSyncer {
 
     private func resolve(_ ref: CKRecord.Reference, cache: [String: String]) -> UUID? {
         guard let uuidString = cache[ref.recordID.recordName] else { return nil }
+        return UUID(uuidString: uuidString)
+    }
+
+    /// Resolves a relationship stored as a raw record-name STRING (NSPersistentCloudKitContainer's
+    /// convention for relationship fields in the shared database) to a local model UUID.
+    private func resolve(_ recordName: String, cache: [String: String]) -> UUID? {
+        guard let uuidString = cache[recordName] else { return nil }
         return UUID(uuidString: uuidString)
     }
 
