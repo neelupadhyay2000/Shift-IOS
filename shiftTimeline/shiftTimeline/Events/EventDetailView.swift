@@ -682,14 +682,9 @@ struct EventDetailView: View {
             .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
-        event.status = .live
-        event.wentLiveAt = Date()
+        event.applyGoLiveMutation()
         AnalyticsService.send(.eventGoLive)
-        for block in allBlocks where block.status != .completed {
-            block.status = .upcoming
-        }
-        let activeBlock = allBlocks.first(where: { $0.status != .completed })
-        activeBlock?.status = .active
+        let activeBlock = allBlocks.first(where: { $0.status == .active })
 
         do {
             try modelContext.save()
