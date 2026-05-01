@@ -223,6 +223,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         guard !shiftTimelineApp.isUITestMode else { return true }
+        // Diagnostic: confirm scene manifest and delegate class are present in the deployed binary.
+        let hasManifest = Bundle.main.infoDictionary?["UIApplicationSceneManifest"] != nil
+        let delegateClass = NSClassFromString("shiftTimeline.SHIFTSceneDelegate")
+        Self.logger.info("Launch diagnostic — scene manifest present: \(hasManifest), SHIFTSceneDelegate class resolved: \(delegateClass != nil ? "YES" : "NO — MISSING")")
         application.registerForRemoteNotifications()
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }
@@ -264,14 +268,68 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         }
     }
 
+    /// Programmatically wires `SHIFTSceneDelegate` as the scene delegate for every
+    /// new window-scene session. This is more reliable than the Info.plist
+    /// `UISceneDelegateClassName` string approach because:
+    ///  - It passes the class reference directly — no ObjC name-string lookup.
+    ///  - It cannot be defeated by Release-build dead-stripping.
+    ///  - It takes precedence over the plist entry when both are present.
+    ///
+    /// Without this method, `UIWindowSceneDelegate.windowScene(_:userDidAcceptCloudKitShareWith:)`
+    /// never fires even when `SHIFTSceneDelegate` is listed in Info.plist.
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
+        config.delegateClass = SHIFTSceneDelegate.self
+        return config
+    }
+
     func application(
         _ application: UIApplication,
         userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
     ) {
-        let container = CKContainer(identifier: cloudKitShareMetadata.containerIdentifier)
+        AppDelegate.handleAcceptedShare(metadata: cloudKitShareMetadata)
+    }
 
-        let operation = CKAcceptSharesOperation(shareMetadatas: [cloudKitShareMetadata])
-        // Capture shareMetadata (first param) — its rootRecordID.zoneID lets us target
+    // MARK: - Shared share-acceptance handler
+
+    /// Test-only seam. When non-nil, `handleAcceptedShare(metadata:)` invokes
+    /// this closure and returns instead of running the production CloudKit
+    /// acceptance flow. Used by unit tests to verify that both delegate entry
+    /// points route through the same shared handler. `CKShare.Metadata` has no
+    /// public initializer, so the seam exposes a no-argument trigger
+    /// (`fireShareAcceptanceTestHook`) for tests that cannot synthesize one.
+    @MainActor
+    static var handleAcceptedShareForTesting: (() -> Void)?
+
+    /// Test-only convenience that fires `handleAcceptedShareForTesting` without
+    /// requiring a `CKShare.Metadata`. Production code never calls this.
+    @MainActor
+    static func fireShareAcceptanceTestHook() {
+        handleAcceptedShareForTesting?()
+    }
+
+    /// Single, canonical share-acceptance entry point. Both the application-delegate
+    /// (`application(_:userDidAcceptCloudKitShareWith:)`) and scene-delegate
+    /// (`SHIFTSceneDelegate.windowScene(_:userDidAcceptCloudKitShareWith:)`) call
+    /// only this method.
+    ///
+    /// The actual delivery path that fires on a real device is the scene delegate;
+    /// the application-delegate method survives as defense-in-depth for legacy
+    /// re-entry paths.
+    @MainActor
+    static func handleAcceptedShare(metadata: CKShare.Metadata) {
+        if let hook = handleAcceptedShareForTesting {
+            hook()
+            return
+        }
+
+        let container = CKContainer(identifier: metadata.containerIdentifier)
+        let operation = CKAcceptSharesOperation(shareMetadatas: [metadata])
+        // Capture acceptedMetadata (first param) — its rootRecordID.zoneID lets us target
         // the exact shared zone without relying on fetchDatabaseChanges(), which can
         // return an empty list in the brief propagation window after acceptance.
         operation.perShareResultBlock = { acceptedMetadata, result in
