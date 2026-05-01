@@ -18,7 +18,10 @@ struct SunsetMarkerView: View {
                 date: golden,
                 label: String(localized: "Golden Hour"),
                 icon: "sun.haze.fill",
-                tint: .orange
+                tint: .orange,
+                a11yLabel: String(
+                    localized: "Golden hour starts at \(golden.formatted(.dateTime.hour().minute()))"
+                )
             )
         }
 
@@ -27,7 +30,10 @@ struct SunsetMarkerView: View {
                 date: sunset,
                 label: String(localized: "Sunset"),
                 icon: "sunset.fill",
-                tint: .red
+                tint: .red,
+                a11yLabel: String(
+                    localized: "Sunset at \(sunset.formatted(.dateTime.hour().minute()))"
+                )
             )
         }
     }
@@ -38,7 +44,8 @@ struct SunsetMarkerView: View {
         date: Date,
         label: String,
         icon: String,
-        tint: Color
+        tint: Color,
+        a11yLabel: String
     ) -> some View {
         let y = layout.yOffset(for: date)
 
@@ -66,6 +73,8 @@ struct SunsetMarkerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .offset(y: y - 5)
         .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11yLabel)
     }
 }
 

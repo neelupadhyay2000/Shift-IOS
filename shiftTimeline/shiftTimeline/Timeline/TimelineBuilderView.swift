@@ -320,13 +320,12 @@ struct TimelineBuilderView: View {
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
                     .accessibilityHidden(true)
 
-                // Golden hour / sunset markers
+                // Golden hour / sunset markers — accessible via VoiceOver
                 SunsetMarkerView(
                     goldenHourStart: event?.goldenHourStart,
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
-                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
@@ -390,13 +389,12 @@ struct TimelineBuilderView: View {
                 PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
                     .accessibilityHidden(true)
 
-                // Golden hour / sunset markers
+                // Golden hour / sunset markers — accessible via VoiceOver
                 SunsetMarkerView(
                     goldenHourStart: event?.goldenHourStart,
                     sunsetTime: event?.sunsetTime,
                     layout: currentLayout
                 )
-                .accessibilityHidden(true)
 
                 HStack(alignment: .top, spacing: 0) {
                     TimeRulerView(layout: currentLayout)
