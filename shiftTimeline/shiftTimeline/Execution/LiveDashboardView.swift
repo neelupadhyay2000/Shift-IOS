@@ -315,11 +315,18 @@ struct LiveDashboardView: View {
             AnalyticsService.send(.shiftApplied, parameters: ["minutes": String(abs(minutes))])
         }
 
-        // Phase 4: evaluate per-vendor notification thresholds
+        // Phase 4: evaluate per-vendor notification thresholds + stamp shift record
         if let event {
             VendorShiftNotifier.applyThresholdNotifications(
                 event: event,
                 blocks: result.blocks
+            )
+            PersistenceController.recordShift(
+                deltaMinutes: minutes,
+                triggeredBy: .manual,
+                sourceBlock: active,
+                event: event,
+                into: modelContext
             )
         }
 

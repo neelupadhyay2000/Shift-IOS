@@ -35,7 +35,7 @@ final class SHIFTSceneDelegate: NSObject, UIWindowSceneDelegate {
         _ windowScene: UIWindowScene,
         userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
     ) {
-        Self.logger.info("Scene delegate received share-accept metadata for zone: \(cloudKitShareMetadata.rootRecordID.zoneID.zoneName)")
+        Self.logger.info("Scene delegate received share-accept metadata for zone: \(cloudKitShareMetadata.share.recordID.zoneID.zoneName)")
         Task { @MainActor in
             AppDelegate.handleAcceptedShare(metadata: cloudKitShareMetadata)
         }

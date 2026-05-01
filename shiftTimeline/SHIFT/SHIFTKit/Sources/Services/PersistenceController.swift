@@ -223,4 +223,25 @@ public final class PersistenceController: Sendable {
         )
         return try ModelContainer(for: schema, configurations: [config])
     }
+
+    /// Creates and inserts a `ShiftRecord` documenting a committed shift.
+    ///
+    /// Call this immediately before `context.save()` at every shift commit
+    /// site (iPhone UI, Watch bridge, AppIntent) so `event.shiftRecords` and
+    /// `PostEventReport.totalShiftCount` are populated correctly.
+    public static func recordShift(
+        deltaMinutes: Int,
+        triggeredBy: ShiftSource,
+        sourceBlock: TimeBlockModel? = nil,
+        event: EventModel,
+        into context: ModelContext
+    ) {
+        let record = ShiftRecord(
+            deltaMinutes: deltaMinutes,
+            triggeredBy: triggeredBy,
+            sourceBlock: sourceBlock,
+            event: event
+        )
+        context.insert(record)
+    }
 }
