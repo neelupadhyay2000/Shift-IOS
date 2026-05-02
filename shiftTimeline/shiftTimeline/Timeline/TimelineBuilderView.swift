@@ -944,8 +944,16 @@ struct TimelineBuilderView: View {
         // Clean up any attached voice memo file before removing the block —
         // SwiftData's nullify cascade won't remove on-disk audio.
         VoiceMemoStorage.deleteFile(for: block.voiceMemoURL)
+
+        // Capture the ID before deletion so recalculation can exclude the
+        // deleted block. SwiftData marks the object for deletion lazily —
+        // `sortedBlocks` still returns it from the relationship array until
+        // the context is saved, which causes the cursor walk to account for
+        // the deleted block's duration and shift every subsequent block forward
+        // by the wrong amount.
+        let deletedID = block.id
         modelContext.delete(block)
-        recalculateStartTimesAfterDelete()
+        recalculateStartTimesAfterDelete(excluding: deletedID)
     }
 
     private func deleteVoiceMemo(for block: TimeBlockModel) {
@@ -953,25 +961,35 @@ struct TimelineBuilderView: View {
         block.voiceMemoURL = nil
     }
 
-    private func recalculateStartTimesAfterDelete() {
-        let blocks = sortedBlocks
+    private func recalculateStartTimesAfterDelete(excluding deletedID: UUID) {
+        // Explicitly filter out the deleted block. SwiftData's lazy deletion means
+        // the block is still present in `sortedBlocks` at this point, so without
+        // this filter the cursor walk advances through the deleted block's duration
+        // and every subsequent fluid block ends up at the wrong scheduledStart.
+        let blocks = sortedBlocks.filter { $0.id != deletedID }
         guard let firstBlock = blocks.first else { return }
 
-        var cursor = firstBlock.isPinned
-            ? firstBlock.scheduledStart
-            : (event?.date ?? firstBlock.scheduledStart)
+        let origin = event?.date ?? firstBlock.scheduledStart
+        var cursor = firstBlock.isPinned ? firstBlock.scheduledStart : origin
 
         for block in blocks {
             if block.isPinned {
                 cursor = max(cursor, block.scheduledStart.addingTimeInterval(block.duration))
             } else {
                 block.scheduledStart = cursor
+                // Sync originalStart so the RippleEngine's backward-shift clamp
+                // reflects the block's new position, not its pre-deletion slot.
+                block.originalStart = cursor
+                // A deletion resolves any collision that involved the removed block.
+                // Clear stale requiresReview flags — the timeline is now gap-free.
+                block.requiresReview = false
                 cursor = cursor.addingTimeInterval(block.duration)
             }
         }
-    }
 
-    // MARK: - Transit Block Detection
+        // Order changed — invalidate session skips.
+        skippedVenuePairs.removeAll()
+    }
 
     /// Stable fingerprint of the timeline's venue layout. Used as the trigger key
     /// for `.onChange` so the scan reactively re-runs whenever a block is added,
