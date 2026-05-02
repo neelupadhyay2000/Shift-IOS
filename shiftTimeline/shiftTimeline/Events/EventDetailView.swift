@@ -22,6 +22,7 @@ struct EventDetailView: View {
     @State private var isPreparingShare = false
     @State private var shareError: String?
     @State private var paywallTrigger: PaywallTrigger?
+    @State private var isShowingEditSheet = false
 
     private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
@@ -66,6 +67,11 @@ struct EventDetailView: View {
         .sheet(item: $paywallTrigger) { trigger in
             PaywallView(trigger: trigger)
         }
+        .sheet(isPresented: $isShowingEditSheet) {
+            if let event {
+                EditEventSheet(event: event)
+            }
+        }
     }
 
     private func eventContent(_ event: EventModel) -> some View {
@@ -87,6 +93,16 @@ struct EventDetailView: View {
             .padding(.vertical, 8)
         }
         .background { WarmBackground() }
+        .toolbar {
+            if isOwner {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "Edit")) {
+                        isShowingEditSheet = true
+                    }
+                    .accessibilityLabel(String(localized: "Edit event details"))
+                }
+            }
+        }
         // Re-runs when weatherSnapshot becomes nil (cache busted by block location change)
         // and again when the fresh snapshot is written back. The second run hits the fresh
         // cache immediately and is a no-op.
