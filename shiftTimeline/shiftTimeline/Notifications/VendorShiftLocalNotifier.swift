@@ -4,6 +4,19 @@ import Models
 import Services
 import os
 
+// MARK: - Notification scheduling seam
+
+/// Abstraction over `UNUserNotificationCenter` so `VendorShiftLocalNotifier`
+/// can be tested without the real notification center.
+///
+/// Production code passes `UNUserNotificationCenter.current()`. Tests pass a
+/// `MockNotificationCenter` that records calls and returns canned answers.
+protocol VendorNotificationScheduling: Sendable {
+    func add(_ request: UNNotificationRequest) async throws
+}
+
+extension UNUserNotificationCenter: VendorNotificationScheduling {}
+
 /// Posts visible local notifications to vendors when `pendingShiftDelta`
 /// is set on their `VendorModel` after a CloudKit sync.
 ///
@@ -40,7 +53,21 @@ enum VendorShiftLocalNotifier {
     /// global Settings threshold. Posts a visible local notification only for
     /// above-threshold vendors.
     static func processAndNotify(event: EventModel) async {
-        let globalThresholdSeconds = readGlobalThresholdSeconds()
+        await processAndNotify(
+            event: event,
+            center: UNUserNotificationCenter.current(),
+            globalThresholdSeconds: readGlobalThresholdSeconds()
+        )
+    }
+
+    /// Testable overload — accepts injected `NotificationScheduling` and
+    /// global threshold so tests never touch `UNUserNotificationCenter.current()`
+    /// or `UserDefaults.standard`.
+    static func processAndNotify(
+        event: EventModel,
+        center: any VendorNotificationScheduling,
+        globalThresholdSeconds: TimeInterval
+    ) async {
         let vendors = event.vendors ?? []
         for vendor in vendors {
             guard let delta = vendor.pendingShiftDelta else { continue }
@@ -77,7 +104,7 @@ enum VendorShiftLocalNotifier {
             )
 
             do {
-                try await UNUserNotificationCenter.current().add(request)
+                try await center.add(request)
                 logger.info("Posted shift notification for vendor \(vendor.name)")
             } catch {
                 logger.error("Failed to post notification for \(vendor.name): \(error.localizedDescription)")

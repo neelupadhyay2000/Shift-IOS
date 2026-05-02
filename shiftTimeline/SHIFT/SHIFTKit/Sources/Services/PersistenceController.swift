@@ -4,6 +4,19 @@ import SwiftData
 import Models
 import ObjCException
 
+/// ## CloudKit Conflict Resolution Policy
+/// `NSPersistentCloudKitContainer` (the engine backing SwiftData's `.automatic`
+/// CloudKit database) uses **last-write-wins** to resolve merge conflicts:
+/// when two devices both edit the same record while offline and then reconnect,
+/// the edit with the later `CKRecord.modificationDate` survives on both devices.
+///
+/// SHIFT does not implement any custom conflict resolution on top of this.
+/// This is an intentional product decision: event timeline data is owned by a
+/// single planner, so racing writes from two of their devices should simply
+/// converge to the most recent intent.
+///
+/// The `CloudKitSyncIntegrityTests.lastWriteWinsOnConcurrentOfflineMutation`
+/// test verifies the observable on-disk contract of this behavior.
 public final class PersistenceController: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")

@@ -35,6 +35,7 @@ struct TimelineBuilderView: View {
     // Drag reorder state (iPhone only)
     @State private var draggingBlockID: UUID?
     @State private var dragTranslation: CGFloat = 0
+    @State private var isEditing = false
 
     // Track management
     @State private var isShowingAddTrackAlert = false
@@ -119,6 +120,12 @@ struct TimelineBuilderView: View {
             if sizeClass == .compact && sortedTracks.count > 1 {
                 TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
                     .accessibilityIdentifier(AccessibilityID.Timeline.trackTabBar)
+            }
+
+            // Reorder mode banner — slides in when isEditing is active
+            if isEditing {
+                editModeBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             Group {
@@ -263,6 +270,52 @@ struct TimelineBuilderView: View {
                 selectedTrackID = main.id
             }
         }
+        .onDisappear {
+            // Auto-exit edit mode so it doesn't persist across navigation
+            isEditing = false
+        }
+        // Native haptic feedback whenever edit mode is toggled
+        .sensoryFeedback(.impact(weight: .medium, intensity: 0.7), trigger: isEditing)
+    }
+
+    // MARK: - Edit Mode Banner
+
+    /// A persistent contextual banner that slides in below the navigation bar
+    /// when reorder mode is active. Communicates drag affordances and the
+    /// pinned-block constraint without occupying a modal surface.
+    private var editModeBanner: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.12))
+                    .frame(width: 34, height: 34)
+                Image(systemName: "arrow.up.arrow.down")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .symbolEffect(.pulse, isActive: isEditing)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "Reorder Mode"))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(String(localized: "Drag fluid blocks · pinned blocks stay fixed"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.accentColor.opacity(0.06))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.15))
+                .frame(height: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Reorder mode active. Drag fluid blocks to rearrange. Pinned blocks are fixed."))
     }
 
     // MARK: - Timeline Content
@@ -365,6 +418,7 @@ struct TimelineBuilderView: View {
             .padding(.bottom, 32)
             .padding(.trailing, 16)
         }
+        .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
         .background { WarmBackground() }
         .accessibilityIdentifier(AccessibilityID.Timeline.blockList)
@@ -406,6 +460,7 @@ struct TimelineBuilderView: View {
                                 track: track,
                                 layout: currentLayout,
                                 isReadOnly: isReadOnly,
+                                isEditing: isEditing,
                                 onTapBlock: { block in blockToInspect = block },
                                 onDeleteBlock: { block in
                                     if block.isPinned {
@@ -413,6 +468,9 @@ struct TimelineBuilderView: View {
                                     } else {
                                         deleteBlock(block)
                                     }
+                                },
+                                onReorderBlock: { block, dropY, trackBlocks in
+                                    reorderBlock(block, toY: dropY, blocks: trackBlocks, in: currentLayout)
                                 }
                             )
                         }
@@ -423,6 +481,7 @@ struct TimelineBuilderView: View {
             .padding(.bottom, 32)
             .padding(.trailing, 16)
         }
+        .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
         .background { WarmBackground() }
     }
@@ -435,41 +494,46 @@ struct TimelineBuilderView: View {
     ) -> some View {
         let yOffset = currentLayout.yOffset(for: block.scheduledStart)
         let durationHeight = currentLayout.height(for: block.duration)
-        // Use compact rendering when the block's duration occupies less than the
-        // full-card minimum (52pt). The compact row fits cleanly in ~36pt.
         let useCompact = durationHeight < 50
         let minHeight: CGFloat = useCompact ? 32 : 52
         let naturalHeight = max(durationHeight, minHeight)
-        // Only clamp full-size cards. Compact cards always render at their
-        // natural height — they're short enough that overlap isn't an issue.
         let height: CGFloat = {
             guard !useCompact, let maxY else { return naturalHeight }
             let gap = maxY - yOffset
             return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
         }()
         let isDragging = draggingBlockID == block.id
+        let isDraggable = isEditing && !block.isPinned && !isReadOnly
 
         return Button {
-            if draggingBlockID == nil {
-                blockToInspect = block
-            }
+            guard !isEditing else { return }
+            blockToInspect = block
         } label: {
-            TimeBlockRowView(
-                title: block.title,
-                scheduledStart: block.scheduledStart,
-                duration: block.duration,
-                isPinned: block.isPinned,
-                colorTag: block.colorTag,
-                icon: block.icon,
-                isCompact: useCompact
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 0) {
+                if isDraggable {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28)
+                        .accessibilityHidden(true)
+                }
+                TimeBlockRowView(
+                    title: block.title,
+                    scheduledStart: block.scheduledStart,
+                    duration: block.duration,
+                    isPinned: block.isPinned,
+                    colorTag: block.colorTag,
+                    icon: block.icon,
+                    isCompact: useCompact
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
             .frame(height: height)
             .background(
                 .ultraThinMaterial,
                 in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
             )
-            .overlay(
+            .overlay {
                 RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
@@ -479,43 +543,51 @@ struct TimelineBuilderView: View {
                         ),
                         lineWidth: 0.5
                     )
-            )
+                // Highlighted border for draggable blocks in reorder mode
+                if isDraggable {
+                    RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(isDragging ? 0.7 : 0.4), lineWidth: 1.5)
+                        .animation(.easeInOut(duration: 0.2), value: isDragging)
+                }
+            }
             .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
         .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))
+        // Scale and opacity animate on lift/drop — scoped to isDragging so they
+        // do NOT animate dragTranslation changes (which must track the finger immediately).
         .scaleEffect(isDragging ? 1.04 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDragging)
         .opacity(isDragging ? 0.85 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDragging)
         .zIndex(isDragging ? 100 : 0)
-        .gesture(isReadOnly ? nil :
-            LongPressGesture(minimumDuration: 0.3)
-                .sequenced(before: DragGesture())
-                .onChanged { value in
-                    switch value {
-                    case .second(true, let drag):
-                        if draggingBlockID == nil {
-                            draggingBlockID = block.id
+        .gesture(isDraggable ?
+            DragGesture(minimumDistance: 5)
+                .onChanged { drag in
+                    // Set block ID without animation — withAnimation here would batch
+                    // draggingBlockID + dragTranslation into one animated pass, causing
+                    // the offset to lag behind the finger instead of tracking it.
+                    if draggingBlockID == nil {
+                        draggingBlockID = block.id
+                    }
+                    dragTranslation = drag.translation.height
+                }
+                .onEnded { drag in
+                    let dropY = yOffset + drag.translation.height
+                    defer {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            draggingBlockID = nil
+                            dragTranslation = 0
                         }
-                        dragTranslation = drag?.translation.height ?? 0
-                    default:
-                        break
                     }
-                }
-                .onEnded { value in
                     guard draggingBlockID == block.id else { return }
-                    if case .second(true, let drag) = value, let drag {
-                        let dropY = yOffset + drag.translation.height
-                        reorderBlock(block, toY: dropY, in: currentLayout)
-                    }
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        draggingBlockID = nil
-                        dragTranslation = 0
-                    }
+                    reorderBlock(block, toY: dropY, blocks: filteredBlocks, in: currentLayout)
                 }
+            : nil
         )
         .contextMenu {
-            if !isReadOnly {
+            if !isReadOnly && !isEditing {
                 Button {
                     blockToInspect = block
                 } label: {
@@ -555,7 +627,6 @@ struct TimelineBuilderView: View {
         }
         .padding(.leading, 4)
         .offset(y: yOffset + (isDragging ? dragTranslation : 0))
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: draggingBlockID)
     }
 
     private func nextBlockYMap(for blocks: [TimeBlockModel], layout: TimeRulerLayout) -> [UUID: CGFloat] {
@@ -601,65 +672,95 @@ struct TimelineBuilderView: View {
 
     @ToolbarContentBuilder
     private var toolbarItems: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                if sortedBlocks.count >= FreeTier.maxBlocksPerEvent && !SubscriptionManager.shared.isProUser {
-                    isShowingPaywall = true
-                } else {
-                    isShowingCreateSheet = true
+        // + button — hidden while in edit/reorder mode
+        if !isEditing {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    if sortedBlocks.count >= FreeTier.maxBlocksPerEvent && !SubscriptionManager.shared.isProUser {
+                        isShowingPaywall = true
+                    } else {
+                        isShowingCreateSheet = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
-            } label: {
-                Image(systemName: "plus")
+                .popoverTip(addBlockTip, arrowEdge: .top)
+                .task(id: AddBlockTip.hasCreatedFirstEvent) {
+                    guard AddBlockTip.hasCreatedFirstEvent else { return }
+                    try? await Task.sleep(for: .seconds(5))
+                    addBlockTip.invalidate(reason: .tipClosed)
+                }
+                .accessibilityLabel(String(localized: "Add Block"))
+                .accessibilityIdentifier(AccessibilityID.Timeline.addBlockButton)
             }
-            .popoverTip(addBlockTip, arrowEdge: .top)
-            .task(id: AddBlockTip.hasCreatedFirstEvent) {
-                guard AddBlockTip.hasCreatedFirstEvent else { return }
-                try? await Task.sleep(for: .seconds(5))
-                addBlockTip.invalidate(reason: .tipClosed)
-            }
-            .accessibilityLabel(String(localized: "Add Block"))
-            .accessibilityIdentifier(AccessibilityID.Timeline.addBlockButton)
         }
 
-        ToolbarItem(placement: .topBarLeading) {
-            Menu {
-                Button {
-                    newTrackName = ""
-                    isShowingAddTrackAlert = true
-                } label: {
-                    Label(String(localized: "Add Track"), systemImage: "plus.rectangle.on.rectangle")
-                }
-
-                if sortedTracks.count > 1 {
-                    Divider()
-                    ForEach(sortedTracks) { track in
-                        Menu(track.name) {
-                            // Default track cannot be renamed or deleted
-                            if !track.isDefault {
-                                Button {
-                                    renameText = track.name
-                                    trackToRename = track
-                                } label: {
-                                    Label(String(localized: "Rename"), systemImage: "pencil")
-                                }
-
-                                Button(role: .destructive) {
-                                    trackToDelete = track
-                                } label: {
-                                    Label(String(localized: "Delete"), systemImage: "trash")
-                                }
-                            }
-                        }
-                        // Don't show a submenu at all for the default track
-                        // if it has no actions — but keep it listed for visibility
-                    }
+        // Edit / Done toggle — both iPhone and iPad
+        ToolbarItem(placement: isEditing ? .primaryAction : .topBarTrailing) {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    isEditing.toggle()
                 }
             } label: {
-                Image(systemName: "rectangle.stack")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                if isEditing {
+                    Text(String(localized: "Done"))
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.accentColor)
+                } else {
+                    Text(String(localized: "Edit"))
+                        .foregroundStyle(Color.secondary)
+                }
             }
-            .accessibilityLabel(String(localized: "Manage Tracks"))
+            .contentTransition(.identity)
+            .accessibilityLabel(
+                isEditing
+                    ? String(localized: "Finish reordering")
+                    : String(localized: "Reorder blocks")
+            )
+        }
+
+        // Tracks menu — hidden while in edit/reorder mode
+        if !isEditing {
+            ToolbarItem(placement: .topBarLeading) {
+                Menu {
+                    Button {
+                        newTrackName = ""
+                        isShowingAddTrackAlert = true
+                    } label: {
+                        Label(String(localized: "Add Track"), systemImage: "plus.rectangle.on.rectangle")
+                    }
+
+                    if sortedTracks.count > 1 {
+                        Divider()
+                        ForEach(sortedTracks) { track in
+                            Menu(track.name) {
+                                // Default track cannot be renamed or deleted
+                                if !track.isDefault {
+                                    Button {
+                                        renameText = track.name
+                                        trackToRename = track
+                                    } label: {
+                                        Label(String(localized: "Rename"), systemImage: "pencil")
+                                    }
+
+                                    Button(role: .destructive) {
+                                        trackToDelete = track
+                                    } label: {
+                                        Label(String(localized: "Delete"), systemImage: "trash")
+                                    }
+                                }
+                            }
+                            // Don't show a submenu at all for the default track
+                            // if it has no actions — but keep it listed for visibility
+                        }
+                    }
+                } label: {
+                    Image(systemName: "rectangle.stack")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .accessibilityLabel(String(localized: "Manage Tracks"))
+            }
         }
 
         // iPad: visible undo/redo toolbar buttons (touch-friendly)
@@ -788,11 +889,12 @@ struct TimelineBuilderView: View {
     private func reorderBlock(
         _ block: TimeBlockModel,
         toY dropY: CGFloat,
+        blocks orderedBlocks: [TimeBlockModel],
         in currentLayout: TimeRulerLayout
     ) {
         guard !block.isPinned else { return }
 
-        var blocks = filteredBlocks
+        var blocks = orderedBlocks
         guard blocks.count > 1 else { return }
 
         // Capture before-state for undo

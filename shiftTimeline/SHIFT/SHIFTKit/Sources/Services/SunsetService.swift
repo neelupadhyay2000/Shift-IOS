@@ -51,12 +51,15 @@ public struct SunsetService: Sendable {
             throw SunsetServiceError.apiError(decoded.status)
         }
 
-        guard let sunset = try? Date(decoded.results.sunset, strategy: Self.iso8601Strategy),
-              let civilTwilightBegin = try? Date(decoded.results.civil_twilight_begin, strategy: Self.iso8601Strategy) else {
+        guard let sunset = try? Date(decoded.results.sunset, strategy: Self.iso8601Strategy) else {
             throw SunsetServiceError.parseFailed
         }
 
-        return SunsetResult(sunset: sunset, goldenHourStart: civilTwilightBegin)
+        // Golden hour = 1 hour before sunset (standard photography definition).
+        // civil_twilight_begin from the API is morning twilight — not what we want.
+        let goldenHourStart = sunset.addingTimeInterval(-3600)
+
+        return SunsetResult(sunset: sunset, goldenHourStart: goldenHourStart)
     }
 
     /// Checks the event's cached sunset data first. If already populated,
@@ -145,6 +148,5 @@ private struct APIResponse: Decodable {
 
     struct Results: Decodable {
         let sunset: String
-        let civil_twilight_begin: String
     }
 }

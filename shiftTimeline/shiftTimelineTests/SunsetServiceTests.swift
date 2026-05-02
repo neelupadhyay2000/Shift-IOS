@@ -64,8 +64,7 @@ struct SunsetServiceTests {
         let json = """
         {
             "results": {
-                "sunset": "2026-06-15T19:30:00+00:00",
-                "civil_twilight_begin": "2026-06-15T18:45:00+00:00"
+                "sunset": "2026-06-15T19:30:00+00:00"
             },
             "status": "OK"
         }
@@ -75,7 +74,8 @@ struct SunsetServiceTests {
 
         let result = try await service.fetch(latitude: 40.7128, longitude: -74.006, date: date)
 
-        #expect(result.sunset != result.goldenHourStart)
+        // Golden hour must be exactly 1 hour before sunset (evening, PM).
+        #expect(result.goldenHourStart == result.sunset.addingTimeInterval(-3600))
     }
 
     // MARK: - API Error Status
@@ -84,8 +84,7 @@ struct SunsetServiceTests {
         let json = """
         {
             "results": {
-                "sunset": "",
-                "civil_twilight_begin": ""
+                "sunset": ""
             },
             "status": "INVALID_REQUEST"
         }
@@ -123,8 +122,7 @@ struct SunsetServiceTests {
         let json = """
         {
             "results": {
-                "sunset": "not-a-date",
-                "civil_twilight_begin": "also-not-a-date"
+                "sunset": "not-a-date"
             },
             "status": "OK"
         }
@@ -168,8 +166,7 @@ struct SunsetServiceTests {
         let json = """
         {
             "results": {
-                "sunset": "2026-06-15T19:30:00+00:00",
-                "civil_twilight_begin": "2026-06-15T18:45:00+00:00"
+                "sunset": "2026-06-15T19:30:00+00:00"
             },
             "status": "OK"
         }
