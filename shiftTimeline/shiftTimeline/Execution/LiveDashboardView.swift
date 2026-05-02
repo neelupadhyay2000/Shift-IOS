@@ -543,39 +543,7 @@ private struct _LiveDashboardContent: View {
 
             // ── Next block card ───────────────────────────────────────
             if activeBlock != nil {
-                let upNextLabel: String = {
-                    if let nextBlock {
-                        let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-                        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)")
-                    }
-                    return String(localized: "Last block of the day")
-                }()
-
-                VStack(spacing: 4) {
-                    if let nextBlock {
-                        Text(String(localized: "Up Next"))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .tracking(1)
-                        let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-                        Text(String(localized: "Next: \(nextBlock.title) at \(timeStr)"))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text(String(localized: "Last block of the day"))
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 14)
-                .frame(maxWidth: .infinity)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(upNextLabel)
+                NextBlockCard(nextBlock: nextBlock)
 
                 // Siri tip — suggested when event is live
                 SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
