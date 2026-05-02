@@ -179,10 +179,19 @@ struct shiftTimelineApp: App {
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
-                // Scan for vendor shift notifications that may have been missed
-                // if a CloudKit silent push was not delivered while the app was
-                // backgrounded or the device was in low-power mode.
-                Task { await appDelegate.processVendorShiftNotifications() }
+                // Re-register the shared-database subscription. CloudKit can silently
+                // purge subscriptions after inactivity or across device restores, and
+                // a failed launch registration has no automatic retry.
+                Task { await SharedZoneSubscriptionManager.shared.registerIfNeeded() }
+                // Pull any shared-zone changes that arrived while the app was backgrounded
+                // or that were missed due to silent-push delivery failures (low-power mode,
+                // APNs coalescing). This is the primary recovery path for missed syncs.
+                // Always also scan for pending vendor notifications, even without new CloudKit
+                // data, in case a prior sync already wrote pendingShiftDelta to local storage.
+                Task {
+                    await SharedZoneSubscriptionManager.shared.fetchChanges()
+                    await appDelegate.processVendorShiftNotifications()
+                }
             }
         }
     }

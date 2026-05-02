@@ -4,6 +4,7 @@ import UIKit
 #endif
 import SwiftData
 import AppIntents
+import CloudKit
 import TipKit
 import WidgetKit
 import Models
@@ -335,6 +336,16 @@ struct LiveDashboardView: View {
             watchSessionManager.sendCurrentContext()
             writeWidgetData()
             updateLiveActivity()
+            // Repair the CloudKit parent-field hierarchy on the private database so
+            // vendor devices receive the shifted block data via their CKDatabaseSubscription
+            // change feed. Without this, NSPersistentCloudKitContainer pushes the mutated
+            // records but CloudKit's sharing mechanism excludes them from the shared zone
+            // because the `parent` field is not maintained automatically.
+            if let event, event.shareURL != nil {
+                Task {
+                    await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
+                }
+            }
         } catch {
             // Save failed — don't push stale context to Watch.
         }
