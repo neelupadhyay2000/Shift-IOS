@@ -624,7 +624,7 @@ struct EventDetailView: View {
 
     private func resolveShare(from metadata: CKShare.Metadata) {
         let shareRecordID = metadata.share.recordID
-        let rootRecordID = metadata.rootRecordID
+        let rootRecordID = metadata.hierarchicalRootRecordID
         cloudKitContainer.privateCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
             Task { @MainActor in
                 self.isPreparingShare = false
@@ -633,8 +633,12 @@ struct EventDetailView: View {
                     // Shares created before the hierarchical-parent fix had 0 children with
                     // `parent` set, so recipients always received an empty event. Running this
                     // every time the management sheet opens ensures a one-time self-heal.
-                    Task {
-                        await self.refreshChildParentFields(rootRecordID: rootRecordID)
+                    // `hierarchicalRootRecordID` is nil for zone-level shares; skip repair
+                    // in that case since there is no nominated root record to re-parent from.
+                    if let rootRecordID {
+                        Task {
+                            await self.refreshChildParentFields(rootRecordID: rootRecordID)
+                        }
                     }
                     self.activeShareForSheet = share
                     self.isShowingShareSheet = true
@@ -678,14 +682,9 @@ struct EventDetailView: View {
             .flatMap { $0.blocks ?? [] }
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
 
-        event.status = .live
-        event.wentLiveAt = Date()
+        event.applyGoLiveMutation()
         AnalyticsService.send(.eventGoLive)
-        for block in allBlocks where block.status != .completed {
-            block.status = .upcoming
-        }
-        let activeBlock = allBlocks.first(where: { $0.status != .completed })
-        activeBlock?.status = .active
+        let activeBlock = allBlocks.first(where: { $0.status == .active })
 
         do {
             try modelContext.save()

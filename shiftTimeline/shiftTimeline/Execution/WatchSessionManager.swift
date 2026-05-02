@@ -305,6 +305,14 @@ public final class WatchSessionManager {
             blocks: result.blocks
         )
 
+        PersistenceController.recordShift(
+            deltaMinutes: deltaMinutes,
+            triggeredBy: .watch,
+            sourceBlock: activeBlock,
+            event: event,
+            into: modelContext
+        )
+
         do {
             try modelContext.save()
         } catch {

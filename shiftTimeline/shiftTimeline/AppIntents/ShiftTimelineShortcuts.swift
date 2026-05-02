@@ -92,6 +92,13 @@ struct ShiftTimelineIntent: AppIntent {
                 event: event,
                 blocks: result.blocks
             )
+            PersistenceController.recordShift(
+                deltaMinutes: shiftMinutes,
+                triggeredBy: .manual,
+                sourceBlock: activeBlock,
+                event: event,
+                into: context
+            )
             do {
                 try context.save()
             } catch {

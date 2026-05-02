@@ -63,7 +63,7 @@ enum SunsetPrefetchTask {
         scheduleNextRefresh()
 
         let workTask = Task {
-            await prefetchSunsetData()
+            await prefetchData()
         }
 
         // If the system kills us, cancel the async work.
@@ -80,9 +80,12 @@ enum SunsetPrefetchTask {
     // MARK: - Prefetch Logic
 
     @MainActor
-    private static func prefetchSunsetData() async {
-        let container = PersistenceController.shared.container
-        let context = container.mainContext
+    static func prefetchData(
+        context: ModelContext? = nil,
+        sunsetService: any SunsetFetching = SunsetService(),
+        weatherService: any WeatherFetching = WeatherService()
+    ) async {
+        let resolvedContext = context ?? PersistenceController.shared.container.mainContext
 
         let now = Date.now
         guard let cutoff = Calendar.current.date(byAdding: .hour, value: 48, to: now) else {
@@ -95,28 +98,31 @@ enum SunsetPrefetchTask {
             }
         )
 
-        guard let events = try? context.fetch(descriptor) else {
+        guard let events = try? resolvedContext.fetch(descriptor) else {
             logger.info("No events fetched — no-op")
             return
         }
 
-        let service = SunsetService()
-        var fetchCount = 0
+        var sunsetFetchCount = 0
+        var weatherFetchCount = 0
 
         for event in events {
             guard !Task.isCancelled else { break }
 
-            // fetchIfNeeded is a no-op if already cached or no coordinates.
-            if let _ = await service.fetchIfNeeded(for: event) {
-                fetchCount += 1
+            if let _ = await sunsetService.fetchIfNeeded(for: event) {
+                sunsetFetchCount += 1
+            }
+
+            if let _ = await weatherService.fetchIfNeeded(for: event) {
+                weatherFetchCount += 1
             }
         }
 
-        if fetchCount > 0 {
-            try? context.save()
-            logger.info("Pre-fetched sunset data for \(fetchCount) event(s)")
+        if sunsetFetchCount > 0 || weatherFetchCount > 0 {
+            try? resolvedContext.save()
+            logger.info("Pre-fetched data — sunset: \(sunsetFetchCount) event(s), weather: \(weatherFetchCount) event(s)")
         } else {
-            logger.info("No events needed sunset data refresh")
+            logger.info("No events needed data refresh")
         }
     }
 }

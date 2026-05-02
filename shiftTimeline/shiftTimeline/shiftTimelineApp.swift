@@ -225,7 +225,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         guard !shiftTimelineApp.isUITestMode else { return true }
         // Diagnostic: confirm scene manifest and delegate class are present in the deployed binary.
         let hasManifest = Bundle.main.infoDictionary?["UIApplicationSceneManifest"] != nil
-        let delegateClass = NSClassFromString("shiftTimeline.SHIFTSceneDelegate")
+        let delegateClass: AnyClass? = NSClassFromString("shiftTimeline.SHIFTSceneDelegate")
         Self.logger.info("Launch diagnostic — scene manifest present: \(hasManifest), SHIFTSceneDelegate class resolved: \(delegateClass != nil ? "YES" : "NO — MISSING")")
         application.registerForRemoteNotifications()
         UNUserNotificationCenter.current().delegate = self
@@ -335,7 +335,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         operation.perShareResultBlock = { acceptedMetadata, result in
             switch result {
             case .success:
-                Self.logger.info("Successfully accepted CloudKit share in zone: \(acceptedMetadata.rootRecordID.zoneID.zoneName)")
+                Self.logger.info("Successfully accepted CloudKit share in zone: \(acceptedMetadata.share.recordID.zoneID.zoneName)")
                 Task { @MainActor in
                     DeepLinkRouter.shared.isAcceptingShare = true
                     DeepLinkRouter.shared.pendingDestination = .roster
@@ -343,7 +343,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 // Directly fetch the specific zone we know about from the metadata.
                 // This is faster and more reliable than fetchDatabaseChanges() which
                 // may not yet reflect the newly accepted zone.
-                let zoneID = acceptedMetadata.rootRecordID.zoneID
+                let zoneID = acceptedMetadata.share.recordID.zoneID
                 Task {
                     await SharedZoneSubscriptionManager.shared.fetchAllRecords(inZone: zoneID)
                 }
