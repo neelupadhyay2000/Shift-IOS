@@ -368,6 +368,9 @@
     "Double-tap to edit. Use context menu to delete." : {
 
     },
+    "Drag fluid blocks · pinned blocks stay fixed" : {
+
+    },
     "Drag to Reorder" : {
 
     },
@@ -455,6 +458,9 @@
 
     },
     "Feature" : {
+
+    },
+    "Finish reordering" : {
 
     },
     "Florist" : {
@@ -829,6 +835,15 @@
     },
     "Rename Track" : {
       "extractionState" : "manual"
+    },
+    "Reorder blocks" : {
+
+    },
+    "Reorder Mode" : {
+
+    },
+    "Reorder mode active. Drag fluid blocks to rearrange. Pinned blocks are fixed." : {
+
     },
     "Restore Failed" : {
 
