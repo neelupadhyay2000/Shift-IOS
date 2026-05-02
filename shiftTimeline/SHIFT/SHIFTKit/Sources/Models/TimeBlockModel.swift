@@ -12,6 +12,10 @@ public final class TimeBlockModel {
     public var isPinned: Bool = false
     public var notes: String = ""
     public var voiceMemoURL: URL?
+    /// Duration in seconds of the recorded voice memo. `nil` when no memo is attached.
+    public var voiceMemoDuration: TimeInterval?
+    /// Wall-clock date the voice memo was recorded. `nil` when no memo is attached.
+    public var voiceMemoCreatedAt: Date?
     public var colorTag: String = "#007AFF"
     public var icon: String = "circle.fill"
     public var status: BlockStatus = BlockStatus.upcoming
@@ -58,6 +62,8 @@ public final class TimeBlockModel {
         isPinned: Bool = false,
         notes: String = "",
         voiceMemoURL: URL? = nil,
+        voiceMemoDuration: TimeInterval? = nil,
+        voiceMemoCreatedAt: Date? = nil,
         colorTag: String = "#007AFF",
         icon: String = "circle.fill",
         status: BlockStatus = .upcoming,
@@ -72,6 +78,8 @@ public final class TimeBlockModel {
         self.isPinned = isPinned
         self.notes = notes
         self.voiceMemoURL = voiceMemoURL
+        self.voiceMemoDuration = voiceMemoDuration
+        self.voiceMemoCreatedAt = voiceMemoCreatedAt
         self.colorTag = colorTag
         self.icon = icon
         self.status = status

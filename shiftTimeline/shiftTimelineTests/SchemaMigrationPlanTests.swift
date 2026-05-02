@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV7() {
+    @Test func latestSchemaVersionIsV8() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 7, "Latest schema must be V7 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 8, "Latest schema must be V8 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V6 → V7 plan continuity
+    // MARK: - V7 → V8 plan continuity
 
-    @Test func planExposesSevenSchemasAndSixStages() {
+    @Test func planExposesEightSchemasAndSevenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 7,
-            "Expected schemas [V1, V2, V3, V4, V5, V6, V7] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 8,
+            "Expected schemas [V1, V2, V3, V4, V5, V6, V7, V8] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 6,
-            "Expected 6 lightweight stages (V1→V2 … V6→V7) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 7,
+            "Expected 7 lightweight stages (V1→V2 … V7→V8) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV7() {
+    @Test func schemasAreOrderedV1ThroughV8() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8])
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`
