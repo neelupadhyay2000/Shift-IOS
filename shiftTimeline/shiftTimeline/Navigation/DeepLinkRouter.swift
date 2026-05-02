@@ -10,6 +10,10 @@ enum DeepLinkDestination: Equatable {
     case live(id: UUID)
     /// Navigate to the Event Roster (events list).
     case roster
+    /// Navigate to an event's TimelineBuilderView with EventDetailView in the back stack.
+    /// Used after a template is applied so Back takes the user to the event page,
+    /// not back into the template browser.
+    case newEventTimeline(id: UUID)
 }
 
 /// Observable deep-link router that external systems (notification taps,

@@ -9,13 +9,16 @@ import Services
 struct TemplatePreviewView: View {
 
     let templateID: UUID
-    @Binding var templatePath: [TemplateDestination]
 
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(\.modelContext) private var modelContext
 
     @State private var template: Template?
     @State private var loadError: String?
     @State private var isShowingCreateSheet = false
+    /// Holds the newly created event ID between UseTemplateSheet closing
+    /// and its onDismiss callback firing. Cleared after navigation.
+    @State private var createdEventID: UUID?
 
     var body: some View {
         Group {
@@ -36,10 +39,18 @@ struct TemplatePreviewView: View {
         .task {
             await loadTemplate()
         }
-        .sheet(isPresented: $isShowingCreateSheet) {
+        .sheet(isPresented: $isShowingCreateSheet, onDismiss: {
+            // Fire navigation only after the sheet is fully dismissed so
+            // the template stack is no longer active when we switch tabs
+            // and mutate eventPath. Prevents the blank-screen race condition.
+            if let id = createdEventID {
+                deepLinkRouter.pendingDestination = .newEventTimeline(id: id)
+                createdEventID = nil
+            }
+        }) {
             if let template {
                 UseTemplateSheet(template: template) { eventID in
-                    templatePath.append(.timelineBuilder(eventID: eventID))
+                    createdEventID = eventID
                 }
             }
         }
@@ -189,8 +200,9 @@ private struct UseTemplateSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Create")) {
                         let eventID = createEventFromTemplate()
-                        dismiss()
+                        // Set the ID before dismiss so onDismiss can read it.
                         onEventCreated(eventID)
+                        dismiss()
                     }
                     .disabled(!canCreate)
                 }
@@ -245,6 +257,10 @@ private struct UseTemplateSheet: View {
                 try? modelContext.save()
             }
         }
+
+        // Synchronous save so EventDetailView's @Query can resolve the new
+        // record immediately when navigation fires in the onDismiss callback.
+        try? modelContext.save()
 
         return event.id
     }
