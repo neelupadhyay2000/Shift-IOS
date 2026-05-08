@@ -47,10 +47,10 @@ struct EditEventSheet: View {
             Form {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
-                    DatePicker(
+                    DatePickerRow(
                         String(localized: "Date"),
                         selection: $date,
-                        displayedComponents: .date
+                        components: .date
                     )
                 }
 
@@ -86,6 +86,7 @@ struct EditEventSheet: View {
         let newLatitude = locationResult?.coordinate?.latitude ?? 0
         let newLongitude = locationResult?.coordinate?.longitude ?? 0
         let locationChanged = newLatitude != event.latitude || newLongitude != event.longitude
+        let dateChanged = date != event.date
 
         event.title = trimmedTitle
         event.date = date
@@ -96,14 +97,22 @@ struct EditEventSheet: View {
             return [name]
         }()
 
-        // Bust the weather cache when the venue changes so a fresh fetch runs.
-        if locationChanged {
+        // Bust weather + sunset caches whenever the venue or date changes so the
+        // next fetch returns data for the correct location and day.
+        if locationChanged || dateChanged {
             event.weatherSnapshot = nil
+            event.sunsetTime = nil
+            event.goldenHourStart = nil
         }
 
         try? modelContext.save()
 
-        if locationChanged && (newLatitude != 0 || newLongitude != 0) {
+        // Immediately write child parent-fields to CloudKit so participants receive
+        // a push notification for this edit without waiting for NSPersistentCloudKitContainer's
+        // batched sync — which can take minutes and is the root cause of stale vendor views.
+        Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+
+        if (locationChanged || dateChanged) && (newLatitude != 0 || newLongitude != 0) {
             Task { @MainActor in
                 let service = SunsetService()
                 _ = await service.fetchIfNeeded(for: event)

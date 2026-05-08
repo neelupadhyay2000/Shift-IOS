@@ -156,7 +156,11 @@ struct TimelineBuilderView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { if !isReadOnly { toolbarItems } }
         .sheet(isPresented: $isShowingCreateSheet, onDismiss: { scanForVenueSwitches() }) {
-            CreateBlockSheet(eventID: eventID, trackID: selectedTrackID)
+            CreateBlockSheet(
+                eventID: eventID,
+                trackID: selectedTrackID,
+                suggestedStartTime: sortedBlocks.isEmpty ? nil : nextAvailableStartTime
+            )
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .blockLimit)
@@ -207,6 +211,11 @@ struct TimelineBuilderView: View {
                 blockToInspect = nil
                 // iPad live-write inspector closed — re-scan in case venue changed.
                 scanForVenueSwitches()
+                // iPad uses InspectorLiveWriteModifier (no explicit Save button) — repairs
+                // parent-fields on close so the session's live-written changes reach vendors.
+                if let event {
+                    Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+                }
             }
         }
         .alert(
@@ -334,6 +343,32 @@ struct TimelineBuilderView: View {
     /// Pinned blocks for anchor markers.
     private var pinnedBlocks: [TimeBlockModel] {
         sortedBlocks.filter(\.isPinned)
+    }
+
+    /// The next available start time: the end of the last block across all tracks,
+    /// kept on the same calendar date as the event. Falls back to `Date.now` when
+    /// no blocks exist yet.
+    private var nextAvailableStartTime: Date {
+        guard let event,
+              let lastBlock = sortedBlocks.max(by: { 
+                  ($0.scheduledStart + $0.duration) < ($1.scheduledStart + $1.duration)
+              }) else {
+            return .now
+        }
+        let candidate = lastBlock.scheduledStart.addingTimeInterval(lastBlock.duration)
+        // Keep the candidate on the event's calendar date by preserving only the
+        // time components and combining them with the event date.
+        let calendar = Calendar.current
+        let candidateComponents = calendar.dateComponents([.hour, .minute], from: candidate)
+        let eventDateComponents = calendar.dateComponents([.year, .month, .day], from: event.date)
+        var merged = DateComponents()
+        merged.year = eventDateComponents.year
+        merged.month = eventDateComponents.month
+        merged.day = eventDateComponents.day
+        merged.hour = candidateComponents.hour
+        merged.minute = candidateComponents.minute
+        merged.second = 0
+        return calendar.date(from: merged) ?? candidate
     }
 
     /// iPhone: single-track timeline with filter tabs.
@@ -948,6 +983,12 @@ struct TimelineBuilderView: View {
         // Order changed — invalidate session skips. The .onChange(venueFingerprint)
         // observer will fire automatically since scheduledStart values changed.
         skippedVenuePairs.removeAll()
+
+        // Repair parent-fields so vendors see the reordered (updated scheduledStart)
+        // timeline immediately, without waiting for NSPersistentCloudKitContainer.
+        if let event {
+            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+        }
     }
 
     // MARK: - Delete
@@ -966,6 +1007,12 @@ struct TimelineBuilderView: View {
         let deletedID = block.id
         modelContext.delete(block)
         recalculateStartTimesAfterDelete(excluding: deletedID)
+
+        // Repair parent-fields on remaining blocks so vendors receive a push
+        // for both the deletion and the recalculated scheduledStart values.
+        if let event {
+            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+        }
     }
 
     private func deleteVoiceMemo(for block: TimeBlockModel) {

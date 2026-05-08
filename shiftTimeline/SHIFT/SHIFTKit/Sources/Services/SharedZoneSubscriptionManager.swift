@@ -41,9 +41,48 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     /// `true` once the subscription has been confirmed with CloudKit.
     public private(set) var isSubscribed = false
 
+    /// Background task that polls for shared-zone changes at a fixed interval
+    /// while the app is in the foreground. Cancelled on background transition.
+    ///
+    /// Marked `@ObservationIgnored` so the `@Observable` macro does not
+    /// generate observation tracking for this implementation-detail property.
+    @ObservationIgnored private var foregroundPollTask: Task<Void, Never>?
+
     // MARK: - Init
 
     private init() {}
+
+    // MARK: - Foreground Heartbeat Polling
+
+    /// Starts a repeating poll that calls `fetchChanges()` every `interval`
+    /// while the app is in the foreground.
+    ///
+    /// Silent push notifications (`content-available: 1`) are throttled by iOS
+    /// in low-power mode, during APNs coalescing, and when the app is backgrounded.
+    /// This heartbeat ensures vendors receive planner updates within `interval`
+    /// even when a push is dropped.
+    ///
+    /// Safe to call repeatedly — cancels any running poll before starting a new one.
+    /// Always paired with `stopForegroundPolling()` on background transition.
+    public func startForegroundPolling(interval: Duration = .seconds(30)) {
+        foregroundPollTask?.cancel()
+        foregroundPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled else { return }
+                await self?.fetchChanges()
+            }
+        }
+        Self.logger.info("Foreground polling started — interval: \(interval)")
+    }
+
+    /// Cancels the foreground poll started by `startForegroundPolling()`.
+    /// Call this when the app transitions to `.background` or `.inactive`.
+    public func stopForegroundPolling() {
+        foregroundPollTask?.cancel()
+        foregroundPollTask = nil
+        Self.logger.info("Foreground polling stopped")
+    }
 
     // MARK: - Subscription Registration
 
@@ -118,12 +157,18 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         Self.logger.info("Fetching shared-database changes")
 
         do {
-            let changedZoneIDs = try await fetchDatabaseChanges()
-            guard !changedZoneIDs.isEmpty else {
+            let (changedZoneIDs, purgedZoneIDs) = try await fetchDatabaseChanges()
+            let hasWork = !changedZoneIDs.isEmpty || !purgedZoneIDs.isEmpty
+            guard hasWork else {
                 Self.logger.info("No changed zones")
                 return false
             }
-            try await fetchZoneChanges(in: changedZoneIDs)
+            if !changedZoneIDs.isEmpty {
+                try await fetchZoneChanges(in: changedZoneIDs)
+            }
+            if !purgedZoneIDs.isEmpty {
+                await deletePurgedZoneEvents(purgedZoneIDs)
+            }
             return true
         } catch {
             Self.logger.error("Failed to fetch shared changes: \(error.localizedDescription)")
@@ -134,7 +179,9 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     // MARK: - Database-Level Changes
 
     /// Fetches which zones have changed since the last server change token.
-    private func fetchDatabaseChanges() async throws -> [CKRecordZone.ID] {
+    /// Returns changed zones (need record-level fetch) AND purged zones
+    /// (the planner deleted their data — vendor must remove the local event).
+    private func fetchDatabaseChanges() async throws -> (changed: [CKRecordZone.ID], purged: [CKRecordZone.ID]) {
         var currentToken = loadServerChangeToken()
 
         var changedZoneIDs: [CKRecordZone.ID] = []
@@ -151,7 +198,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             moreComing = changes.moreComing
         }
 
-        // Clear tokens for deleted zones.
+        // Clear tokens for deleted zones so a future fetch starts fresh.
         for zoneID in purgedZoneIDs {
             clearZoneChangeToken(for: zoneID)
         }
@@ -160,7 +207,27 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             saveServerChangeToken(currentToken)
         }
 
-        return changedZoneIDs
+        return (changed: changedZoneIDs, purged: purgedZoneIDs)
+    }
+
+    /// Deletes local events that were synced from zones the planner has since removed
+    /// (i.e. the planner deleted the shared event and CloudKit purged the shared zone).
+    ///
+    /// `CKRecordZone.ID.ownerName` is the planner's iCloud record name — the same value
+    /// stored in `EventModel.ownerRecordName`. Any vendor-side event whose owner matches
+    /// a purged zone owner is now orphaned and must be removed.
+    private func deletePurgedZoneEvents(_ purgedZoneIDs: [CKRecordZone.ID]) async {
+        let ownerNames = purgedZoneIDs.map(\.ownerName)
+        Self.logger.info("Purged zones for owners: \(ownerNames.joined(separator: ", "))")
+        await MainActor.run {
+            let context = PersistenceController.shared.container.mainContext
+            let syncer = SharedRecordSyncer(context: context)
+            do {
+                try syncer.deletePurgedZoneEvents(ownerRecordNames: ownerNames)
+            } catch {
+                Self.logger.error("Failed to delete purged-zone events: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Zone-Level Changes

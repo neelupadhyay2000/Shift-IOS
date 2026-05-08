@@ -209,16 +209,7 @@ struct BlockInspectorView: View {
         Section(String(localized: "Basic Info")) {
             TextField(String(localized: "Title"), text: $title)
                 .accessibilityIdentifier(AccessibilityID.Inspector.titleField)
-            DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                    .id(startTimePickerID)
-                    .onChange(of: startTime) { _, _ in
-                        startTimePickerTask?.cancel()
-                        startTimePickerTask = Task {
-                            try? await Task.sleep(for: .seconds(0.15))
-                            guard !Task.isCancelled else { return }
-                            startTimePickerID = UUID()
-                        }
-                    }
+            DatePickerRow(String(localized: "Start Time"), selection: $startTime, components: [.date, .hourAndMinute])
 
             Picker(String(localized: "Duration"), selection: $duration) {
                 ForEach(CreateBlockSheet.durationOptions, id: \.1) { label, value in
@@ -448,7 +439,17 @@ struct BlockInspectorView: View {
         // Bust the weather cache so EventDetailView re-fetches with the new location.
         if blockLatitude != 0 || blockLongitude != 0 {
             event?.weatherSnapshot = nil
-            try? modelContext.save()
+        }
+        // Always save explicitly — previously conditional on location change, which
+        // caused mutations (title, time, duration) to rely on SwiftData autosave and
+        // never trigger the CloudKit repair below.
+        try? modelContext.save()
+
+        // Immediately write child parent-fields to CloudKit so participants receive
+        // a push notification for this block edit without waiting for
+        // NSPersistentCloudKitContainer's batched sync.
+        if let event {
+            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
         }
 
         dismiss()

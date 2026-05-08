@@ -206,32 +206,20 @@ public struct ShiftPreviewGenerator: Sendable {
             )
         }
 
-        // --- Stage 1: Dependency Resolution ---
-        // Build an adjacency list from the preview block IDs (temporal ordering).
-        var adjacency = [UUID: [UUID]]()
-        for i in 0..<(preview.count - 1) {
-            adjacency[preview[i].id, default: []].append(preview[i + 1].id)
-        }
-
-        let depResult = dependencyResolver.resolve(adjacency: adjacency, from: blockID)
-        let dependentIDs: Set<UUID>
-        switch depResult {
-        case .success(let ids):
-            dependentIDs = ids
-        case .failure:
-            return ShiftPreview(
-                previewBlocks: preview,
-                collisions: [],
-                compressedBlockIDs: [],
-                status: .circularDependency,
-                diffs: zeroDiffs
-            )
-        }
-
-        let subsequentFluidIDs = Set(
+        // --- Stage 1: Shift Set Calculation ---
+        //
+        // generatePreview uses temporal ordering only — no explicit caller-supplied
+        // adjacency. Building a 200-node adjacency dict and running BFS from
+        // blockID is redundant: the BFS result equals subsequentFluidIDs (after
+        // filtering pinned blocks in Stage 2). Skip it entirely.
+        //
+        // The bounded-ripple rule still applies: all fluid blocks after the
+        // changed block are shiftable regardless of whether a pinned block sits
+        // between them and the changed block (the preview intentionally shows
+        // the unconstrained projection so the user sees the full collision zone).
+        let shiftableIDs = Set(
             preview[(changedIndex + 1)...].filter { !$0.isPinned }.map(\.id)
         )
-        let shiftableIDs = subsequentFluidIDs.union(dependentIDs)
 
         // --- Stage 2: Shift Propagation (on value copies) ---
         if delta > 0 {

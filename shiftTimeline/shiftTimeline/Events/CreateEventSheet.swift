@@ -28,7 +28,7 @@ struct CreateEventSheet: View {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
                         .accessibilityIdentifier(AccessibilityID.EventCreation.titleField)
-                    DatePicker(String(localized: "Date"), selection: $date, displayedComponents: .date)
+                    DatePickerRow(String(localized: "Date"), selection: $date, components: .date)
                         .accessibilityIdentifier(AccessibilityID.EventCreation.datePicker)
                 }
 

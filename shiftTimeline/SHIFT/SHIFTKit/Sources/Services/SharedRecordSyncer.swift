@@ -189,6 +189,32 @@ public final class SharedRecordSyncer {
         }
     }
 
+    // MARK: - Purged Zone Cleanup
+
+    /// Deletes all local events (and their cascade-deleted children) whose
+    /// `ownerRecordName` matches one of the given CloudKit record names.
+    ///
+    /// Called when `fetchDatabaseChanges()` reports a zone deletion — meaning
+    /// the planner removed the shared event. Without this, vendor devices
+    /// keep an orphaned event in their roster indefinitely.
+    public func deletePurgedZoneEvents(ownerRecordNames: [String]) throws {
+        guard !ownerRecordNames.isEmpty else { return }
+        for ownerName in ownerRecordNames {
+            let events = try context.fetch(
+                FetchDescriptor<EventModel>(
+                    predicate: #Predicate { $0.ownerRecordName == ownerName }
+                )
+            )
+            for event in events {
+                context.delete(event)
+                Self.logger.info("Deleted purged shared event \"\(event.title)\" owned by \(ownerName)")
+            }
+        }
+        if context.hasChanges {
+            try context.save()
+        }
+    }
+
     // MARK: - Deletions
 
     private func handleDeletion(

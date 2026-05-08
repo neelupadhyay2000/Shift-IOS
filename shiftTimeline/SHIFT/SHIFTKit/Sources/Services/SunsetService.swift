@@ -99,8 +99,24 @@ public struct SunsetService: Sendable {
 
     // MARK: - Formatters
 
+    /// Returns the calendar date string (YYYY-MM-DD) for the given date using the
+    /// **device's local timezone**, not UTC.
+    ///
+    /// The sunrise-sunset.org API expects the calendar date the user chose.
+    /// Using `.iso8601` here was wrong: it formats in UTC, which for UTC+ timezones
+    /// produces the *previous* calendar day — causing the API to return yesterday's
+    /// sunset (already in the past) and the live-mode banner to never appear.
+    private static let localDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        // timeZone intentionally not set — inherits TimeZone.current so the
+        // API receives the same calendar date the user picked.
+        return f
+    }()
+
     private static func dateString(from date: Date) -> String {
-        date.formatted(.iso8601.year().month().day().dateSeparator(.dash))
+        localDateFormatter.string(from: date)
     }
 
     private static let iso8601Strategy: Date.ISO8601FormatStyle = .iso8601.dateTimeSeparator(.standard)

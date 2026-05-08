@@ -188,11 +188,12 @@ struct LiveDashboardView: View {
     }
 
     /// Retries sunset fetch if the event has coordinates but no cached data
-    /// (e.g. device was offline when event was created).
+    /// (e.g. device was offline when event was created, or either value is missing
+    /// due to a partial save or legacy data).
     private func fetchSunsetIfNeeded() {
         guard let event,
-              event.sunsetTime == nil,
-              (event.latitude != 0 && event.longitude != 0) else { return }
+              (event.sunsetTime == nil || event.goldenHourStart == nil),
+              (event.latitude != 0 || event.longitude != 0) else { return }
 
         Task { @MainActor in
             let service = SunsetService()
