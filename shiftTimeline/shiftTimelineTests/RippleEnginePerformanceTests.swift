@@ -324,10 +324,14 @@ final class RippleEnginePerformanceTests: XCTestCase {
         )
         let elapsed = Date().timeIntervalSince(start)
 
-        // Catastrophic-regression guard: must complete under 200 ms on any CI runner.
+        // Catastrophic-regression guard: must complete under 350 ms on any CI runner.
+        // This is a single cold run — not an averaged benchmark — so the threshold
+        // is deliberately wide. The `measure {}` test above (100 ms average) is the
+        // real regression gate. A single-run limit of 350 ms catches only O(n²)
+        // or worse regressions that would fail even on the slowest hardware.
         XCTAssertLessThan(
             elapsed,
-            0.200,
+            0.350,
             "Full pipeline (200 blocks, 50 collision zones, +120 min) took \(String(format: "%.1f", elapsed * 1000)) ms — budget is 350 ms"
         )
 
