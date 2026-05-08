@@ -89,6 +89,7 @@ enum CloudKitShareRepairService {
             touchOp.qualityOfService = .utility
             container.privateCloudDatabase.add(touchOp)
             logger.info("No children for event \(event.id) — root record touched to notify participants")
+            return
             }
 
             let operation = CKModifyRecordsOperation(
