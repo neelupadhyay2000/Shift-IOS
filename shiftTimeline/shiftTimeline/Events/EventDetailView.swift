@@ -111,6 +111,13 @@ struct EventDetailView: View {
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()
         }
+        // Re-runs when sunsetTime becomes nil (cache busted by EditEventSheet on date/location
+        // change). Ensures golden-hour and sunset data is populated before the user goes live.
+        .task(id: event.sunsetTime) {
+            let service = SunsetService()
+            _ = await service.fetchIfNeeded(for: event)
+            try? modelContext.save()
+        }
     }
 
     /// Returns the list of outdoor blocks with `rainProbability > 0.5` from a fresh snapshot.
