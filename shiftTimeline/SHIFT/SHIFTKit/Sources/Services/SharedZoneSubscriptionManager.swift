@@ -118,12 +118,18 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         Self.logger.info("Fetching shared-database changes")
 
         do {
-            let changedZoneIDs = try await fetchDatabaseChanges()
-            guard !changedZoneIDs.isEmpty else {
+            let (changedZoneIDs, purgedZoneIDs) = try await fetchDatabaseChanges()
+            let hasWork = !changedZoneIDs.isEmpty || !purgedZoneIDs.isEmpty
+            guard hasWork else {
                 Self.logger.info("No changed zones")
                 return false
             }
-            try await fetchZoneChanges(in: changedZoneIDs)
+            if !changedZoneIDs.isEmpty {
+                try await fetchZoneChanges(in: changedZoneIDs)
+            }
+            if !purgedZoneIDs.isEmpty {
+                await deletePurgedZoneEvents(purgedZoneIDs)
+            }
             return true
         } catch {
             Self.logger.error("Failed to fetch shared changes: \(error.localizedDescription)")
@@ -134,7 +140,9 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     // MARK: - Database-Level Changes
 
     /// Fetches which zones have changed since the last server change token.
-    private func fetchDatabaseChanges() async throws -> [CKRecordZone.ID] {
+    /// Returns changed zones (need record-level fetch) AND purged zones
+    /// (the planner deleted their data — vendor must remove the local event).
+    private func fetchDatabaseChanges() async throws -> (changed: [CKRecordZone.ID], purged: [CKRecordZone.ID]) {
         var currentToken = loadServerChangeToken()
 
         var changedZoneIDs: [CKRecordZone.ID] = []
@@ -151,7 +159,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             moreComing = changes.moreComing
         }
 
-        // Clear tokens for deleted zones.
+        // Clear tokens for deleted zones so a future fetch starts fresh.
         for zoneID in purgedZoneIDs {
             clearZoneChangeToken(for: zoneID)
         }
@@ -160,7 +168,27 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             saveServerChangeToken(currentToken)
         }
 
-        return changedZoneIDs
+        return (changed: changedZoneIDs, purged: purgedZoneIDs)
+    }
+
+    /// Deletes local events that were synced from zones the planner has since removed
+    /// (i.e. the planner deleted the shared event and CloudKit purged the shared zone).
+    ///
+    /// `CKRecordZone.ID.ownerName` is the planner's iCloud record name — the same value
+    /// stored in `EventModel.ownerRecordName`. Any vendor-side event whose owner matches
+    /// a purged zone owner is now orphaned and must be removed.
+    private func deletePurgedZoneEvents(_ purgedZoneIDs: [CKRecordZone.ID]) async {
+        let ownerNames = purgedZoneIDs.map(\.ownerName)
+        Self.logger.info("Purged zones for owners: \(ownerNames.joined(separator: ", "))")
+        await MainActor.run {
+            let context = PersistenceController.shared.container.mainContext
+            let syncer = SharedRecordSyncer(context: context)
+            do {
+                try syncer.deletePurgedZoneEvents(ownerRecordNames: ownerNames)
+            } catch {
+                Self.logger.error("Failed to delete purged-zone events: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Zone-Level Changes
