@@ -66,7 +66,7 @@ struct SchemaMigrationPlanTests {
         let liveModelCount = 5 // EventModel, TimeBlockModel, TimelineTrack, VendorModel, ShiftRecord
         #expect(
             latestModels.count == liveModelCount,
-            "Latest VersionedSchema must declare all \(liveModelCount) model types"
+            "Latest Versioned Schema must declare all \(liveModelCount) model types"
         )
     }
 

@@ -381,8 +381,14 @@ struct TimelineBuilderView: View {
                 )
 
                 HStack(alignment: .top, spacing: 0) {
-                    TimeRulerView(layout: currentLayout)
-                        .accessibilityHidden(true)
+                    TimeRulerView(
+                        layout: currentLayout,
+                        suppressedDates: (
+                            [event?.goldenHourStart, event?.sunsetTime].compactMap { $0 }
+                            + pinnedBlocks.map(\.scheduledStart)
+                        )
+                    )
+                    .accessibilityHidden(true)
 
                     ZStack(alignment: .topLeading) {
                         Color.clear
@@ -451,8 +457,14 @@ struct TimelineBuilderView: View {
                 )
 
                 HStack(alignment: .top, spacing: 0) {
-                    TimeRulerView(layout: currentLayout)
-                        .accessibilityHidden(true)
+                    TimeRulerView(
+                        layout: currentLayout,
+                        suppressedDates: (
+                            [event?.goldenHourStart, event?.sunsetTime].compactMap { $0 }
+                            + pinnedBlocks.map(\.scheduledStart)
+                        )
+                    )
+                    .accessibilityHidden(true)
 
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(sortedTracks) { track in

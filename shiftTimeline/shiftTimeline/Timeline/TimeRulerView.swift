@@ -103,8 +103,18 @@ extension TimeBlockModel: TimeRulerBlock {
 
 /// Draws vertical hour markers along the left edge with a continuous
 /// vertical line connecting hour ticks for a polished, modern look.
+///
+/// `suppressedDates` accepts any overlay dates (weather markers, pinned block
+/// anchors) that already carry their own time label at the same Y position.
+/// Any ruler tick within `suppressionMinutes` of a suppressed date is hidden,
+/// preventing a double-label and visual collision.
 struct TimeRulerView: View {
     let layout: TimeRulerLayout
+    /// Dates already labelled by another overlay (weather markers, pinned anchors).
+    /// Ruler ticks within `suppressionMinutes` of any of these are hidden.
+    var suppressedDates: [Date] = []
+    /// Half-width of the suppression window in minutes.
+    var suppressionMinutes: Double = 10
 
     private static let hourFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -117,6 +127,15 @@ struct TimeRulerView: View {
         f.dateFormat = "h:mm"
         return f
     }()
+
+    /// Returns `true` when the tick at `marker` is too close to any suppressed
+    /// date to be rendered without overlapping an existing label or anchor line.
+    private func isSuppressed(_ marker: Date) -> Bool {
+        let threshold = suppressionMinutes * 60
+        return suppressedDates.contains { date in
+            abs(marker.timeIntervalSince(date)) < threshold
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -140,39 +159,40 @@ struct TimeRulerView: View {
                 let isHalfHour = minuteComponent == 30
                 let showLabel = isFullHour || isHalfHour
 
-                HStack(spacing: 6) {
-                    Group {
-                        if showLabel {
-                            Text(isFullHour
-                                 ? Self.hourFormatter.string(from: marker)
-                                 : Self.halfHourFormatter.string(from: marker))
-                                .font(.caption2)
-                                .fontWeight(isFullHour ? .bold : .regular)
-                                .foregroundStyle(isFullHour ? .secondary : .tertiary)
-                                .monospacedDigit()
-                        } else {
-                            // Quarter-hour markers — no label, just the tick
-                            Color.clear
+                // Skip ticks that would visually collide with a weather marker line.
+                if !isSuppressed(marker) {
+                    HStack(spacing: 6) {
+                        Group {
+                            if showLabel {
+                                Text(isFullHour
+                                     ? Self.hourFormatter.string(from: marker)
+                                     : Self.halfHourFormatter.string(from: marker))
+                                    .font(.caption2)
+                                    .fontWeight(isFullHour ? .bold : .regular)
+                                    .foregroundStyle(isFullHour ? .secondary : .tertiary)
+                                    .monospacedDigit()
+                            } else {
+                                Color.clear
+                            }
                         }
+                        .frame(width: 42, alignment: .trailing)
+
+                        let outer: CGFloat = isFullHour ? 7 : (isHalfHour ? 5 : 3)
+                        let halo: CGFloat = isFullHour ? 13 : (isHalfHour ? 9 : 6)
+                        let opacity: Double = isFullHour ? 0.4 : (isHalfHour ? 0.2 : 0.12)
+                        let haloOpacity: Double = isFullHour ? 0.15 : (isHalfHour ? 0.08 : 0.05)
+
+                        Circle()
+                            .fill(Color.accentColor.opacity(opacity))
+                            .frame(width: outer, height: outer)
+                            .overlay(
+                                Circle()
+                                    .fill(Color.accentColor.opacity(haloOpacity))
+                                    .frame(width: halo, height: halo)
+                            )
                     }
-                    .frame(width: 42, alignment: .trailing)
-
-                    // Tick mark — larger for full hours, smaller for halves, smallest for quarters
-                    let outer: CGFloat = isFullHour ? 7 : (isHalfHour ? 5 : 3)
-                    let halo: CGFloat = isFullHour ? 13 : (isHalfHour ? 9 : 6)
-                    let opacity: Double = isFullHour ? 0.4 : (isHalfHour ? 0.2 : 0.12)
-                    let haloOpacity: Double = isFullHour ? 0.15 : (isHalfHour ? 0.08 : 0.05)
-
-                    Circle()
-                        .fill(Color.accentColor.opacity(opacity))
-                        .frame(width: outer, height: outer)
-                        .overlay(
-                            Circle()
-                                .fill(Color.accentColor.opacity(haloOpacity))
-                                .frame(width: halo, height: halo)
-                        )
+                    .offset(y: y - 3)
                 }
-                .offset(y: y - 3)
             }
         }
         .frame(width: 64, height: layout.totalHeight, alignment: .topLeading)

@@ -49,23 +49,29 @@ struct SunsetMarkerView: View {
     ) -> some View {
         let y = layout.yOffset(for: date)
 
-        return HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(tint)
+        // Layout: a compact pill badge pinned inside the 64pt ruler gutter,
+        // followed by the dashed line extending into the block content area.
+        // This prevents the label text from floating over block cards.
+        return HStack(spacing: 0) {
+            // Badge — constrained to the ruler gutter width so it never
+            // overlaps with block content to the right.
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 7, weight: .bold))
+                Text(date, format: .dateTime.hour().minute())
+                    .font(.system(size: 8, weight: .semibold))
+                    .monospacedDigit()
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
+            .background(tint.opacity(0.10), in: Capsule())
+            .frame(width: 64, alignment: .leading)
 
-            Text(date, format: .dateTime.hour().minute())
-                .font(.system(size: 9, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(tint.opacity(0.8))
-
-            Text("— \(label)", comment: "Em-dash prefix before sunset/golden hour label on timeline ruler")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(tint.opacity(0.6))
-
+            // Dashed rule — begins at the right edge of the ruler gutter
             SunsetDashedLine()
                 .stroke(
-                    tint.opacity(0.35),
+                    tint.opacity(0.30),
                     style: StrokeStyle(lineWidth: 1, dash: [4, 3])
                 )
                 .frame(height: 1)
