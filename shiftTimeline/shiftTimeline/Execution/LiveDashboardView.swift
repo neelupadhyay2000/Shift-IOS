@@ -4,6 +4,7 @@ import UIKit
 #endif
 import SwiftData
 import AppIntents
+import CloudKit
 import TipKit
 import WidgetKit
 import Models
@@ -81,6 +82,7 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
             onAdvance: advanceToNextBlock,
+            onExitTapped: { isShowingExitConfirmation = true },
             onDismiss: { dismiss() }
         )
         .navigationBarBackButtonHidden(true)
@@ -335,6 +337,16 @@ struct LiveDashboardView: View {
             watchSessionManager.sendCurrentContext()
             writeWidgetData()
             updateLiveActivity()
+            // Repair the CloudKit parent-field hierarchy on the private database so
+            // vendor devices receive the shifted block data via their CKDatabaseSubscription
+            // change feed. Without this, NSPersistentCloudKitContainer pushes the mutated
+            // records but CloudKit's sharing mechanism excludes them from the shared zone
+            // because the `parent` field is not maintained automatically.
+            if let event, event.shareURL != nil {
+                Task {
+                    await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
+                }
+            }
         } catch {
             // Save failed — don't push stale context to Watch.
         }
@@ -468,8 +480,10 @@ private struct _LiveDashboardContent: View {
     let nextBlock: TimeBlockModel?
     let isEventComplete: Bool
     let onAdvance: () -> Void
+    let onExitTapped: () -> Void
     let onDismiss: () -> Void
 
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var isSiriTipVisible = true
     private let slideToAdvanceTip = SlideToAdvanceTip()
 
@@ -502,13 +516,51 @@ private struct _LiveDashboardContent: View {
 
     private func liveDashboard(event: EventModel) -> some View {
         VStack(spacing: 0) {
-            // ── Event title pill ──────────────────────────────────────
-            Text(event.title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            // ── Header row: title + iPad exit button ─────────────────
+            // On iPad (regular width) the .topBarLeading toolbar slot is shared
+            // with the system sidebar toggle, which can squish or hide the exit
+            // button entirely. We render it inline here for regular-width devices
+            // so it is always fully accessible. The toolbar button remains as the
+            // standard back affordance on iPhone (compact width).
+            if horizontalSizeClass == .regular {
+                HStack(alignment: .center) {
+                    Button {
+                        onExitTapped()
+                    } label: {
+                        Label(String(localized: "Exit Live Mode"), systemImage: "xmark.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 20)
+                    .accessibilityIdentifier(AccessibilityID.Live.exitLiveButton)
+
+                    Spacer()
+
+                    Text(event.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityAddTraits(.isHeader)
+
+                    Spacer()
+
+                    // Invisible spacer label to keep title centred.
+                    Label(String(localized: "Exit Live Mode"), systemImage: "xmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .hidden()
+                        .padding(.trailing, 20)
+                }
                 .padding(.top, 16)
-                .accessibilityAddTraits(.isHeader)
+            } else {
+                // ── Event title pill (iPhone) ─────────────────────────
+                Text(event.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.top, 16)
+                    .accessibilityAddTraits(.isHeader)
+            }
 
             // ── Sunset / Golden Hour banner ───────────────────────────
             if let sunset = event.sunsetTime,

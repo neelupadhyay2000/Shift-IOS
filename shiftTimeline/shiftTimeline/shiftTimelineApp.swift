@@ -179,6 +179,19 @@ struct shiftTimelineApp: App {
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
+                // Re-register the shared-database subscription. CloudKit can silently
+                // purge subscriptions after inactivity or across device restores, and
+                // a failed launch registration has no automatic retry.
+                Task { await SharedZoneSubscriptionManager.shared.registerIfNeeded() }
+                // Pull any shared-zone changes that arrived while the app was backgrounded
+                // or that were missed due to silent-push delivery failures (low-power mode,
+                // APNs coalescing). This is the primary recovery path for missed syncs.
+                // Always also scan for pending vendor notifications, even without new CloudKit
+                // data, in case a prior sync already wrote pendingShiftDelta to local storage.
+                Task {
+                    await SharedZoneSubscriptionManager.shared.fetchChanges()
+                    await appDelegate.processVendorShiftNotifications()
+                }
             }
         }
     }
@@ -367,14 +380,26 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     /// After CloudKit sync delivers updated vendor data, scan for any
     /// `pendingShiftDelta` values and post local notifications.
+    ///
+    /// Skips events owned by the current device's user — the planner committed
+    /// the shift and must not receive vendor-addressed push notifications on
+    /// their own device. Also called when the app becomes active so that a
+    /// silent push missed during low-power / background is not lost.
     @MainActor
-    private func processVendorShiftNotifications() async {
+    func processVendorShiftNotifications() async {
         let context = PersistenceController.shared.container.mainContext
         let descriptor = FetchDescriptor<EventModel>()
         guard let events = try? context.fetch(descriptor) else { return }
 
+        let currentUserRecordName = CloudKitIdentity.shared.currentUserRecordName
         for event in events {
-            await VendorShiftLocalNotifier.processAndNotify(event: event)
+            // The planner owns this event — they made the shift themselves and
+            // should not receive a push notification for it on their device.
+            guard !event.isOwnedBy(currentUserRecordName) else { continue }
+            await VendorShiftLocalNotifier.processAndNotify(
+                event: event,
+                currentUserRecordName: currentUserRecordName
+            )
         }
         try? context.save()
     }
@@ -409,12 +434,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         completionHandler()
     }
 
-    /// Show notifications even when app is in foreground.
+    /// Show notifications even when app is in foreground — except for vendor
+    /// shift notifications, which are surfaced in-app via `ShiftAcknowledgmentBanner`.
+    /// Suppressing the banner prevents the planner from seeing a push notification
+    /// for their own shift while on the live dashboard.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        completionHandler([.banner, .sound])
+        // Vendor shift notifications carry a deterministic "shift-<UUID>" identifier.
+        // The in-app ShiftAcknowledgmentBanner handles these when the app is visible.
+        if notification.request.identifier.hasPrefix("shift-") {
+            completionHandler([])
+        } else {
+            completionHandler([.banner, .sound])
+        }
     }
 }

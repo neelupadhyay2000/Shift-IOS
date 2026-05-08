@@ -16,6 +16,11 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
     var recordingFailed = false
     var recordingStartDate: Date?
     var completedURL: URL?
+    /// Duration (seconds) of the most recently stopped recording. Set by
+    /// `stopRecording()` and by the auto-stop delegate path.
+    var recordedDuration: TimeInterval?
+    /// Wall-clock start date of the most recently stopped recording.
+    var recordedCreatedAt: Date?
 
     @ObservationIgnored private var recorder: AVAudioRecorder?
     @ObservationIgnored private var interruptionObserver: NSObjectProtocol?
@@ -68,6 +73,11 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
     }
 
     func stopRecording() {
+        // Capture duration before clearing recordingStartDate.
+        if let start = recordingStartDate {
+            recordedDuration = Date.now.timeIntervalSince(start)
+            recordedCreatedAt = start
+        }
         recorder?.stop()
         recorder = nil
         isRecording = false
@@ -83,8 +93,21 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
         isRecording = false
         recordingStartDate = nil
         completedURL = nil
+        recordedDuration = nil
+        recordedCreatedAt = nil
         unregisterInterruptionObserver()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Deletes the completed (but not-yet-committed) recording file.
+    /// Call this when the user taps Discard in the review phase.
+    func discardCompleted() {
+        if let url = completedURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        completedURL = nil
+        recordedDuration = nil
+        recordedCreatedAt = nil
     }
 
     // MARK: Interruptions
@@ -119,6 +142,12 @@ final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         Task { @MainActor in
             if !flag { self.completedURL = nil }
+            // Only compute duration here for the auto-stop (max-duration) path.
+            // The user-initiated Stop path captures duration in stopRecording().
+            if self.isRecording, let start = self.recordingStartDate {
+                self.recordedDuration = Date.now.timeIntervalSince(start)
+                self.recordedCreatedAt = start
+            }
             self.isRecording = false
             self.recordingStartDate = nil
             self.unregisterInterruptionObserver()
@@ -148,70 +177,20 @@ struct VoiceMemoRecordingSheet: View {
     @State private var showPermissionAlert = false
     @State private var showFailureAlert = false
 
+    // Two-phase UX: record → review (Save / Discard)
+    private enum Phase: Equatable {
+        case recording
+        case reviewing(duration: TimeInterval, createdAt: Date)
+    }
+    @State private var phase: Phase = .recording
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 32) {
-                Spacer()
-
-                VStack(spacing: 12) {
-                    Image(systemName: "waveform.circle.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.red)
-                        .symbolEffect(.variableColor.iterative, isActive: coordinator.isRecording)
-                        .accessibilityHidden(true)
-
-                    Text(block.title)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal)
-                }
-
-                // Per-second elapsed counter via TimelineView — no Timer needed
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let elapsed: TimeInterval = coordinator.recordingStartDate
-                        .map { context.date.timeIntervalSince($0) } ?? 0
-                    Text(formatDuration(elapsed))
-                        .font(.system(size: 56, weight: .bold, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(coordinator.isRecording ? .red : .secondary)
-                        .contentTransition(.numericText())
-                        .accessibilityLabel(String(localized: "Recording, \(Int(elapsed)) seconds"))
-                        .accessibilityAddTraits(.updatesFrequently)
-                }
-
-                VStack(spacing: 8) {
-                    Button {
-                        coordinator.stopRecording()
-                        if let url = coordinator.completedURL {
-                            block.voiceMemoURL = url
-                        }
-                        dismiss()
-                    } label: {
-                        Image(systemName: "stop.circle.fill")
-                            .font(.system(size: 72))
-                            .foregroundStyle(coordinator.isRecording ? .red : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!coordinator.isRecording)
-                    .accessibilityLabel(String(localized: "Stop recording"))
-
-                    Text(String(localized: "Tap to stop"))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-            }
-            .navigationTitle(String(localized: "Recording…"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) {
-                        coordinator.cancel()
-                        dismiss()
-                    }
-                }
+            switch phase {
+            case .recording:
+                recordingContent
+            case .reviewing(let duration, let createdAt):
+                reviewContent(duration: duration, createdAt: createdAt)
             }
         }
         .task {
@@ -222,6 +201,16 @@ struct VoiceMemoRecordingSheet: View {
         }
         .onChange(of: coordinator.recordingFailed) { _, failed in
             if failed { showFailureAlert = true }
+        }
+        // Auto-stop (max duration): coordinator flips isRecording → false and
+        // populates recordedDuration / recordedCreatedAt via the delegate.
+        .onChange(of: coordinator.isRecording) { _, nowRecording in
+            if !nowRecording,
+               case .recording = phase,
+               let duration = coordinator.recordedDuration,
+               let createdAt = coordinator.recordedCreatedAt {
+                phase = .reviewing(duration: duration, createdAt: createdAt)
+            }
         }
         .alert(String(localized: "Microphone Access Required"), isPresented: $showPermissionAlert) {
             Button(String(localized: "Open Settings")) {
@@ -243,6 +232,150 @@ struct VoiceMemoRecordingSheet: View {
             Text(String(localized: "Voice memo recording could not start. Please try again."))
         }
     }
+
+    // MARK: - Recording phase
+
+    @ViewBuilder
+    private var recordingContent: some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Image(systemName: "waveform.circle.fill")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.red)
+                    .symbolEffect(.variableColor.iterative, isActive: coordinator.isRecording)
+                    .accessibilityHidden(true)
+
+                Text(block.title)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
+
+            // Per-second elapsed counter via TimelineView — no Timer needed
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let elapsed: TimeInterval = coordinator.recordingStartDate
+                    .map { context.date.timeIntervalSince($0) } ?? 0
+                Text(formatDuration(elapsed))
+                    .font(.system(size: 56, weight: .bold, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(coordinator.isRecording ? .red : .secondary)
+                    .contentTransition(.numericText())
+                    .accessibilityLabel(String(localized: "Recording, \(Int(elapsed)) seconds"))
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+
+            VStack(spacing: 8) {
+                Button {
+                    coordinator.stopRecording()
+                    if let duration = coordinator.recordedDuration,
+                       let createdAt = coordinator.recordedCreatedAt {
+                        phase = .reviewing(duration: duration, createdAt: createdAt)
+                    } else {
+                        dismiss()
+                    }
+                } label: {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 72))
+                        .foregroundStyle(coordinator.isRecording ? .red : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!coordinator.isRecording)
+                .accessibilityLabel(String(localized: "Stop recording"))
+
+                Text(String(localized: "Tap to stop"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
+        .navigationTitle(String(localized: "Recording…"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(String(localized: "Cancel")) {
+                    coordinator.cancel()
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    // MARK: - Review phase
+
+    @ViewBuilder
+    private func reviewContent(duration: TimeInterval, createdAt: Date) -> some View {
+        VStack(spacing: 32) {
+            Spacer()
+
+            VStack(spacing: 12) {
+                Image(systemName: "waveform.badge.checkmark")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+
+                Text(block.title)
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+
+                Text(String(localized: "Recording complete"))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(formatDuration(duration))
+                .font(.system(size: 56, weight: .bold, design: .monospaced))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .accessibilityLabel(String(localized: "Duration: \(Int(duration)) seconds"))
+
+            VStack(spacing: 12) {
+                Button {
+                    guard let url = coordinator.completedURL else { dismiss(); return }
+                    block.voiceMemoURL = url
+                    block.voiceMemoDuration = duration
+                    block.voiceMemoCreatedAt = createdAt
+                    dismiss()
+                } label: {
+                    Label(String(localized: "Save to Block"), systemImage: "checkmark.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .accessibilityLabel(String(localized: "Save voice memo to \(block.title)"))
+
+                Button(role: .destructive) {
+                    coordinator.discardCompleted()
+                    dismiss()
+                } label: {
+                    Label(String(localized: "Discard"), systemImage: "trash")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+            }
+            .padding(.horizontal)
+
+            Spacer()
+        }
+        .navigationTitle(String(localized: "Voice Memo"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(String(localized: "Cancel")) {
+                    coordinator.discardCompleted()
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
 
     private func formatDuration(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds))

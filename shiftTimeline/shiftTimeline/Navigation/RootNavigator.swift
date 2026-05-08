@@ -80,6 +80,11 @@ struct RootNavigator: View {
     // iPad detail stack path — driven by whichever sidebar tab is active.
     @State private var detailPath: [EventDestination] = []
 
+    /// Pending event ID set by .newEventTimeline routing.
+    /// Applied in EventRosterView.onAppear so the push happens after the
+    /// Events NavigationStack is in the view hierarchy on both iPhone and iPad.
+    @State private var pendingEventID: UUID?
+
     // MARK: Body
 
     var body: some View {
@@ -99,6 +104,12 @@ struct RootNavigator: View {
             // Events tab
             NavigationStack(path: $eventPath) {
                 EventRosterView()
+                    .onAppear {
+                        if let id = pendingEventID {
+                            eventPath = [.eventDetail(id: id)]
+                            pendingEventID = nil
+                        }
+                    }
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
                     }
@@ -184,6 +195,12 @@ struct RootNavigator: View {
         case .events:
             NavigationStack(path: $eventPath) {
                 EventRosterView()
+                    .onAppear {
+                        if let id = pendingEventID {
+                            eventPath = [.eventDetail(id: id)]
+                            pendingEventID = nil
+                        }
+                    }
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
                     }
@@ -216,6 +233,17 @@ struct RootNavigator: View {
             eventPath = [.eventDetail(id: id), .liveDashboard(eventID: id)]
         case .roster:
             eventPath = []
+        case .newEventTimeline(let id):
+            // Reset the template stack so the user returns cleanly to the
+            // template browser if they switch back to the Templates tab.
+            templatePath = []
+            // Store the target ID and switch tabs. The push onto eventPath
+            // is deferred to EventRosterView.onAppear so it fires after the
+            // Events NavigationStack enters the hierarchy on iPad.
+            // (On iPhone the TabView keeps all stacks live, so onAppear fires
+            // on the next tab-switch cycle — same reliable timing.)
+            pendingEventID = id
+            selectedTab = .events
         }
         deepLinkRouter.pendingDestination = nil
     }
@@ -244,7 +272,7 @@ struct RootNavigator: View {
     private func templateDestinationView(for destination: TemplateDestination) -> some View {
         switch destination {
         case .templatePreview(let templateID):
-            TemplatePreviewView(templateID: templateID, templatePath: $templatePath)
+            TemplatePreviewView(templateID: templateID)
         case .timelineBuilder(let eventID):
             TimelineBuilderView(eventID: eventID)
         }

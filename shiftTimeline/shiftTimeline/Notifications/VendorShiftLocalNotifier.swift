@@ -48,28 +48,49 @@ enum VendorShiftLocalNotifier {
 
     // MARK: - Scan & Post
 
-    /// Scans all vendors on the given event for a non-nil `pendingShiftDelta`
+    /// Scans vendors on the given event for a non-nil `pendingShiftDelta`
     /// that exceeds **both** their per-vendor threshold and the planner's
     /// global Settings threshold. Posts a visible local notification only for
     /// above-threshold vendors.
-    static func processAndNotify(event: EventModel) async {
+    ///
+    /// `currentUserRecordName` scopes the scan to the matching vendor entry so
+    /// a vendor device only receives a notification for itself, not for all
+    /// vendors in the shared event. Pass `nil` to process all vendors (legacy
+    /// path / tests).
+    static func processAndNotify(event: EventModel, currentUserRecordName: String? = nil) async {
         await processAndNotify(
             event: event,
             center: UNUserNotificationCenter.current(),
-            globalThresholdSeconds: readGlobalThresholdSeconds()
+            globalThresholdSeconds: readGlobalThresholdSeconds(),
+            currentUserRecordName: currentUserRecordName
         )
     }
 
-    /// Testable overload — accepts injected `NotificationScheduling` and
-    /// global threshold so tests never touch `UNUserNotificationCenter.current()`
-    /// or `UserDefaults.standard`.
+    /// Testable overload — accepts injected `NotificationScheduling`,
+    /// global threshold, and optional identity so tests never touch
+    /// `UNUserNotificationCenter.current()` or `UserDefaults.standard`.
     static func processAndNotify(
         event: EventModel,
         center: any VendorNotificationScheduling,
-        globalThresholdSeconds: TimeInterval
+        globalThresholdSeconds: TimeInterval,
+        currentUserRecordName: String? = nil
     ) async {
         let vendors = event.vendors ?? []
-        for vendor in vendors {
+
+        // When the current user's record name is known, restrict processing
+        // to only their own vendor entry. This prevents a vendor's device from
+        // posting notifications on behalf of other vendors they can see in the
+        // shared event. Falls back to all vendors when cloudKitRecordName is
+        // not yet populated (e.g. legacy entries without the field set).
+        let candidateVendors: [VendorModel]
+        if let recordName = currentUserRecordName {
+            let matched = vendors.filter { $0.cloudKitRecordName == recordName }
+            candidateVendors = matched.isEmpty ? vendors : matched
+        } else {
+            candidateVendors = vendors
+        }
+
+        for vendor in candidateVendors {
             guard let delta = vendor.pendingShiftDelta else { continue }
             // Only post a visible push for shifts that exceed BOTH the per-vendor
             // threshold AND the planner's global Settings threshold ("Notify me

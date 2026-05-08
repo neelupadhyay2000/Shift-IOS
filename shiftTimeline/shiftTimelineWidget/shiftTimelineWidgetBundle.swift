@@ -14,7 +14,6 @@ struct shiftTimelineWidgetBundle: WidgetBundle {
     var body: some Widget {
         ShiftSmallWidget()
         ShiftMediumWidget()
-        shiftTimelineWidgetControl()
         ShiftLiveActivity()
     }
 }
