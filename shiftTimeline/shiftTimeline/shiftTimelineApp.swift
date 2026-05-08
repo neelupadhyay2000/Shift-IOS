@@ -176,6 +176,8 @@ struct shiftTimelineApp: App {
             guard !Self.isUITestMode else { return }
             if newPhase == .background {
                 SunsetPrefetchTask.scheduleNextRefresh()
+                // Stop the foreground poll — no need to hit CloudKit while backgrounded.
+                SharedZoneSubscriptionManager.shared.stopForegroundPolling()
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
@@ -192,6 +194,9 @@ struct shiftTimelineApp: App {
                     await SharedZoneSubscriptionManager.shared.fetchChanges()
                     await appDelegate.processVendorShiftNotifications()
                 }
+                // Heartbeat: poll every 30 s while the app is active so vendor devices
+                // receive planner updates even when silent pushes are throttled/dropped.
+                SharedZoneSubscriptionManager.shared.startForegroundPolling()
             }
         }
     }

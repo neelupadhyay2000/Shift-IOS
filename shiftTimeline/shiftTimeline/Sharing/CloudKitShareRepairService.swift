@@ -76,8 +76,19 @@ enum CloudKitShareRepairService {
                 zone: rootRecord.recordID.zoneID
             )
             guard !children.isEmpty else {
-                logger.info("No child records found for event \(event.id) — repair skipped")
-                return
+            // No child records found — either the event timeline is empty or
+            // NSPersistentCloudKitContainer hasn't mirrored them to CloudKit yet.
+            // Touch the root record with a heartbeat timestamp so CloudKit still
+            // notifies participants that this event was modified.
+            rootRecord["SHIFT_repairHeartbeat"] = Date() as CKRecordValue
+            let touchOp = CKModifyRecordsOperation(
+                recordsToSave: [rootRecord],
+                recordIDsToDelete: nil
+            )
+            touchOp.savePolicy = .changedKeys
+            touchOp.qualityOfService = .utility
+            container.privateCloudDatabase.add(touchOp)
+            logger.info("No children for event \(event.id) — root record touched to notify participants")
             }
 
             let operation = CKModifyRecordsOperation(

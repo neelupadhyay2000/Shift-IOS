@@ -139,6 +139,11 @@ struct CreateBlockSheet: View {
         block.blockLongitude = blockLongitude
         block.track = track
         modelContext.insert(block)
+
+        // Repair parent-fields immediately so the new block is visible to participants
+        // without waiting for NSPersistentCloudKitContainer's delayed sync.
+        Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+
         dismiss()
     }
 

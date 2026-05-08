@@ -41,9 +41,48 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     /// `true` once the subscription has been confirmed with CloudKit.
     public private(set) var isSubscribed = false
 
+    /// Background task that polls for shared-zone changes at a fixed interval
+    /// while the app is in the foreground. Cancelled on background transition.
+    ///
+    /// Marked `@ObservationIgnored` so the `@Observable` macro does not
+    /// generate observation tracking for this implementation-detail property.
+    @ObservationIgnored private var foregroundPollTask: Task<Void, Never>?
+
     // MARK: - Init
 
     private init() {}
+
+    // MARK: - Foreground Heartbeat Polling
+
+    /// Starts a repeating poll that calls `fetchChanges()` every `interval`
+    /// while the app is in the foreground.
+    ///
+    /// Silent push notifications (`content-available: 1`) are throttled by iOS
+    /// in low-power mode, during APNs coalescing, and when the app is backgrounded.
+    /// This heartbeat ensures vendors receive planner updates within `interval`
+    /// even when a push is dropped.
+    ///
+    /// Safe to call repeatedly — cancels any running poll before starting a new one.
+    /// Always paired with `stopForegroundPolling()` on background transition.
+    public func startForegroundPolling(interval: Duration = .seconds(30)) {
+        foregroundPollTask?.cancel()
+        foregroundPollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: interval)
+                guard !Task.isCancelled else { return }
+                await self?.fetchChanges()
+            }
+        }
+        Self.logger.info("Foreground polling started — interval: \(interval)")
+    }
+
+    /// Cancels the foreground poll started by `startForegroundPolling()`.
+    /// Call this when the app transitions to `.background` or `.inactive`.
+    public func stopForegroundPolling() {
+        foregroundPollTask?.cancel()
+        foregroundPollTask = nil
+        Self.logger.info("Foreground polling stopped")
+    }
 
     // MARK: - Subscription Registration
 
