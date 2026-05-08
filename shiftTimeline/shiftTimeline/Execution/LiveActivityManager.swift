@@ -139,19 +139,7 @@ private struct ActivityAuthorizationChecker: LiveActivityAuthorizationChecking {
 }
 
 /// Manages the lifecycle of the SHIFT Live Activity (start, update, end).
-///
-/// Stored as an `@Observable` environment object so both `EventDetailView`
-/// (Go Live) and `LiveDashboardView` (advance / shift / exit) can access
-/// the running activity.
-///
-/// ## 8-Hour System Limitation
-/// iOS automatically terminates Live Activities after approximately 8 hours,
-/// regardless of whether the event is still running. For SHIFT events that
-/// exceed this window (e.g. full wedding days), this manager monitors the
-/// activity's state via `activityStateUpdates` and attempts an automatic
-/// restart while the app process is running. If restart fails (e.g.
-/// ActivityKit budget exhausted), a local notification prompts the user to
-/// reopen the live session.
+
 @MainActor
 @Observable
 final class LiveActivityManager {
@@ -198,9 +186,6 @@ final class LiveActivityManager {
     // MARK: - Start
 
     /// Starts a new Live Activity for the given event and first active block.
-    ///
-    /// Call this when `event.status` transitions to `.live`.
-    /// If Live Activities are disabled in Settings, this silently no-ops.
     func start(
         eventTitle: String,
         currentBlockTitle: String,
@@ -349,9 +334,6 @@ final class LiveActivityManager {
     /// system dismisses the activity (8-hour timeout) while `lastContentState`
     /// is still set (meaning the event hasn't ended normally), we attempt an
     /// automatic restart.
-    ///
-    /// - Note: iOS terminates Live Activities after ~8 hours regardless of
-    ///   event state. This is a platform limitation that cannot be avoided.
     private func startMonitoring() {
         monitorTask?.cancel()
 
@@ -369,8 +351,7 @@ final class LiveActivityManager {
     }
 
     private func handleDismissedActivity() {
-        // The system killed the activity. Check whether we still have cached
-        // state (i.e. event is still live).
+        // The system killed the activity. Check whether we still have cached state
         guard let attributes = lastAttributes,
               let state = lastContentState else {
             return

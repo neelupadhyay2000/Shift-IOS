@@ -5,10 +5,6 @@ import Models
 import Services
 
 /// Sheet for editing an existing event's metadata: title, date, and venue.
-///
-/// Local `@State` copies are used so that "Cancel" discards all changes
-/// without touching the model. On "Save", the changes are written back
-/// to the `EventModel` and the context is persisted.
 struct EditEventSheet: View {
 
     @Environment(\.modelContext) private var modelContext
@@ -97,8 +93,7 @@ struct EditEventSheet: View {
             return [name]
         }()
 
-        // Bust weather + sunset caches whenever the venue or date changes so the
-        // next fetch returns data for the correct location and day.
+        // Bust weather + sunset caches whenever the venue or date changes so the next fetch returns data for the correct location and day.
         if locationChanged || dateChanged {
             event.weatherSnapshot = nil
             event.sunsetTime = nil

@@ -2,15 +2,9 @@ import CloudKit
 import Foundation
 import os
 
-/// Manages a `CKDatabaseSubscription` on the shared CloudKit database so
-/// vendor devices receive silent push notifications whenever the planner
-/// shifts the timeline.
-///
-/// The subscription is created once and its ID is persisted in UserDefaults.
-/// On each app launch, the manager checks whether CloudKit still knows about
-/// the subscription and re-registers it if it was purged (e.g. by CloudKit
-/// cleanup policies). A server change token is cached so that
-/// `fetchChanges()` only pulls records modified since the last fetch.
+/// Manages a `CKDatabaseSubscription` on the shared CloudKit database so vendor devices
+/// receive silent push notifications when the planner updates the timeline.
+/// Subscription ID and server change token are persisted in UserDefaults.
 @Observable
 public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
@@ -41,11 +35,6 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     /// `true` once the subscription has been confirmed with CloudKit.
     public private(set) var isSubscribed = false
 
-    /// Background task that polls for shared-zone changes at a fixed interval
-    /// while the app is in the foreground. Cancelled on background transition.
-    ///
-    /// Marked `@ObservationIgnored` so the `@Observable` macro does not
-    /// generate observation tracking for this implementation-detail property.
     @ObservationIgnored private var foregroundPollTask: Task<Void, Never>?
 
     // MARK: - Init
@@ -54,16 +43,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Foreground Heartbeat Polling
 
-    /// Starts a repeating poll that calls `fetchChanges()` every `interval`
-    /// while the app is in the foreground.
-    ///
-    /// Silent push notifications (`content-available: 1`) are throttled by iOS
-    /// in low-power mode, during APNs coalescing, and when the app is backgrounded.
-    /// This heartbeat ensures vendors receive planner updates within `interval`
-    /// even when a push is dropped.
-    ///
-    /// Safe to call repeatedly — cancels any running poll before starting a new one.
-    /// Always paired with `stopForegroundPolling()` on background transition.
+    /// Starts a repeating poll every `interval`. Safe to call repeatedly — cancels any running poll first.
     public func startForegroundPolling(interval: Duration = .seconds(30)) {
         foregroundPollTask?.cancel()
         foregroundPollTask = Task { [weak self] in
@@ -76,8 +56,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         Self.logger.info("Foreground polling started — interval: \(interval)")
     }
 
-    /// Cancels the foreground poll started by `startForegroundPolling()`.
-    /// Call this when the app transitions to `.background` or `.inactive`.
+    /// Cancels the foreground poll. Call on `.background` / `.inactive` transitions.
     public func stopForegroundPolling() {
         foregroundPollTask?.cancel()
         foregroundPollTask = nil
@@ -86,9 +65,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Subscription Registration
 
-    /// Ensures the shared-database subscription exists. Call once at launch.
-    /// Safe to call repeatedly — skips the server round-trip if the
-    /// subscription was already saved and has not been purged.
+    /// Ensures the shared-database subscription exists. Safe to call repeatedly.
     public func registerIfNeeded() async {
         if UserDefaults.standard.bool(forKey: Self.subscriptionSavedKey) {
             // Verify it still exists on the server.
@@ -98,7 +75,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
                 Self.logger.info("Shared-zone subscription already registered")
                 return
             } catch {
-                // Subscription was purged — fall through to re-create.
+                // Subscription purged — re-create.
                 Self.logger.info("Subscription purged by CloudKit — re-registering")
                 UserDefaults.standard.set(false, forKey: Self.subscriptionSavedKey)
             }
@@ -111,7 +88,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         let subscription = CKDatabaseSubscription(subscriptionID: Self.subscriptionID)
 
         let notificationInfo = CKSubscription.NotificationInfo()
-        notificationInfo.shouldSendContentAvailable = true // silent push
+        notificationInfo.shouldSendContentAvailable = true
         subscription.notificationInfo = notificationInfo
 
         do {
@@ -126,16 +103,9 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Change Fetching
 
-    /// Performs an immediate full fetch of every record in a specific shared zone.
-    ///
-    /// Use this immediately after `CKAcceptSharesOperation` succeeds. It bypasses
-    /// `fetchDatabaseChanges()` entirely — which can return an empty zone list in the
-    /// brief window between share acceptance and CloudKit propagating the new zone into
-    /// the change feed — and instead reads the specific zone we already know about from
-    /// the share metadata.
-    ///
-    /// The caller supplies the zone ID from `shareMetadata.rootRecordID.zoneID`, which
-    /// is the planner's `com.apple.coredata.cloudkit.zone`.
+    /// Performs a full fetch of all records in a specific shared zone.
+    /// Use immediately after `CKAcceptSharesOperation` succeeds to bypass the brief
+    /// propagation window before the zone appears in the change feed.
     public func fetchAllRecords(inZone zoneID: CKRecordZone.ID) async {
         Self.logger.info("Performing targeted zone fetch for accepted share: \(zoneID.zoneName)")
         clearZoneChangeToken(for: zoneID)
@@ -147,11 +117,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         }
     }
 
-    /// Fetches changes from the shared database. Call this from
-    /// `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`
-    /// or whenever you want to pull the latest shared timeline data.
-    ///
-    /// Returns `true` if new data was fetched.
+    /// Fetches changes from the shared database. Returns `true` if new data was fetched.
     @discardableResult
     public func fetchChanges() async -> Bool {
         Self.logger.info("Fetching shared-database changes")
@@ -178,9 +144,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Database-Level Changes
 
-    /// Fetches which zones have changed since the last server change token.
-    /// Returns changed zones (need record-level fetch) AND purged zones
-    /// (the planner deleted their data — vendor must remove the local event).
+    /// Fetches which zones changed since the last token. Returns changed zones and purged zones.
     private func fetchDatabaseChanges() async throws -> (changed: [CKRecordZone.ID], purged: [CKRecordZone.ID]) {
         var currentToken = loadServerChangeToken()
 
@@ -210,12 +174,8 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
         return (changed: changedZoneIDs, purged: purgedZoneIDs)
     }
 
-    /// Deletes local events that were synced from zones the planner has since removed
-    /// (i.e. the planner deleted the shared event and CloudKit purged the shared zone).
-    ///
-    /// `CKRecordZone.ID.ownerName` is the planner's iCloud record name — the same value
-    /// stored in `EventModel.ownerRecordName`. Any vendor-side event whose owner matches
-    /// a purged zone owner is now orphaned and must be removed.
+    /// Deletes local events whose zones the planner has removed.
+    /// `CKRecordZone.ID.ownerName` maps to `EventModel.ownerRecordName`.
     private func deletePurgedZoneEvents(_ purgedZoneIDs: [CKRecordZone.ID]) async {
         let ownerNames = purgedZoneIDs.map(\.ownerName)
         Self.logger.info("Purged zones for owners: \(ownerNames.joined(separator: ", "))")
@@ -232,14 +192,8 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
     // MARK: - Zone-Level Changes
 
-    /// Fetches record-level changes for the given zones and merges them into
-    /// the local SwiftData store via `SharedRecordSyncer`.
-    ///
-    /// `NSPersistentCloudKitContainer` only mirrors the private CloudKit database,
-    /// so shared-zone records never reach SwiftData automatically. This method
-    /// performs that bridging manually: every modified/deleted CKRecord is
-    /// collected across all pages and all zones, then handed to `SharedRecordSyncer`
-    /// on the main actor in one atomic merge.
+    /// Fetches record-level changes for the given zones and merges them into SwiftData via `SharedRecordSyncer`.
+    /// `NSPersistentCloudKitContainer` only mirrors the private DB, so this bridges shared-zone records manually.
     private func fetchZoneChanges(in zoneIDs: [CKRecordZone.ID]) async throws {
         var modified: [CKRecord] = []
         var deleted: [SharedDeletedRecord] = []

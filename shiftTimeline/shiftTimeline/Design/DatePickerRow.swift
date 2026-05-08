@@ -2,14 +2,8 @@ import SwiftUI
 
 /// A Form-compatible date/time picker row with a trailing checkmark button.
 ///
-/// The picker stays open until the user explicitly taps the checkmark, which
-/// recycles the view identity to dismiss the popover. There is no auto-close
+/// The picker stays open until the user explicitly taps the checkmark, which recycles the view identity to dismiss the popover. There is no auto-close
 /// on value change — the selection is only committed on confirm.
-///
-/// Usage inside a `Form Section`:
-/// ```swift
-/// DatePickerRow("Start Time", selection: $startTime, components: [.date, .hourAndMinute])
-/// ```
 struct DatePickerRow: View {
 
     let label: String

@@ -17,50 +17,14 @@ public struct CompressionResult {
 public struct CompressionCalculator: Sendable {
     public init() {}
 
-    /// Proportionally compresses trapped Fluid blocks so they fit within the
-    /// available gap before a Pinned block.
-    ///
-    /// "Trapped" blocks are the consecutive run of Fluid blocks immediately
-    /// preceding the Pinned block identified by the collision.
-    ///
-    /// **Behaviour by case:**
-    /// - `totalDuration <= availableTime`: blocks are laid out contiguously
-    ///   (closing gaps) but durations are **not** expanded. Status: `.clean`.
-    /// - `totalDuration > availableTime` and minimums fit: each block's
-    ///   duration is scaled by `(block.duration / totalDuration) * availableTime`,
-    ///   clamped to `minimumDuration`. Status: `.clean`.
-    /// - `sum(minimumDurations) > availableTime`: all trapped blocks are set
-    ///   to `minimumDuration`, flagged `requiresReview = true`. Status: `.impossible`.
-    /// - `availableTime <= 0`: no feasible compression exists. Trapped blocks
-    ///   are set to `minimumDuration`, flagged `requiresReview = true`.
-    ///   Status: `.impossible`.
-    ///
-    /// ## Mutation Semantics
-    ///
-    /// `TimeBlockModel` is a reference-type SwiftData `@Model`. This method
-    /// **mutates `scheduledStart`, `duration`, and potentially `requiresReview`
-    /// directly on the passed-in instances** so that SwiftData's change-tracking
-    /// picks up the modifications automatically. The ``CompressionResult/blocks``
-    /// array holds references to the same (now-mutated) objects — it is **not**
-    /// a set of independent copies.
-    ///
-    /// Callers that need undo/redo support should **snapshot** the relevant
-    /// properties *before* calling this method.
-    ///
-    /// - Parameters:
-    ///   - blocks: All time blocks in the timeline (sorted or unsorted).
-    ///   - collision: The collision that triggered compression.
-    /// - Returns: A ``CompressionResult`` with the adjusted blocks and status.
+    /// Proportionally compresses trapped Fluid blocks to fit within the available gap before a Pinned block.
+    /// Mutates `scheduledStart`, `duration`, and `requiresReview` on passed-in instances directly.
     public func compress(blocks: [TimeBlockModel], collision: Collision) -> CompressionResult {
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
         return compress(sortedBlocks: sorted, collision: collision)
     }
 
-    /// Pre-sorted variant — avoids an O(n log n) sort on every call.
-    ///
-    /// Use this overload when the caller has already sorted the blocks array
-    /// (e.g., inside a loop that processes multiple collisions from the same
-    /// sorted snapshot).
+    /// Pre-sorted variant — skips the O(n log n) sort.
     public func compress(sortedBlocks sorted: [TimeBlockModel], collision: Collision) -> CompressionResult {
 
         guard let pinnedIndex = sorted.firstIndex(where: { $0.id == collision.pinnedBlockID }) else {

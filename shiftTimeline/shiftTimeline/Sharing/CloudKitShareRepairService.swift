@@ -2,39 +2,12 @@ import CloudKit
 import Models
 import os
 
-/// Repairs the CloudKit `parent`-field hierarchy for shared events after
-/// timeline mutations.
+/// Sets the CloudKit `parent`-field hierarchy for shared events after timeline mutations.
 ///
-/// ## Why this is necessary
-///
-/// `NSPersistentCloudKitContainer` mirrors SwiftData model relationships
-/// using reference fields (`CD_event`, `CD_track`) stored as plain Strings.
-/// It does **NOT** set the CloudKit-level `parent` field on those records.
-///
-/// CloudKit's sharing mechanism — specifically `recordZoneChanges` on the
-/// recipient's shared database — only returns records whose `parent` chain
-/// leads back to the share's root record. Without `parent` being set, child
-/// records (tracks, blocks, vendors) exist in CloudKit's private database but
-/// are invisible to vendor devices receiving the `CKDatabaseSubscription`
-/// change feed.
-///
-/// The result is that vendors only see an empty event — no timeline, no blocks
-/// — until the planner opens the "Manage Vendor Sharing" sheet, which
-/// incidentally runs `refreshChildParentFields` and triggers a CloudKit push.
-///
-/// ## What this service does
-///
-/// After every `modelContext.save()` on a shared event, this service:
-/// 1. Finds the mirrored CloudKit root record for the event (by UUID).
-/// 2. Queries all child records (tracks, vendors, blocks).
-/// 3. Writes their `parent` field via `CKModifyRecordsOperation(savePolicy: .changedKeys)`.
-/// 4. CloudKit detects the modification and fires the `CKDatabaseSubscription`
-///    to all participants → vendor device calls `fetchChanges()` and gets the
-///    full updated timeline.
-///
-/// The operation is **idempotent** — writing the same `parent` value again
-/// is a no-op from CloudKit's perspective (`.changedKeys` policy ensures no
-/// conflict with `NSPersistentCloudKitContainer`'s concurrent writes).
+/// `NSPersistentCloudKitContainer` does not set the CloudKit-level `parent` field on child records,
+/// so `recordZoneChanges` on the shared DB only returns the root record to participants.
+/// This service sets `parent` on tracks, vendors, and blocks via `CKModifyRecordsOperation(.changedKeys)`
+/// so the full timeline is visible to vendors. The operation is idempotent.
 enum CloudKitShareRepairService {
 
     private static let logger = Logger(
@@ -55,12 +28,8 @@ enum CloudKitShareRepairService {
     // MARK: - Public API
 
     /// Repairs the CloudKit parent-field hierarchy for a shared event.
-    ///
-    /// Call this fire-and-forget (inside a `Task { }`) after every
-    /// `modelContext.save()` on a mutation to a shared event.
-    /// The method is a no-op when `event.shareURL == nil`.
-    ///
-    /// - Parameter event: The event whose child records need `parent` set.
+    /// Fire-and-forget after every `modelContext.save()` on a shared event mutation.
+    /// No-op when `event.shareURL == nil`.
     static func repairParentFieldsIfShared(for event: EventModel) async {
         guard event.shareURL != nil else { return }
 
@@ -110,16 +79,13 @@ enum CloudKitShareRepairService {
             }
             container.privateCloudDatabase.add(operation)
         } catch {
-            // Non-fatal — the share remains valid even if repair fails.
-            // The planner can still open the management sheet as a fallback.
+            // Non-fatal — share remains valid even if repair fails.
             logger.error("Failed to fetch root record for repair: \(error.localizedDescription)")
         }
     }
 
-    /// Repairs the CloudKit parent-field hierarchy given a known root record ID.
-    ///
-    /// Called by `EventDetailView.resolveShare` (management sheet path) and
-    /// is the same idempotent repair, just skipping the root-record lookup.
+    /// Repairs child parent-fields given a known root record ID.
+    /// Called from `EventDetailView.resolveShare` (management sheet path).
     static func repairChildParentFields(rootRecordID: CKRecord.ID) async {
         do {
             let rootRecord = try await container.privateCloudDatabase.record(for: rootRecordID)
@@ -142,9 +108,7 @@ enum CloudKitShareRepairService {
     }
 
     /// Fetches and sets parent fields on all child records of a given root.
-    ///
-    /// Exposed `internal` so `EventDetailView.createNewShare` can call it when
-    /// constructing the initial share payload (where it already has the root record).
+    /// `internal` so `EventDetailView.createNewShare` can call it directly.
     static func fetchChildRecords(
         rootRecord: CKRecord,
         zone: CKRecordZone.ID
@@ -190,11 +154,8 @@ enum CloudKitShareRepairService {
 
     // MARK: - Private Helpers
 
-    /// Queries `CD_EventModel` records to find the one matching `event.id`.
-    ///
-    /// `NSPersistentCloudKitContainer` uses opaque record names — the UUID field
-    /// is stored as either `CD_id` (current schema) or `id` (legacy). Both are
-    /// checked for forward and backward compatibility.
+    /// Queries `CD_EventModel` records matching `event.id`.
+    /// Checks both `CD_id` (current schema) and `id` (legacy) for forward/backward compatibility.
     private static func findRootRecord(for event: EventModel) async throws -> CKRecord? {
         let query = CKQuery(
             recordType: "CD_EventModel",

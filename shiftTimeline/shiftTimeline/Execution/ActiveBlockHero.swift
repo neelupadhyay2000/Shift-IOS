@@ -5,12 +5,6 @@ import UIKit
 import Models
 
 /// Hero countdown component for the active block.
-///
-/// Fills the available space given to it by the parent (LiveDashboardView).
-/// - Block title: 32pt bold.
-/// - Countdown: 72pt monospace mm:ss, updating every second via TimelineView.
-/// - At 00:00 the timer flips red, counts UP, label becomes "OVERTIME",
-///   and a `UINotificationFeedbackGenerator` pulse fires exactly once per transition.
 struct ActiveBlockHero: View {
 
     let block: TimeBlockModel
@@ -96,7 +90,6 @@ struct ActiveBlockHero: View {
     // MARK: - Helpers
 
     /// Formats a `TimeInterval` as mm:ss (or h:mm:ss for durations ≥ 1 hour).
-    /// Works for both positive (countdown) and negative (overtime count-up) values.
     private func formatCountdown(_ seconds: TimeInterval) -> String {
         let total = Int(abs(seconds.rounded(.towardZero)))
         let h = total / 3600

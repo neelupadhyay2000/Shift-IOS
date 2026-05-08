@@ -1,7 +1,6 @@
 import TelemetryDeck
 
-/// Centralised analytics wrapper. All TelemetryDeck calls go through here —
-/// no raw TelemetryDeck imports or string literals scattered across view files.
+/// Centralised analytics wrapper. All TelemetryDeck calls go through here — no raw TelemetryDeck imports or string literals scattered across view files.
 enum AnalyticsService {
 
     enum Signal: String {

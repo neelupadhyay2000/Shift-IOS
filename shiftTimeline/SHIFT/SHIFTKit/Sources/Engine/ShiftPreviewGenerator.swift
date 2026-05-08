@@ -3,13 +3,7 @@ import Models
 
 // MARK: - PreviewBlock
 
-/// A value-type mirror of the fields on ``TimeBlockModel`` that the ripple
-/// pipeline reads and writes.
-///
-/// `ShiftPreviewGenerator` copies each live `TimeBlockModel` into a
-/// `PreviewBlock` before running the engine stages, so the originals are
-/// **never mutated** during preview generation. The preview result is expressed
-/// entirely in terms of `PreviewBlock` values.
+/// Value-type mirror of mutable ``TimeBlockModel`` fields. Engine stages operate on these copies so live objects are never mutated during preview generation.
 public struct PreviewBlock: Sendable, Equatable {
     public let id: UUID
     public let title: String
@@ -47,8 +41,7 @@ public struct PreviewBlock: Sendable, Equatable {
 // MARK: - PreviewBlock + TimeBlockModel
 
 public extension PreviewBlock {
-    /// Creates a `PreviewBlock` by copying the current field values off a
-    /// live ``TimeBlockModel`` reference.
+    /// Creates a `PreviewBlock` by copying current field values from a live ``TimeBlockModel``.
     init(copying block: TimeBlockModel) {
         self.init(
             id: block.id,
@@ -66,16 +59,9 @@ public extension PreviewBlock {
 
 // MARK: - ShiftPreview
 
-/// The non-mutating result of a preview recalculation.
-///
-/// Contains the projected state of every block **after** the proposed shift,
-/// without having modified any live `TimeBlockModel` instances. Use `diffs`
-/// to drive visual indicators (e.g. highlighting which blocks would move and
-/// by how much).
+/// Non-mutating result of a preview recalculation. Use `diffs` to drive visual indicators.
 public struct ShiftPreview: Sendable {
-    /// The projected state of every block after the proposed shift, sorted by
-    /// `scheduledStart` ascending. These are value-type copies — the live
-    /// SwiftData objects are untouched.
+    /// Projected state of every block after the proposed shift, sorted by `scheduledStart`.
     public let previewBlocks: [PreviewBlock]
 
     /// Collisions detected in the projected timeline.
@@ -87,17 +73,8 @@ public struct ShiftPreview: Sendable {
     /// Overall status of the projected timeline.
     public let status: RippleStatus
 
-    /// Per-block start-time delta relative to the block's `scheduledStart` at
-    /// the time `generatePreview` was called.
-    ///
-    /// **Every** input block has an entry in this dictionary — including pinned
-    /// blocks and blocks that would not move. Blocks whose `scheduledStart`
-    /// would not change receive the value `0`.
-    ///
-    /// A positive value means the block moves later; a negative value means
-    /// it moves earlier (partial backward clamp). Use this to drive visual
-    /// indicators without needing to compare `previewBlocks` against your own
-    /// snapshot of the original state.
+    /// Per-block start-time delta vs. the original `scheduledStart` at call time.
+    /// Every input block has an entry; blocks that don't move receive `0`.
     public let diffs: [UUID: TimeInterval]
 
     public init(
@@ -117,25 +94,7 @@ public struct ShiftPreview: Sendable {
 
 // MARK: - ShiftPreviewGenerator
 
-/// Produces a ``ShiftPreview`` for a proposed shift **without mutating any
-/// live `TimeBlockModel` instances**.
-///
-/// `ShiftPreviewGenerator` mirrors the four-stage Ripple Engine pipeline but
-/// operates entirely on value-type ``PreviewBlock`` copies. This makes it safe
-/// to call at any point during a drag gesture or before the user confirms an
-/// action, because nothing in the SwiftData store changes until the caller
-/// decides to commit.
-///
-/// ```swift
-/// let preview = generator.generatePreview(
-///     blocks: allBlocks,
-///     blockID: draggedBlock.id,
-///     delta: 600          // 10 minutes later
-/// )
-/// // preview.diffs shows which blocks move and by how much
-/// // preview.collisions shows any projected overlaps
-/// // allBlocks are completely unchanged
-/// ```
+/// Produces a ``ShiftPreview`` for a proposed shift without mutating any live `TimeBlockModel` instances.
 public struct ShiftPreviewGenerator: Sendable {
 
     private let dependencyResolver: DependencyResolver
@@ -152,24 +111,8 @@ public struct ShiftPreviewGenerator: Sendable {
         self.compressionCalculator = compressionCalculator
     }
 
-    /// Generates a projected timeline for the proposed shift without mutating
-    /// any live block references.
-    ///
-    /// Runs the full four-stage pipeline (dependency resolution → shift
-    /// propagation → collision detection → compression) on value-type copies
-    /// of the input blocks. The live `TimeBlockModel` objects passed in
-    /// `blocks` are **never written to**.
-    ///
-    /// - Parameters:
-    ///   - blocks: All live time blocks in the current timeline.
-    ///   - blockID: The ID of the block whose start time is being proposed.
-    ///   - delta: The proposed time shift in seconds (positive = later,
-    ///     negative = earlier).
-    /// - Returns: A ``ShiftPreview`` describing the projected state.
-    ///   Early-exit paths (unknown `blockID`, `delta == 0`, pinned block shifted,
-    ///   circular dependency) return a preview whose `diffs` dictionary contains
-    ///   every input block mapped to `0` — **not** an empty dictionary — so
-    ///   callers can always subscript `diffs` without checking for absent keys.
+    /// Generates a projected timeline for a proposed shift without mutating any live block references.
+    /// Early-exit paths return a preview with all `diffs` set to `0` — never an empty dictionary.
     public func generatePreview(
         blocks: [TimeBlockModel],
         blockID: UUID,

@@ -39,26 +39,7 @@ public struct RippleEngine: Sendable {
     }
 
     /// Recalculates the timeline after a block's scheduled time changes.
-    ///
-    /// - Parameters:
-    ///   - blocks: All time blocks in the timeline.
-    ///   - changedBlockID: The ID of the block whose time changed.
-    ///   - delta: The time shift in seconds (positive = later, negative = earlier).
-    ///   - adjacency: An optional explicit forward adjacency list. When provided,
-    ///     dependency resolution uses this graph instead of temporal ordering.
-    /// - Returns: A ``RippleResult`` whose blocks are always sorted by
-    ///   `scheduledStart`.
-    ///
-    /// ## Mutation Semantics
-    ///
-    /// `TimeBlockModel` is a reference-type SwiftData `@Model`. This method
-    /// **mutates `scheduledStart` directly on the passed-in instances** so that
-    /// SwiftData's change-tracking picks up the modifications automatically.
-    /// The ``RippleResult/blocks`` array holds references to the same (now-mutated)
-    /// objects — it is **not** a set of independent copies.
-    ///
-    /// Callers that need undo/redo support should **snapshot** the relevant
-    /// properties (e.g. via `BlockSnapshot`) *before* calling this method.
+    /// Snapshot block state via `BlockSnapshot` before calling if undo/redo is needed.
     public func recalculate(
         blocks: [TimeBlockModel],
         changedBlockID: UUID,
@@ -81,11 +62,6 @@ public struct RippleEngine: Sendable {
         }
 
         // --- Stage 1: Dependency Resolution ---
-        //
-        // Only an *explicit* adjacency list contributes "dependents" that can
-        // cross the pinned wall. The temporal fallback would otherwise treat
-        // every subsequent block as a downstream dependent, defeating the
-        // bounded-ripple rule below.
         let dependentIDs: Set<UUID>
         if let adjacency {
             switch dependencyResolver.resolve(adjacency: adjacency, from: changedBlockID) {
@@ -99,11 +75,7 @@ public struct RippleEngine: Sendable {
         }
 
         // --- Stage 2 set-up: Bounded positional ripple ---
-        //
-        // Walk forward from the changed block; include subsequent Fluid blocks
-        // until we hit a Pinned block, which acts as a hard wall and halts
-        // positional ripple. Explicit dependents (if any) are unioned on top
-        // and may legitimately cross the wall.
+        // Walk forward; include Fluid blocks until the first Pinned wall. Explicit dependents are unioned on top.
         var subsequentFluidIDs: Set<UUID> = []
         if changedIndex + 1 < sorted.count {
             for i in (changedIndex + 1)..<sorted.count {

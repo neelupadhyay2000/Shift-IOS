@@ -6,9 +6,6 @@ import Models
 import Services
 
 /// Sheet for creating a new event.
-///
-/// Fields: Title (required), Date, Location (optional address search).
-/// The "Create" button is disabled when title is empty.
 struct CreateEventSheet: View {
 
     @Environment(\.modelContext) private var modelContext

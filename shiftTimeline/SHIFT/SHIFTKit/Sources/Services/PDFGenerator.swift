@@ -2,18 +2,7 @@
 import UIKit
 import Models
 
-/// Generates a professional PDF document from an event's timeline data.
-///
-/// Usage:
-/// ```swift
-/// let generator = PDFGenerator()
-/// let data = generator.generate(from: event)
-/// ```
-///
-/// The output includes:
-/// - Event title, date, and venue
-/// - A formatted table of all blocks (time, title, duration, vendor, notes)
-/// - Sunset and golden hour rows visually highlighted
+/// Generates a PDF document from an event's timeline data.
 public final class PDFGenerator: Sendable {
 
     // MARK: - Layout Constants
@@ -86,10 +75,7 @@ public final class PDFGenerator: Sendable {
 
     // MARK: - Public API
 
-    /// Generates a PDF `Data` blob for the given event.
-    ///
-    /// Blocks are sorted chronologically across all tracks.
-    /// Sunset and golden hour times are inserted as highlighted rows.
+    /// Generates a PDF `Data` blob for the given event. Blocks sorted chronologically; sunset/golden hour rows highlighted.
     public func generate(from event: EventModel) -> Data {
         let renderer = UIGraphicsPDFRenderer(
             bounds: CGRect(x: 0, y: 0, width: Layout.pageWidth, height: Layout.pageHeight)

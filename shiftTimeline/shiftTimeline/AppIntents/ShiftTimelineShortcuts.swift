@@ -8,16 +8,14 @@ import Services
 // MARK: - ShiftTimelineIntent
 
 /// Shifts the live SHIFT timeline forward by a specified number of minutes.
-///
 /// Discoverable in the Shortcuts app and invocable via Siri.
-/// When invoked without a value, the system prompts the user for `shiftMinutes`.
 struct ShiftTimelineIntent: AppIntent {
     static var title: LocalizedStringResource = "Shift SHIFT Timeline"
     static var description = IntentDescription(
         "Shifts all remaining blocks in the live timeline forward by the specified minutes."
     )
 
-    /// Valid range matches the in-app QuickShiftSheet (1…120 minutes).
+    /// Valid range matches the in-app QuickShiftSheet
     static let validRange = 1...120
 
     @Parameter(
@@ -30,7 +28,7 @@ struct ShiftTimelineIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        // Input validation
+        
         guard Self.validRange.contains(shiftMinutes) else {
             return .result(
                 dialog: IntentDialog("Please choose between 1 and 120 minutes.")
@@ -40,8 +38,7 @@ struct ShiftTimelineIntent: AppIntent {
         let container = PersistenceController.shared.container
         let context = container.mainContext
 
-        // Fetch all events and filter in-memory — #Predicate with enum
-        // comparison can crash at runtime in SwiftData.
+        // Fetch all events and filter in-memory
         let allEvents: [EventModel]
         do {
             allEvents = try context.fetch(FetchDescriptor<EventModel>())

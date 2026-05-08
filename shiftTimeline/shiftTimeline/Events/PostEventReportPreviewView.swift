@@ -6,16 +6,6 @@ import Models
 import Services
 
 /// Full-screen PDF preview of the post-event report.
-///
-/// Mirrors the timeline `PDFExportPreviewView` — generates the PDF off the
-/// main thread, stages it as a temporary file, and exposes a `ShareLink`
-/// in the toolbar so the user can send the report to Files, Mail, AirDrop,
-/// or any other share target.
-///
-/// The view loads the stored `PostEventReport` from `EventModel.postEventReport`.
-/// If no report has been generated (e.g. the user navigated here before
-/// completion finished), the view falls back to building a fresh one via
-/// `PostEventReportGenerator.generate(for:)` so the share flow never dead-ends.
 struct PostEventReportPreviewView: View {
 
     let eventID: UUID
@@ -88,10 +78,8 @@ struct PostEventReportPreviewView: View {
             return
         }
         #if os(iOS)
+        
         // Ensure a report exists. This is a no-op when one is already cached.
-        // All access to the live `@Model` happens here on `@MainActor` —
-        // we extract a `Sendable` snapshot before hopping off the actor so
-        // the (CPU-heavy) PDF render does not jank the UI.
         let report = event.postEventReport ?? PostEventReportGenerator.generate(for: event)
         let summary = PostEventReportPDFGenerator.EventSummary(
             title: event.title,
@@ -139,9 +127,7 @@ private struct PDFKitView: UIViewRepresentable {
     }
 
     func updateUIView(_ pdfView: PDFView, context: Context) {
-        // `data` is a `let` from a single parent `@State` write; an identity
-        // check is sufficient. Avoid `dataRepresentation()` which serialises
-        // the entire document on every SwiftUI update pass.
+        // `data` is a `let` from a single parent `@State` write; an identity check is sufficient.
         guard pdfView.document == nil else { return }
         pdfView.document = PDFDocument(data: data)
     }

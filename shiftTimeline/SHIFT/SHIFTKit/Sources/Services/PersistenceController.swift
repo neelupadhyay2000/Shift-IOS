@@ -4,19 +4,8 @@ import SwiftData
 import Models
 import ObjCException
 
-/// ## CloudKit Conflict Resolution Policy
-/// `NSPersistentCloudKitContainer` (the engine backing SwiftData's `.automatic`
-/// CloudKit database) uses **last-write-wins** to resolve merge conflicts:
-/// when two devices both edit the same record while offline and then reconnect,
-/// the edit with the later `CKRecord.modificationDate` survives on both devices.
-///
-/// SHIFT does not implement any custom conflict resolution on top of this.
-/// This is an intentional product decision: event timeline data is owned by a
-/// single planner, so racing writes from two of their devices should simply
-/// converge to the most recent intent.
-///
-/// The `CloudKitSyncIntegrityTests.lastWriteWinsOnConcurrentOfflineMutation`
-/// test verifies the observable on-disk contract of this behavior.
+/// Manages the SwiftData `ModelContainer` with a CloudKit-backed store.
+/// Uses last-write-wins conflict resolution (product decision — data is single-planner owned).
 public final class PersistenceController: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")
@@ -31,9 +20,7 @@ public final class PersistenceController: Sendable {
 
     public let container: ModelContainer
 
-    /// Tri-state CloudKit mirror health, set deterministically by the
-    /// fallback chain in `init`. UI consumers branch on `.degraded` to
-    /// surface a sync banner; `.disabled` means CloudKit is not running.
+    /// Tri-state CloudKit mirror health. `.degraded` → show sync banner; `.disabled` → CloudKit off.
     public let cloudKitMirrorState: CloudKitMirrorState
 
     public static var schema: Schema {
@@ -46,8 +33,7 @@ public final class PersistenceController: Sendable {
         ])
     }
 
-    /// Returns the store URL inside the shared App Group container,
-    /// creating the parent directory if it doesn't exist.
+    /// Store URL inside the shared App Group container. Creates the directory if needed.
     private static var storeURL: URL {
         guard let groupURL = FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
@@ -84,7 +70,7 @@ public final class PersistenceController: Sendable {
             cloudKitDatabase: .automatic
         )
 
-        // Attempt 1: existing store with full migration plan (happy path).
+        // Attempt 1: existing store with full migration plan.
         if let built = Self.tryBuildContainer(
             schema: schema,
             configuration: config,
@@ -96,8 +82,7 @@ public final class PersistenceController: Sendable {
             return
         }
 
-        // Attempt 2: delete corrupt/outdated store, retry with migration plan.
-        // CloudKit will re-download the user's data after the container syncs.
+        // Attempt 2: delete corrupt store, retry with migration plan. CloudKit re-downloads data after sync.
         Self.logger.error("Initial ModelContainer init failed — deleting store and retrying with migration plan")
         Self.deleteStoreFiles(at: url)
 
@@ -112,9 +97,7 @@ public final class PersistenceController: Sendable {
             return
         }
 
-        // Attempt 3: fresh store WITHOUT migration plan but WITH CloudKit.
-        // CloudKit mirroring may degrade (silent record-type errors), but
-        // at least sync is attempted rather than fully disabled.
+        // Attempt 3: fresh store without migration plan, CloudKit still enabled (may degrade).
         Self.logger.error("Migration plan failed on fresh store — retrying without migration plan")
         Self.deleteStoreFiles(at: url)
 
@@ -130,7 +113,7 @@ public final class PersistenceController: Sendable {
             return
         }
 
-        // Attempt 4: local-only store. The app launches but CloudKit is dead.
+        // Attempt 4: local-only store. App launches but CloudKit is disabled.
         Self.logger.fault("All CloudKit-enabled attempts failed — falling back to local-only store. CloudKit sync is DISABLED.")
         Self.deleteStoreFiles(at: url)
         let localOnly = ModelConfiguration(
@@ -170,9 +153,7 @@ public final class PersistenceController: Sendable {
         fatalError("Could not create any ModelContainer, even in-memory")
     }
 
-    /// Attempts to build a `ModelContainer` while converting any Obj-C
-    /// `NSException` (e.g. from `NSLightweightMigrationStage`) into a
-    /// recoverable error. Returns `nil` on failure of either kind.
+    /// Builds a `ModelContainer`, converting Obj-C `NSException`s into recoverable errors. Returns `nil` on failure.
     private static func tryBuildContainer(
         schema: Schema,
         configuration: ModelConfiguration,
@@ -237,11 +218,7 @@ public final class PersistenceController: Sendable {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    /// Creates and inserts a `ShiftRecord` documenting a committed shift.
-    ///
-    /// Call this immediately before `context.save()` at every shift commit
-    /// site (iPhone UI, Watch bridge, AppIntent) so `event.shiftRecords` and
-    /// `PostEventReport.totalShiftCount` are populated correctly.
+    /// Creates and inserts a `ShiftRecord` for a committed shift. Call before `context.save()` at every shift commit site.
     public static func recordShift(
         deltaMinutes: Int,
         triggeredBy: ShiftSource,

@@ -14,23 +14,8 @@ public enum RippleStatus: String, Sendable {
 
 // MARK: - RippleResult
 
-/// The result of a ripple-engine recalculation, containing the adjusted
-/// blocks and an overall status.
-///
-/// **Ordering contract:** `blocks` are always sorted by `scheduledStart`
-/// (ascending). The sort is enforced inside `init`, so every code path that
-/// creates a ``RippleResult`` is guaranteed to honour this invariant.
-///
-/// ## Mutation Semantics
-///
-/// ``blocks`` holds **references** to the same `TimeBlockModel` instances
-/// that were passed into ``RippleEngine/recalculate(blocks:changedBlockID:delta:)``.
-/// Those instances have already been mutated in place before this result is
-/// constructed — the array is provided for ordering and status context, not as
-/// a set of independent copies.
-///
-/// The `collisions` and `compressedBlockIDs` fields are reserved for future
-/// collision-detection and compression passes. They currently default to empty.
+/// Result of a ripple-engine recalculation. `blocks` is always sorted by `scheduledStart` (enforced in `init`).
+/// `blocks` holds references to already-mutated `TimeBlockModel` instances — not independent copies.
 public struct RippleResult {
     public let blocks: [TimeBlockModel]
     public let collisions: [UUID]

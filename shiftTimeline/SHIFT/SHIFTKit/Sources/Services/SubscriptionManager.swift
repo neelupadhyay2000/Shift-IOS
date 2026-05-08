@@ -2,9 +2,7 @@ import Foundation
 import os
 import StoreKit
 
-/// Centralized free-tier gate limits referenced by both UI gates and the paywall feature table.
-///
-/// Single source of truth — never hardcode these values at call sites.
+/// Free-tier gate limits. Single source of truth — never hardcode at call sites.
 public enum FreeTier {
     public static let maxActiveEvents = 1
     public static let maxBlocksPerEvent = 15
@@ -31,12 +29,12 @@ public final class SubscriptionManager {
         "shift.pro.sub.lifetime",
     ]
 
-    /// Tri-state entitlement so callers can distinguish "still loading" from "confirmed free".
+    /// Tri-state entitlement: `.unknown` during cold-launch resolution.
     public enum EntitlementState: Sendable, Equatable {
         case unknown, free, pro
     }
 
-    /// Two-state alias retained for downstream readability.
+    /// Two-state alias for downstream readability.
     public enum Entitlement: Sendable, Equatable {
         case free, pro
     }
@@ -46,12 +44,9 @@ public final class SubscriptionManager {
     /// Renewal / expiration date for the active auto-renewable subscription.
     /// `nil` for free users and lifetime Pro owners.
     public private(set) var renewalDate: Date?
-    /// `true` when the active Pro entitlement is a lifetime (non-consumable) purchase.
     public private(set) var isLifetimePro: Bool = false
 
-    /// Returns true only when entitlement is *confirmed* pro.
-    /// For *feature-execution* gates, await `waitUntilEntitlementResolved()` first to avoid
-    /// the cold-launch race where this would briefly read false for a real Pro user.
+    /// Confirmed pro only. Await `waitUntilEntitlementResolved()` before feature gates to avoid cold-launch false negatives.
     public var isProUser: Bool { entitlementState == .pro }
 
     public var currentEntitlement: Entitlement { entitlementState == .pro ? .pro : .free }
@@ -61,14 +56,13 @@ public final class SubscriptionManager {
     public var yearlyProduct: Product? { availableProducts.first { $0.id == "shift.pro.sub.yearly" } }
     public var lifetimeProduct: Product? { availableProducts.first { $0.id == "shift.pro.sub.lifetime" } }
 
-    // nonisolated(unsafe) so deinit (which is nonisolated in Swift 6) can call
-    // Task.cancel(), which is itself thread-safe on any Sendable Task value.
+    // nonisolated(unsafe): deinit is nonisolated in Swift 6; Task.cancel() is Sendable-safe.
     nonisolated(unsafe) private var updateListenerTask: Task<Void, Never>?
     private var entitlementResolutionContinuations: [CheckedContinuation<EntitlementState, Never>] = []
     private static let logger = Logger(subsystem: "com.shift.store", category: "SubscriptionManager")
 
     private init() {
-        // Transaction listener must be started before any purchase call to avoid missing updates.
+        // Start transaction listener before any purchase call to avoid missing updates.
         updateListenerTask = Task { [weak self] in
             for await result in Transaction.updates {
                 await self?.handleVerificationResult(result)
@@ -118,12 +112,10 @@ public final class SubscriptionManager {
             case .verified(let transaction):
                 if Self.productIDs.contains(transaction.productID) {
                     foundPro = true
-                    // Treat both `.nonConsumable` and `.nonRenewable` as lifetime, since the
-                    // App Store Connect product type for the lifetime SKU may be configured as either.
+                    // Both `.nonConsumable` and `.nonRenewable` map to lifetime.
                     let isThisLifetime = transaction.productType == .nonConsumable
                         || transaction.productType == .nonRenewable
-                    // Lifetime entitlement always wins over an auto-renewing subscription so the user
-                    // is not shown a misleading renewal date when they own both.
+                    // Lifetime wins over auto-renewing; suppress misleading renewal date.
                     if isThisLifetime {
                         foundLifetime = true
                         foundRenewalDate = nil
@@ -134,8 +126,7 @@ public final class SubscriptionManager {
             case .unverified(let transaction, let error):
                 Self.logger.error("Unverified entitlement for \(transaction.productID, privacy: .public): \(error.localizedDescription, privacy: .public)")
             }
-            // Stop early only once a lifetime entitlement is confirmed; otherwise keep iterating to
-            // ensure a later lifetime transaction can still upgrade the result.
+            // Keep iterating until lifetime is confirmed; a later transaction may upgrade the result.
             if foundLifetime { break }
         }
         let resolved: EntitlementState = foundPro ? .pro : .free

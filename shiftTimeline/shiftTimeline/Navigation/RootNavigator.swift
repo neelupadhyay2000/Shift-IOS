@@ -46,16 +46,8 @@ enum SettingsDestination: Hashable {
 
 // MARK: - RootNavigator
 
-/// Adaptive root navigator.
-///
-/// - **Compact (iPhone):** `TabView` where every tab owns a `NavigationStack`
-///   backed by its own `@State` path array.
-/// - **Regular (iPad):** `NavigationSplitView` with a sidebar tab list and a
-///   detail `NavigationStack` driven by `detailPath`.
-///
-/// Layout is chosen via `@Environment(\.horizontalSizeClass)` — never a
-/// device-model check — so the same binary handles iPhone, iPad, slide-over,
-/// and split-screen correctly.
+/// Adaptive root navigator. Compact → TabView; Regular → NavigationSplitView.
+/// Layout driven by `horizontalSizeClass`, never device-model checks.
 struct RootNavigator: View {
 
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -64,25 +56,17 @@ struct RootNavigator: View {
     // MARK: Shared selection state
 
     @State private var selectedTab: Tab = .events
-
-    // iPad List requires an optional binding.
     @State private var sidebarSelection: Tab? = .events
-
-    // iPad sidebar visibility — auto-collapses when a tab is selected.
     @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
 
-    // MARK: Per-tab @State path arrays (AC: navigation state via @State path arrays)
+    // MARK: Per-tab navigation paths
 
     @State private var eventPath: [EventDestination] = []
     @State private var templatePath: [TemplateDestination] = []
     @State private var settingsPath: [SettingsDestination] = []
-
-    // iPad detail stack path — driven by whichever sidebar tab is active.
     @State private var detailPath: [EventDestination] = []
 
-    /// Pending event ID set by .newEventTimeline routing.
-    /// Applied in EventRosterView.onAppear so the push happens after the
-    /// Events NavigationStack is in the view hierarchy on both iPhone and iPad.
+    /// Pending event ID from `.newEventTimeline` routing. Applied in `EventRosterView.onAppear`.
     @State private var pendingEventID: UUID?
 
     // MARK: Body
@@ -96,8 +80,6 @@ struct RootNavigator: View {
     }
 
     // MARK: - iPhone layout
-    // Each tab has its own NavigationStack + path so every tab can
-    // programmatically push/pop independently.
 
     private var iPhoneLayout: some View {
         TabView(selection: $selectedTab) {
@@ -154,8 +136,6 @@ struct RootNavigator: View {
                 }
             }
             .navigationTitle(String(localized: "SHIFT"))
-            // CR2: keep sidebarSelection aligned when selectedTab changes externally
-            // (e.g. size class flips from compact → regular while a tab is selected on iPhone)
             .onChange(of: selectedTab) { _, newTab in
                 sidebarSelection = newTab
                 detailPath = []
@@ -164,19 +144,13 @@ struct RootNavigator: View {
                 if let tab = newValue {
                     selectedTab = tab
                     detailPath = []
-                    // Auto-collapse sidebar after selection for cleaner UX
-                    withAnimation {
-                        columnVisibility = .detailOnly
-                    }
+                    withAnimation { columnVisibility = .detailOnly }
                 }
             }
         } detail: {
-            // CR1: swap the detail NavigationStack per selected tab so every tab
-            // gets its own typed destinations on iPad — not just Events.
             iPadDetailStack
         }
-        // CR2: when entering regular layout from compact, stamp sidebarSelection
-        // from the current selectedTab so the sidebar highlight is always correct.
+        // Sync sidebar highlight when size class flips compact → regular.
         .onChange(of: sizeClass) { _, newClass in
             if newClass != .compact {
                 sidebarSelection = selectedTab

@@ -3,34 +3,13 @@ import Models
 
 // MARK: - CollisionDetector
 
-/// Scans a set of time blocks for temporal overlaps between Fluid and Pinned blocks.
-///
-/// This is Stage 3 of the Ripple Engine pipeline. It is a pure, stateless struct
-/// with no side effects and no SwiftData imports.
+/// Scans time blocks for temporal overlaps between Fluid and Pinned blocks. Stage 3 of the Ripple Engine pipeline.
 public struct CollisionDetector: Sendable {
 
     public init() {}
 
     /// Detects collisions between Fluid and Pinned blocks.
-    ///
-    /// A collision occurs when a Fluid block's end time
-    /// `(scheduledStart + duration)` exceeds the `scheduledStart` of any
-    /// subsequent Pinned block. Only strict overlaps are reported — a Fluid
-    /// block that ends exactly at a Pinned block's start is **not** a
-    /// collision.
-    ///
-    /// ## Side Effects
-    /// As part of detection this method mutates `requiresReview` on every
-    /// Fluid block in `blocks`:
-    /// - **Colliding** Fluid blocks → `requiresReview = true`
-    /// - **Non-colliding** Fluid blocks → `requiresReview = false`
-    ///
-    /// This keeps `requiresReview` in sync with the current collision zone on
-    /// every recalculation pass so stale flags are always cleared.
-    ///
-    /// - Parameter blocks: All time blocks in the current timeline.
-    /// - Returns: One ``Collision`` per (Fluid, Pinned) overlapping pair,
-    ///   sorted in the order the Fluid blocks appear in the timeline.
+    /// Mutates `requiresReview` on every Fluid block as a side effect — colliding blocks get `true`, others `false`.
     public func detect(blocks: [TimeBlockModel]) -> [Collision] {
         let sorted = blocks.sorted {
             if $0.scheduledStart != $1.scheduledStart {
@@ -41,8 +20,7 @@ public struct CollisionDetector: Sendable {
         return detect(sortedBlocks: sorted)
     }
 
-    /// Pre-sorted variant — avoids an O(n log n) sort when the caller has
-    /// already sorted blocks by `scheduledStart` (Fluid before Pinned on tie).
+    /// Pre-sorted variant — skips the O(n log n) sort.
     public func detect(sortedBlocks sorted: [TimeBlockModel]) -> [Collision] {
         var collisions: [Collision] = []
         var collidingFluidIDs = Set<UUID>()

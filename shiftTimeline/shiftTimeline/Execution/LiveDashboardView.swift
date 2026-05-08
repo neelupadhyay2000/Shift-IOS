@@ -13,12 +13,7 @@ import Services
 
 // MARK: - LiveDashboardView
 
-/// Event-day execution dashboard.
-///
-/// All navigation modifiers, lifecycle hooks, and state mutations live here.
-/// The visual content is delegated to `_LiveDashboardContent`, which uses
-/// `.environment(\.colorScheme, .dark)` — propagating dark mode DOWN only
-/// so it does NOT escape to the parent NavigationStack or UIHostingController.
+/// Event-day execution dashboard. Delegates visual layout to `_LiveDashboardContent`.
 struct LiveDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -167,8 +162,7 @@ struct LiveDashboardView: View {
     private func activateFirstIncompleteBlockIfNeeded() {
         let blocks = sortedBlocks
         guard !blocks.contains(where: { $0.status == .active }) else {
-            // Already active — still write widget data so the widget
-            // has current state after a fresh app launch.
+            // Already active — write widget data for fresh app launch state.
             writeWidgetData()
             return
         }
@@ -187,9 +181,7 @@ struct LiveDashboardView: View {
         }
     }
 
-    /// Retries sunset fetch if the event has coordinates but no cached data
-    /// (e.g. device was offline when event was created, or either value is missing
-    /// due to a partial save or legacy data).
+    /// Retries sunset fetch if coordinates exist but no cached data.
     private func fetchSunsetIfNeeded() {
         guard let event,
               (event.sunsetTime == nil || event.goldenHourStart == nil),
@@ -232,9 +224,7 @@ struct LiveDashboardView: View {
     ) {
         guard let activeBlock else { return }
         activeBlock.status = .completed
-        // Stamp the wall-clock completion time so the post-event report
-        // can compare planned vs. actual for this block.
-        activeBlock.completedTime = Date()
+        activeBlock.completedTime = Date()  // used by post-event report for planned-vs-actual
 
         if let nextBlock {
             nextBlock.status = .active
@@ -249,8 +239,7 @@ struct LiveDashboardView: View {
         }
     }
 
-    /// Fires the aggregate `sessionCompleted` analytics signal with five
-    /// metadata fields derived from the just-completed event.
+    /// Fires `sessionCompleted` analytics signal after event completion.
     private static func sendSessionCompleted(event: EventModel) {
         let tracks = event.tracks ?? []
         let blocks = tracks.flatMap { $0.blocks ?? [] }
@@ -288,27 +277,19 @@ struct LiveDashboardView: View {
     }
 
     /// Commits the shift after user confirms the preview.
-    ///
-    /// 1. Captures undo snapshot before mutation
-    /// 2. Calls `RippleEngine.recalculate()` with delta on the active block
-    /// 3. Commits undo snapshot after mutation
-    /// 4. Persists to SwiftData
     private func commitShift(byMinutes minutes: Int) {
         let delta = TimeInterval(minutes * 60)
         guard let active = activeBlock else { return }
         let blocks = sortedBlocks
 
-        // Phase 1: snapshot before-state for undo
         undoManager.recordShift(blocks: blocks)
 
-        // Phase 2: run the engine — mutates blocks in place
         let result = engine.recalculate(
             blocks: blocks,
             changedBlockID: active.id,
             delta: delta
         )
 
-        // Phase 3: only commit undo if the engine actually applied a shift
         switch result.status {
         case .pinnedBlockCannotShift, .circularDependency:
             undoManager.cancelShift()
@@ -318,7 +299,7 @@ struct LiveDashboardView: View {
             AnalyticsService.send(.shiftApplied, parameters: ["minutes": String(abs(minutes))])
         }
 
-        // Phase 4: evaluate per-vendor notification thresholds + stamp shift record
+        // Phase 4: vendor notifications + shift record
         if let event {
             VendorShiftNotifier.applyThresholdNotifications(
                 event: event,
@@ -338,11 +319,7 @@ struct LiveDashboardView: View {
             watchSessionManager.sendCurrentContext()
             writeWidgetData()
             updateLiveActivity()
-            // Repair the CloudKit parent-field hierarchy on the private database so
-            // vendor devices receive the shifted block data via their CKDatabaseSubscription
-            // change feed. Without this, NSPersistentCloudKitContainer pushes the mutated
-            // records but CloudKit's sharing mechanism excludes them from the shared zone
-            // because the `parent` field is not maintained automatically.
+            // Repair CloudKit parent fields so vendor devices receive shifted block data.
             if let event, event.shareURL != nil {
                 Task {
                     await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
@@ -362,10 +339,7 @@ struct LiveDashboardView: View {
         let resolvedStatus = event.resolveStatusOnExitLiveMode()
         event.status = resolvedStatus
 
-        // Only roll back in-flight block progress when we're reverting the
-        // event itself back to planning (user was rehearsing ahead of / after
-        // the event day). A genuinely-live event keeps its block progress
-        // so re-entering the dashboard restores the user where they left off.
+        // Roll back block progress only when reverting to planning (rehearsal). Live events keep progress.
         if resolvedStatus == .planning {
             for block in (event.tracks ?? []).flatMap({ $0.blocks ?? [] })
                 where block.status != .completed {
@@ -381,20 +355,17 @@ struct LiveDashboardView: View {
 
     // MARK: - Widget Data
 
-    /// Writes the current live state to App Group UserDefaults so the
-    /// home screen widget can display it, then asks WidgetKit to reload.
+    /// Writes live state to App Group UserDefaults for the home screen widget.
     private func writeWidgetData() {
         guard let event else { return }
 
-        // Re-derive active/next from the current sorted blocks so we
-        // capture the state *after* any mutation.
+        // Re-derive active/next from sorted blocks post-mutation.
         let blocks = sortedBlocks
         let active = blocks.first(where: { $0.status == .active })
             ?? blocks.first(where: { $0.status != .completed })
 
         guard let active else {
-            // No remaining blocks — event is complete.
-            // End the Live Activity and write a non-live placeholder.
+            // No remaining blocks — end the Live Activity, write non-live placeholder.
             liveActivityManager.end()
             writeNextEventPlaceholder()
             return
@@ -427,8 +398,7 @@ struct LiveDashboardView: View {
         WidgetCenter.shared.reloadTimelines(ofKind: "ShiftMediumWidget")
     }
 
-    /// Updates the Lock Screen / Dynamic Island Live Activity with
-    /// the current block state. Guards against nil activity.
+    /// Updates the Lock Screen / Dynamic Island Live Activity.
     private func updateLiveActivity() {
         guard let event else { return }
 
@@ -437,7 +407,7 @@ struct LiveDashboardView: View {
             ?? blocks.first(where: { $0.status != .completed })
 
         guard let active else {
-            // Event complete — end was already called from writeWidgetData.
+            // Event complete — end already called from writeWidgetData.
             return
         }
 
@@ -455,8 +425,7 @@ struct LiveDashboardView: View {
         )
     }
 
-    /// Writes a non-live placeholder with the next upcoming event date
-    /// so the widget shows "Next event: …" instead of "No upcoming events".
+    /// Writes a non-live placeholder so the widget shows "Next event: …".
     private func writeNextEventPlaceholder() {
         let now = Date()
         let descriptor = FetchDescriptor<EventModel>(
@@ -473,8 +442,7 @@ struct LiveDashboardView: View {
 
 // MARK: - _LiveDashboardContent
 
-/// Pure layout view. `.environment(\.colorScheme, .dark)` lives only here,
-/// propagating dark mode DOWN to children without escaping to the NavigationStack.
+/// Pure layout view. `.environment(\.colorScheme, .dark)` propagates dark mode down without escaping to the NavigationStack.
 private struct _LiveDashboardContent: View {
     let event: EventModel?
     let activeBlock: TimeBlockModel?
@@ -517,12 +485,8 @@ private struct _LiveDashboardContent: View {
 
     private func liveDashboard(event: EventModel) -> some View {
         VStack(spacing: 0) {
-            // ── Header row: title + iPad exit button ─────────────────
-            // On iPad (regular width) the .topBarLeading toolbar slot is shared
-            // with the system sidebar toggle, which can squish or hide the exit
-            // button entirely. We render it inline here for regular-width devices
-            // so it is always fully accessible. The toolbar button remains as the
-            // standard back affordance on iPhone (compact width).
+            // On iPad (regular width) the toolbar leading slot may be squished by the sidebar toggle.
+            // Render exit button inline here for regular-width; toolbar handles compact.
             if horizontalSizeClass == .regular {
                 HStack(alignment: .center) {
                     Button {

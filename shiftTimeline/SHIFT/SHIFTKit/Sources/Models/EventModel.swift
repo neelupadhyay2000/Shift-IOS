@@ -14,36 +14,22 @@ public final class EventModel {
     public var weatherSnapshot: Data?
     public var status: EventStatus = EventStatus.planning
 
-    /// The URL string of the CKShare associated with this event, if shared.
-    /// Persisted so re-tapping "Share" opens the existing share for management
-    /// instead of creating a duplicate.
+    /// CKShare URL for this event. Persisted so re-tapping "Share" opens the existing share.
     public var shareURL: String?
 
-    /// The CloudKit user record name of the event creator.
-    /// Set at creation time so shared recipients can detect they don't own the event.
-    /// `nil` for events created before this field was added — treated as "owned by current user".
+    /// CloudKit record name of the event creator. `nil` treated as current user owns it.
     public var ownerRecordName: String?
 
-    /// Wall-clock timestamp when the event transitioned to `.live`.
-    /// Set by `EventDetailView.startLiveMode`. Used to compute live-session
-    /// duration for the `sessionCompleted` analytics signal.
+    /// When the event went live. Used for analytics session duration.
     public var wentLiveAt: Date?
 
-    /// Wall-clock timestamp when the final block was marked `.completed`.
-    /// Set by `LiveDashboardView.performAdvance`. Used together with
-    /// `wentLiveAt` to compute live-session duration in analytics.
+    /// When the last block was completed. Used with `wentLiveAt` for analytics session duration.
     public var completedAt: Date?
 
-    /// JSON-encoded `PostEventReport` produced when this event transitioned to
-    /// `.completed`. Stored as raw `Data` so SwiftData can persist and CloudKit
-    /// can mirror it without a custom value transformer. Access through the
-    /// `postEventReport` computed property — never read this field directly.
+    /// JSON-encoded `PostEventReport`. Access via `postEventReport` computed property.
     public var postEventReportData: Data?
 
-    /// Decoded post-event report, or `nil` if no report has been generated yet
-    /// (or if the stored payload can't be decoded — e.g. cross-version drift).
-    /// Setting this property re-encodes and writes back to `postEventReportData`;
-    /// setting `nil` clears the stored payload.
+    /// Decoded post-event report. Setting re-encodes to `postEventReportData`; `nil` clears it.
     public var postEventReport: PostEventReport? {
         get {
             guard let data = postEventReportData else { return nil }
@@ -63,11 +49,7 @@ public final class EventModel {
     @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
     public var shiftRecords: [ShiftRecord]?
 
-    /// Returns `true` when the current user is the event owner (planner).
-    /// Returns `true` for pre-feature events (`ownerRecordName == nil`).
-    /// Returns `false` when the event has an owner but the current user's
-    /// identity is unknown — this prevents shared events from appearing
-    /// editable before iCloud identity is fetched.
+    /// `true` when current user owns the event. `true` for pre-feature events (`ownerRecordName == nil`).
     public func isOwnedBy(_ currentUserRecordName: String?) -> Bool {
         guard let ownerRecordName else { return true }
         guard let currentUserRecordName else { return false }

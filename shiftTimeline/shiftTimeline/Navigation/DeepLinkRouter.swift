@@ -4,44 +4,28 @@ import SwiftUI
 
 /// The action the router should perform when a deep-link arrives.
 enum DeepLinkDestination: Equatable {
-    /// Navigate to event detail / timeline view.
     case event(id: UUID)
-    /// Navigate directly to the Live Dashboard for an event.
     case live(id: UUID)
-    /// Navigate to the Event Roster (events list).
     case roster
-    /// Navigate to an event's TimelineBuilderView with EventDetailView in the back stack.
-    /// Used after a template is applied so Back takes the user to the event page,
-    /// not back into the template browser.
+    /// Pushes directly to TimelineBuilderView with EventDetailView in back stack (used after template apply).
     case newEventTimeline(id: UUID)
 }
 
-/// Observable deep-link router that external systems (notification taps,
-/// URL opens, Watch complication taps, CKShare acceptance) use to drive
-/// navigation into `RootNavigator`.
-///
-/// Inject via `.environment()` at the app root. `RootNavigator` observes
-/// `pendingDestination` and routes accordingly.
+/// Observable deep-link router. Inject via `.environment()` at app root.
+/// `RootNavigator` observes `pendingDestination` and routes accordingly.
 @MainActor
 @Observable
 final class DeepLinkRouter {
-    /// Shared instance used by `AppDelegate` and `onOpenURL`.
     static let shared = DeepLinkRouter()
 
-    /// Maximum time to display the share-acceptance syncing indicator
-    /// before auto-clearing, in case no remote-change notification arrives.
+    /// Auto-clears syncing indicator if no remote-change notification arrives within this window.
     static let shareAcceptanceSyncTimeout: Duration = .seconds(30)
 
-    /// Set this to trigger navigation. `RootNavigator` clears it after routing.
     var pendingDestination: DeepLinkDestination?
 
-    /// `true` while a CloudKit share invitation is being accepted and the
-    /// mirrored records are still syncing into the local SwiftData store.
+    /// `true` while a CKShare invitation is being accepted and records are syncing.
     /// `EventRosterView` observes this to show a syncing indicator.
-    ///
-    /// Auto-clears either when `NSPersistentStoreRemoteChange` fires (the
-    /// container has mirrored new records) or after
-    /// `shareAcceptanceSyncTimeout`, whichever comes first.
+    /// Auto-clears on `NSPersistentStoreRemoteChange` or after `shareAcceptanceSyncTimeout`.
     var isAcceptingShare = false {
         didSet {
             guard oldValue != isAcceptingShare else { return }
@@ -59,13 +43,8 @@ final class DeepLinkRouter {
     private var shareTimeoutTask: Task<Void, Never>?
 
     private init() {
-        // Clear the syncing banner the moment the persistent store mirrors
-        // any remote change after share acceptance — usually the freshly
-        // shared event arriving from CloudKit.
-        //
-        // Observer is intentionally not stored / removed: `DeepLinkRouter`
-        // is a process-lifetime singleton, so the observer's lifetime
-        // matches the app's.
+        // Clear syncing banner when the persistent store mirrors a remote change.
+        // Observer not stored — `DeepLinkRouter` is a process-lifetime singleton.
         NotificationCenter.default.addObserver(
             forName: .NSPersistentStoreRemoteChange,
             object: nil,
@@ -95,12 +74,7 @@ final class DeepLinkRouter {
 
     // MARK: - URL Parsing
 
-    /// Custom URL scheme: `shift://`
-    /// Supported paths:
-    ///   - `shift://event/{eventID}` → event detail / timeline
-    ///   - `shift://live/{eventID}`  → Live Dashboard
-    ///
-    /// Returns `true` if the URL was handled.
+    /// Parses `shift://event/{id}` and `shift://live/{id}` URLs. Returns `true` if handled.
     @discardableResult
     func handle(url: URL) -> Bool {
         guard url.scheme == "shift",

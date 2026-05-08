@@ -1,31 +1,7 @@
 import SwiftData
 
-/// Describes the evolution of the SHIFT schema across app versions.
-///
-/// - V1 → V2: adds vendor notification fields to `VendorModel`.
-/// - V2 → V3: adds `EventModel.weatherSnapshot` and `TimeBlockModel.isOutdoor`.
-/// - V3 → V4: adds per-block location fields (`venueAddress`, `venueName`,
-///             `blockLatitude`, `blockLongitude`) to `TimeBlockModel`.
-/// - V4 → V5: adds `TimeBlockModel.isTransitBlock` (default `false`).
-/// - V5 → V6: adds `TimeBlockModel.completedTime` (`Date?`) and
-///             `EventModel.postEventReportData` (`Data?`).
-/// - V6 → V7: adds `EventModel.wentLiveAt` (`Date?`) and
-///             `EventModel.completedAt` (`Date?`) for analytics.
-/// - V7 → V8: adds `TimeBlockModel.voiceMemoDuration` (`TimeInterval?`) and
-///             `TimeBlockModel.voiceMemoCreatedAt` (`Date?`) for voice memo metadata.
-///
-/// All transitions are lightweight (new properties have defaults).
-///
-/// **Why this file exists:** Without a `SchemaMigrationPlan`, SwiftData's
-/// `NSPersistentCloudKitContainer` mirror treats post-change stores as
-/// unversioned and silently stops publishing records to CloudKit.
-///
-/// **Critical:** Every `VersionedSchema` must contain frozen `@Model`
-/// snapshots — not references to live model types. If two versions
-/// reference the same live type, their checksums are identical and
-/// `NSLightweightMigrationStage.init` throws an `NSException`, which
-/// cascades through `PersistenceController`'s fallback chain and
-/// silently disables CloudKit mirroring.
+/// Lightweight SwiftData schema migration plan. V1→V8, all transitions add new optional/defaulted properties.
+/// CRITICAL: Each `VersionedSchema` must use frozen `@Model` snapshots — never live type references.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
         [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self]

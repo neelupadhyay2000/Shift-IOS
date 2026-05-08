@@ -7,16 +7,8 @@ import WeatherKit
 // Avoid name collision with WeatherKit.WeatherService (D5)
 private typealias WKWeatherService = WeatherKit.WeatherService
 
-/// Fetches hourly precipitation forecasts from Apple's WeatherKit API
-/// and resolves per-block rain probabilities for a given event.
-///
-/// Results are cached on `EventModel.weatherSnapshot` as JSON-encoded `Data`.
-/// The cache is considered fresh for 30 minutes; `fetchIfNeeded` returns
-/// cached data immediately if it was fetched within that window.
-///
-/// All error paths — auth denial, network failure, missing coordinates,
-/// missing forecast window — are handled gracefully. No errors are surfaced
-/// to the caller; `fetchIfNeeded` always returns `nil` or a valid snapshot.
+/// Fetches hourly precipitation forecasts from WeatherKit and resolves per-block rain probabilities.
+/// Results cached on `EventModel.weatherSnapshot` as JSON; cache TTL is 30 minutes.
 public struct WeatherService: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.weather", category: "WeatherService")
@@ -25,15 +17,8 @@ public struct WeatherService: Sendable {
 
     // MARK: - Public API
 
-    /// Cache-first fetch of weather data for an event.
-    ///
-    /// - If neither the event nor any block has coordinates: returns `nil` immediately.
-    /// - If `event.weatherSnapshot` decodes to a fresh snapshot (< 30 min old): returns it without a network call.
-    /// - Otherwise: fetches from WeatherKit, encodes the result to `event.weatherSnapshot`, and returns the new snapshot.
-    /// - On any error (auth denied, network, parse): logs the error and returns the cached snapshot (decoded) or `nil`.
-    ///
-    /// - Important: The caller is responsible for saving the `ModelContext`
-    ///   after this method returns — the service only mutates the model property.
+    /// Cache-first fetch. Returns `nil` if no coordinates exist, cached snapshot if fresh, otherwise fetches from WeatherKit.
+    /// Caller is responsible for saving the `ModelContext`.
     @MainActor
     public func fetchIfNeeded(for event: EventModel) async -> WeatherSnapshot? {
         // Guard: no coordinates at event level AND no blocks have their own venue coordinates.
@@ -52,8 +37,8 @@ public struct WeatherService: Sendable {
             return cachedSnapshot
         }
 
-        // Collect block identity + schedule + per-block coordinates as plain value types
-        // before leaving @MainActor. Blocks with no venue lat/lng fall back to the event location.
+        // Collect block tokens as plain value types before leaving @MainActor.
+        // Blocks with no venue coordinates fall back to the event location.
         let eventLatitude = event.latitude
         let eventLongitude = event.longitude
         let blockTokens: [(id: UUID, scheduledStart: Date, latitude: Double, longitude: Double)] =
@@ -84,15 +69,7 @@ public struct WeatherService: Sendable {
     // MARK: - Internal Fetch
 
     /// Fetches WeatherKit hourly data and resolves per-block rain probabilities.
-    ///
-    /// Blocks are grouped by their resolved location (rounded to 4 decimal places
-    /// ≈11 m) so nearby blocks share a single WeatherKit request. Each block's
-    /// `scheduledStart` is then matched to the nearest `HourWeather` entry within
-    /// a 1-hour window. Blocks with no matching entry are omitted.
-    ///
-    /// - Parameter blockTokens: Value-type snapshots of each block including the
-    ///   resolved coordinates, extracted on `@MainActor` before this call.
-    /// - Throws: Any underlying WeatherKit or network error.
+    /// Blocks are grouped by rounded coordinates (≈11m) to share requests.
     public func fetch(
         blockTokens: [(id: UUID, scheduledStart: Date, latitude: Double, longitude: Double)]
     ) async throws -> WeatherSnapshot {
@@ -113,10 +90,7 @@ public struct WeatherService: Sendable {
 
         let wk = WKWeatherService()
 
-        // Fetch each unique coordinate's hourly forecast concurrently. WeatherKit's
-        // rate limiter is per-request, not per-connection, so issuing these in
-        // parallel is the supported pattern and dramatically reduces latency for
-        // multi-venue events (weddings with ceremony/reception at separate sites).
+        // Fetch each unique coordinate concurrently — WeatherKit rate-limits per-request, not per-connection.
         let allEntries: [BlockRainEntry] = try await withThrowingTaskGroup(
             of: [BlockRainEntry].self
         ) { group in

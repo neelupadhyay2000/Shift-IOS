@@ -7,10 +7,7 @@ import os
 
 // MARK: - WatchSessionProtocol
 
-/// Abstraction over `WCSession` for testability.
-///
-/// Production code uses `WCSession.default`. Tests inject a mock that
-/// captures sent contexts and messages without requiring a paired Watch.
+/// Abstraction over `WCSession` for testability. Tests inject a mock; production uses `WCSession.default`.
 public protocol WatchSessionProtocol: AnyObject {
     var isReachable: Bool { get }
     var delegate: WCSessionDelegate? { get set }
@@ -27,30 +24,15 @@ extension WCSession: WatchSessionProtocol {}
 
 // MARK: - WatchSessionManager
 
-/// Manages the WCSession communication bridge between the iPhone and
-/// the paired Apple Watch.
-///
-/// Responsibilities:
-/// - Activates `WCSession` on app launch.
-/// - Pushes the current active block context to Watch on session activation
-///   and whenever timeline state changes.
-/// - Receives real-time shift commands from Watch via `didReceiveMessage`.
-/// - Receives background context updates via `didReceiveApplicationContext`.
-///
-/// This class is `@MainActor` because it reads/writes SwiftData models
-/// (which are main-actor-isolated) and drives observable UI state.
+/// Manages WCSession communication between iPhone and Apple Watch.
+/// `@MainActor` because it reads/writes SwiftData models and drives observable UI state.
 @MainActor @Observable
 public final class WatchSessionManager {
 
     // MARK: - Observable State
 
-    /// The most recent context sent to the Watch, for UI inspection/debugging.
     public private(set) var lastSentContext: WatchContext?
-
-    /// The most recent command received from the Watch.
     public internal(set) var lastReceivedCommand: WatchCommand?
-
-    /// Whether the session has been activated. Guards against repeated activation.
     private var didActivate = false
 
     // MARK: - Dependencies
@@ -93,11 +75,7 @@ public final class WatchSessionManager {
 
     // MARK: - Activation
 
-    /// Activates the WCSession. Call once at app launch.
-    ///
-    /// On successful activation, the delegate's `activationDidComplete`
-    /// callback pushes the current live event context to the Watch.
-    /// Guarded so repeated calls (e.g. from `onAppear`) are no-ops.
+    /// Activates the WCSession. Call once at app launch. Guarded against repeated calls.
     public func activate() {
         guard !didActivate else { return }
         didActivate = true
@@ -108,11 +86,7 @@ public final class WatchSessionManager {
 
     // MARK: - Sending Context
 
-    /// Pushes the current live-event context to the Watch via `WCSession.default`.
-    ///
-    /// Safe to call from contexts without a long-lived manager (e.g. AppIntents).
-    /// Uses the shared `PersistenceController` container and `WCSession.default`.
-    /// No-op if WCSession is unsupported or no live event exists.
+    /// Pushes the current live-event context to the Watch. Safe to call from AppIntents. No-op if no live event.
     public static func pushCurrentContext() {
         guard WCSession.isSupported() else { return }
         let container = PersistenceController.shared.container
@@ -151,13 +125,6 @@ public final class WatchSessionManager {
     }
 
     /// Pushes the current active block data to the Watch.
-    ///
-    /// Call this:
-    /// - On session activation (automatic)
-    /// - When going live
-    /// - On every block advance
-    /// - After a shift is committed
-    ///
     /// No-op if there is no live event or no active block.
     public func sendCurrentContext() {
         guard let context = buildCurrentContext() else {
@@ -174,8 +141,7 @@ public final class WatchSessionManager {
         }
     }
 
-    /// Builds a `WatchContext` for a specific event and blocks.
-    /// Useful when the caller already has the relevant models in scope.
+    /// Builds and sends a `WatchContext` when the caller already has the relevant models.
     public func sendContext(
         for event: EventModel,
         activeBlock: TimeBlockModel,
@@ -203,7 +169,6 @@ public final class WatchSessionManager {
 
     // MARK: - Internal Handlers
 
-    /// Called by the delegate when a real-time message arrives from the Watch.
     func handleMessage(
         _ message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
@@ -225,17 +190,12 @@ public final class WatchSessionManager {
         }
     }
 
-    /// Called by the delegate when background context arrives from the Watch.
     func handleReceivedApplicationContext(_ context: [String: Any]) {
-        // The Watch does not normally send application context to the iPhone,
-        // but we handle it defensively for forward compatibility.
+        // Handled defensively for forward compatibility — Watch rarely sends context to iPhone.
         Self.logger.info("Received application context from Watch: \(context.keys.joined(separator: ", "))")
     }
 
-    /// Called by the delegate when a queued command arrives via `transferUserInfo`.
-    ///
-    /// Processes the command identically to `handleMessage`, but without a
-    /// reply handler. Pushes updated context via `sendCurrentContext()` once.
+    /// Processes a queued command from `transferUserInfo` (no reply path).
     func handleQueuedCommand(_ userInfo: [String: Any]) {
         guard let command = WatchCommand(dictionary: userInfo) else {
             Self.logger.warning("Received unrecognized queued userInfo: \(userInfo.keys.joined(separator: ", "))")
@@ -246,13 +206,8 @@ public final class WatchSessionManager {
         Self.logger.info("Processing queued command: \(command.action.rawValue)")
 
         // Use a no-op reply handler — transferUserInfo has no reply path.
-        handleMessage(userInfo) { _ in }
-
-        // Push the latest context to the Watch after processing.
-        sendCurrentContext()
     }
 
-    /// Called by the delegate when the session activates successfully.
     func handleActivationComplete() {
         Self.logger.info("WCSession activated — sending current context")
         sendCurrentContext()

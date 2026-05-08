@@ -2,10 +2,7 @@ import Foundation
 
 extension String {
 
-    /// Normalizes a phone string to an optional leading "+" followed by
-    /// digits only. Returns an empty string when no digits are present.
-    ///
-    /// Shared by `VendorQuickContactRow` and `VendorAckGrid`.
+    /// Normalizes a phone string to an optional leading "+" followed by digits only. Returns an empty string when no digits are present.
     var normalizedPhoneDigits: String {
         let stripped = filter { $0.isNumber || $0 == "+" }
         let hasLeadingPlus = stripped.hasPrefix("+")

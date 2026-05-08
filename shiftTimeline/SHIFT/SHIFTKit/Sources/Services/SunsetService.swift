@@ -1,11 +1,7 @@
 import Foundation
 import Models
 
-/// Fetches sunset and golden hour (civil twilight) times from the
-/// sunrise-sunset.org public API for a given coordinate and date.
-///
-/// No API key required. Callers are responsible for caching the result
-/// to avoid redundant network calls.
+/// Fetches sunset and golden hour times from sunrise-sunset.org. No API key required.
 public struct SunsetService: Sendable {
 
     private let session: URLSession
@@ -14,11 +10,7 @@ public struct SunsetService: Sendable {
         self.session = session
     }
 
-    /// Fetches sunset and civil twilight begin (golden hour proxy) for
-    /// the given coordinates and date.
-    ///
-    /// - Returns: A ``SunsetResult`` with sunset and golden hour start times
-    ///   in the local calendar, or throws on network/parse failure.
+    /// Fetches sunset and golden hour start for the given coordinates and date.
     public func fetch(
         latitude: Double,
         longitude: Double,
@@ -55,22 +47,14 @@ public struct SunsetService: Sendable {
             throw SunsetServiceError.parseFailed
         }
 
-        // Golden hour = 1 hour before sunset (standard photography definition).
-        // civil_twilight_begin from the API is morning twilight — not what we want.
+        // Golden hour = 1 hour before sunset.
         let goldenHourStart = sunset.addingTimeInterval(-3600)
 
         return SunsetResult(sunset: sunset, goldenHourStart: goldenHourStart)
     }
 
-    /// Checks the event's cached sunset data first. If already populated,
-    /// returns it immediately without a network call. Otherwise fetches from
-    /// the API and writes the result back to the event model.
-    ///
-    /// When the device is offline and no cached data exists, returns `nil`
-    /// so callers can show "Unknown" instead of crashing.
-    ///
-    /// - Important: The caller is responsible for saving the `ModelContext`
-    ///   after this method returns — the service only mutates the model.
+    /// Cache-first fetch. Returns cached value if populated, fetches and writes back otherwise.
+    /// Returns `nil` offline or if no coordinates exist. Caller must save the `ModelContext`.
     @MainActor
     public func fetchIfNeeded(for event: EventModel) async -> SunsetResult? {
         // Cache hit — no network call.
@@ -99,19 +83,12 @@ public struct SunsetService: Sendable {
 
     // MARK: - Formatters
 
-    /// Returns the calendar date string (YYYY-MM-DD) for the given date using the
-    /// **device's local timezone**, not UTC.
-    ///
-    /// The sunrise-sunset.org API expects the calendar date the user chose.
-    /// Using `.iso8601` here was wrong: it formats in UTC, which for UTC+ timezones
-    /// produces the *previous* calendar day — causing the API to return yesterday's
-    /// sunset (already in the past) and the live-mode banner to never appear.
+    /// Uses device local timezone, not UTC, so the API receives the correct calendar date.
     private static let localDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        // timeZone intentionally not set — inherits TimeZone.current so the
-        // API receives the same calendar date the user picked.
+        // timeZone not set — inherits `TimeZone.current`.
         return f
     }()
 
@@ -124,9 +101,8 @@ public struct SunsetService: Sendable {
 
 // MARK: - Result
 
-/// Sunset and golden hour times returned by ``SunsetService``.
+/// Sunset and golden hour times.
 public struct SunsetResult: Sendable, Equatable {
-    /// The exact sunset time (UTC, convert to local for display).
     public let sunset: Date
 
     /// Civil twilight begin — a good proxy for golden hour start.

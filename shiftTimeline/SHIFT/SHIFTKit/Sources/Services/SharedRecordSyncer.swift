@@ -16,17 +16,8 @@ public struct SharedDeletedRecord: Sendable {
 }
 
 /// Maps CKRecords from the shared CloudKit database into the local SwiftData store.
-///
-/// `NSPersistentCloudKitContainer` (SwiftData's backing store) only mirrors the
-/// **private** CloudKit database. Accepted CKShare records live in the shared database
-/// and are never mirrored automatically. This syncer bridges that gap:
-///
-/// 1. Called by `SharedZoneSubscriptionManager` after each zone-change fetch.
-/// 2. Parses `CD_`-prefixed fields (NSPersistentCloudKitContainer's naming convention).
-/// 3. Upserts SwiftData objects by their stable `id` UUID — idempotent and safe
-///    to call repeatedly without creating duplicates.
-/// 4. Maintains a UserDefaults cache of `recordName → UUID` so relationship
-///    references can be resolved across fetch batches and deletions can be matched.
+/// Bridges the gap `NSPersistentCloudKitContainer` leaves for the shared DB.
+/// Upserts by stable `id` UUID; maintains a UserDefaults `recordName → UUID` cache for relationship resolution.
 @MainActor
 public final class SharedRecordSyncer {
 
@@ -44,7 +35,7 @@ public final class SharedRecordSyncer {
     // MARK: - Public
 
     public func merge(modified: [CKRecord], deleted: [SharedDeletedRecord]) throws {
-        // Build / extend the persistent record-name → UUID and record-name → type caches.
+        // Build / extend record-name → UUID and record-name → type caches.
         var uuidCache = Self.loadCache(key: Self.uuidCacheKey)
         var typeCache = Self.loadCache(key: Self.typeCacheKey)
         for record in modified {
@@ -56,7 +47,7 @@ public final class SharedRecordSyncer {
         Self.saveCache(uuidCache, key: Self.uuidCacheKey)
         Self.saveCache(typeCache, key: Self.typeCacheKey)
 
-        // Process in dependency order so relationships can be wired in one pass.
+        // Process in dependency order so relationships resolve in one pass.
         for record in modified where record.recordType == "CD_EventModel"     { try upsertEvent(from: record) }
         for record in modified where record.recordType == "CD_TimelineTrack"  { try upsertTrack(from: record, uuidCache: uuidCache) }
         for record in modified where record.recordType == "CD_TimeBlockModel" { try upsertBlock(from: record, uuidCache: uuidCache) }
@@ -191,12 +182,7 @@ public final class SharedRecordSyncer {
 
     // MARK: - Purged Zone Cleanup
 
-    /// Deletes all local events (and their cascade-deleted children) whose
-    /// `ownerRecordName` matches one of the given CloudKit record names.
-    ///
-    /// Called when `fetchDatabaseChanges()` reports a zone deletion — meaning
-    /// the planner removed the shared event. Without this, vendor devices
-    /// keep an orphaned event in their roster indefinitely.
+    /// Deletes all local events whose `ownerRecordName` matches a purged zone owner.
     public func deletePurgedZoneEvents(ownerRecordNames: [String]) throws {
         guard !ownerRecordNames.isEmpty else { return }
         for ownerName in ownerRecordNames {
@@ -263,7 +249,6 @@ public final class SharedRecordSyncer {
     // MARK: - Helpers
 
     /// Extracts the SwiftData UUID from `CD_id` (or `id` as fallback).
-    /// NSPersistentCloudKitContainer stores UUIDs as Strings in CloudKit.
     private static func uuid(from record: CKRecord) -> UUID? {
         for key in ["CD_id", "id"] {
             if let str = record[key] as? String, let uuid = UUID(uuidString: str) { return uuid }
@@ -281,8 +266,7 @@ public final class SharedRecordSyncer {
         return UUID(uuidString: uuidString)
     }
 
-    /// Resolves a relationship stored as a raw record-name STRING (NSPersistentCloudKitContainer's
-    /// convention for relationship fields in the shared database) to a local model UUID.
+    /// Resolves a relationship stored as a raw record-name string to a local model UUID.
     private func resolve(_ recordName: String, cache: [String: String]) -> UUID? {
         guard let uuidString = cache[recordName] else { return nil }
         return UUID(uuidString: uuidString)

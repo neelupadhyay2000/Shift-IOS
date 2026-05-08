@@ -4,11 +4,8 @@ import Models
 import Services
 import os
 
-/// Registers and handles a `BGAppRefreshTask` that pre-fetches sunset and
-/// golden hour data for events scheduled within the next 48 hours.
-///
-/// Results are cached in `EventModel.sunsetTime` / `.goldenHourStart` so the
-/// data is available offline on event day.
+/// Registers and handles a `BGAppRefreshTask` that pre-fetches sunset and golden hour data for events scheduled within the next 48 hours.
+/// Results are cached in `EventModel.sunsetTime` / `.goldenHourStart` so the data is available offline on event day.
 enum SunsetPrefetchTask {
 
     static let identifier = "com.neelsoftwaresolutions.shiftTimeline.sunset-prefetch"
@@ -20,8 +17,7 @@ enum SunsetPrefetchTask {
 
     // MARK: - Registration
 
-    /// Call once at app launch (before the end of `application(_:didFinishLaunchingWithOptions:)`
-    /// or in the `App` init) to register the task handler with `BGTaskScheduler`.
+    /// Call once at app launch
     static func register() {
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: identifier,
@@ -39,10 +35,10 @@ enum SunsetPrefetchTask {
     // MARK: - Scheduling
 
     /// Submits (or re-submits) a daily refresh request.
-    /// Safe to call multiple times — BGTaskScheduler replaces existing requests
-    /// with the same identifier.
+    /// Safe to call multiple times — BGTaskScheduler replaces existing requests with the same identifier.
     static func scheduleNextRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: identifier)
+        
         // Request earliest 6 hours from now to avoid excessive wake-ups.
         request.earliestBeginDate = Calendar.current.date(
             byAdding: .hour, value: 6, to: .now

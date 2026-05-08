@@ -6,9 +6,6 @@ import Models
 import Services
 
 /// Displays the details for a single event.
-///
-/// Fetched by `id` so the view works correctly whether pushed on iPhone
-/// or shown in the iPad detail column.
 struct EventDetailView: View {
 
     @Environment(\.modelContext) private var modelContext
@@ -103,16 +100,11 @@ struct EventDetailView: View {
                 }
             }
         }
-        // Re-runs when weatherSnapshot becomes nil (cache busted by block location change)
-        // and again when the fresh snapshot is written back. The second run hits the fresh
-        // cache immediately and is a no-op.
         .task(id: event.weatherSnapshot) {
             let service = WeatherService()
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()
         }
-        // Re-runs when sunsetTime becomes nil (cache busted by EditEventSheet on date/location
-        // change). Ensures golden-hour and sunset data is populated before the user goes live.
         .task(id: event.sunsetTime) {
             let service = SunsetService()
             _ = await service.fetchIfNeeded(for: event)
@@ -120,8 +112,7 @@ struct EventDetailView: View {
         }
     }
 
-    /// Returns the list of outdoor blocks with `rainProbability > 0.5` from a fresh snapshot.
-    /// Returns an empty array if the snapshot is missing, corrupt, or stale (≥ 30 min old).
+    
     private func atRiskOutdoorBlocks(for event: EventModel) -> [(blockTitle: String, probability: Double)] {
         guard let data = event.weatherSnapshot,
               let snapshot = try? JSONDecoder().decode(WeatherSnapshot.self, from: data),
@@ -353,12 +344,7 @@ struct EventDetailView: View {
     }
 
     /// Prepares a CKShare (creating or fetching as needed) then presents
-    /// `UICloudSharingController` via the non-deprecated `init(share:container:)`.
     private func prepareShareSheet(for event: EventModel) {
-        // Gate share traffic on mirror health. A degraded mirror means the
-        // schema can't reconcile and CKQuery against `CD_EventModel` will
-        // never find the record — surface a distinct, actionable error
-        // instead of looping the user through "please wait a moment".
         switch CloudKitShareGate.decide(for: PersistenceController.shared.cloudKitMirrorState) {
         case .blockDegradedSync:
             shareError = String(
@@ -390,11 +376,6 @@ struct EventDetailView: View {
 
     /// Creates a new `CKShare` tied to the event's mirrored CloudKit record,
     /// saves it, and presents the sheet.
-    ///
-    /// Child records (tracks, blocks, vendors) are fetched from CloudKit and
-    /// their `parent` field is set before saving. Without this, CloudKit's
-    /// hierarchical sharing only delivers the root event record to recipients,
-    /// leaving the timeline empty (0 blocks, 0 tracks).
     private func createNewShare(for event: EventModel) {
         fetchEventRootRecord(for: event) { result in
             Task { @MainActor in
@@ -427,9 +408,7 @@ struct EventDetailView: View {
                             }
                         }
                     }
-                    // Use .changedKeys so CloudKit only writes the `parent` field we set,
-                    // preventing a serverRecordChanged conflict if NSPersistentCloudKitContainer
-                    // has written to these same records between our fetch and this save.
+                    
                     operation.savePolicy = .changedKeys
                     self.cloudKitContainer.privateCloudDatabase.add(operation)
 
@@ -441,11 +420,7 @@ struct EventDetailView: View {
         }
     }
 
-    /// Fetches all child records (tracks, blocks, vendors) for a shared event
-    /// and sets their CloudKit `parent` field for hierarchical sharing.
-    ///
-    /// Delegates to `CloudKitShareRepairService` — see that type for the full
-    /// rationale on why `NSPersistentCloudKitContainer` requires this.
+    /// Fetches all child records (tracks, blocks, vendors) for a shared event and sets their CloudKit `parent` field for hierarchical sharing.
     private func fetchChildRecordsForShare(
         rootRecord: CKRecord,
         zone: CKRecordZone.ID
@@ -454,18 +429,12 @@ struct EventDetailView: View {
     }
 
     /// Finds the mirrored CloudKit root record for an event.
-    ///
     /// Core Data / SwiftData uses opaque record names, so we must not derive the
-    /// `CKRecord.ID` from the model UUID.
     private func fetchEventRootRecord(
         for event: EventModel,
         completion: @escaping (Result<CKRecord, Error>) -> Void
     ) {
-        // SwiftData / NSPersistentCloudKitContainer mirrors all records into
-        // this custom zone. Querying the default zone returns empty; querying
-        // against a container whose schema hasn't been pushed yet surfaces
-        // the "Did not find record type" error — we translate that into a
-        // user-actionable message below.
+    
         let coreDataZoneID = CKRecordZone.ID(
             zoneName: "com.apple.coredata.cloudkit.zone",
             ownerName: CKCurrentUserDefaultName
@@ -522,8 +491,7 @@ struct EventDetailView: View {
                 case .failure(let error):
                     // CloudKit returns an "unknown item" error when the record
                     // type hasn't been published yet, and "zoneNotFound" before
-                    // the first SwiftData push creates the mirror zone. Treat
-                    // both as "not yet synced" rather than a hard failure.
+                    // the first SwiftData push creates the mirror zone.
                     if let ckError = error as? CKError,
                        ckError.code == .unknownItem || ckError.code == .zoneNotFound {
                         completion(.failure(SharingLookupError.eventNotYetSynced))
@@ -548,6 +516,7 @@ struct EventDetailView: View {
                 case .success(let metadata):
                     self.resolveShare(from: metadata)
                 case .failure:
+                    
                     // Share may have been deleted externally — clear stale URL and create fresh.
                     event.shareURL = nil
                     try? self.modelContext.save()
@@ -565,9 +534,8 @@ struct EventDetailView: View {
             Task { @MainActor in
                 self.isPreparingShare = false
                 if let share = record as? CKShare {
+                    
                     // Repair any children that are missing their CloudKit `parent` field.
-                    // Delegates to CloudKitShareRepairService which is also called after
-                    // every timeline shift — this path serves as an additional safety net.
                     if let rootRecordID {
                         Task {
                             await CloudKitShareRepairService.repairChildParentFields(
@@ -585,9 +553,6 @@ struct EventDetailView: View {
     }
 
     /// Re-fetches child records and (re-)saves their CloudKit `parent` field.
-    ///
-    /// Kept for backward compatibility. New call sites should use
-    /// `CloudKitShareRepairService.repairChildParentFields(rootRecordID:)` directly.
     private func refreshChildParentFields(rootRecordID: CKRecord.ID) async {
         await CloudKitShareRepairService.repairChildParentFields(rootRecordID: rootRecordID)
     }
@@ -616,9 +581,6 @@ struct EventDetailView: View {
             // Save failed — don't push stale context to Watch.
         }
 
-        // Widgets and Live Activities are Pro-only features. Free users still enter live
-        // mode (the core function), but we silently skip the Pro side-effects rather than
-        // interrupting their flow with a mid-action paywall. Upsell happens elsewhere.
         guard SubscriptionManager.shared.isProUser else { return }
 
         // Write initial widget data so the home screen widget updates immediately.

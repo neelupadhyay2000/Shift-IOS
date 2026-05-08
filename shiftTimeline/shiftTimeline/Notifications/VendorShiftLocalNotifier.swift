@@ -6,22 +6,14 @@ import os
 
 // MARK: - Notification scheduling seam
 
-/// Abstraction over `UNUserNotificationCenter` so `VendorShiftLocalNotifier`
-/// can be tested without the real notification center.
-///
-/// Production code passes `UNUserNotificationCenter.current()`. Tests pass a
-/// `MockNotificationCenter` that records calls and returns canned answers.
+/// Abstraction over `UNUserNotificationCenter` for testability.
 protocol VendorNotificationScheduling: Sendable {
     func add(_ request: UNNotificationRequest) async throws
 }
 
 extension UNUserNotificationCenter: VendorNotificationScheduling {}
 
-/// Posts visible local notifications to vendors when `pendingShiftDelta`
-/// is set on their `VendorModel` after a CloudKit sync.
-///
-/// Body formatting is delegated to `VendorShiftNotificationContent` (in
-/// SHIFTKit) so it can be unit-tested independently.
+/// Posts local notifications to vendors when `pendingShiftDelta` is set after a CloudKit sync.
 enum VendorShiftLocalNotifier {
 
     private static let logger = Logger(
@@ -29,8 +21,7 @@ enum VendorShiftLocalNotifier {
         category: "VendorShiftLocalNotifier"
     )
 
-    /// Default global threshold (minutes) when the user has never adjusted the Settings slider.
-    /// Mirrors the `@AppStorage` default declared in `SettingsView`.
+    /// Default global threshold (minutes) matching the `SettingsView` `@AppStorage` default.
     private static let defaultGlobalThresholdMinutes: Double = 10
 
     // MARK: - Authorization
@@ -48,15 +39,8 @@ enum VendorShiftLocalNotifier {
 
     // MARK: - Scan & Post
 
-    /// Scans vendors on the given event for a non-nil `pendingShiftDelta`
-    /// that exceeds **both** their per-vendor threshold and the planner's
-    /// global Settings threshold. Posts a visible local notification only for
-    /// above-threshold vendors.
-    ///
-    /// `currentUserRecordName` scopes the scan to the matching vendor entry so
-    /// a vendor device only receives a notification for itself, not for all
-    /// vendors in the shared event. Pass `nil` to process all vendors (legacy
-    /// path / tests).
+    /// Scans vendors for `pendingShiftDelta` exceeding per-vendor and global thresholds, posts local notifications.
+    /// `currentUserRecordName` scopes the scan to the matching vendor entry; pass `nil` to process all (tests).
     static func processAndNotify(event: EventModel, currentUserRecordName: String? = nil) async {
         await processAndNotify(
             event: event,
@@ -66,9 +50,7 @@ enum VendorShiftLocalNotifier {
         )
     }
 
-    /// Testable overload — accepts injected `NotificationScheduling`,
-    /// global threshold, and optional identity so tests never touch
-    /// `UNUserNotificationCenter.current()` or `UserDefaults.standard`.
+    /// Testable overload with injected `NotificationScheduling`, global threshold, and identity.
     static func processAndNotify(
         event: EventModel,
         center: any VendorNotificationScheduling,
@@ -77,11 +59,8 @@ enum VendorShiftLocalNotifier {
     ) async {
         let vendors = event.vendors ?? []
 
-        // When the current user's record name is known, restrict processing
-        // to only their own vendor entry. This prevents a vendor's device from
-        // posting notifications on behalf of other vendors they can see in the
-        // shared event. Falls back to all vendors when cloudKitRecordName is
-        // not yet populated (e.g. legacy entries without the field set).
+        // Restrict to the current user's own vendor entry when record name is known.
+        // Falls back to all vendors for legacy entries without `cloudKitRecordName`.
         let candidateVendors: [VendorModel]
         if let recordName = currentUserRecordName {
             let matched = vendors.filter { $0.cloudKitRecordName == recordName }
@@ -92,10 +71,7 @@ enum VendorShiftLocalNotifier {
 
         for vendor in candidateVendors {
             guard let delta = vendor.pendingShiftDelta else { continue }
-            // Only post a visible push for shifts that exceed BOTH the per-vendor
-            // threshold AND the planner's global Settings threshold ("Notify me
-            // when shift exceeds..."). Smaller shifts still sync silently and
-            // surface in the in-app banner via `pendingShiftDelta`.
+            // Require shift to exceed BOTH per-vendor and global thresholds.
             guard Self.shouldPostVisibleNotification(
                 delta: delta,
                 vendorThresholdSeconds: vendor.notificationThreshold,
@@ -115,9 +91,7 @@ enum VendorShiftLocalNotifier {
                 VendorShiftNotificationContent.eventIDKey: event.id.uuidString
             ]
 
-            // Deterministic ID per vendor — replaces any prior shift
-            // notification so we don't spam if processAndNotify runs again
-            // before the vendor acknowledges.
+            // Deterministic ID per vendor — replaces prior shift notification.
             let request = UNNotificationRequest(
                 identifier: "shift-\(vendor.id.uuidString)",
                 content: content,
@@ -131,9 +105,7 @@ enum VendorShiftLocalNotifier {
                 logger.error("Failed to post notification for \(vendor.name): \(error.localizedDescription)")
             }
 
-            // pendingShiftDelta is intentionally preserved — the in-app
-            // acknowledgment banner reads it to display the shift amount.
-            // It is cleared when the vendor taps the banner to acknowledge.
+            // pendingShiftDelta is preserved — cleared when vendor taps the in-app acknowledgment banner.
             vendor.hasAcknowledgedLatestShift = false
         }
     }

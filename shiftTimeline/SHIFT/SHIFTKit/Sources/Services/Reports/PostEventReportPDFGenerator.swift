@@ -2,20 +2,8 @@
 import UIKit
 import Models
 
-/// Renders a `PostEventReport` as a shareable, colour-coded PDF.
-///
-/// The output is a US Letter document with three sections:
-///   * **Header** — event title, date, total duration, and a one-line
-///     summary ("Total drift: +12 min across 4 shifts").
-///   * **Comparison table** — one row per block with columns
-///     Block · Planned Start · Actual Completion · Delta. Late deltas
-///     render in red, on-time/early deltas render in green, uncompleted
-///     blocks render an em-dash in neutral grey.
-///   * **Totals row** — total drift minutes and total shift count.
-///
-/// File naming follows `SHIFT_Report_[EventName]_[Date].pdf`, sanitised to
-/// alphanumerics + underscore so the file is safe for AirDrop, Mail, Files,
-/// and SMB targets.
+/// Renders a `PostEventReport` as a US Letter PDF with header, per-block comparison table, and totals row.
+/// Late deltas render red, on-time/early render green, uncompleted blocks render — in grey.
 public final class PostEventReportPDFGenerator: Sendable {
 
     // MARK: - Layout
@@ -27,7 +15,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         static let marginV: CGFloat = 50
         static let contentWidth: CGFloat = pageWidth - marginH * 2
 
-        // Column proportions — must sum to 1.0.
+        // Column proportions must sum to 1.0.
         static let colTitle: CGFloat = 0.34
         static let colPlanned: CGFloat = 0.22
         static let colActual: CGFloat = 0.22
@@ -48,7 +36,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         static let subtitle = UIColor.darkGray
         static let tableBorder = UIColor(red: 0.80, green: 0.80, blue: 0.83, alpha: 1.0)
 
-        // Delta tones — green for on-time/early, red for late, grey for n/a.
+        // Delta tones.
         static let deltaLate = UIColor(red: 0.80, green: 0.15, blue: 0.20, alpha: 1.0)
         static let deltaOnTime = UIColor(red: 0.15, green: 0.55, blue: 0.30, alpha: 1.0)
         static let deltaNeutral = UIColor.gray
@@ -65,10 +53,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         static let footer = UIFont.systemFont(ofSize: 8, weight: .regular)
     }
 
-    // `DateFormatter` is not `Sendable`, but these are configured once at
-    // load time and only read from afterwards. `nonisolated(unsafe)` asserts
-    // the single-writer guarantee so this `Sendable` class can hold them
-    // under `-strict-concurrency=complete`.
+    // nonisolated(unsafe): configured once at load time, read-only thereafter.
     private nonisolated(unsafe) static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
@@ -93,9 +78,7 @@ public final class PostEventReportPDFGenerator: Sendable {
 
     // MARK: - Public API
 
-    /// Sendable snapshot of the only `EventModel` fields the renderer reads.
-    /// Lets callers hop off `@MainActor` for the (CPU-heavy) PDF render pass
-    /// without dragging the live `@Model` across actor boundaries.
+    /// Sendable snapshot of `EventModel` fields needed for PDF rendering. Pass this across actor boundaries instead of the live `@Model`.
     public struct EventSummary: Sendable, Equatable {
         public let title: String
         public let date: Date
@@ -105,16 +88,12 @@ public final class PostEventReportPDFGenerator: Sendable {
         }
     }
 
-    /// Generates the PDF for `report` describing `event`. The two are passed
-    /// separately because the report is a value type that may be re-rendered
-    /// from a stored snapshot without the live model graph.
+    /// Convenience overload. Extracts `EventSummary` from a live `@Model`.
     public func generate(report: PostEventReport, event: EventModel) -> Data {
         generate(report: report, event: EventSummary(title: event.title, date: event.date))
     }
 
-    /// Sendable-friendly overload — preferred when calling from off-MainActor
-    /// contexts (e.g. `Task.detached` in the preview view) so no `@Model`
-    /// crosses the boundary.
+    /// Sendable overload — preferred when calling from off-`@MainActor` contexts.
     public func generate(report: PostEventReport, event: EventSummary) -> Data {
         let renderer = UIGraphicsPDFRenderer(
             bounds: CGRect(x: 0, y: 0, width: Layout.pageWidth, height: Layout.pageHeight)
@@ -151,13 +130,12 @@ public final class PostEventReportPDFGenerator: Sendable {
         }
     }
 
-    /// `SHIFT_Report_[EventName]_[Date].pdf`. Title is sanitised to
-    /// alphanumerics + `_`; characters such as `/`, `:`, `&` are stripped.
+    /// Generates filename `SHIFT_Report_[EventName]_[Date].pdf` with title sanitised to alphanumerics + `_`.
     public func fileName(for event: EventModel) -> String {
         fileName(for: EventSummary(title: event.title, date: event.date))
     }
 
-    /// Sendable-friendly overload — see `generate(report:event:)`.
+    /// Sendable overload — see `fileName(for:)`.
     public func fileName(for event: EventSummary) -> String {
         let safeTitle = event.title
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
@@ -168,8 +146,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         return "SHIFT_Report_\(safe)_\(dateString).pdf"
     }
 
-    /// "Total drift: +12 min across 4 shifts" — used both in the PDF header
-    /// and as a preview string for the Share sheet.
+    /// Summary line used in both the PDF header and the Share sheet preview.
     public func summaryLine(for report: PostEventReport) -> String {
         let drift = report.totalDriftMinutes
         let sign = drift > 0 ? "+" : (drift < 0 ? "-" : "")
@@ -189,8 +166,7 @@ public final class PostEventReportPDFGenerator: Sendable {
         case neutral   // never completed → grey
     }
 
-    /// View-model row for a single block in the table. Public so tests can
-    /// assert against the rendered data without rasterising the PDF.
+    /// View-model row for one block. Public so tests can verify rendered data without rasterising the PDF.
     public struct ReportRow: Sendable, Equatable {
         public let title: String
         public let plannedStartDisplay: String
@@ -258,8 +234,7 @@ public final class PostEventReportPDFGenerator: Sendable {
             .font: PDFFont.subtitle,
             .foregroundColor: PDFColor.subtitle,
         ]
-        // Plain text — emoji glyphs render as missing rectangles in many
-        // PDF viewers (Windows, enterprise DMS, older macOS, printers).
+        // Plain text only — emoji glyphs render as rectangles in many PDF viewers.
         let dateString = Self.dateFormatter.string(from: event.date)
         (("Date: " + dateString) as NSString).draw(
             at: CGPoint(x: Layout.marginH, y: cursor.y),
@@ -274,7 +249,6 @@ public final class PostEventReportPDFGenerator: Sendable {
         )
         cursor.y += 22
 
-        // Summary line in semibold black.
         let summaryAttrs: [NSAttributedString.Key: Any] = [
             .font: PDFFont.summary,
             .foregroundColor: PDFColor.bodyText,

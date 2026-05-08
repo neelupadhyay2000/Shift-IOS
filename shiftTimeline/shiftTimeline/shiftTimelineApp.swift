@@ -10,18 +10,7 @@ import Services
 import TestSupport
 import os
 
-/// SHIFT app entry point.
-///
-/// `PersistenceController.shared.container` registers all five SwiftData models:
-///   - EventModel
-///   - TimelineTrack
-///   - TimeBlockModel
-///   - VendorModel
-///   - ShiftRecord
-///
-/// The container is injected into the SwiftUI environment here so every
-/// descendant view can use `@Query` and `@Environment(\.modelContext)` without
-/// additional setup.
+/// SHIFT app entry point. Injects the shared `ModelContainer` into the SwiftUI environment.
 @main
 struct shiftTimelineApp: App {
 
@@ -34,14 +23,9 @@ struct shiftTimelineApp: App {
     // MARK: - UI Test Mode
 
     /// `true` when the process was launched by the XCUITest runner with `-UITestMode 1`.
-    /// Evaluated once at process start; safe to read from any context.
     static let isUITestMode = CommandLine.arguments.contains("-UITestMode")
 
-    /// The active `ModelContainer` for this process.
-    ///
-    /// UI test runs receive an in-memory container with no CloudKit connectivity so
-    /// tests never touch real user data. Production runs use the CloudKit-backed
-    /// shared container from `PersistenceController`.
+    /// Production uses the CloudKit-backed shared container; UI tests get an in-memory container.
     private static let modelContainer: ModelContainer = {
         guard !isUITestMode else {
             do {
@@ -70,18 +54,7 @@ struct shiftTimelineApp: App {
         AnalyticsService.send(.appLaunched)
     }
 
-    /// Wipes all persistent state when the test runner passes `-ResetData 1`.
-    ///
-    /// Called synchronously in `init()` before SwiftUI renders the first scene,
-    /// guaranteeing each test starts from a blank slate.
-    ///
-    /// What is reset:
-    /// - Main-bundle `UserDefaults` domain (onboarding flags, cached preferences, etc.)
-    /// - App Group `UserDefaults` domain (widget data store, shared prefs)
-    ///
-    /// What does NOT need resetting:
-    /// - The `ModelContainer` — it is in-memory (`isStoredInMemoryOnly: true`) and
-    ///   created fresh for every process launch, so it is already empty.
+    /// Resets UserDefaults domains when the test runner passes `-ResetData`.
     private static func resetDataIfRequested() {
         guard CommandLine.arguments.contains("-ResetData") else { return }
 
@@ -93,18 +66,7 @@ struct shiftTimelineApp: App {
         UserDefaults(suiteName: appGroupID)?.removePersistentDomain(forName: appGroupID)
     }
 
-    /// Seeds the in-memory `ModelContainer` with a deterministic fixture when
-    /// the test runner passes `-SeedFixture <name>`.
-    ///
-    /// The fixture name is resolved via `TestFixture.named(_:)`. Time-dependent
-    /// fixture data is stamped from `TestClock.fromLaunchArguments`, which
-    /// reads `-FrozenNow <iso8601>` so countdowns and timers are reproducible
-    /// across machines and CI runs.
-    ///
-    /// Silent no-op when:
-    /// - The flag is absent.
-    /// - The flag is present but the fixture name is unknown.
-    /// - Building throws (logged; never crashes the app under test).
+    /// Seeds the in-memory container with a deterministic fixture when the test runner passes `-SeedFixture <name>`.
     @MainActor
     private static func seedFixtureIfRequested() {
         let args = CommandLine.arguments
@@ -130,9 +92,7 @@ struct shiftTimelineApp: App {
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
 
-    /// One-time migration: stamps existing events with the current user's
-    /// CloudKit record name so the shared-event detection works for
-    /// events created before `ownerRecordName` was introduced.
+    /// Backfills `ownerRecordName` on events created before that field was introduced.
     @MainActor
     private func backfillOwnerRecordNames() {
         guard let recordName = CloudKitIdentity.shared.currentUserRecordName else { return }
@@ -176,33 +136,25 @@ struct shiftTimelineApp: App {
             guard !Self.isUITestMode else { return }
             if newPhase == .background {
                 SunsetPrefetchTask.scheduleNextRefresh()
-                // Stop the foreground poll — no need to hit CloudKit while backgrounded.
+                // Stop poll while backgrounded.
                 SharedZoneSubscriptionManager.shared.stopForegroundPolling()
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
-                // Re-register the shared-database subscription. CloudKit can silently
-                // purge subscriptions after inactivity or across device restores, and
-                // a failed launch registration has no automatic retry.
+                // Re-register subscription in case CloudKit purged it.
                 Task { await SharedZoneSubscriptionManager.shared.registerIfNeeded() }
-                // Pull any shared-zone changes that arrived while the app was backgrounded
-                // or that were missed due to silent-push delivery failures (low-power mode,
-                // APNs coalescing). This is the primary recovery path for missed syncs.
-                // Always also scan for pending vendor notifications, even without new CloudKit
-                // data, in case a prior sync already wrote pendingShiftDelta to local storage.
+                // Catch up on changes missed while backgrounded or due to dropped silent pushes.
                 Task {
                     await SharedZoneSubscriptionManager.shared.fetchChanges()
                     await appDelegate.processVendorShiftNotifications()
                 }
-                // Heartbeat: poll every 30 s while the app is active so vendor devices
-                // receive planner updates even when silent pushes are throttled/dropped.
+                // 30s heartbeat so vendors see updates even when pushes are throttled.
                 SharedZoneSubscriptionManager.shared.startForegroundPolling()
             }
         }
     }
 
-    /// Writes the next upcoming event date to the widget App Group store
-    /// so the "No Active Event" widget state can show "Next event: …".
+    /// Writes the next upcoming event date to the widget App Group store.
     private func refreshWidgetNextEventDate() {
         let context = PersistenceController.shared.container.mainContext
         let now = Date()

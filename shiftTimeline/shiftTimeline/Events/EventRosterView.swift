@@ -4,9 +4,6 @@ import Models
 import Services
 
 /// Lists all events sorted by date descending.
-///
-/// Uses `@Query` to reactively fetch `EventModel` objects from SwiftData.
-/// Shows an empty state with a "+" button when no events exist.
 struct EventRosterView: View {
 
     @Query(sort: \EventModel.date, order: .reverse)

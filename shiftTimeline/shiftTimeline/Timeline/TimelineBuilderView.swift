@@ -5,11 +5,7 @@ import TipKit
 import Models
 import Services
 
-/// Displays a vertical timeline of time blocks for a given event.
-///
-/// Layout: thin ruler on the left, block cards on the right, positioned
-/// by `scheduledStart` within a scrollable fixed-height frame.
-/// Compact mode reduces scale so the full timeline fits without scrolling.
+/// Vertical timeline of time blocks for an event. Ruler on left, block cards on right.
 struct TimelineBuilderView: View {
 
     @Query private var results: [EventModel]
@@ -32,7 +28,7 @@ struct TimelineBuilderView: View {
     @State private var blockPendingDeletion: TimeBlockModel?
     @State private var isInspectorOpen = false
 
-    // Drag reorder state (iPhone only)
+    // Drag reorder (iPhone only)
     @State private var draggingBlockID: UUID?
     @State private var dragTranslation: CGFloat = 0
     @State private var isEditing = false
@@ -44,7 +40,7 @@ struct TimelineBuilderView: View {
     @State private var renameText = ""
     @State private var trackToDelete: TimelineTrack?
 
-    // Track filtering — nil means "All", otherwise filters to a specific track
+    // Track filtering: nil = "All"
     @State private var selectedTrackID: UUID?
 
     // Voice memo recording
@@ -66,14 +62,13 @@ struct TimelineBuilderView: View {
 
     private var event: EventModel? { results.first }
 
-    /// True when the current user does not own this event (shared read-only).
+    /// True when the current user is a shared read-only recipient.
     private var isReadOnly: Bool {
         guard let event else { return false }
         return !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
     }
 
-    /// On iPhone (compact), this binding drives the `.sheet(item:)`.
-    /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
+    /// On iPhone drives `.sheet(item:)`. On iPad returns `.constant(nil)` so sheet never fires.
     private var sheetBinding: Binding<TimeBlockModel?> {
         if sizeClass == .compact {
             return $blockToInspect
@@ -82,7 +77,7 @@ struct TimelineBuilderView: View {
         }
     }
 
-    /// Live-reads blocks from SwiftData relationships — never stale.
+    /// Live-read blocks from SwiftData relationships.
     private var sortedBlocks: [TimeBlockModel] {
         guard let event else { return [] }
         return (event.tracks ?? [])
@@ -95,14 +90,12 @@ struct TimelineBuilderView: View {
         (event?.tracks ?? []).sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    /// The default track — identified by the stable `isDefault` flag,
-    /// not by name. Cannot be renamed or deleted.
+    /// Default track identified by `isDefault` flag. Cannot be renamed or deleted.
     private var defaultTrack: TimelineTrack? {
         sortedTracks.first { $0.isDefault }
     }
 
-    /// Blocks filtered by the selected track tab.
-    /// When `selectedTrackID` is nil ("All"), shows all blocks.
+    /// Blocks for selected track. `nil` selectedTrackID = "All".
     private var filteredBlocks: [TimeBlockModel] {
         guard let trackID = selectedTrackID else { return sortedBlocks }
         return sortedBlocks.filter { $0.track?.id == trackID }
@@ -165,7 +158,7 @@ struct TimelineBuilderView: View {
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .blockLimit)
         }
-        // iPhone: sheet presentation
+        // iPhone: sheet for block inspector
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
             BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
                 .presentationDetents([.medium, .large])
@@ -176,8 +169,7 @@ struct TimelineBuilderView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
-        // Transit block prompt — fires whenever a venue location changes anywhere
-        // in the timeline (new block saved, inspector edit, etc).
+        // Transit block prompt — fires on venue location changes.
         .sheet(item: $transitPromptContext) { ctx in
             TransitBlockPromptView(
                 context: ctx,
@@ -209,10 +201,8 @@ struct TimelineBuilderView: View {
         .onChange(of: isInspectorOpen) { _, isOpen in
             if !isOpen {
                 blockToInspect = nil
-                // iPad live-write inspector closed — re-scan in case venue changed.
+                // iPad inspector closed — re-scan venues + repair CloudKit parent fields.
                 scanForVenueSwitches()
-                // iPad uses InspectorLiveWriteModifier (no explicit Save button) — repairs
-                // parent-fields on close so the session's live-written changes reach vendors.
                 if let event {
                     Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
                 }
@@ -274,13 +264,11 @@ struct TimelineBuilderView: View {
             }
         }
         .onAppear {
-            // Default to Main track on first appearance
             if selectedTrackID == nil, let main = defaultTrack {
                 selectedTrackID = main.id
             }
         }
         .onDisappear {
-            // Auto-exit edit mode so it doesn't persist across navigation
             isEditing = false
         }
         // Native haptic feedback whenever edit mode is toggled
@@ -289,9 +277,7 @@ struct TimelineBuilderView: View {
 
     // MARK: - Edit Mode Banner
 
-    /// A persistent contextual banner that slides in below the navigation bar
-    /// when reorder mode is active. Communicates drag affordances and the
-    /// pinned-block constraint without occupying a modal surface.
+    /// Reorder mode banner that slides in below the nav bar when `isEditing` is active.
     private var editModeBanner: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -334,8 +320,7 @@ struct TimelineBuilderView: View {
         .adaptive(blocks: filteredBlocks)
     }
 
-    /// Layout computed from ALL blocks across ALL tracks — used by iPad
-    /// so the shared ruler spans the full time range.
+    /// Layout for all blocks across all tracks — used by iPad so the shared ruler spans the full range.
     private var sharedLayout: TimeRulerLayout {
         .adaptive(blocks: sortedBlocks)
     }
@@ -345,9 +330,7 @@ struct TimelineBuilderView: View {
         sortedBlocks.filter(\.isPinned)
     }
 
-    /// The next available start time: the end of the last block across all tracks,
-    /// kept on the same calendar date as the event. Falls back to `Date.now` when
-    /// no blocks exist yet.
+    /// Next available start time: end of last block clamped to the event's calendar date.
     private var nextAvailableStartTime: Date {
         guard let event,
               let lastBlock = sortedBlocks.max(by: { 
@@ -356,8 +339,7 @@ struct TimelineBuilderView: View {
             return .now
         }
         let candidate = lastBlock.scheduledStart.addingTimeInterval(lastBlock.duration)
-        // Keep the candidate on the event's calendar date by preserving only the
-        // time components and combining them with the event date.
+        // Clamp to event's calendar date: preserve time components, replace date components.
         let calendar = Calendar.current
         let candidateComponents = calendar.dateComponents([.hour, .minute], from: candidate)
         let eventDateComponents = calendar.dateComponents([.year, .month, .day], from: event.date)
@@ -371,7 +353,7 @@ struct TimelineBuilderView: View {
         return calendar.date(from: merged) ?? candidate
     }
 
-    /// iPhone: single-track timeline with filter tabs.
+    /// iPhone single-track timeline with filter tabs.
     private var timelineContent: some View {
         ScrollView {
             TipView(reorderTip)

@@ -1,33 +1,10 @@
 import Foundation
 import Models
 
-/// Generates a `PostEventReport` from a completed `EventModel`.
-///
-/// The generator compares each block's `originalStart` (the planned start
-/// time before any shifts were applied) against `completedTime` (the
-/// wall-clock moment the block was marked `.completed`), computes a
-/// per-block delta in whole minutes, sums total timeline drift across
-/// completed blocks, and counts the number of `ShiftRecord`s the engine
-/// stamped during execution.
-///
-/// Blocks that were never completed (cancelled, skipped, or left over
-/// when the event was forced to `.completed`) appear in the report with
-/// `actualCompletion == nil` and contribute `0` to drift — they are
-/// surfaced in the PDF as "—" rows so the planner can see what dropped.
-///
-/// Generation is idempotent: calling `generate(for:)` again replaces the
-/// previously stored report on `event.postEventReport`.
+/// Generates a `PostEventReport` from a completed `EventModel`. Idempotent — re-calling replaces the stored report.
 public enum PostEventReportGenerator {
 
-    /// Builds the report and writes it to `event.postEventReport`.
-    ///
-    /// - Parameters:
-    ///   - event: The event to summarise. Should have `status == .completed`,
-    ///     but the function does not enforce that — callers may want to
-    ///     preview the report before transitioning the event status.
-    ///   - now: Stamp for `PostEventReport.generatedAt`. Injected for
-    ///     deterministic testing; defaults to `Date()`.
-    /// - Returns: The freshly built report (also persisted on `event`).
+    /// Builds report and writes it to `event.postEventReport`. `now` is injectable for deterministic tests.
     @discardableResult
     public static func generate(
         for event: EventModel,
@@ -64,8 +41,7 @@ public enum PostEventReportGenerator {
         let actual = block.completedTime
         let delta: Int = {
             guard let actual else { return 0 }
-            // Round to nearest whole minute to keep the report stable
-            // against sub-second timestamp noise.
+            // Round to nearest whole minute to suppress sub-second noise.
             let seconds = actual.timeIntervalSince(block.originalStart)
             return Int((seconds / 60.0).rounded())
         }()

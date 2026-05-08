@@ -2,14 +2,8 @@ import Foundation
 
 /// Centralised, namespaced accessibility identifier strings.
 ///
-/// **Single source of truth** for the string values stamped on SwiftUI views
-/// via `.accessibilityIdentifier(_:)`. An identical copy of this file lives in
-/// `shiftTimelineUITests/Helpers/AccessibilityID.swift` so the test target can
-/// reference the same constants without importing the app module.
-///
-/// Naming convention: `<screen>.<element_role>` — lowercase, dot-separated.
-/// Never include spaces or special characters; these are machine identifiers, not
-/// human-readable labels (use `.accessibilityLabel` for that).
+/// **Single source of truth** for the string values stamped on SwiftUI views An identical copy of this file lives in
+/// `shiftTimelineUITests/Helpers/AccessibilityID.swift` so the test target can reference the same constants without importing the app module.
 enum AccessibilityID {
 
     // MARK: - Tab bar
