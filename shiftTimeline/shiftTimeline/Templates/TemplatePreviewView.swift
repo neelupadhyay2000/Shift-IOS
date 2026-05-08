@@ -142,8 +142,6 @@ private struct UseTemplateSheet: View {
         bySettingHour: 10, minute: 0, second: 0, of: .now
     ) ?? .now
     @State private var locationResult: BlockLocationResult? = nil
-    @State private var startTimePickerID = UUID()
-    @State private var startTimePickerTask: Task<Void, Never>?
 
     private var canCreate: Bool {
         !eventTitle.trimmingCharacters(in: .whitespaces).isEmpty
@@ -154,17 +152,8 @@ private struct UseTemplateSheet: View {
             Form {
                 Section(String(localized: "Event Details")) {
                     TextField(String(localized: "Event Name"), text: $eventTitle)
-                    DatePicker(String(localized: "Date"), selection: $eventDate, displayedComponents: .date)
-                    DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: .hourAndMinute)
-                            .id(startTimePickerID)
-                            .onChange(of: startTime) { _, _ in
-                                startTimePickerTask?.cancel()
-                                startTimePickerTask = Task {
-                                    try? await Task.sleep(for: .seconds(0.15))
-                                    guard !Task.isCancelled else { return }
-                                    startTimePickerID = UUID()
-                                }
-                            }
+                    DatePickerRow(String(localized: "Date"), selection: $eventDate, components: .date)
+                    DatePickerRow(String(localized: "Start Time"), selection: $startTime, components: .hourAndMinute)
                 }
 
                 Section(String(localized: "Location")) {
@@ -187,10 +176,6 @@ private struct UseTemplateSheet: View {
             }
             .navigationTitle(String(localized: "New Event from Template"))
             .navigationBarTitleDisplayMode(.inline)
-            .onDisappear {
-                startTimePickerTask?.cancel()
-                startTimePickerTask = nil
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {

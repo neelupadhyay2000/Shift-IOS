@@ -28,8 +28,6 @@ struct CreateBlockSheet: View {
     @State private var venueName: String = ""
     @State private var blockLatitude: Double = 0
     @State private var blockLongitude: Double = 0
-    @State private var startTimePickerID = UUID()
-    @State private var startTimePickerTask: Task<Void, Never>?
 
     init(eventID: UUID, trackID: UUID? = nil, suggestedStartTime: Date? = nil) {
         self.eventID = eventID
@@ -58,16 +56,7 @@ struct CreateBlockSheet: View {
             Form {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
-                    DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                        .id(startTimePickerID)
-                        .onChange(of: startTime) { _, _ in
-                            startTimePickerTask?.cancel()
-                            startTimePickerTask = Task {
-                                try? await Task.sleep(for: .seconds(0.15))
-                                guard !Task.isCancelled else { return }
-                                startTimePickerID = UUID()
-                            }
-                        }
+                    DatePickerRow(String(localized: "Start Time"), selection: $startTime, components: [.date, .hourAndMinute])
                 }
 
                 Section(String(localized: "Duration")) {
@@ -98,10 +87,6 @@ struct CreateBlockSheet: View {
             }
             .navigationTitle(String(localized: "New Block"))
             .navigationBarTitleDisplayMode(.inline)
-            .onDisappear {
-                startTimePickerTask?.cancel()
-                startTimePickerTask = nil
-            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) {

@@ -47,10 +47,10 @@ struct EditEventSheet: View {
             Form {
                 Section {
                     TextField(String(localized: "Title"), text: $title)
-                    DatePicker(
+                    DatePickerRow(
                         String(localized: "Date"),
                         selection: $date,
-                        displayedComponents: .date
+                        components: .date
                     )
                 }
 

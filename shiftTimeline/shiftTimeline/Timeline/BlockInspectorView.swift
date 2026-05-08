@@ -209,16 +209,7 @@ struct BlockInspectorView: View {
         Section(String(localized: "Basic Info")) {
             TextField(String(localized: "Title"), text: $title)
                 .accessibilityIdentifier(AccessibilityID.Inspector.titleField)
-            DatePicker(String(localized: "Start Time"), selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                    .id(startTimePickerID)
-                    .onChange(of: startTime) { _, _ in
-                        startTimePickerTask?.cancel()
-                        startTimePickerTask = Task {
-                            try? await Task.sleep(for: .seconds(0.15))
-                            guard !Task.isCancelled else { return }
-                            startTimePickerID = UUID()
-                        }
-                    }
+            DatePickerRow(String(localized: "Start Time"), selection: $startTime, components: [.date, .hourAndMinute])
 
             Picker(String(localized: "Duration"), selection: $duration) {
                 ForEach(CreateBlockSheet.durationOptions, id: \.1) { label, value in
