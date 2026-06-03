@@ -16,6 +16,11 @@ struct BlockInspectorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.blockRepository) private var injectedBlockRepo
+
+    private var blockRepo: any BlockRepositing {
+        injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
+    }
 
     let block: TimeBlockModel
     let eventID: UUID
@@ -174,7 +179,7 @@ struct BlockInspectorView: View {
                 if !isReadOnly {
                     ToolbarItem(placement: .confirmationAction) {
                         Button(String(localized: "Save")) {
-                            saveChanges()
+                            Task { await saveChanges() }
                         }
                         .disabled(!canSave)
                         .accessibilityIdentifier(AccessibilityID.Inspector.saveButton)
@@ -419,7 +424,8 @@ struct BlockInspectorView: View {
 
     // MARK: - Save
 
-    private func saveChanges() {
+    @MainActor
+    private func saveChanges() async {
         block.title = title.trimmingCharacters(in: .whitespaces)
         block.scheduledStart = startTime
         block.duration = duration
@@ -443,8 +449,8 @@ struct BlockInspectorView: View {
         // Always save explicitly — previously conditional on location change, which
         // caused mutations (title, time, duration) to rely on SwiftData autosave and
         // never trigger the CloudKit repair below.
-        event?.touchForSync()   // parent tickle so this block edit exports promptly to vendors
-        try? modelContext.save()
+        event?.touchForSync()
+        try? await blockRepo.save()
 
         // Immediately write child parent-fields to CloudKit so participants receive
         // a push notification for this block edit without waiting for

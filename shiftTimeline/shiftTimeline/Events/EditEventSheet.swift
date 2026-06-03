@@ -13,6 +13,11 @@ struct EditEventSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.eventRepository) private var injectedEventRepo
+
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
 
     let event: EventModel
 
@@ -73,7 +78,7 @@ struct EditEventSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save")) {
-                        saveChanges()
+                        Task { await saveChanges() }
                     }
                     .disabled(!canSave)
                 }
@@ -81,7 +86,8 @@ struct EditEventSheet: View {
         }
     }
 
-    private func saveChanges() {
+    @MainActor
+    private func saveChanges() async {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
         let newLatitude = locationResult?.coordinate?.latitude ?? 0
         let newLongitude = locationResult?.coordinate?.longitude ?? 0
@@ -105,8 +111,8 @@ struct EditEventSheet: View {
             event.goldenHourStart = nil
         }
 
-        event.touchForSync()   // parent tickle so this event edit exports promptly to vendors
-        try? modelContext.save()
+        event.touchForSync()
+        try? await eventRepo.save()
 
         // Immediately write child parent-fields to CloudKit so participants receive
         // a push notification for this edit without waiting for NSPersistentCloudKitContainer's
@@ -114,11 +120,9 @@ struct EditEventSheet: View {
         Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
 
         if (locationChanged || dateChanged) && (newLatitude != 0 || newLongitude != 0) {
-            Task { @MainActor in
-                let service = SunsetService()
-                _ = await service.fetchIfNeeded(for: event)
-                try? modelContext.save()
-            }
+            let service = SunsetService()
+            _ = await service.fetchIfNeeded(for: event)
+            try? await eventRepo.save()
         }
 
         dismiss()

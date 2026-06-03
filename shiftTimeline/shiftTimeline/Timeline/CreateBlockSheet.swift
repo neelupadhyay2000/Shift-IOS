@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import MapKit
 import Models
+import Services
 
 /// Sheet for creating a new time block within an event.
 ///
@@ -11,6 +12,15 @@ struct CreateBlockSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.blockRepository) private var injectedBlockRepo
+    @Environment(\.trackRepository) private var injectedTrackRepo
+
+    private var blockRepo: any BlockRepositing {
+        injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
+    }
+    private var trackRepo: any TrackRepositing {
+        injectedTrackRepo ?? SwiftDataTrackRepository(context: modelContext)
+    }
 
     let eventID: UUID
     /// Track to assign the new block to. When nil, falls back to the default track.
@@ -95,7 +105,7 @@ struct CreateBlockSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Save")) {
-                        saveBlock()
+                        Task { await saveBlock() }
                     }
                     .disabled(!canSave)
                     .accessibilityHint(canSave ? "" : String(localized: "Enter a block title to continue"))
@@ -112,7 +122,8 @@ struct CreateBlockSheet: View {
         return try? modelContext.fetch(descriptor).first
     }
 
-    private func saveBlock() {
+    @MainActor
+    private func saveBlock() async {
         guard let event = fetchEvent() else { return }
 
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
@@ -123,8 +134,10 @@ struct CreateBlockSheet: View {
             track = selected
         } else if let defaultTrack = (event.tracks ?? []).first(where: { $0.isDefault }) {
             track = defaultTrack
+        } else if let existing = (event.tracks ?? []).first {
+            track = existing
         } else {
-            track = (event.tracks ?? []).first ?? createTrack(for: event)
+            track = await createTrack(for: event)
         }
 
         let block = TimeBlockModel(
@@ -137,14 +150,13 @@ struct CreateBlockSheet: View {
         block.venueName = venueName
         block.blockLatitude = blockLatitude
         block.blockLongitude = blockLongitude
-        block.track = track
-        modelContext.insert(block)
+        try? await blockRepo.insert(block, into: track)
 
         // Tickle the parent + save so the new block and a parent-record change
         // export together (see EventModel.touchForSync). Previously this relied
         // on autosave, which made added blocks reach vendors slowly.
         event.touchForSync()
-        try? modelContext.save()
+        try? await blockRepo.save()
 
         // Repair parent-fields immediately so the new block is visible to participants
         // without waiting for NSPersistentCloudKitContainer's delayed sync.
@@ -153,10 +165,10 @@ struct CreateBlockSheet: View {
         dismiss()
     }
 
-    private func createTrack(for event: EventModel) -> TimelineTrack {
+    @MainActor
+    private func createTrack(for event: EventModel) async -> TimelineTrack {
         let track = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true)
-        track.event = event
-        modelContext.insert(track)
+        try? await trackRepo.insert(track, into: event)
         return track
     }
 }

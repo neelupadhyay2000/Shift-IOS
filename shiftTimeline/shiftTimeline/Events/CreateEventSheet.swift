@@ -13,6 +13,15 @@ struct CreateEventSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.eventRepository) private var injectedEventRepo
+    @Environment(\.trackRepository) private var injectedTrackRepo
+
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
+    private var trackRepo: any TrackRepositing {
+        injectedTrackRepo ?? SwiftDataTrackRepository(context: modelContext)
+    }
 
     @State private var title: String = ""
     @State private var date: Date = .now
@@ -52,7 +61,7 @@ struct CreateEventSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Create")) {
-                        createEvent()
+                        Task { await createEvent() }
                     }
                     .disabled(!canCreate)
                     .accessibilityHint(canCreate ? "" : String(localized: "Enter an event title to continue"))
@@ -62,7 +71,8 @@ struct CreateEventSheet: View {
         }
     }
 
-    private func createEvent() {
+    @MainActor
+    private func createEvent() async {
         let trimmedTitle = title.trimmingCharacters(in: .whitespaces)
         let latitude = locationResult?.coordinate?.latitude ?? 0
         let longitude = locationResult?.coordinate?.longitude ?? 0
@@ -79,22 +89,18 @@ struct CreateEventSheet: View {
             venueNames: venueNames
         )
         event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
-        modelContext.insert(event)
+        try? await eventRepo.insert(event)
         AnalyticsService.send(.eventCreated)
         AddBlockTip.hasCreatedFirstEvent = true
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
-        modelContext.insert(mainTrack)
+        try? await trackRepo.insert(mainTrack, into: event)
 
-        // Fire-and-forget sunset fetch when both coordinates are provided.
         if latitude != 0 && longitude != 0 {
-            Task { @MainActor in
-                let service = SunsetService()
-                _ = await service.fetchIfNeeded(for: event)
-                try? modelContext.save()
-            }
+            let service = SunsetService()
+            _ = await service.fetchIfNeeded(for: event)
         }
-
+        try? await eventRepo.save()
         dismiss()
     }
 }

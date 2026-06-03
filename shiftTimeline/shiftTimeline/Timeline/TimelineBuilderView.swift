@@ -25,6 +25,19 @@ struct TimelineBuilderView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.eventRepository) private var injectedEventRepo
+    @Environment(\.trackRepository) private var injectedTrackRepo
+    @Environment(\.blockRepository) private var injectedBlockRepo
+
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
+    private var trackRepo: any TrackRepositing {
+        injectedTrackRepo ?? SwiftDataTrackRepository(context: modelContext)
+    }
+    private var blockRepo: any BlockRepositing {
+        injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
+    }
 
     @State private var undoManager = ShiftUndoManager()
     @State private var isShowingCreateSheet = false
@@ -219,8 +232,10 @@ struct TimelineBuilderView: View {
                 // parent-fields on close so the session's live-written changes reach vendors.
                 if let event {
                     event.touchForSync()
-                    try? modelContext.save()
-                    Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+                    Task {
+                        try? await eventRepo.save()
+                        await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
+                    }
                 }
             }
         }
@@ -828,7 +843,7 @@ struct TimelineBuilderView: View {
         }
         ToolbarItem(placement: .keyboard) {
             Button {
-                try? modelContext.save()
+                Task { try? await eventRepo.save() }
             } label: {
                 Label(String(localized: "Save"), systemImage: "square.and.arrow.down")
             }
@@ -871,7 +886,7 @@ struct TimelineBuilderView: View {
 
         let nextOrder = (sortedTracks.last?.sortOrder ?? 0) + 1
         let track = TimelineTrack(name: trimmed, sortOrder: nextOrder, event: event)
-        modelContext.insert(track)
+        Task { try? await trackRepo.insert(track, into: event) }
     }
 
     private func renameTrack() {
@@ -899,7 +914,7 @@ struct TimelineBuilderView: View {
             }
         }
 
-        modelContext.delete(track)
+        Task { try? await trackRepo.delete(track) }
         trackToDelete = nil
     }
 
@@ -979,8 +994,10 @@ struct TimelineBuilderView: View {
         // timeline immediately, without waiting for NSPersistentCloudKitContainer.
         if let event {
             event.touchForSync()
-            try? modelContext.save()
-            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+            Task {
+                try? await eventRepo.save()
+                await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
+            }
         }
     }
 
@@ -998,15 +1015,16 @@ struct TimelineBuilderView: View {
         // the deleted block's duration and shift every subsequent block forward
         // by the wrong amount.
         let deletedID = block.id
-        modelContext.delete(block)
-        recalculateStartTimesAfterDelete(excluding: deletedID)
-
-        // Repair parent-fields on remaining blocks so vendors receive a push
-        // for both the deletion and the recalculated scheduledStart values.
-        if let event {
-            event.touchForSync()
-            try? modelContext.save()
-            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
+        Task {
+            try? await blockRepo.delete(block)
+            recalculateStartTimesAfterDelete(excluding: deletedID)
+            // Repair parent-fields on remaining blocks so vendors receive a push
+            // for both the deletion and the recalculated scheduledStart values.
+            if let event {
+                event.touchForSync()
+                try? await blockRepo.save()
+                await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
+            }
         }
     }
 
