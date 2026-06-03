@@ -132,17 +132,7 @@ struct VendorSharingView: View {
     // MARK: - Actions
 
     private func invite(_ vendor: VendorModel) {
-        guard let event, !isWorking else { return }
-        isWorking = true
-        Task {
-            defer { isWorking = false }
-            do {
-                let url = try await VendorInviteService.invite(vendor: vendor, event: event)
-                presentDelivery(for: vendor, url: url, eventTitle: event.title)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
+        errorMessage = String(localized: "Vendor invites are temporarily unavailable.")
     }
 
     private func presentDelivery(for vendor: VendorModel, url: URL, eventTitle: String) {

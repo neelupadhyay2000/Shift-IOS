@@ -78,11 +78,7 @@ struct TimelineBuilderView: View {
 
     private var event: EventModel? { results.first }
 
-    /// True when the current user does not own this event (shared read-only).
-    private var isReadOnly: Bool {
-        guard let event else { return false }
-        return !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
-    }
+    private var isReadOnly: Bool { false }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.

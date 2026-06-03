@@ -127,7 +127,7 @@ struct EventRosterView: View {
                 .accessibilityIdentifier(AccessibilityID.Roster.statusFilter)
 
                 ForEach(filteredEvents) { event in
-                    let isOwner = event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
+                    let isOwner = true
                     NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
                         EventRowView(
                             title: event.title,
