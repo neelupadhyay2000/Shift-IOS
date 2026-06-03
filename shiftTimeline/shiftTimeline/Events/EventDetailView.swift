@@ -23,6 +23,7 @@ struct EventDetailView: View {
     @State private var shareError: String?
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
+    @State private var isShowingVendorSharing = false
 
     private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
@@ -288,7 +289,7 @@ struct EventDetailView: View {
                 paywallTrigger = .vendorSharing
                 return
             }
-            prepareShareSheet(for: event)
+            isShowingVendorSharing = true
         } label: {
             HStack(spacing: 10) {
                 if isPreparingShare {
@@ -317,6 +318,16 @@ struct EventDetailView: View {
         .buttonStyle(.plain)
         .disabled(isPreparingShare)
         .accessibilityHint(isPreparingShare ? String(localized: "Preparing share link, please wait") : "")
+        .sheet(isPresented: $isShowingVendorSharing) {
+            NavigationStack {
+                VendorSharingView(eventID: eventID)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(String(localized: "Done")) { isShowingVendorSharing = false }
+                        }
+                    }
+            }
+        }
         .sheet(isPresented: $isShowingShareSheet) {
             if let share = activeShareForSheet {
                 CloudSharingView(
@@ -396,13 +407,20 @@ struct EventDetailView: View {
     /// hierarchical sharing only delivers the root event record to recipients,
     /// leaving the timeline empty (0 blocks, 0 tracks).
     private func createNewShare(for event: EventModel) {
+        SyncDiagnosticsCenter.shared.record(.shareCreate, "started", params: ["event": event.id.uuidString])
         fetchEventRootRecord(for: event) { result in
             Task { @MainActor in
                 switch result {
                 case .success(let rootRecord):
+                    SyncDiagnosticsCenter.shared.record(.shareCreate, "rootFetched", params: ["event": event.id.uuidString])
                     let children = await CloudKitShareRepairService.fetchChildRecords(
                         rootRecord: rootRecord,
                         zone: rootRecord.recordID.zoneID
+                    )
+                    SyncDiagnosticsCenter.shared.record(
+                        .shareCreate,
+                        "childrenFetched",
+                        params: ["event": event.id.uuidString, "children": "\(children.count)"]
                     )
 
                     let share = CKShare(rootRecord: rootRecord)
@@ -422,8 +440,22 @@ struct EventDetailView: View {
                                 try? self.modelContext.save()
                                 self.activeShareForSheet = share
                                 self.isShowingShareSheet = true
+                                SyncDiagnosticsCenter.shared.record(
+                                    .shareCreate,
+                                    "saveSucceeded",
+                                    params: [
+                                        "event": event.id.uuidString,
+                                        "hasURL": "\(share.url != nil)",
+                                    ]
+                                )
                             case .failure(let error):
                                 self.shareError = error.localizedDescription
+                                SyncDiagnosticsCenter.shared.record(
+                                    .shareCreate,
+                                    "saveFailed",
+                                    params: ["event": event.id.uuidString, "error": error.localizedDescription],
+                                    severity: .error
+                                )
                             }
                         }
                     }
@@ -436,6 +468,12 @@ struct EventDetailView: View {
                 case .failure(let error):
                     self.isPreparingShare = false
                     self.shareError = error.localizedDescription
+                    SyncDiagnosticsCenter.shared.record(
+                        .shareCreate,
+                        "rootFetchFailed",
+                        params: ["event": event.id.uuidString, "error": error.localizedDescription],
+                        severity: .error
+                    )
                 }
             }
         }

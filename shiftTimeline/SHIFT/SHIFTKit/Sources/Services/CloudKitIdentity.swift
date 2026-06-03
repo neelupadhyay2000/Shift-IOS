@@ -34,8 +34,15 @@ public final class CloudKitIdentity: @unchecked Sendable {
             UserDefaults.standard.set(name, forKey: Self.key)
             currentUserRecordName = name
             Self.logger.info("Cached CloudKit user record name")
+            SyncDiagnosticsCenter.shared.record(.identity, "fetched", params: ["hasRecordName": "true"])
         } catch {
             Self.logger.error("Could not fetch CloudKit user record ID: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .identity,
+                "fetchFailed",
+                params: ["error": error.localizedDescription],
+                severity: .error
+            )
         }
     }
 }

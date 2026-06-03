@@ -67,13 +67,14 @@ enum VendorShiftLocalNotifier {
     }
 
     /// Testable overload — accepts injected `NotificationScheduling`,
-    /// global threshold, and optional identity so tests never touch
+    /// global threshold, identity, and dedupe store so tests never touch
     /// `UNUserNotificationCenter.current()` or `UserDefaults.standard`.
     static func processAndNotify(
         event: EventModel,
         center: any VendorNotificationScheduling,
         globalThresholdSeconds: TimeInterval,
-        currentUserRecordName: String? = nil
+        currentUserRecordName: String? = nil,
+        dedupeStore: UserDefaults = .standard
     ) async {
         let vendors = event.vendors ?? []
 
@@ -96,11 +97,29 @@ enum VendorShiftLocalNotifier {
             // threshold AND the planner's global Settings threshold ("Notify me
             // when shift exceeds..."). Smaller shifts still sync silently and
             // surface in the in-app banner via `pendingShiftDelta`.
-            guard Self.shouldPostVisibleNotification(
+            let willPost = Self.shouldPostVisibleNotification(
                 delta: delta,
                 vendorThresholdSeconds: vendor.notificationThreshold,
                 globalThresholdSeconds: globalThresholdSeconds
-            ) else { continue }
+            )
+            SyncDiagnosticsCenter.shared.record(
+                .notify,
+                "evaluated",
+                params: [
+                    "deltaMin": "\(Int(delta / 60))",
+                    "vendorThresholdMin": "\(Int(vendor.notificationThreshold / 60))",
+                    "globalThresholdMin": "\(Int(globalThresholdSeconds / 60))",
+                    "willPost": "\(willPost)",
+                ]
+            )
+            guard willPost else { continue }
+
+            // Dedupe: this scan runs on every app-active / 30s poll, but the
+            // notification ID is deterministic, so re-adding would re-alert the
+            // vendor for the same shift. Skip if we've already posted this exact
+            // delta. We do NOT clear `pendingShiftDelta` — the in-app
+            // acknowledgment banner reads it (and foreground pushes are suppressed).
+            guard !alreadyPosted(delta: delta, vendorID: vendor.id, store: dedupeStore) else { continue }
 
             let body = VendorShiftNotificationContent.body(
                 delta: delta,
@@ -126,9 +145,17 @@ enum VendorShiftLocalNotifier {
 
             do {
                 try await center.add(request)
+                markPosted(delta: delta, vendorID: vendor.id, store: dedupeStore)
                 logger.info("Posted shift notification for vendor \(vendor.name)")
+                SyncDiagnosticsCenter.shared.record(.notify, "posted", params: ["deltaMin": "\(Int(delta / 60))"])
             } catch {
                 logger.error("Failed to post notification for \(vendor.name): \(error.localizedDescription)")
+                SyncDiagnosticsCenter.shared.record(
+                    .notify,
+                    "postFailed",
+                    params: ["error": error.localizedDescription],
+                    severity: .error
+                )
             }
 
             // pendingShiftDelta is intentionally preserved — the in-app
@@ -150,6 +177,27 @@ enum VendorShiftLocalNotifier {
     ) -> Bool {
         let effectiveThreshold = max(vendorThresholdSeconds, globalThresholdSeconds)
         return abs(delta) >= effectiveThreshold
+    }
+
+    // MARK: - Post dedupe
+
+    /// Device-local key for the last shift delta we posted a notification for,
+    /// per vendor. Prevents re-alerting on every app-active/poll while the same
+    /// shift is pending. Cleared implicitly when a new (different) delta arrives.
+    private static func postedKey(_ vendorID: UUID) -> String {
+        "shift-posted-delta-\(vendorID.uuidString)"
+    }
+
+    /// `true` when a notification for this exact delta was already posted to this vendor.
+    static func alreadyPosted(delta: TimeInterval, vendorID: UUID, store: UserDefaults = .standard) -> Bool {
+        let key = postedKey(vendorID)
+        guard store.object(forKey: key) != nil else { return false }
+        let stored = store.double(forKey: key)
+        return abs(stored - delta) < 1  // within a second = same shift
+    }
+
+    private static func markPosted(delta: TimeInterval, vendorID: UUID, store: UserDefaults = .standard) {
+        store.set(delta, forKey: postedKey(vendorID))
     }
 
     /// Reads the global "Notify me when shift exceeds…" preference from `UserDefaults`,

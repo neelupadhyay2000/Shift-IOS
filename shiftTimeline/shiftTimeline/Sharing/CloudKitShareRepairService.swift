@@ -1,5 +1,6 @@
 import CloudKit
 import Models
+import Services
 import os
 
 /// Repairs the CloudKit `parent`-field hierarchy for shared events after
@@ -62,50 +63,72 @@ enum CloudKitShareRepairService {
     ///
     /// - Parameter event: The event whose child records need `parent` set.
     static func repairParentFieldsIfShared(for event: EventModel) async {
-        guard event.shareURL != nil else { return }
+        guard event.shareURL != nil else {
+            SyncDiagnosticsCenter.shared.record(
+                .parentRepair,
+                "skipped",
+                params: ["event": event.id.uuidString, "reason": "notShared"]
+            )
+            return
+        }
 
         logger.info("Starting parent-field repair for event \(event.id)")
+        SyncDiagnosticsCenter.shared.record(.parentRepair, "started", params: ["event": event.id.uuidString])
 
         do {
             guard let rootRecord = try await findRootRecord(for: event) else {
                 logger.warning("Root CKRecord not found for event \(event.id) — repair skipped")
+                SyncDiagnosticsCenter.shared.record(
+                    .parentRepair,
+                    "noRootRecord",
+                    params: ["event": event.id.uuidString],
+                    severity: .warning
+                )
                 return
             }
             let children = await fetchChildRecords(
                 rootRecord: rootRecord,
                 zone: rootRecord.recordID.zoneID
             )
-            guard !children.isEmpty else {
-            // No child records found — either the event timeline is empty or
-            // NSPersistentCloudKitContainer hasn't mirrored them to CloudKit yet.
-            // Touch the root record with a heartbeat timestamp so CloudKit still
-            // notifies participants that this event was modified.
-            rootRecord["SHIFT_repairHeartbeat"] = Date() as CKRecordValue
-            let touchOp = CKModifyRecordsOperation(
-                recordsToSave: [rootRecord],
-                recordIDsToDelete: nil
-            )
-            touchOp.savePolicy = .changedKeys
-            touchOp.qualityOfService = .utility
-            container.privateCloudDatabase.add(touchOp)
-            logger.info("No children for event \(event.id) — root record touched to notify participants")
-            return
-            }
 
+            // CRITICAL: always stamp a fresh, monotonically-changing heartbeat on
+            // the ROOT record. CloudKit dedupes identical field writes server-side,
+            // so re-writing already-correct `parent` references on the children is a
+            // no-op — the shared zone's change tag never moves, the vendor's
+            // `databaseChanges` returns 0 forever, and they never re-fetch. A new
+            // `Date()` every time guarantees a real zone change on every edit, which
+            // fires the vendor's CKDatabaseSubscription so they pull the latest data.
+            rootRecord["SHIFT_repairHeartbeat"] = Date() as CKRecordValue
+
+            let recordsToSave = [rootRecord] + children
             let operation = CKModifyRecordsOperation(
-                recordsToSave: children,
+                recordsToSave: recordsToSave,
                 recordIDsToDelete: nil
             )
             // .changedKeys prevents conflict with NSPersistentCloudKitContainer's
-            // concurrent writes to other fields on the same records.
+            // concurrent writes to other fields on the same records — we only
+            // write the heartbeat (root) and the parent refs (children).
             operation.savePolicy = .changedKeys
-            operation.qualityOfService = .userInteractive
+            operation.qualityOfService = .userInitiated
+            let childCount = children.count
+            let eventID = event.id.uuidString
             operation.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
-                    self.logger.info("Parent-field repair complete for event \(event.id) — \(children.count) records updated")
+                    self.logger.info("Parent-field repair complete for event \(event.id) — \(childCount) children + heartbeat")
+                    SyncDiagnosticsCenter.shared.record(
+                        .parentRepair,
+                        "wroteChildren",
+                        params: ["event": eventID, "children": "\(childCount)", "heartbeat": "true"]
+                    )
                 case .failure(let error):
                     self.logger.error("Parent-field repair failed for event \(event.id): \(error.localizedDescription)")
+                    SyncDiagnosticsCenter.shared.record(
+                        .parentRepair,
+                        "writeFailed",
+                        params: ["event": eventID, "error": error.localizedDescription],
+                        severity: .error
+                    )
                 }
             }
             container.privateCloudDatabase.add(operation)
@@ -113,6 +136,12 @@ enum CloudKitShareRepairService {
             // Non-fatal — the share remains valid even if repair fails.
             // The planner can still open the management sheet as a fallback.
             logger.error("Failed to fetch root record for repair: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .parentRepair,
+                "rootFetchFailed",
+                params: ["event": event.id.uuidString, "error": error.localizedDescription],
+                severity: .error
+            )
         }
     }
 
@@ -127,14 +156,17 @@ enum CloudKitShareRepairService {
                 rootRecord: rootRecord,
                 zone: rootRecordID.zoneID
             )
-            guard !children.isEmpty else { return }
+
+            // Always heartbeat the root (see repairParentFieldsIfShared) so this
+            // path reliably bumps the shared zone even when parents are unchanged.
+            rootRecord["SHIFT_repairHeartbeat"] = Date() as CKRecordValue
 
             let operation = CKModifyRecordsOperation(
-                recordsToSave: children,
+                recordsToSave: [rootRecord] + children,
                 recordIDsToDelete: nil
             )
             operation.savePolicy = .changedKeys
-            operation.qualityOfService = .userInteractive
+            operation.qualityOfService = .userInitiated
             container.privateCloudDatabase.add(operation)
         } catch {
             // Non-fatal.

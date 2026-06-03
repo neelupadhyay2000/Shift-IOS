@@ -1,8 +1,6 @@
 import SwiftUI
-import SafariServices
 import StoreKit
 import TipKit
-import UIKit
 import Services
 
 /// Centralized `UserDefaults` keys exposed to user-facing preferences. Keep all `@AppStorage`
@@ -18,22 +16,9 @@ struct SettingsView: View {
     @State private var showRestoreErrorAlert = false
     @State private var isShowingPaywall = false
     @State private var isManagingSubscriptions = false
-    @State private var presentedURL: IdentifiableURL?
+    @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
-
-    private static let privacyPolicyURL: URL = {
-        guard let url = URL(string: "https://shift.app/privacy") else {
-            preconditionFailure("Malformed privacy policy URL literal")
-        }
-        return url
-    }()
-    private static let termsURL: URL = {
-        guard let url = URL(string: "https://shift.app/terms") else {
-            preconditionFailure("Malformed terms of service URL literal")
-        }
-        return url
-    }()
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -46,6 +31,7 @@ struct SettingsView: View {
             accountSection
             notificationsSection
             aboutSection
+            diagnosticsSection
             #if DEBUG
             debugSection
             #endif
@@ -55,9 +41,15 @@ struct SettingsView: View {
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
         }
-        .sheet(item: $presentedURL) { identifiable in
-            SafariView(url: identifiable.url)
-                .ignoresSafeArea()
+        .sheet(item: $legalSheet) { sheet in
+            NavigationStack {
+                LegalDocumentView(document: sheet.document)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(String(localized: "Done")) { legalSheet = nil }
+                        }
+                    }
+            }
         }
         .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
@@ -154,13 +146,32 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Button(String(localized: "Privacy Policy")) {
-                presentedURL = IdentifiableURL(url: Self.privacyPolicyURL)
+                legalSheet = .privacy
             }
             .foregroundStyle(Color.accentColor)
             Button(String(localized: "Terms of Service")) {
-                presentedURL = IdentifiableURL(url: Self.termsURL)
+                legalSheet = .terms
             }
             .foregroundStyle(Color.accentColor)
+        }
+    }
+
+    // MARK: - Diagnostics (Release-visible — used to debug iCloud sharing on TestFlight)
+
+    private var diagnosticsSection: some View {
+        Section {
+            NavigationLink {
+                SyncDiagnosticsView()
+            } label: {
+                LabeledContent(String(localized: "Sync Diagnostics")) {
+                    Image(systemName: "stethoscope")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text(String(localized: "Diagnostics"))
+        } footer: {
+            Text(String(localized: "Tools for troubleshooting iCloud sharing and sync. Tap Share in the top-right to export the log."))
         }
     }
 
@@ -195,19 +206,20 @@ struct SettingsView: View {
 
 // MARK: - Supporting types
 
-private struct IdentifiableURL: Identifiable {
-    let id = UUID()
-    let url: URL
-}
+/// Identifies which legal document to present in the sheet. `id` is `self` so it
+/// can drive `.sheet(item:)` directly.
+private enum LegalSheet: Identifiable {
+    case privacy
+    case terms
 
-private struct SafariView: UIViewControllerRepresentable {
-    let url: URL
+    var id: Self { self }
 
-    func makeUIViewController(context: Context) -> SFSafariViewController {
-        SFSafariViewController(url: url)
+    var document: LegalDocument {
+        switch self {
+        case .privacy: LegalContent.privacyPolicy
+        case .terms: LegalContent.termsOfService
+        }
     }
-
-    func updateUIViewController(_ uiViewController: SFSafariViewController, context: Context) {}
 }
 
 // MARK: - Preview

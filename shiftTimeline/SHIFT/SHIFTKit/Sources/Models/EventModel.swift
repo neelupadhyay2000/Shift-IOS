@@ -34,6 +34,23 @@ public final class EventModel {
     /// `wentLiveAt` to compute live-session duration in analytics.
     public var completedAt: Date?
 
+    /// Wall-clock timestamp of the most recent change vendors should receive
+    /// (timeline shift, block add/edit/delete, event edit). This is a CloudKit
+    /// "parent tickle": child-only mutations can be exported slowly by
+    /// `NSPersistentCloudKitContainer`, so stamping the parent gives NSPCC a
+    /// parent-record change to export alongside the children, firing the
+    /// vendor's shared-zone `CKDatabaseSubscription` so they converge promptly
+    /// without the planner opening the sharing sheet. Bump via `touchForSync()`
+    /// immediately before saving any shared-event mutation. (Field name kept for
+    /// schema stability; it now covers all mutations, not just shifts.)
+    public var lastShiftedAt: Date?
+
+    /// Stamps the CloudKit parent tickle. Call immediately before
+    /// `modelContext.save()` on any change that should sync to vendors.
+    public func touchForSync() {
+        lastShiftedAt = .now
+    }
+
     /// JSON-encoded `PostEventReport` produced when this event transitioned to
     /// `.completed`. Stored as raw `Data` so SwiftData can persist and CloudKit
     /// can mirror it without a custom value transformer. Access through the

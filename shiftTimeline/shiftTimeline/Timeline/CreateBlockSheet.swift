@@ -140,6 +140,12 @@ struct CreateBlockSheet: View {
         block.track = track
         modelContext.insert(block)
 
+        // Tickle the parent + save so the new block and a parent-record change
+        // export together (see EventModel.touchForSync). Previously this relied
+        // on autosave, which made added blocks reach vendors slowly.
+        event.touchForSync()
+        try? modelContext.save()
+
         // Repair parent-fields immediately so the new block is visible to participants
         // without waiting for NSPersistentCloudKitContainer's delayed sync.
         Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }

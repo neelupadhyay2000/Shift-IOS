@@ -13,9 +13,14 @@ struct TemplatePreviewView: View {
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(\.modelContext) private var modelContext
 
+    /// Mirrors `EventRosterView`'s query so the free-tier event cap is enforced
+    /// identically whether the user creates an event from the roster or a template.
+    @Query private var events: [EventModel]
+
     @State private var template: Template?
     @State private var loadError: String?
     @State private var isShowingCreateSheet = false
+    @State private var isShowingPaywall = false
     /// Holds the newly created event ID between UseTemplateSheet closing
     /// and its onDismiss callback firing. Cleared after navigation.
     @State private var createdEventID: UUID?
@@ -54,6 +59,9 @@ struct TemplatePreviewView: View {
                 }
             }
         }
+        .sheet(isPresented: $isShowingPaywall) {
+            PaywallView(trigger: .eventLimit)
+        }
     }
 
     private func templateContent(_ template: Template) -> some View {
@@ -79,7 +87,11 @@ struct TemplatePreviewView: View {
                 .font(.subheadline)
 
                 Button {
-                    isShowingCreateSheet = true
+                    if events.count >= FreeTier.maxActiveEvents && !SubscriptionManager.shared.isProUser {
+                        isShowingPaywall = true
+                    } else {
+                        isShowingCreateSheet = true
+                    }
                 } label: {
                     Label(String(localized: "Use This Template"), systemImage: "plus.circle.fill")
                         .frame(maxWidth: .infinity)

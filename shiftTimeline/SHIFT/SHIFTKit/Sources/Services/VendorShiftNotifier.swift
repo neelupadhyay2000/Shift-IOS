@@ -48,6 +48,13 @@ public enum VendorShiftNotifier {
 
         guard !blockDeltas.isEmpty else { return }
 
+        // CloudKit parent tickle: a shift only mutates child TimeBlockModels, and
+        // NSPersistentCloudKitContainer can defer exporting those. Stamping the
+        // parent event forces a parent-record change to export with the children,
+        // firing the vendor's shared-zone subscription so they converge promptly.
+        // The caller persists this with its existing `modelContext.save()`.
+        event.touchForSync()
+
         let allVendors = event.vendors ?? []
         let eventMaxDelta = blockDeltas.values
             .max(by: { abs($0) < abs($1) }) ?? 0

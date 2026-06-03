@@ -1,5 +1,6 @@
 import UIKit
 import CloudKit
+import Services
 import os
 
 /// Window-scene delegate that receives CloudKit share-accept callbacks for
@@ -36,6 +37,11 @@ final class SHIFTSceneDelegate: NSObject, UIWindowSceneDelegate {
         userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
     ) {
         Self.logger.info("Scene delegate received share-accept metadata for zone: \(cloudKitShareMetadata.share.recordID.zoneID.zoneName)")
+        SyncDiagnosticsCenter.shared.record(
+            .shareAccept,
+            "sceneCallbackReceived",
+            params: ["zone": cloudKitShareMetadata.share.recordID.zoneID.zoneName]
+        )
         Task { @MainActor in
             AppDelegate.handleAcceptedShare(metadata: cloudKitShareMetadata)
         }
