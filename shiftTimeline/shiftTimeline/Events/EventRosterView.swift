@@ -22,7 +22,9 @@ struct EventRosterView: View {
     @State private var isShowingPaywall = false
 
     private var filteredEvents: [EventModel] {
-        events.filter { event in
+        let dismissed = SharedEventDismissalStore.dismissedIDs()
+        return events.filter { event in
+            guard !dismissed.contains(event.id) else { return false }
             let matchesSearch = searchText.isEmpty || event.title.localizedCaseInsensitiveContains(searchText)
             let matchesStatus: Bool = if let requiredStatus = statusFilter.eventStatus {
                 event.status == requiredStatus
@@ -79,7 +81,7 @@ struct EventRosterView: View {
         ) {
             Button(String(localized: "Delete"), role: .destructive) {
                 if let event = eventPendingDeletion {
-                    modelContext.delete(event)
+                    deleteOwnedEvent(event)
                     eventPendingDeletion = nil
                 }
             }
@@ -125,23 +127,30 @@ struct EventRosterView: View {
                 .accessibilityIdentifier(AccessibilityID.Roster.statusFilter)
 
                 ForEach(filteredEvents) { event in
+                    let isOwner = event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
                     NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
                         EventRowView(
                             title: event.title,
                             date: event.date,
                             status: event.status,
-                            isShared: !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
+                            isShared: !isOwner
                         )
                         .premiumCard()
                     }
                     .buttonStyle(.plain)
-                    .scrollFade()
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
                     .contextMenu {
-                        if event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) {
+                        if isOwner {
                             Button(role: .destructive) {
                                 eventPendingDeletion = event
                             } label: {
-                                Label(String(localized: "Delete"), systemImage: "trash")
+                                Label(String(localized: "Delete Event"), systemImage: "trash")
+                            }
+                        } else {
+                            Button(role: .destructive) {
+                                removeSharedEvent(event)
+                            } label: {
+                                Label(String(localized: "Remove from My Events"), systemImage: "rectangle.portrait.and.arrow.right")
                             }
                         }
                     }
@@ -149,6 +158,7 @@ struct EventRosterView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+            .animation(.smooth(duration: 0.3), value: filteredEvents.map(\.id))
         }
         .background { WarmBackground() }
         .accessibilityIdentifier(AccessibilityID.Roster.eventList)
@@ -163,6 +173,25 @@ struct EventRosterView: View {
             }
             .accessibilityIdentifier(AccessibilityID.Roster.createEventButton)
         }
+    }
+
+    // MARK: - Actions
+
+    /// Deletes an event the current user owns. Saving immediately commits the
+    /// delete so `NSPersistentCloudKitContainer` pushes it to CloudKit, which is
+    /// what lets the deletion reach any vendors the event was shared with.
+    private func deleteOwnedEvent(_ event: EventModel) {
+        modelContext.delete(event)
+        try? modelContext.save()
+    }
+
+    /// Removes a *shared* event from this device. The planner remains the owner;
+    /// this only clears the vendor's local copy. Recording the dismissal first
+    /// stops `SharedRecordSyncer` from re-creating it on the next sync.
+    private func removeSharedEvent(_ event: EventModel) {
+        SharedEventDismissalStore.dismiss(event.id)
+        modelContext.delete(event)
+        try? modelContext.save()
     }
 }
 

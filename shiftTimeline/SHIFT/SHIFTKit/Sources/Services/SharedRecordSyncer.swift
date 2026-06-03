@@ -102,6 +102,13 @@ public final class SharedRecordSyncer {
             return
         }
 
+        // The vendor removed this shared event from their device. Don't re-create
+        // it just because the planner touched the record again.
+        guard !SharedEventDismissalStore.isDismissed(uuid) else {
+            Self.logger.info("Skipping dismissed shared event \(uuid.uuidString)")
+            return
+        }
+
         let event: EventModel
         if let existing = try fetchEvent(id: uuid) {
             event = existing
