@@ -11,6 +11,7 @@ import SwiftData
 /// (in TestSupport) is used in unit tests and SwiftUI previews.
 ///
 /// Injection: apply `.repositories(myProvider)` on any SwiftUI view tree.
+@MainActor
 public protocol RepositoryProviding {
     var events: any EventRepositing { get }
     var tracks: any TrackRepositing { get }

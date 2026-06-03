@@ -134,8 +134,10 @@ struct CreateBlockSheet: View {
             track = selected
         } else if let defaultTrack = (event.tracks ?? []).first(where: { $0.isDefault }) {
             track = defaultTrack
+        } else if let existing = (event.tracks ?? []).first {
+            track = existing
         } else {
-            track = (event.tracks ?? []).first ?? (await createTrack(for: event))
+            track = await createTrack(for: event)
         }
 
         let block = TimeBlockModel(

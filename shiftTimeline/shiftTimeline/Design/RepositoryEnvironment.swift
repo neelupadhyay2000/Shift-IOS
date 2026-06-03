@@ -62,7 +62,7 @@ extension View {
     /// MyView()
     ///     .repositories(FakeRepositoryProvider())
     /// ```
-    func repositories(_ provider: some RepositoryProviding) -> some View {
+    @MainActor func repositories(_ provider: some RepositoryProviding) -> some View {
         self
             .environment(\.eventRepository, provider.events)
             .environment(\.trackRepository, provider.tracks)
