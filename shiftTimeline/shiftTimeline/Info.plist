@@ -13,8 +13,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>CKSharingSupported</key>
-	<true/>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.neelsoftwaresolutions.shiftTimeline.sunset-prefetch</string>
