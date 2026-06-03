@@ -20,10 +20,6 @@ public final class PersistenceController: Sendable {
 
     public let container: ModelContainer
 
-    /// Always `.disabled` — CloudKit is permanently off for this epic.
-    /// Retained so SHIFT-531 can remove all call sites in one pass.
-    public let cloudKitMirrorState: CloudKitMirrorState
-
     public static var schema: Schema {
         Schema([
             EventModel.self,
@@ -80,7 +76,6 @@ public final class PersistenceController: Sendable {
             label: "existing store"
         ) {
             container = built
-            cloudKitMirrorState = .disabled
             return
         }
 
@@ -95,7 +90,6 @@ public final class PersistenceController: Sendable {
             label: "fresh store"
         ) {
             container = built
-            cloudKitMirrorState = .disabled
             return
         }
 
@@ -113,7 +107,6 @@ public final class PersistenceController: Sendable {
             label: "in-memory fallback"
         ) {
             container = built
-            cloudKitMirrorState = .disabled
             return
         }
 
