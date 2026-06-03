@@ -32,10 +32,9 @@ struct TimelineBuilderView: View {
     @State private var blockPendingDeletion: TimeBlockModel?
     @State private var isInspectorOpen = false
 
-    // Drag reorder state (iPhone only)
-    @State private var draggingBlockID: UUID?
-    @State private var dragTranslation: CGFloat = 0
     @State private var isEditing = false
+    // Bumped on every committed reorder so `.sensoryFeedback` fires a tap on drop.
+    @State private var reorderTick = 0
 
     // Track management
     @State private var isShowingAddTrackAlert = false
@@ -133,6 +132,11 @@ struct TimelineBuilderView: View {
                     // iPhone: single-track filtered view
                     if filteredBlocks.isEmpty {
                         emptyState
+                    } else if isEditing {
+                        // Edit mode swaps the proportional canvas for a uniform,
+                        // scrollable, natively reorderable list — reordering stays
+                        // predictable regardless of block durations or time gaps.
+                        reorderListContent
                     } else {
                         timelineContent
                     }
@@ -310,7 +314,7 @@ struct TimelineBuilderView: View {
                 Text(String(localized: "Reorder Mode"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                Text(String(localized: "Drag fluid blocks · pinned blocks stay fixed"))
+                Text(String(localized: "Drag the handle to reorder · pinned blocks stay fixed"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -434,26 +438,6 @@ struct TimelineBuilderView: View {
                         ForEach(blocks) { block in
                             blockCard(block, in: currentLayout, maxY: maxYMap[block.id])
                         }
-
-                        // Drop position indicator — shown while dragging, decorative only
-                        if let dragID = draggingBlockID,
-                           let dragBlock = blocks.first(where: { $0.id == dragID }) {
-                            HStack(spacing: 4) {
-                                Circle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: 8, height: 8)
-                                Rectangle()
-                                    .fill(Color.accentColor)
-                                    .frame(height: 2)
-                                    .cornerRadius(1)
-                            }
-                            .padding(.horizontal, 4)
-                            .shadow(color: Color.accentColor.opacity(0.5), radius: 6)
-                            .offset(y: dropIndicatorY(forDragging: dragBlock, in: blocks, layout: currentLayout))
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                            .animation(.easeInOut(duration: 0.08), value: dragTranslation)
-                        }
                     }
                 }
             }
@@ -535,6 +519,69 @@ struct TimelineBuilderView: View {
         .background { WarmBackground() }
     }
 
+    // MARK: - Reorder List (iPhone edit mode)
+
+    /// Uniform, scrollable, natively reorderable list shown on iPhone while
+    /// editing. Replacing the time-proportional canvas here is what makes
+    /// reordering smooth: every row is the same height (no giant blocks to drag
+    /// across), the list scrolls and auto-scrolls during a drag, and SwiftUI's
+    /// built-in move animation handles the reflow. Pinned blocks are shown for
+    /// context but cannot be moved.
+    private var reorderListContent: some View {
+        List {
+            ForEach(filteredBlocks) { block in
+                reorderRow(block)
+                    .moveDisabled(block.isPinned || isReadOnly)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
+            .onMove(perform: moveBlocks)
+        }
+        .listStyle(.plain)
+        .environment(\.editMode, .constant(.active))
+        .scrollContentBackground(.hidden)
+        .background { WarmBackground() }
+        // Smooths the reflow when a pinned anchor re-sorts a block after the drop,
+        // on top of the List's native drag-and-drop move animation.
+        .animation(.snappy(duration: 0.28), value: filteredBlocks.map(\.id))
+        // A single confident tap confirms the drop landed.
+        .sensoryFeedback(.impact(weight: .medium, intensity: 0.8), trigger: reorderTick)
+    }
+
+    private func reorderRow(_ block: TimeBlockModel) -> some View {
+        TimeBlockRowView(
+            title: block.title,
+            scheduledStart: block.scheduledStart,
+            duration: block.duration,
+            isPinned: block.isPinned,
+            colorTag: block.colorTag,
+            icon: block.icon,
+            isCompact: false
+        )
+        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                .strokeBorder(
+                    block.isPinned ? Color.secondary.opacity(0.25) : Color.accentColor.opacity(0.35),
+                    lineWidth: block.isPinned ? 0.5 : 1
+                )
+        }
+        .opacity(block.isPinned ? 0.6 : 1)
+        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            block.isPinned
+                ? String(localized: "\(block.title), pinned, fixed position")
+                : String(localized: "\(block.title), drag to reorder")
+        )
+    }
 
     private func blockCard(
         _ block: TimeBlockModel,
@@ -551,21 +598,11 @@ struct TimelineBuilderView: View {
             let gap = maxY - yOffset
             return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
         }()
-        let isDragging = draggingBlockID == block.id
-        let isDraggable = isEditing && !block.isPinned && !isReadOnly
 
         return Button {
-            guard !isEditing else { return }
             blockToInspect = block
         } label: {
             HStack(spacing: 0) {
-                if isDraggable {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28)
-                        .accessibilityHidden(true)
-                }
                 TimeBlockRowView(
                     title: block.title,
                     scheduledStart: block.scheduledStart,
@@ -592,49 +629,12 @@ struct TimelineBuilderView: View {
                         ),
                         lineWidth: 0.5
                     )
-                // Highlighted border for draggable blocks in reorder mode
-                if isDraggable {
-                    RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                        .strokeBorder(Color.accentColor.opacity(isDragging ? 0.7 : 0.4), lineWidth: 1.5)
-                        .animation(.easeInOut(duration: 0.2), value: isDragging)
-                }
             }
             .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
         }
         .buttonStyle(.plain)
         .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))
-        // Scale and opacity animate on lift/drop — scoped to isDragging so they
-        // do NOT animate dragTranslation changes (which must track the finger immediately).
-        .scaleEffect(isDragging ? 1.04 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDragging)
-        .opacity(isDragging ? 0.85 : 1.0)
-        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isDragging)
-        .zIndex(isDragging ? 100 : 0)
-        .gesture(isDraggable ?
-            DragGesture(minimumDistance: 5)
-                .onChanged { drag in
-                    // Set block ID without animation — withAnimation here would batch
-                    // draggingBlockID + dragTranslation into one animated pass, causing
-                    // the offset to lag behind the finger instead of tracking it.
-                    if draggingBlockID == nil {
-                        draggingBlockID = block.id
-                    }
-                    dragTranslation = drag.translation.height
-                }
-                .onEnded { drag in
-                    let dropY = yOffset + drag.translation.height
-                    defer {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            draggingBlockID = nil
-                            dragTranslation = 0
-                        }
-                    }
-                    guard draggingBlockID == block.id else { return }
-                    reorderBlock(block, toY: dropY, blocks: filteredBlocks, in: currentLayout)
-                }
-            : nil
-        )
         .contextMenu {
             if !isReadOnly && !isEditing {
                 Button {
@@ -675,7 +675,7 @@ struct TimelineBuilderView: View {
             }
         }
         .padding(.leading, 4)
-        .offset(y: yOffset + (isDragging ? dragTranslation : 0))
+        .offset(y: yOffset)
     }
 
     private func nextBlockYMap(for blocks: [TimeBlockModel], layout: TimeRulerLayout) -> [UUID: CGFloat] {
@@ -686,36 +686,6 @@ struct TimelineBuilderView: View {
         return map
     }
 
-    /// Y position for the insertion indicator line while a block is being dragged.
-    /// Places the line at the midpoint of the gap the dragged block would drop into.
-    private func dropIndicatorY(
-        forDragging block: TimeBlockModel,
-        in blocks: [TimeBlockModel],
-        layout: TimeRulerLayout
-    ) -> CGFloat {
-        let draggedY = layout.yOffset(for: block.scheduledStart) + dragTranslation
-        let others = blocks.filter { $0.id != block.id }
-        var insertIdx = others.count
-        for (i, other) in others.enumerated() {
-            if draggedY < layout.yOffset(for: other.scheduledStart) {
-                insertIdx = i
-                break
-            }
-        }
-        if others.isEmpty { return draggedY }
-        if insertIdx == 0 {
-            return layout.yOffset(for: others[0].scheduledStart) - 4
-        } else if insertIdx >= others.count {
-            let last = others[others.count - 1]
-            return layout.yOffset(for: last.scheduledStart) + max(layout.height(for: last.duration), 52) + 4
-        } else {
-            let prev = others[insertIdx - 1]
-            let next = others[insertIdx]
-            let prevBottom = layout.yOffset(for: prev.scheduledStart) + max(layout.height(for: prev.duration), 52)
-            let nextTop = layout.yOffset(for: next.scheduledStart)
-            return (prevBottom + nextTop) / 2
-        }
-    }
 
     // MARK: - Toolbar
 
@@ -935,6 +905,10 @@ struct TimelineBuilderView: View {
 
     // MARK: - Reorder
 
+    /// iPad / Y-based reorder: maps a drop position to an insertion index, then
+    /// commits the new order through `applyReorder`. Insertion compares against
+    /// each block's vertical midpoint so dropping over a tall block lands where
+    /// the finger actually is, not at its top edge.
     private func reorderBlock(
         _ block: TimeBlockModel,
         toY dropY: CGFloat,
@@ -942,35 +916,51 @@ struct TimelineBuilderView: View {
         in currentLayout: TimeRulerLayout
     ) {
         guard !block.isPinned else { return }
+        guard orderedBlocks.count > 1 else { return }
 
         var blocks = orderedBlocks
-        guard blocks.count > 1 else { return }
-
-        // Capture before-state for undo
-        undoManager.recordShift(blocks: blocks)
-
-        // Remove the dragged block from the list
         blocks.removeAll { $0.id == block.id }
 
-        // Determine insertion index based on drop y position
         var insertionIndex = blocks.count
         for (index, other) in blocks.enumerated() {
-            let otherY = currentLayout.yOffset(for: other.scheduledStart)
-            if dropY < otherY {
+            let otherMidpoint = currentLayout.yOffset(for: other.scheduledStart)
+                + currentLayout.height(for: other.duration) / 2
+            if dropY < otherMidpoint {
                 insertionIndex = index
                 break
             }
         }
 
         blocks.insert(block, at: insertionIndex)
+        applyReorder(blocks)
+    }
 
-        // Recalculate scheduledStart for all fluid blocks in new order
-        guard let firstBlock = blocks.first else { return }
-        var cursor = firstBlock.isPinned
-            ? firstBlock.scheduledStart
-            : (event?.date ?? firstBlock.scheduledStart)
+    /// iPhone list reorder: applies the `List`'s native move, then commits the
+    /// new order through the shared recompute.
+    private func moveBlocks(from source: IndexSet, to destination: Int) {
+        guard !isReadOnly else { return }
+        var ordered = filteredBlocks
+        ordered.move(fromOffsets: source, toOffset: destination)
+        applyReorder(ordered)
+        reorderTick += 1
+    }
 
-        for current in blocks {
+    /// Recomputes `scheduledStart` for a reordered sequence and persists it.
+    ///
+    /// Fluid blocks are packed contiguously; pinned blocks keep their fixed clock
+    /// time and act as anchors. Crucially, the walk starts from the timeline's
+    /// *actual earliest start* — not `event.date`, which carries an arbitrary
+    /// time-of-day (the event picker is date-only) and previously flung the whole
+    /// fluid chain away from the pinned anchors, opening a large gap on the
+    /// proportional canvas.
+    private func applyReorder(_ ordered: [TimeBlockModel]) {
+        guard ordered.count > 1 else { return }
+
+        undoManager.recordShift(blocks: ordered)
+
+        let anchor = ordered.map(\.scheduledStart).min() ?? ordered[0].scheduledStart
+        var cursor = anchor
+        for current in ordered {
             if current.isPinned {
                 cursor = max(cursor, current.scheduledStart.addingTimeInterval(current.duration))
             } else {
@@ -979,11 +969,10 @@ struct TimelineBuilderView: View {
             }
         }
 
-        // Commit after-state for undo
-        undoManager.commitShift(blocks: blocks)
+        undoManager.commitShift(blocks: ordered)
 
         // Order changed — invalidate session skips. The .onChange(venueFingerprint)
-        // observer will fire automatically since scheduledStart values changed.
+        // observer fires automatically since scheduledStart values changed.
         skippedVenuePairs.removeAll()
 
         // Repair parent-fields so vendors see the reordered (updated scheduledStart)
