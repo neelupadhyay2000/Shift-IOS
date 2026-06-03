@@ -70,6 +70,7 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             while !Task.isCancelled {
                 try? await Task.sleep(for: interval)
                 guard !Task.isCancelled else { return }
+                SyncDiagnosticsCenter.shared.record(.push, "pollTick")
                 await self?.fetchChanges()
             }
         }
@@ -96,15 +97,41 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
                 _ = try await sharedDB.subscription(for: Self.subscriptionID)
                 isSubscribed = true
                 Self.logger.info("Shared-zone subscription already registered")
+                SyncDiagnosticsCenter.shared.record(.subscription, "alreadyRegistered")
                 return
             } catch {
                 // Subscription was purged — fall through to re-create.
                 Self.logger.info("Subscription purged by CloudKit — re-registering")
+                SyncDiagnosticsCenter.shared.record(.subscription, "purgedReRegistering", severity: .warning)
                 UserDefaults.standard.set(false, forKey: Self.subscriptionSavedKey)
             }
         }
 
         await createSubscription()
+    }
+
+    /// Forces a fresh subscription registration, bypassing the "already saved"
+    /// short-circuit. Used by the diagnostics screen to test whether the
+    /// silent-push subscription is the broken link.
+    public func forceReRegister() async {
+        UserDefaults.standard.set(false, forKey: Self.subscriptionSavedKey)
+        isSubscribed = false
+        SyncDiagnosticsCenter.shared.record(.subscription, "forceReRegister")
+        await createSubscription()
+    }
+
+    /// Clears the cached server + per-zone change tokens so the next fetch
+    /// re-reads every record from scratch. Tests the "stale change token"
+    /// hypothesis (vendor sees `databaseChanges` return 0 zones forever).
+    public func resetAllChangeTokens() {
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: Self.serverChangeTokenKey)
+        for key in defaults.dictionaryRepresentation().keys
+        where key.hasPrefix(Self.zoneChangeTokenKeyPrefix) {
+            defaults.removeObject(forKey: key)
+        }
+        SyncDiagnosticsCenter.shared.record(.fetch, "changeTokensReset", severity: .warning)
+        Self.logger.info("Cleared all shared-DB change tokens")
     }
 
     private func createSubscription() async {
@@ -119,8 +146,15 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             UserDefaults.standard.set(true, forKey: Self.subscriptionSavedKey)
             isSubscribed = true
             Self.logger.info("Shared-zone subscription created")
+            SyncDiagnosticsCenter.shared.record(.subscription, "created")
         } catch {
             Self.logger.error("Failed to create shared-zone subscription: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .subscription,
+                "createFailed",
+                params: ["error": error.localizedDescription],
+                severity: .error
+            )
         }
     }
 
@@ -138,12 +172,20 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     /// is the planner's `com.apple.coredata.cloudkit.zone`.
     public func fetchAllRecords(inZone zoneID: CKRecordZone.ID) async {
         Self.logger.info("Performing targeted zone fetch for accepted share: \(zoneID.zoneName)")
+        SyncDiagnosticsCenter.shared.record(.shareAccept, "targetedZoneFetchStarted", params: ["zone": zoneID.zoneName])
         clearZoneChangeToken(for: zoneID)
         do {
             try await fetchZoneChanges(in: [zoneID])
             Self.logger.info("Targeted zone fetch complete")
+            SyncDiagnosticsCenter.shared.record(.shareAccept, "targetedZoneFetchComplete", params: ["zone": zoneID.zoneName])
         } catch {
             Self.logger.error("Targeted zone fetch failed: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .shareAccept,
+                "targetedZoneFetchFailed",
+                params: ["zone": zoneID.zoneName, "error": error.localizedDescription],
+                severity: .error
+            )
         }
     }
 
@@ -155,10 +197,17 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
     @discardableResult
     public func fetchChanges() async -> Bool {
         Self.logger.info("Fetching shared-database changes")
+        SyncDiagnosticsCenter.shared.record(.fetch, "fetchChangesStarted")
 
         do {
             let (changedZoneIDs, purgedZoneIDs) = try await fetchDatabaseChanges()
             let hasWork = !changedZoneIDs.isEmpty || !purgedZoneIDs.isEmpty
+            SyncDiagnosticsCenter.shared.record(
+                .fetch,
+                "databaseChanges",
+                params: ["changedZones": "\(changedZoneIDs.count)", "purgedZones": "\(purgedZoneIDs.count)"],
+                severity: hasWork ? .info : .info
+            )
             guard hasWork else {
                 Self.logger.info("No changed zones")
                 return false
@@ -172,6 +221,12 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
             return true
         } catch {
             Self.logger.error("Failed to fetch shared changes: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .fetch,
+                "fetchChangesFailed",
+                params: ["error": error.localizedDescription],
+                severity: .error
+            )
             return false
         }
     }
@@ -256,6 +311,15 @@ public final class SharedZoneSubscriptionManager: @unchecked Sendable {
 
                 Self.logger.info(
                     "Zone \(zoneID.zoneName): \(changes.modificationResultsByID.count) modified, \(changes.deletions.count) deleted"
+                )
+                SyncDiagnosticsCenter.shared.record(
+                    .fetch,
+                    "zoneRecordChanges",
+                    params: [
+                        "zone": zoneID.zoneName,
+                        "modified": "\(changes.modificationResultsByID.count)",
+                        "deleted": "\(changes.deletions.count)",
+                    ]
                 )
 
                 for (_, result) in changes.modificationResultsByID {

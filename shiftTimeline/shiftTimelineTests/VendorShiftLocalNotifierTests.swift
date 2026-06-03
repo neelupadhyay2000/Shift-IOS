@@ -166,35 +166,45 @@ struct VendorShiftLocalNotifierTests {
         #expect(requests.isEmpty)
     }
 
-    @Test func doesNotPostDuplicateWhenCalledTwiceBeforeAcknowledgment() async throws {
-        // processAndNotify is idempotent per-vendor: the deterministic
-        // identifier means the second call replaces the first in the real
-        // UNUserNotificationCenter. This test verifies the mock receives
-        // exactly one request per call (no internal duplicate within a
-        // single processAndNotify invocation).
+    @Test func dedupesRepeatedPostsForSameShift() async throws {
+        // processVendorShiftNotifications runs on every app-active / 30s poll.
+        // Because pendingShiftDelta is preserved (the in-app banner reads it),
+        // the notifier must dedupe so the vendor isn't re-alerted for the same
+        // shift on every scan. Two calls with the same delta → exactly 1 post.
+        let store = try #require(UserDefaults(suiteName: "test-dedupe-\(UUID().uuidString)"))
         let vendor = makeVendor(pendingDelta: 900)
         let (event, _) = try makeEvent(vendors: [vendor])
         let center = MockNotificationCenter()
 
         await VendorShiftLocalNotifier.processAndNotify(
-            event: event,
-            center: center,
-            globalThresholdSeconds: 0
+            event: event, center: center, globalThresholdSeconds: 0, dedupeStore: store
         )
         await VendorShiftLocalNotifier.processAndNotify(
-            event: event,
-            center: center,
-            globalThresholdSeconds: 0
+            event: event, center: center, globalThresholdSeconds: 0, dedupeStore: store
         )
 
         let requests = await center.addedRequests
-        // Two calls, one vendor above threshold → 2 total add() calls.
-        // The deterministic identifier means the real UNC deduplicates;
-        // the mock just records both so we can assert idempotent output.
+        #expect(requests.count == 1)
+        #expect(requests.first?.identifier == "shift-\(vendor.id.uuidString)")
+    }
+
+    @Test func postsAgainWhenDeltaChanges() async throws {
+        // A new shift produces a different cumulative delta, which must re-alert.
+        let store = try #require(UserDefaults(suiteName: "test-dedupe-\(UUID().uuidString)"))
+        let vendor = makeVendor(pendingDelta: 900)
+        let (event, _) = try makeEvent(vendors: [vendor])
+        let center = MockNotificationCenter()
+
+        await VendorShiftLocalNotifier.processAndNotify(
+            event: event, center: center, globalThresholdSeconds: 0, dedupeStore: store
+        )
+        vendor.pendingShiftDelta = 1500   // a further shift
+        await VendorShiftLocalNotifier.processAndNotify(
+            event: event, center: center, globalThresholdSeconds: 0, dedupeStore: store
+        )
+
+        let requests = await center.addedRequests
         #expect(requests.count == 2)
-        // Both must have the same identifier (replacement semantics).
-        let ids = Set(requests.map(\.identifier))
-        #expect(ids.count == 1)
     }
 
     // MARK: - Vendor with no pendingShiftDelta is skipped

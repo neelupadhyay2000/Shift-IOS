@@ -16,9 +16,14 @@ public final class VendorModel {
     /// notification, then clears it.
     public var pendingShiftDelta: TimeInterval?
     /// The CloudKit user record name of the iCloud account that accepted the share
-    /// for this vendor. Used to scope block details — vendors only see notes/details
-    /// for blocks they are assigned to.
+    /// for this vendor. Stamped by `VendorParticipantReconciler` when the invited
+    /// email/phone accepts. Used to scope block details and to route shift
+    /// notifications to the correct vendor device.
     public var cloudKitRecordName: String?
+    /// When a locked CKShare invite was last sent to this vendor. Combined with
+    /// `cloudKitRecordName`, drives the invite-status chip (notInvited / invited /
+    /// accepted). `nil` for contact-only vendors that were never invited.
+    public var invitedAt: Date?
     public var event: EventModel?
 
     @Relationship(deleteRule: .nullify)

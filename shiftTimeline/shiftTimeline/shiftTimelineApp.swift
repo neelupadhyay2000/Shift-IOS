@@ -67,6 +67,11 @@ struct shiftTimelineApp: App {
         try? Tips.configure()
 
         TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))
+        // Forward every sync/share diagnostic event to TelemetryDeck so the
+        // planner→vendor funnel is observable in the web dashboard.
+        SyncDiagnosticsCenter.shared.addObserver { event in
+            AnalyticsService.send(event)
+        }
         AnalyticsService.send(.appLaunched)
     }
 
@@ -130,6 +135,21 @@ struct shiftTimelineApp: App {
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
 
+    /// Records the CloudKit mirror health resolved by `PersistenceController`'s
+    /// fallback chain. A `degraded`/`disabled` state on a TestFlight build means
+    /// sync is silently off — a top suspect for "nothing syncs."
+    private static func recordMirrorStateDiagnostic() {
+        let state = PersistenceController.shared.cloudKitMirrorState
+        let name: String
+        let severity: DiagnosticEvent.Severity
+        switch state {
+        case .healthy: name = "healthy"; severity = .info
+        case .degraded: name = "degraded"; severity = .warning
+        case .disabled: name = "disabled"; severity = .error
+        }
+        SyncDiagnosticsCenter.shared.record(.mirror, name, severity: severity)
+    }
+
     /// One-time migration: stamps existing events with the current user's
     /// CloudKit record name so the shared-event detection works for
     /// events created before `ownerRecordName` was introduced.
@@ -164,9 +184,11 @@ struct shiftTimelineApp: App {
                 }
                 .task {
                     guard !Self.isUITestMode else { return }
+                    Self.recordMirrorStateDiagnostic()
                     watchSessionManager.activate()
                     liveActivityManager.reclaimExistingActivity()
                     await CloudKitIdentity.shared.fetchAndCache()
+                    await CloudKitDiagnostics.checkAccountStatus()
                     backfillOwnerRecordNames()
                     await SharedZoneSubscriptionManager.shared.registerIfNeeded()
                 }
@@ -192,6 +214,9 @@ struct shiftTimelineApp: App {
                 // data, in case a prior sync already wrote pendingShiftDelta to local storage.
                 Task {
                     await SharedZoneSubscriptionManager.shared.fetchChanges()
+                    // Link any vendors whose invited identity has now accepted,
+                    // so shift notifications route to the right vendor device.
+                    await VendorParticipantReconciler.reconcileAll()
                     await appDelegate.processVendorShiftNotifications()
                 }
                 // Heartbeat: poll every 30 s while the app is active so vendor devices
@@ -272,7 +297,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) {
         // CloudKit silent push — fetch shared-zone changes.
         let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        guard notification?.subscriptionID == SharedZoneSubscriptionManager.subscriptionID else {
+        let matched = notification?.subscriptionID == SharedZoneSubscriptionManager.subscriptionID
+        SyncDiagnosticsCenter.shared.record(
+            .push,
+            "silentPushReceived",
+            params: ["subscriptionMatched": "\(matched)"]
+        )
+        guard matched else {
             completionHandler(.noData)
             return
         }
@@ -354,6 +385,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             switch result {
             case .success:
                 Self.logger.info("Successfully accepted CloudKit share in zone: \(acceptedMetadata.share.recordID.zoneID.zoneName)")
+                SyncDiagnosticsCenter.shared.record(
+                    .shareAccept,
+                    "accepted",
+                    params: ["zone": acceptedMetadata.share.recordID.zoneID.zoneName]
+                )
                 Task { @MainActor in
                     DeepLinkRouter.shared.isAcceptingShare = true
                     DeepLinkRouter.shared.pendingDestination = .roster
@@ -367,6 +403,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
                 }
             case .failure(let error):
                 Self.logger.error("CKAcceptSharesOperation failed: \(error.localizedDescription)")
+                SyncDiagnosticsCenter.shared.record(
+                    .shareAccept,
+                    "acceptFailed",
+                    params: ["error": error.localizedDescription],
+                    severity: .error
+                )
                 Task { @MainActor in
                     DeepLinkRouter.shared.pendingDestination = .roster
                 }
@@ -392,11 +434,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     /// silent push missed during low-power / background is not lost.
     @MainActor
     func processVendorShiftNotifications() async {
+        // Wait until the iCloud identity is known. Without it, owned events fail
+        // the `isOwnedBy` check and the planner could notify themselves.
+        guard let currentUserRecordName = CloudKitIdentity.shared.currentUserRecordName else {
+            SyncDiagnosticsCenter.shared.record(.notify, "scanSkippedNoIdentity", severity: .warning)
+            return
+        }
+
         let context = PersistenceController.shared.container.mainContext
         let descriptor = FetchDescriptor<EventModel>()
         guard let events = try? context.fetch(descriptor) else { return }
-
-        let currentUserRecordName = CloudKitIdentity.shared.currentUserRecordName
+        SyncDiagnosticsCenter.shared.record(
+            .notify,
+            "scanStarted",
+            params: ["events": "\(events.count)"]
+        )
         for event in events {
             // The planner owns this event — they made the shift themselves and
             // should not receive a push notification for it on their device.

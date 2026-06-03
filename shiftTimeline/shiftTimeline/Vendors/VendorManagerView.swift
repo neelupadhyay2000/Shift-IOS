@@ -146,6 +146,8 @@ struct VendorManagerView: View {
                         .background(roleColor.opacity(0.12), in: Capsule())
                         .foregroundStyle(roleColor)
 
+                    inviteStatusBadge(for: vendor)
+
                     if blockCount > 0 {
                         Text("\(blockCount) blocks")
                             .font(.caption2)
@@ -172,6 +174,24 @@ struct VendorManagerView: View {
             .lineLimit(1)
 
             phoneButton(for: vendor)
+        }
+    }
+
+    @ViewBuilder
+    private func inviteStatusBadge(for vendor: VendorModel) -> some View {
+        switch VendorInviteStatus.of(invitedAt: vendor.invitedAt, cloudKitRecordName: vendor.cloudKitRecordName) {
+        case .accepted:
+            Image(systemName: "checkmark.seal.fill")
+                .font(.caption2)
+                .foregroundStyle(.green)
+                .accessibilityLabel(String(localized: "Accepted invite"))
+        case .invited:
+            Image(systemName: "clock.fill")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+                .accessibilityLabel(String(localized: "Invite pending"))
+        case .notInvited:
+            EmptyView()
         }
     }
 

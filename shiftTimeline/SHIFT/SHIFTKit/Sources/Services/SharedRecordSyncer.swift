@@ -56,6 +56,11 @@ public final class SharedRecordSyncer {
         Self.saveCache(uuidCache, key: Self.uuidCacheKey)
         Self.saveCache(typeCache, key: Self.typeCacheKey)
 
+        let events = modified.filter { $0.recordType == "CD_EventModel" }.count
+        let tracks = modified.filter { $0.recordType == "CD_TimelineTrack" }.count
+        let blocks = modified.filter { $0.recordType == "CD_TimeBlockModel" }.count
+        let vendors = modified.filter { $0.recordType == "CD_VendorModel" }.count
+
         // Process in dependency order so relationships can be wired in one pass.
         for record in modified where record.recordType == "CD_EventModel"     { try upsertEvent(from: record) }
         for record in modified where record.recordType == "CD_TimelineTrack"  { try upsertTrack(from: record, uuidCache: uuidCache) }
@@ -63,8 +68,30 @@ public final class SharedRecordSyncer {
         for record in modified where record.recordType == "CD_VendorModel"    { try upsertVendor(from: record, uuidCache: uuidCache) }
         for deletion in deleted                                               { try handleDeletion(deletion, uuidCache: uuidCache, typeCache: typeCache) }
 
-        try context.save()
+        do {
+            try context.save()
+        } catch {
+            SyncDiagnosticsCenter.shared.record(
+                .merge,
+                "saveFailed",
+                params: ["error": error.localizedDescription],
+                severity: .error
+            )
+            throw error
+        }
         Self.logger.info("SharedRecordSyncer merged \(modified.count) records, \(deleted.count) deletions")
+        SyncDiagnosticsCenter.shared.record(
+            .merge,
+            "merged",
+            params: [
+                "total": "\(modified.count)",
+                "events": "\(events)",
+                "tracks": "\(tracks)",
+                "blocks": "\(blocks)",
+                "vendors": "\(vendors)",
+                "deletions": "\(deleted.count)",
+            ]
+        )
     }
 
     // MARK: - EventModel
@@ -92,6 +119,7 @@ public final class SharedRecordSyncer {
         if let v = record["CD_shareURL"] as? String        { event.shareURL = v }
         if let v = record["CD_sunsetTime"] as? Date        { event.sunsetTime = v }
         if let v = record["CD_goldenHourStart"] as? Date   { event.goldenHourStart = v }
+        if let v = record["CD_lastShiftedAt"] as? Date     { event.lastShiftedAt = v }
         if let raw = record["CD_status"] as? String,
            let v = EventStatus(rawValue: raw)              { event.status = v }
     }
@@ -176,6 +204,7 @@ public final class SharedRecordSyncer {
         if let v = record["CD_phone"] as? String                        { vendor.phone = v }
         if let v = record["CD_email"] as? String                        { vendor.email = v }
         if let v = record["CD_cloudKitRecordName"] as? String           { vendor.cloudKitRecordName = v }
+        if let v = record["CD_invitedAt"] as? Date                      { vendor.invitedAt = v }
         if let v = record["CD_notificationThreshold"] as? Double        { vendor.notificationThreshold = v }
         if let v = record["CD_hasAcknowledgedLatestShift"] as? NSNumber { vendor.hasAcknowledgedLatestShift = v.boolValue }
         // Always overwrite — nil means "no pending shift" which is also meaningful.

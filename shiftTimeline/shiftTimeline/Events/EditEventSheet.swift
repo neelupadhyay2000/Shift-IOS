@@ -105,6 +105,7 @@ struct EditEventSheet: View {
             event.goldenHourStart = nil
         }
 
+        event.touchForSync()   // parent tickle so this event edit exports promptly to vendors
         try? modelContext.save()
 
         // Immediately write child parent-fields to CloudKit so participants receive

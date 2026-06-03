@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV8() {
+    @Test func latestSchemaVersionIsV10() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 8, "Latest schema must be V8 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 10, "Latest schema must be V10 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,81 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V7 → V8 plan continuity
+    // MARK: - V9 → V10 plan continuity
 
-    @Test func planExposesEightSchemasAndSevenStages() {
+    @Test func planExposesTenSchemasAndNineStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 8,
-            "Expected schemas [V1, V2, V3, V4, V5, V6, V7, V8] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 10,
+            "Expected schemas [V1 … V10] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 7,
-            "Expected 7 lightweight stages (V1→V2 … V7→V8) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 9,
+            "Expected 9 lightweight stages (V1→V2 … V9→V10) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV8() {
+    @Test func schemasAreOrderedV1ThroughV10() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    }
+
+    /// Lightweight V9 → V10 migration must default `EventModel.lastShiftedAt`
+    /// to `nil` for legacy rows and round-trip an explicit value.
+    @Test @MainActor func freshContainerWithV10PlanRoundTripsLastShiftedAt() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+        try context.save()
+
+        #expect(event.lastShiftedAt == nil)
+
+        let stamp = Date(timeIntervalSince1970: 1_780_000_000)
+        event.lastShiftedAt = stamp
+        try context.save()
+
+        #expect(event.lastShiftedAt == stamp)
+    }
+
+    /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
+    /// `nil` for legacy rows and round-trip an explicit value.
+    @Test @MainActor func freshContainerWithV9PlanRoundTripsInvitedAt() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let vendor = VendorModel(name: "Alice", role: .photographer)
+        context.insert(vendor)
+        try context.save()
+
+        #expect(vendor.invitedAt == nil)
+
+        let stamp = Date(timeIntervalSince1970: 1_770_000_000)
+        vendor.invitedAt = stamp
+        try context.save()
+
+        #expect(vendor.invitedAt == stamp)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

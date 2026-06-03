@@ -443,6 +443,7 @@ struct BlockInspectorView: View {
         // Always save explicitly — previously conditional on location change, which
         // caused mutations (title, time, duration) to rely on SwiftData autosave and
         // never trigger the CloudKit repair below.
+        event?.touchForSync()   // parent tickle so this block edit exports promptly to vendors
         try? modelContext.save()
 
         // Immediately write child parent-fields to CloudKit so participants receive

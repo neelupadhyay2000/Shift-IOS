@@ -1,5 +1,6 @@
 import CloudKit
 import Models
+import Services
 import os
 
 /// Repairs the CloudKit `parent`-field hierarchy for shared events after
@@ -62,13 +63,27 @@ enum CloudKitShareRepairService {
     ///
     /// - Parameter event: The event whose child records need `parent` set.
     static func repairParentFieldsIfShared(for event: EventModel) async {
-        guard event.shareURL != nil else { return }
+        guard event.shareURL != nil else {
+            SyncDiagnosticsCenter.shared.record(
+                .parentRepair,
+                "skipped",
+                params: ["event": event.id.uuidString, "reason": "notShared"]
+            )
+            return
+        }
 
         logger.info("Starting parent-field repair for event \(event.id)")
+        SyncDiagnosticsCenter.shared.record(.parentRepair, "started", params: ["event": event.id.uuidString])
 
         do {
             guard let rootRecord = try await findRootRecord(for: event) else {
                 logger.warning("Root CKRecord not found for event \(event.id) — repair skipped")
+                SyncDiagnosticsCenter.shared.record(
+                    .parentRepair,
+                    "noRootRecord",
+                    params: ["event": event.id.uuidString],
+                    severity: .warning
+                )
                 return
             }
             let children = await fetchChildRecords(
@@ -89,6 +104,12 @@ enum CloudKitShareRepairService {
             touchOp.qualityOfService = .utility
             container.privateCloudDatabase.add(touchOp)
             logger.info("No children for event \(event.id) — root record touched to notify participants")
+            SyncDiagnosticsCenter.shared.record(
+                .parentRepair,
+                "noChildrenTouchedRoot",
+                params: ["event": event.id.uuidString],
+                severity: .warning
+            )
             return
             }
 
@@ -100,12 +121,25 @@ enum CloudKitShareRepairService {
             // concurrent writes to other fields on the same records.
             operation.savePolicy = .changedKeys
             operation.qualityOfService = .userInteractive
+            let childCount = children.count
+            let eventID = event.id.uuidString
             operation.modifyRecordsResultBlock = { result in
                 switch result {
                 case .success:
-                    self.logger.info("Parent-field repair complete for event \(event.id) — \(children.count) records updated")
+                    self.logger.info("Parent-field repair complete for event \(event.id) — \(childCount) records updated")
+                    SyncDiagnosticsCenter.shared.record(
+                        .parentRepair,
+                        "wroteChildren",
+                        params: ["event": eventID, "children": "\(childCount)"]
+                    )
                 case .failure(let error):
                     self.logger.error("Parent-field repair failed for event \(event.id): \(error.localizedDescription)")
+                    SyncDiagnosticsCenter.shared.record(
+                        .parentRepair,
+                        "writeFailed",
+                        params: ["event": eventID, "error": error.localizedDescription],
+                        severity: .error
+                    )
                 }
             }
             container.privateCloudDatabase.add(operation)
@@ -113,6 +147,12 @@ enum CloudKitShareRepairService {
             // Non-fatal — the share remains valid even if repair fails.
             // The planner can still open the management sheet as a fallback.
             logger.error("Failed to fetch root record for repair: \(error.localizedDescription)")
+            SyncDiagnosticsCenter.shared.record(
+                .parentRepair,
+                "rootFetchFailed",
+                params: ["event": event.id.uuidString, "error": error.localizedDescription],
+                severity: .error
+            )
         }
     }
 

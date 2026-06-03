@@ -214,6 +214,8 @@ struct TimelineBuilderView: View {
                 // iPad uses InspectorLiveWriteModifier (no explicit Save button) — repairs
                 // parent-fields on close so the session's live-written changes reach vendors.
                 if let event {
+                    event.touchForSync()
+                    try? modelContext.save()
                     Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
                 }
             }
@@ -987,6 +989,8 @@ struct TimelineBuilderView: View {
         // Repair parent-fields so vendors see the reordered (updated scheduledStart)
         // timeline immediately, without waiting for NSPersistentCloudKitContainer.
         if let event {
+            event.touchForSync()
+            try? modelContext.save()
             Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
         }
     }
@@ -1011,6 +1015,8 @@ struct TimelineBuilderView: View {
         // Repair parent-fields on remaining blocks so vendors receive a push
         // for both the deletion and the recalculated scheduledStart values.
         if let event {
+            event.touchForSync()
+            try? modelContext.save()
             Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
         }
     }

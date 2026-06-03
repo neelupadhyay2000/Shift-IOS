@@ -46,6 +46,7 @@ struct SettingsView: View {
             accountSection
             notificationsSection
             aboutSection
+            diagnosticsSection
             #if DEBUG
             debugSection
             #endif
@@ -161,6 +162,25 @@ struct SettingsView: View {
                 presentedURL = IdentifiableURL(url: Self.termsURL)
             }
             .foregroundStyle(Color.accentColor)
+        }
+    }
+
+    // MARK: - Diagnostics (Release-visible — used to debug iCloud sharing on TestFlight)
+
+    private var diagnosticsSection: some View {
+        Section {
+            NavigationLink {
+                SyncDiagnosticsView()
+            } label: {
+                LabeledContent(String(localized: "Sync Diagnostics")) {
+                    Image(systemName: "stethoscope")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text(String(localized: "Diagnostics"))
+        } footer: {
+            Text(String(localized: "Tools for troubleshooting iCloud sharing and sync. Tap Share in the top-right to export the log."))
         }
     }
 
