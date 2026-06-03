@@ -158,10 +158,6 @@ struct CreateBlockSheet: View {
         event.touchForSync()
         try? await blockRepo.save()
 
-        // Repair parent-fields immediately so the new block is visible to participants
-        // without waiting for NSPersistentCloudKitContainer's delayed sync.
-        Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
-
         dismiss()
     }
 

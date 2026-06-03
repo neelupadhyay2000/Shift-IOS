@@ -186,8 +186,7 @@ struct EventRosterView: View {
     }
 
     /// Removes a *shared* event from this device. The planner remains the owner;
-    /// this only clears the vendor's local copy. Recording the dismissal first
-    /// stops `SharedRecordSyncer` from re-creating it on the next sync.
+    /// this only clears the vendor's local copy.
     private func removeSharedEvent(_ event: EventModel) {
         SharedEventDismissalStore.dismiss(event.id)
         modelContext.delete(event)

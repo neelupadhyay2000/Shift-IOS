@@ -20,7 +20,7 @@ public struct DiagnosticEvent: Sendable, Codable, Equatable, Identifiable {
         case parentRepair  // CloudKit parent-field patching
         case shareAccept   // vendor accepts a CKShare
         case fetch         // shared-DB change fetch
-        case merge         // SharedRecordSyncer import into SwiftData
+        case merge         // record import into SwiftData
         case push          // silent push / foreground poll tick
         case notify        // vendor shift local notification
     }
@@ -63,9 +63,9 @@ public struct DiagnosticEvent: Sendable, Codable, Equatable, Identifiable {
 /// bridge forwards each new event to TelemetryDeck.
 ///
 /// Deliberately a lock-backed plain class rather than `@Observable`: `record`
-/// is called from background threads (e.g. inside `SharedZoneSubscriptionManager`
-/// off the main actor), and the diagnostics screen refreshes on a timer, so we
-/// avoid the data races of mutating an `@Observable` property off-main.
+/// is called from background threads off the main actor, and the diagnostics
+/// screen refreshes on a timer, so we avoid data races of mutating an
+/// `@Observable` property off-main.
 public final class SyncDiagnosticsCenter: @unchecked Sendable {
 
     public static let shared = SyncDiagnosticsCenter()

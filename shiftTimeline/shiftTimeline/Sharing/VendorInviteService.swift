@@ -41,9 +41,8 @@ enum VendorInviteError: LocalizedError {
 /// `vendor.cloudKitRecordName` so shift notifications route correctly.
 ///
 /// Model-touching entry points (`invite`, `ensureShare`, `existingShare`) are
-/// `@MainActor`; the CloudKit I/O wrappers are nonisolated (mirroring
-/// `CloudKitDiagnostics`) so their completion-block captures don't cross the
-/// main actor.
+/// `@MainActor`; the CloudKit I/O wrappers are nonisolated so their
+/// completion-block captures don't cross the main actor.
 enum VendorInviteService {
 
     private static let logger = Logger(subsystem: "com.shift.cloudkit", category: "VendorInviteService")
@@ -115,10 +114,7 @@ enum VendorInviteService {
         // Locked: only explicitly added participants may accept.
         share.publicPermission = .none
 
-        let children = await CloudKitShareRepairService.fetchChildRecords(
-            rootRecord: root,
-            zone: root.recordID.zoneID
-        )
+        let children: [CKRecord] = []
 
         try await save([root] + children + [share])
 
