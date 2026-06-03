@@ -38,9 +38,8 @@ struct shiftTimelineApp: App {
 
     /// The active `ModelContainer` for this process.
     ///
-    /// UI test runs receive an in-memory container with no CloudKit connectivity so
-    /// tests never touch real user data. Production runs use the CloudKit-backed
-    /// shared container from `PersistenceController`.
+    /// UI test runs receive an in-memory container so tests never touch real user data.
+    /// Production runs use the on-disk shared container from `PersistenceController`.
     private static let modelContainer: ModelContainer = {
         guard !isUITestMode else {
             do {
@@ -184,7 +183,6 @@ struct shiftTimelineApp: App {
 // MARK: - AppDelegate (local notifications + scene wiring)
 
 /// Handles local notifications and scene delegate wiring.
-/// CloudKit share acceptance and remote push (E15) are handled in a later epic.
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private static let logger = Logger(

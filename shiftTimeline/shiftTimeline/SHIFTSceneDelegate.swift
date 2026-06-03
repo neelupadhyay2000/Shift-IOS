@@ -1,7 +1,6 @@
 import UIKit
 
-/// Window-scene delegate. CKShare callbacks have been removed (SHIFT-531);
-/// the class is retained so `AppDelegate.application(_:configurationForConnecting:options:)`
+/// Window-scene delegate. Retained so `AppDelegate.application(_:configurationForConnecting:options:)`
 /// can wire it as the scene delegate class without an ObjC name-string lookup.
 ///
 /// - `@objc(SHIFTSceneDelegate)` pins the exported ObjC symbol name, matching
