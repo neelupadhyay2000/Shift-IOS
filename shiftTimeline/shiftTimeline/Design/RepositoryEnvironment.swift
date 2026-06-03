@@ -5,8 +5,8 @@ import Services
 // MARK: - Environment keys for the five repository protocols.
 //
 // Default is nil; views fall back to a SwiftData-backed instance built from
-// the ambient modelContext. SHIFT-527 wires in real injection (and fakes for
-// tests), at which point the nil branch is never reached in production.
+// the ambient modelContext when no provider is injected. Use
+// `.repositories(_:)` to inject a `RepositoryProviding` in one call.
 
 private struct EventRepositoryKey: EnvironmentKey {
     static let defaultValue: (any EventRepositing)? = nil
@@ -44,5 +44,30 @@ extension EnvironmentValues {
     var shiftRecordRepository: (any ShiftRecordRepositing)? {
         get { self[ShiftRecordRepositoryKey.self] }
         set { self[ShiftRecordRepositoryKey.self] = newValue }
+    }
+}
+
+// MARK: - View injection modifier
+
+extension View {
+    /// Injects a `RepositoryProviding` bundle into the SwiftUI environment,
+    /// populating all five per-aggregate repository keys in one call.
+    ///
+    /// ```swift
+    /// // Production (scene level):
+    /// ContentView()
+    ///     .repositories(SwiftDataRepositoryProvider(context: container.mainContext))
+    ///
+    /// // Tests / previews:
+    /// MyView()
+    ///     .repositories(FakeRepositoryProvider())
+    /// ```
+    func repositories(_ provider: some RepositoryProviding) -> some View {
+        self
+            .environment(\.eventRepository, provider.events)
+            .environment(\.trackRepository, provider.tracks)
+            .environment(\.blockRepository, provider.blocks)
+            .environment(\.vendorRepository, provider.vendors)
+            .environment(\.shiftRecordRepository, provider.shiftRecords)
     }
 }

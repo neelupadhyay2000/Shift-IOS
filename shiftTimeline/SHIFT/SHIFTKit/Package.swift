@@ -24,6 +24,6 @@ let package = Package(
         .target(name: "Services", dependencies: ["Models", "Engine", "ObjCException"], resources: [
             .copy("Resources/Templates"),
         ]),
-        .target(name: "TestSupport", dependencies: ["Models"]),
+        .target(name: "TestSupport", dependencies: ["Models", "Services"]),
     ]
 )
