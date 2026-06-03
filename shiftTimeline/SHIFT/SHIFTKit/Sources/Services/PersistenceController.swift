@@ -4,25 +4,14 @@ import SwiftData
 import Models
 import ObjCException
 
-/// ## CloudKit Conflict Resolution Policy
-/// `NSPersistentCloudKitContainer` (the engine backing SwiftData's `.automatic`
-/// CloudKit database) uses **last-write-wins** to resolve merge conflicts:
-/// when two devices both edit the same record while offline and then reconnect,
-/// the edit with the later `CKRecord.modificationDate` survives on both devices.
+/// Local-only SwiftData persistence layer.
 ///
-/// SHIFT does not implement any custom conflict resolution on top of this.
-/// This is an intentional product decision: event timeline data is owned by a
-/// single planner, so racing writes from two of their devices should simply
-/// converge to the most recent intent.
-///
-/// The `CloudKitSyncIntegrityTests.lastWriteWinsOnConcurrentOfflineMutation`
-/// test verifies the observable on-disk contract of this behavior.
+/// The store is configured with `cloudKitDatabase: .none`; the app runs fully
+/// offline with no iCloud account required. Supabase will become the
+/// sync/sharing back-end in a later epic (E12).
 public final class PersistenceController: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")
-
-    /// The CloudKit container identifier for iCloud sync.
-    private static let cloudKitContainerID = "iCloud.com.neelsoftwaresolutions.shiftTimeline"
 
     /// The App Group identifier shared between the main app and extensions.
     private static let appGroupID = "group.com.neelsoftwaresolutions.shiftTimeline"
@@ -30,11 +19,6 @@ public final class PersistenceController: Sendable {
     public static let shared = PersistenceController()
 
     public let container: ModelContainer
-
-    /// Tri-state CloudKit mirror health, set deterministically by the
-    /// fallback chain in `init`. UI consumers branch on `.degraded` to
-    /// surface a sync banner; `.disabled` means CloudKit is not running.
-    public let cloudKitMirrorState: CloudKitMirrorState
 
     public static var schema: Schema {
         Schema([
@@ -81,71 +65,31 @@ public final class PersistenceController: Sendable {
         let config = ModelConfiguration(
             schema: schema,
             url: url,
-            cloudKitDatabase: .automatic
-        )
-
-        // Attempt 1: existing store with full migration plan (happy path).
-        if let built = Self.tryBuildContainer(
-            schema: schema,
-            configuration: config,
-            migrationPlan: SHIFTMigrationPlan.self,
-            label: "existing store with migration plan"
-        ) {
-            container = built
-            cloudKitMirrorState = .from(attempt: .existingStoreWithPlan)
-            return
-        }
-
-        // Attempt 2: delete corrupt/outdated store, retry with migration plan.
-        // CloudKit will re-download the user's data after the container syncs.
-        Self.logger.error("Initial ModelContainer init failed — deleting store and retrying with migration plan")
-        Self.deleteStoreFiles(at: url)
-
-        if let built = Self.tryBuildContainer(
-            schema: schema,
-            configuration: config,
-            migrationPlan: SHIFTMigrationPlan.self,
-            label: "fresh store with migration plan"
-        ) {
-            container = built
-            cloudKitMirrorState = .from(attempt: .freshStoreWithPlan)
-            return
-        }
-
-        // Attempt 3: fresh store WITHOUT migration plan but WITH CloudKit.
-        // CloudKit mirroring may degrade (silent record-type errors), but
-        // at least sync is attempted rather than fully disabled.
-        Self.logger.error("Migration plan failed on fresh store — retrying without migration plan")
-        Self.deleteStoreFiles(at: url)
-
-        if let built = Self.tryBuildContainer(
-            schema: schema,
-            configuration: config,
-            migrationPlan: nil,
-            label: "fresh store without migration plan (CloudKit still enabled)"
-        ) {
-            container = built
-            cloudKitMirrorState = .from(attempt: .freshStoreWithoutPlan)
-            Self.logger.error("CloudKit enabled WITHOUT migration plan — sync may be degraded")
-            return
-        }
-
-        // Attempt 4: local-only store. The app launches but CloudKit is dead.
-        Self.logger.fault("All CloudKit-enabled attempts failed — falling back to local-only store. CloudKit sync is DISABLED.")
-        Self.deleteStoreFiles(at: url)
-        let localOnly = ModelConfiguration(
-            schema: schema,
-            url: url,
             cloudKitDatabase: .none
         )
+
+        // Attempt 1: existing on-disk store with migration plan (happy path).
         if let built = Self.tryBuildContainer(
             schema: schema,
-            configuration: localOnly,
-            migrationPlan: nil,
-            label: "local-only store (CloudKit DISABLED)"
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "existing store"
         ) {
             container = built
-            cloudKitMirrorState = .from(attempt: .localOnly)
+            return
+        }
+
+        // Attempt 2: corrupt or outdated store — delete and retry.
+        Self.logger.error("Store init failed — deleting and retrying")
+        Self.deleteStoreFiles(at: url)
+
+        if let built = Self.tryBuildContainer(
+            schema: schema,
+            configuration: config,
+            migrationPlan: SHIFTMigrationPlan.self,
+            label: "fresh store"
+        ) {
+            container = built
             return
         }
 
@@ -163,7 +107,6 @@ public final class PersistenceController: Sendable {
             label: "in-memory fallback"
         ) {
             container = built
-            cloudKitMirrorState = .from(attempt: .inMemory)
             return
         }
 

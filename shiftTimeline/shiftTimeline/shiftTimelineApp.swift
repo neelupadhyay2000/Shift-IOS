@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import CloudKit
 import UserNotifications
 import WidgetKit
 import TipKit
@@ -135,44 +134,6 @@ struct shiftTimelineApp: App {
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
 
-    /// Records the CloudKit mirror health resolved by `PersistenceController`'s
-    /// fallback chain. A `degraded`/`disabled` state on a TestFlight build means
-    /// sync is silently off — a top suspect for "nothing syncs."
-    private static func recordMirrorStateDiagnostic() {
-        let state = PersistenceController.shared.cloudKitMirrorState
-        let name: String
-        let severity: DiagnosticEvent.Severity
-        switch state {
-        case .healthy: name = "healthy"; severity = .info
-        case .degraded: name = "degraded"; severity = .warning
-        case .disabled: name = "disabled"; severity = .error
-        }
-        SyncDiagnosticsCenter.shared.record(.mirror, name, severity: severity)
-    }
-
-    /// One-time migration: stamps existing events with the current user's
-    /// CloudKit record name so the shared-event detection works for
-    /// events created before `ownerRecordName` was introduced.
-    @MainActor
-    private func backfillOwnerRecordNames() {
-        guard let recordName = CloudKitIdentity.shared.currentUserRecordName else { return }
-        let context = PersistenceController.shared.container.mainContext
-        let descriptor = FetchDescriptor<EventModel>(
-            predicate: #Predicate<EventModel> { $0.ownerRecordName == nil }
-        )
-        do {
-            let events = try context.fetch(descriptor)
-            guard !events.isEmpty else { return }
-            for event in events {
-                event.ownerRecordName = recordName
-            }
-            try context.save()
-            Self.logger.info("Backfilled ownerRecordName for \(events.count) events")
-        } catch {
-            Self.logger.error("Failed to backfill ownerRecordNames: \(error.localizedDescription)")
-        }
-    }
-
     var body: some Scene {
         WindowGroup {
             RootNavigator()
@@ -184,13 +145,8 @@ struct shiftTimelineApp: App {
                 }
                 .task {
                     guard !Self.isUITestMode else { return }
-                    Self.recordMirrorStateDiagnostic()
                     watchSessionManager.activate()
                     liveActivityManager.reclaimExistingActivity()
-                    await CloudKitIdentity.shared.fetchAndCache()
-                    await CloudKitDiagnostics.checkAccountStatus()
-                    backfillOwnerRecordNames()
-                    await SharedZoneSubscriptionManager.shared.registerIfNeeded()
                 }
         }
         .modelContainer(Self.modelContainer)
@@ -198,30 +154,9 @@ struct shiftTimelineApp: App {
             guard !Self.isUITestMode else { return }
             if newPhase == .background {
                 SunsetPrefetchTask.scheduleNextRefresh()
-                // Stop the foreground poll — no need to hit CloudKit while backgrounded.
-                SharedZoneSubscriptionManager.shared.stopForegroundPolling()
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
-                // Re-register the shared-database subscription. CloudKit can silently
-                // purge subscriptions after inactivity or across device restores, and
-                // a failed launch registration has no automatic retry.
-                Task { await SharedZoneSubscriptionManager.shared.registerIfNeeded() }
-                // Pull any shared-zone changes that arrived while the app was backgrounded
-                // or that were missed due to silent-push delivery failures (low-power mode,
-                // APNs coalescing). This is the primary recovery path for missed syncs.
-                // Always also scan for pending vendor notifications, even without new CloudKit
-                // data, in case a prior sync already wrote pendingShiftDelta to local storage.
-                Task {
-                    await SharedZoneSubscriptionManager.shared.fetchChanges()
-                    // Link any vendors whose invited identity has now accepted,
-                    // so shift notifications route to the right vendor device.
-                    await VendorParticipantReconciler.reconcileAll()
-                    await appDelegate.processVendorShiftNotifications()
-                }
-                // Heartbeat: poll every 30 s while the app is active so vendor devices
-                // receive planner updates even when silent pushes are throttled/dropped.
-                SharedZoneSubscriptionManager.shared.startForegroundPolling()
             }
         }
     }
@@ -246,19 +181,15 @@ struct shiftTimelineApp: App {
     }
 }
 
-// MARK: - CloudKit Share Acceptance & Silent Push
+// MARK: - AppDelegate (local notifications + scene wiring)
 
-/// Handles:
-/// 1. Incoming CKShare invitations when a vendor taps a share link.
-/// 2. Remote notification registration for silent-push-based sync.
-/// 3. Silent push handling — triggers shared-zone change fetch so the
-///    vendor's local SwiftData store stays current after planner edits.
-/// 4. Local notification tap → deep-link into the shared event.
+/// Handles local notifications and scene delegate wiring.
+/// CloudKit share acceptance and remote push (E15) are handled in a later epic.
 final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private static let logger = Logger(
         subsystem: "com.neelsoftwaresolutions.shiftTimeline",
-        category: "CloudSharing"
+        category: "AppDelegate"
     )
 
     func application(
@@ -266,66 +197,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         guard !shiftTimelineApp.isUITestMode else { return true }
-        // Diagnostic: confirm scene manifest and delegate class are present in the deployed binary.
         let hasManifest = Bundle.main.infoDictionary?["UIApplicationSceneManifest"] != nil
         let delegateClass: AnyClass? = NSClassFromString("shiftTimeline.SHIFTSceneDelegate")
         Self.logger.info("Launch diagnostic — scene manifest present: \(hasManifest), SHIFTSceneDelegate class resolved: \(delegateClass != nil ? "YES" : "NO — MISSING")")
-        application.registerForRemoteNotifications()
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }
         return true
     }
 
-    func application(
-        _ application: UIApplication,
-        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
-    ) {
-        Self.logger.info("Registered for remote notifications")
-    }
-
-    func application(
-        _ application: UIApplication,
-        didFailToRegisterForRemoteNotificationsWithError error: Error
-    ) {
-        Self.logger.error("Failed to register for remote notifications: \(error.localizedDescription)")
-    }
-
-    func application(
-        _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
-    ) {
-        // CloudKit silent push — fetch shared-zone changes.
-        let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        let matched = notification?.subscriptionID == SharedZoneSubscriptionManager.subscriptionID
-        SyncDiagnosticsCenter.shared.record(
-            .push,
-            "silentPushReceived",
-            params: ["subscriptionMatched": "\(matched)"]
-        )
-        guard matched else {
-            completionHandler(.noData)
-            return
-        }
-
-        Task {
-            let hasNewData = await SharedZoneSubscriptionManager.shared.fetchChanges()
-            if hasNewData {
-                await processVendorShiftNotifications()
-            }
-            completionHandler(hasNewData ? .newData : .noData)
-        }
-    }
-
-    /// Programmatically wires `SHIFTSceneDelegate` as the scene delegate for every
-    /// new window-scene session. This is more reliable than the Info.plist
-    /// `UISceneDelegateClassName` string approach because:
-    ///  - It passes the class reference directly — no ObjC name-string lookup.
-    ///  - It cannot be defeated by Release-build dead-stripping.
-    ///  - It takes precedence over the plist entry when both are present.
-    ///
-    /// Without this method, `UIWindowSceneDelegate.windowScene(_:userDidAcceptCloudKitShareWith:)`
-    /// never fires even when `SHIFTSceneDelegate` is listed in Info.plist.
+    /// Wires `SHIFTSceneDelegate` as the scene delegate so scene-lifecycle
+    /// callbacks are delivered to the correct class.
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
@@ -336,130 +217,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         return config
     }
 
-    func application(
-        _ application: UIApplication,
-        userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
-    ) {
-        AppDelegate.handleAcceptedShare(metadata: cloudKitShareMetadata)
-    }
-
-    // MARK: - Shared share-acceptance handler
-
-    /// Test-only seam. When non-nil, `handleAcceptedShare(metadata:)` invokes
-    /// this closure and returns instead of running the production CloudKit
-    /// acceptance flow. Used by unit tests to verify that both delegate entry
-    /// points route through the same shared handler. `CKShare.Metadata` has no
-    /// public initializer, so the seam exposes a no-argument trigger
-    /// (`fireShareAcceptanceTestHook`) for tests that cannot synthesize one.
-    @MainActor
-    static var handleAcceptedShareForTesting: (() -> Void)?
-
-    /// Test-only convenience that fires `handleAcceptedShareForTesting` without
-    /// requiring a `CKShare.Metadata`. Production code never calls this.
-    @MainActor
-    static func fireShareAcceptanceTestHook() {
-        handleAcceptedShareForTesting?()
-    }
-
-    /// Single, canonical share-acceptance entry point. Both the application-delegate
-    /// (`application(_:userDidAcceptCloudKitShareWith:)`) and scene-delegate
-    /// (`SHIFTSceneDelegate.windowScene(_:userDidAcceptCloudKitShareWith:)`) call
-    /// only this method.
-    ///
-    /// The actual delivery path that fires on a real device is the scene delegate;
-    /// the application-delegate method survives as defense-in-depth for legacy
-    /// re-entry paths.
-    @MainActor
-    static func handleAcceptedShare(metadata: CKShare.Metadata) {
-        if let hook = handleAcceptedShareForTesting {
-            hook()
-            return
-        }
-
-        let container = CKContainer(identifier: metadata.containerIdentifier)
-        let operation = CKAcceptSharesOperation(shareMetadatas: [metadata])
-        // Capture acceptedMetadata (first param) — its rootRecordID.zoneID lets us target
-        // the exact shared zone without relying on fetchDatabaseChanges(), which can
-        // return an empty list in the brief propagation window after acceptance.
-        operation.perShareResultBlock = { acceptedMetadata, result in
-            switch result {
-            case .success:
-                Self.logger.info("Successfully accepted CloudKit share in zone: \(acceptedMetadata.share.recordID.zoneID.zoneName)")
-                SyncDiagnosticsCenter.shared.record(
-                    .shareAccept,
-                    "accepted",
-                    params: ["zone": acceptedMetadata.share.recordID.zoneID.zoneName]
-                )
-                Task { @MainActor in
-                    DeepLinkRouter.shared.isAcceptingShare = true
-                    DeepLinkRouter.shared.pendingDestination = .roster
-                }
-                // Directly fetch the specific zone we know about from the metadata.
-                // This is faster and more reliable than fetchDatabaseChanges() which
-                // may not yet reflect the newly accepted zone.
-                let zoneID = acceptedMetadata.share.recordID.zoneID
-                Task {
-                    await SharedZoneSubscriptionManager.shared.fetchAllRecords(inZone: zoneID)
-                }
-            case .failure(let error):
-                Self.logger.error("CKAcceptSharesOperation failed: \(error.localizedDescription)")
-                SyncDiagnosticsCenter.shared.record(
-                    .shareAccept,
-                    "acceptFailed",
-                    params: ["error": error.localizedDescription],
-                    severity: .error
-                )
-                Task { @MainActor in
-                    DeepLinkRouter.shared.pendingDestination = .roster
-                }
-            }
-        }
-        operation.acceptSharesResultBlock = { result in
-            if case .failure(let error) = result {
-                Self.logger.error("CKAcceptSharesOperation overall failure: \(error.localizedDescription)")
-            }
-        }
-        operation.qualityOfService = .userInteractive
-        container.add(operation)
-    }
-
     // MARK: - UNUserNotificationCenterDelegate
-
-    /// After CloudKit sync delivers updated vendor data, scan for any
-    /// `pendingShiftDelta` values and post local notifications.
-    ///
-    /// Skips events owned by the current device's user — the planner committed
-    /// the shift and must not receive vendor-addressed push notifications on
-    /// their own device. Also called when the app becomes active so that a
-    /// silent push missed during low-power / background is not lost.
-    @MainActor
-    func processVendorShiftNotifications() async {
-        // Wait until the iCloud identity is known. Without it, owned events fail
-        // the `isOwnedBy` check and the planner could notify themselves.
-        guard let currentUserRecordName = CloudKitIdentity.shared.currentUserRecordName else {
-            SyncDiagnosticsCenter.shared.record(.notify, "scanSkippedNoIdentity", severity: .warning)
-            return
-        }
-
-        let context = PersistenceController.shared.container.mainContext
-        let descriptor = FetchDescriptor<EventModel>()
-        guard let events = try? context.fetch(descriptor) else { return }
-        SyncDiagnosticsCenter.shared.record(
-            .notify,
-            "scanStarted",
-            params: ["events": "\(events.count)"]
-        )
-        for event in events {
-            // The planner owns this event — they made the shift themselves and
-            // should not receive a push notification for it on their device.
-            guard !event.isOwnedBy(currentUserRecordName) else { continue }
-            await VendorShiftLocalNotifier.processAndNotify(
-                event: event,
-                currentUserRecordName: currentUserRecordName
-            )
-        }
-        try? context.save()
-    }
 
     /// Handle notification tap — deep-link into the shared event or live session.
     func userNotificationCenter(

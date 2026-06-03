@@ -1,49 +1,14 @@
 import UIKit
-import CloudKit
-import Services
-import os
 
-/// Window-scene delegate that receives CloudKit share-accept callbacks for
-/// SwiftUI scene-based apps. When a vendor taps an iMessage share link, iOS
-/// dispatches `userDidAcceptCloudKitShareWith` to this method — **not** to
-/// `UIApplicationDelegate.application(_:userDidAcceptCloudKitShareWith:)`.
+/// Window-scene delegate. CKShare callbacks have been removed (SHIFT-531);
+/// the class is retained so `AppDelegate.application(_:configurationForConnecting:options:)`
+/// can wire it as the scene delegate class without an ObjC name-string lookup.
 ///
-/// All real work is delegated to `AppDelegate.handleAcceptedShare(metadata:)`
-/// so the scene and application paths stay byte-for-byte equivalent.
-///
-/// Design notes:
-/// - Inherits from `NSObject` to guarantee the ObjC runtime can instantiate
-///   this class via `NSClassFromString` when iOS resolves the scene manifest.
-///   Without NSObject, Swift's Release-build whole-module optimization can
-///   dead-strip the class entirely since nothing in Swift code holds a direct
-///   reference — only the Info.plist string does.
 /// - `@objc(SHIFTSceneDelegate)` pins the exported ObjC symbol name, matching
 ///   the `$(PRODUCT_MODULE_NAME).SHIFTSceneDelegate` entry in UISceneConfigurations.
-/// - No `@MainActor` on the class or method: UIKit dispatches delegate callbacks
-///   on the main thread already, and actor isolation on the class declaration
-///   can suppress implicit @objc bridging in optimised builds.
+/// - Inherits from `NSObject` so the ObjC runtime can instantiate this class
+///   in Release builds where Swift's WMO would otherwise dead-strip it.
 @objc(SHIFTSceneDelegate)
 final class SHIFTSceneDelegate: NSObject, UIWindowSceneDelegate {
-
-    private static let logger = Logger(
-        subsystem: "com.neelsoftwaresolutions.shiftTimeline",
-        category: "CloudSharing"
-    )
-
     var window: UIWindow?
-
-    @objc func windowScene(
-        _ windowScene: UIWindowScene,
-        userDidAcceptCloudKitShareWith cloudKitShareMetadata: CKShare.Metadata
-    ) {
-        Self.logger.info("Scene delegate received share-accept metadata for zone: \(cloudKitShareMetadata.share.recordID.zoneID.zoneName)")
-        SyncDiagnosticsCenter.shared.record(
-            .shareAccept,
-            "sceneCallbackReceived",
-            params: ["zone": cloudKitShareMetadata.share.recordID.zoneID.zoneName]
-        )
-        Task { @MainActor in
-            AppDelegate.handleAcceptedShare(metadata: cloudKitShareMetadata)
-        }
-    }
 }

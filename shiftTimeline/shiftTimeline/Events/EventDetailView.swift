@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import CloudKit
 import WidgetKit
 import Models
 import Services
@@ -17,15 +16,10 @@ struct EventDetailView: View {
 
     @Query private var results: [EventModel]
 
-    @State private var isShowingShareSheet = false
-    @State private var activeShareForSheet: CKShare?
-    @State private var isPreparingShare = false
-    @State private var shareError: String?
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
     @State private var isShowingVendorSharing = false
 
-    private let cloudKitContainer = CKContainer(identifier: "iCloud.com.neelsoftwaresolutions.shiftTimeline")
     private let eventID: UUID
 
     init(eventID: UUID) {
@@ -37,20 +31,7 @@ struct EventDetailView: View {
 
     private var event: EventModel? { results.first }
 
-    private var isOwner: Bool {
-        event?.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName) ?? true
-    }
-
-    /// The VendorModel linked to the current iCloud user, if this is a shared event.
-    private var currentVendor: VendorModel? {
-        event?.vendorForUser(CloudKitIdentity.shared.currentUserRecordName)
-    }
-
-    /// True when the current vendor has an unacknowledged shift with a known delta.
-    private var showAcknowledgmentBanner: Bool {
-        guard !isOwner, let vendor = currentVendor else { return false }
-        return !vendor.hasAcknowledgedLatestShift && vendor.pendingShiftDelta != nil
-    }
+    private var isOwner: Bool { true }
 
     var body: some View {
         Group {
@@ -81,9 +62,6 @@ struct EventDetailView: View {
                 let atRisk = atRiskOutdoorBlocks(for: event)
                 ForEach(Array(atRisk.enumerated()), id: \.offset) { _, item in
                     RainWarningBanner(blockTitle: item.blockTitle, rainProbability: item.probability)
-                }
-                if showAcknowledgmentBanner, let vendor = currentVendor {
-                    ShiftAcknowledgmentBanner(vendor: vendor)
                 }
                 heroHeader(event)
                 quickAccessCards(event)
@@ -292,16 +270,10 @@ struct EventDetailView: View {
             isShowingVendorSharing = true
         } label: {
             HStack(spacing: 10) {
-                if isPreparingShare {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityHidden(true)
-                } else {
-                    Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.green)
-                        .accessibilityHidden(true)
-                }
+                Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
                 Text(event.shareURL != nil
                      ? String(localized: "Manage Vendor Sharing")
                      : String(localized: "Share with Vendors"))
@@ -316,8 +288,6 @@ struct EventDetailView: View {
             .premiumCard()
         }
         .buttonStyle(.plain)
-        .disabled(isPreparingShare)
-        .accessibilityHint(isPreparingShare ? String(localized: "Preparing share link, please wait") : "")
         .sheet(isPresented: $isShowingVendorSharing) {
             NavigationStack {
                 VendorSharingView(eventID: eventID)
@@ -327,314 +297,6 @@ struct EventDetailView: View {
                         }
                     }
             }
-        }
-        .sheet(isPresented: $isShowingShareSheet) {
-            if let share = activeShareForSheet {
-                CloudSharingView(
-                    share: share,
-                    container: cloudKitContainer,
-                    eventTitle: event.title,
-                    onShareSaved: { savedShare in
-                        if let url = savedShare.url {
-                            event.shareURL = url.absoluteString
-                            try? modelContext.save()
-                        }
-                    },
-                    onShareStopped: {
-                        event.shareURL = nil
-                        activeShareForSheet = nil
-                        try? modelContext.save()
-                    },
-                    onError: { error in
-                        shareError = error.localizedDescription
-                    }
-                )
-            }
-        }
-        .alert("Sharing Error", isPresented: Binding(
-            get: { shareError != nil },
-            set: { if !$0 { shareError = nil } }
-        )) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            if let shareError {
-                Text(shareError)
-            }
-        }
-    }
-
-    /// Prepares a CKShare (creating or fetching as needed) then presents
-    /// `UICloudSharingController` via the non-deprecated `init(share:container:)`.
-    private func prepareShareSheet(for event: EventModel) {
-        // Gate share traffic on mirror health. A degraded mirror means the
-        // schema can't reconcile and CKQuery against `CD_EventModel` will
-        // never find the record — surface a distinct, actionable error
-        // instead of looping the user through "please wait a moment".
-        switch CloudKitShareGate.decide(for: PersistenceController.shared.cloudKitMirrorState) {
-        case .blockDegradedSync:
-            shareError = String(
-                localized: "sharing_error_mirror_degraded",
-                defaultValue: "Sync is paused because this version of the app is out of date. Please update the app to resume iCloud sync, then try sharing again."
-            )
-            return
-        case .blockCloudKitUnavailable:
-            shareError = String(
-                localized: "sharing_error_cloudkit_unavailable",
-                defaultValue: "iCloud sync is unavailable. Sign in to iCloud in Settings, then try sharing again."
-            )
-            return
-        case .proceed:
-            break
-        }
-
-        isPreparingShare = true
-
-        if let shareURLString = event.shareURL,
-           let shareURL = URL(string: shareURLString) {
-            // Existing share — fetch it from CloudKit for management.
-            fetchExistingShare(at: shareURL, for: event)
-        } else {
-            // No share yet — create one, save it, then present.
-            createNewShare(for: event)
-        }
-    }
-
-    /// Creates a new `CKShare` tied to the event's mirrored CloudKit record,
-    /// saves it, and presents the sheet.
-    ///
-    /// Child records (tracks, blocks, vendors) are fetched from CloudKit and
-    /// their `parent` field is set before saving. Without this, CloudKit's
-    /// hierarchical sharing only delivers the root event record to recipients,
-    /// leaving the timeline empty (0 blocks, 0 tracks).
-    private func createNewShare(for event: EventModel) {
-        SyncDiagnosticsCenter.shared.record(.shareCreate, "started", params: ["event": event.id.uuidString])
-        fetchEventRootRecord(for: event) { result in
-            Task { @MainActor in
-                switch result {
-                case .success(let rootRecord):
-                    SyncDiagnosticsCenter.shared.record(.shareCreate, "rootFetched", params: ["event": event.id.uuidString])
-                    let children = await CloudKitShareRepairService.fetchChildRecords(
-                        rootRecord: rootRecord,
-                        zone: rootRecord.recordID.zoneID
-                    )
-                    SyncDiagnosticsCenter.shared.record(
-                        .shareCreate,
-                        "childrenFetched",
-                        params: ["event": event.id.uuidString, "children": "\(children.count)"]
-                    )
-
-                    let share = CKShare(rootRecord: rootRecord)
-                    share[CKShare.SystemFieldKey.title] = event.title as CKRecordValue
-                    share.publicPermission = .readOnly
-
-                    let operation = CKModifyRecordsOperation(
-                        recordsToSave: [rootRecord] + children + [share],
-                        recordIDsToDelete: nil
-                    )
-                    operation.modifyRecordsResultBlock = { result in
-                        Task { @MainActor in
-                            self.isPreparingShare = false
-                            switch result {
-                            case .success:
-                                event.shareURL = share.url?.absoluteString
-                                try? self.modelContext.save()
-                                self.activeShareForSheet = share
-                                self.isShowingShareSheet = true
-                                SyncDiagnosticsCenter.shared.record(
-                                    .shareCreate,
-                                    "saveSucceeded",
-                                    params: [
-                                        "event": event.id.uuidString,
-                                        "hasURL": "\(share.url != nil)",
-                                    ]
-                                )
-                            case .failure(let error):
-                                self.shareError = error.localizedDescription
-                                SyncDiagnosticsCenter.shared.record(
-                                    .shareCreate,
-                                    "saveFailed",
-                                    params: ["event": event.id.uuidString, "error": error.localizedDescription],
-                                    severity: .error
-                                )
-                            }
-                        }
-                    }
-                    // Use .changedKeys so CloudKit only writes the `parent` field we set,
-                    // preventing a serverRecordChanged conflict if NSPersistentCloudKitContainer
-                    // has written to these same records between our fetch and this save.
-                    operation.savePolicy = .changedKeys
-                    self.cloudKitContainer.privateCloudDatabase.add(operation)
-
-                case .failure(let error):
-                    self.isPreparingShare = false
-                    self.shareError = error.localizedDescription
-                    SyncDiagnosticsCenter.shared.record(
-                        .shareCreate,
-                        "rootFetchFailed",
-                        params: ["event": event.id.uuidString, "error": error.localizedDescription],
-                        severity: .error
-                    )
-                }
-            }
-        }
-    }
-
-    /// Fetches all child records (tracks, blocks, vendors) for a shared event
-    /// and sets their CloudKit `parent` field for hierarchical sharing.
-    ///
-    /// Delegates to `CloudKitShareRepairService` — see that type for the full
-    /// rationale on why `NSPersistentCloudKitContainer` requires this.
-    private func fetchChildRecordsForShare(
-        rootRecord: CKRecord,
-        zone: CKRecordZone.ID
-    ) async -> [CKRecord] {
-        await CloudKitShareRepairService.fetchChildRecords(rootRecord: rootRecord, zone: zone)
-    }
-
-    /// Finds the mirrored CloudKit root record for an event.
-    ///
-    /// Core Data / SwiftData uses opaque record names, so we must not derive the
-    /// `CKRecord.ID` from the model UUID.
-    private func fetchEventRootRecord(
-        for event: EventModel,
-        completion: @escaping (Result<CKRecord, Error>) -> Void
-    ) {
-        // SwiftData / NSPersistentCloudKitContainer mirrors all records into
-        // this custom zone. Querying the default zone returns empty; querying
-        // against a container whose schema hasn't been pushed yet surfaces
-        // the "Did not find record type" error — we translate that into a
-        // user-actionable message below.
-        let coreDataZoneID = CKRecordZone.ID(
-            zoneName: "com.apple.coredata.cloudkit.zone",
-            ownerName: CKCurrentUserDefaultName
-        )
-        let query = CKQuery(recordType: "CD_EventModel", predicate: NSPredicate(value: true))
-        var foundRecord: CKRecord?
-
-        func runQuery(cursor: CKQueryOperation.Cursor? = nil) {
-            let operation: CKQueryOperation = if let cursor {
-                CKQueryOperation(cursor: cursor)
-            } else {
-                CKQueryOperation(query: query)
-            }
-            operation.zoneID = coreDataZoneID
-
-            var pageError: Error?
-
-            operation.recordMatchedBlock = { _, result in
-                switch result {
-                case .success(let record):
-                    let possibleValues: [Any?] = [record["id"], record["CD_id"]]
-                    let isMatch = possibleValues.contains { value in
-                        if let uuid = value as? UUID {
-                            return uuid == event.id
-                        }
-                        if let string = value as? String {
-                            return string == event.id.uuidString
-                        }
-                        return false
-                    }
-
-                    if isMatch {
-                        foundRecord = record
-                    }
-
-                case .failure(let error):
-                    pageError = error
-                }
-            }
-
-            operation.queryResultBlock = { result in
-                switch result {
-                case .success(let nextCursor):
-                    if let foundRecord {
-                        completion(.success(foundRecord))
-                    } else if let nextCursor {
-                        runQuery(cursor: nextCursor)
-                    } else if let pageError {
-                        completion(.failure(pageError))
-                    } else {
-                        completion(.failure(SharingLookupError.eventNotYetSynced))
-                    }
-
-                case .failure(let error):
-                    // CloudKit returns an "unknown item" error when the record
-                    // type hasn't been published yet, and "zoneNotFound" before
-                    // the first SwiftData push creates the mirror zone. Treat
-                    // both as "not yet synced" rather than a hard failure.
-                    if let ckError = error as? CKError,
-                       ckError.code == .unknownItem || ckError.code == .zoneNotFound {
-                        completion(.failure(SharingLookupError.eventNotYetSynced))
-                    } else {
-                        completion(.failure(error))
-                    }
-                }
-            }
-
-            cloudKitContainer.privateCloudDatabase.add(operation)
-        }
-
-        runQuery()
-    }
-
-    /// Fetches an existing `CKShare` by its URL and presents the management sheet.
-    private func fetchExistingShare(at shareURL: URL, for event: EventModel) {
-        let metadataOperation = CKFetchShareMetadataOperation(shareURLs: [shareURL])
-        metadataOperation.perShareMetadataResultBlock = { _, result in
-            Task { @MainActor in
-                switch result {
-                case .success(let metadata):
-                    self.resolveShare(from: metadata)
-                case .failure:
-                    // Share may have been deleted externally — clear stale URL and create fresh.
-                    event.shareURL = nil
-                    try? self.modelContext.save()
-                    self.createNewShare(for: event)
-                }
-            }
-        }
-        cloudKitContainer.add(metadataOperation)
-    }
-
-    private func resolveShare(from metadata: CKShare.Metadata) {
-        let shareRecordID = metadata.share.recordID
-        let rootRecordID = metadata.hierarchicalRootRecordID
-        cloudKitContainer.privateCloudDatabase.fetch(withRecordID: shareRecordID) { record, _ in
-            Task { @MainActor in
-                self.isPreparingShare = false
-                if let share = record as? CKShare {
-                    // Repair any children that are missing their CloudKit `parent` field.
-                    // Delegates to CloudKitShareRepairService which is also called after
-                    // every timeline shift — this path serves as an additional safety net.
-                    if let rootRecordID {
-                        Task {
-                            await CloudKitShareRepairService.repairChildParentFields(
-                                rootRecordID: rootRecordID
-                            )
-                        }
-                    }
-                    self.activeShareForSheet = share
-                    self.isShowingShareSheet = true
-                } else {
-                    self.shareError = String(localized: "Could not load share details")
-                }
-            }
-        }
-    }
-
-    /// Re-fetches child records and (re-)saves their CloudKit `parent` field.
-    ///
-    /// Kept for backward compatibility. New call sites should use
-    /// `CloudKitShareRepairService.repairChildParentFields(rootRecordID:)` directly.
-    private func refreshChildParentFields(rootRecordID: CKRecord.ID) async {
-        await CloudKitShareRepairService.repairChildParentFields(rootRecordID: rootRecordID)
-    }
-
-    private enum SharingLookupError: LocalizedError {
-        case eventNotYetSynced
-
-        var errorDescription: String? {
-            String(localized: "This event hasn't synced to iCloud yet. Please wait a moment and try sharing again.")
         }
     }
 
