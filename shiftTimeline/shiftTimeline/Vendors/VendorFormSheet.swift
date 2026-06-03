@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Models
+import Services
 
 /// Form sheet for creating or editing a vendor attached to an event.
 struct VendorFormSheet: View {
@@ -10,6 +11,11 @@ struct VendorFormSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.vendorRepository) private var injectedVendorRepo
+
+    private var vendorRepo: any VendorRepositing {
+        injectedVendorRepo ?? SwiftDataVendorRepository(context: modelContext)
+    }
 
     @Query private var results: [EventModel]
 
@@ -113,7 +119,7 @@ struct VendorFormSheet: View {
                     Button(String(localized: "Cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Save")) { saveVendor() }
+                    Button(String(localized: "Save")) { Task { await saveVendor() } }
                         .disabled(!isFormValid)
                 }
             }
@@ -128,7 +134,8 @@ struct VendorFormSheet: View {
         }
     }
 
-    private func saveVendor() {
+    @MainActor
+    private func saveVendor() async {
         guard let event else { return }
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let trimmedPhone = phone.trimmingCharacters(in: .whitespaces)
@@ -146,8 +153,7 @@ struct VendorFormSheet: View {
                 phone: trimmedPhone,
                 email: trimmedEmail
             )
-            vendor.event = event
-            modelContext.insert(vendor)
+            try? await vendorRepo.insert(vendor, into: event)
             AnalyticsService.send(.vendorInvited)
         }
         dismiss()

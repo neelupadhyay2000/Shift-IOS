@@ -22,6 +22,11 @@ import Services
 struct LiveDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.eventRepository) private var injectedEventRepo
+
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
 
     @Query private var results: [EventModel]
 
@@ -178,12 +183,14 @@ struct LiveDashboardView: View {
             block.status = .upcoming
         }
         first.status = .active
-        do {
-            try modelContext.save()
-            watchSessionManager.sendCurrentContext()
-            writeWidgetData()
-        } catch {
-            // Save failed — don't push stale context to Watch.
+        Task {
+            do {
+                try await eventRepo.save()
+                watchSessionManager.sendCurrentContext()
+                writeWidgetData()
+            } catch {
+                // Save failed — don't push stale context to Watch.
+            }
         }
     }
 
@@ -198,7 +205,7 @@ struct LiveDashboardView: View {
         Task { @MainActor in
             let service = SunsetService()
             _ = await service.fetchIfNeeded(for: event)
-            try? modelContext.save()
+            try? await eventRepo.save()
         }
     }
 
@@ -214,13 +221,15 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             event: event
         )
-        do {
-            try modelContext.save()
-            watchSessionManager.sendCurrentContext()
-            writeWidgetData()
-            updateLiveActivity()
-        } catch {
-            // Save failed — don't push stale context to Watch.
+        Task {
+            do {
+                try await eventRepo.save()
+                watchSessionManager.sendCurrentContext()
+                writeWidgetData()
+                updateLiveActivity()
+            } catch {
+                // Save failed — don't push stale context to Watch.
+            }
         }
     }
 
@@ -333,23 +342,23 @@ struct LiveDashboardView: View {
             )
         }
 
-        do {
-            try modelContext.save()
-            watchSessionManager.sendCurrentContext()
-            writeWidgetData()
-            updateLiveActivity()
-            // Repair the CloudKit parent-field hierarchy on the private database so
-            // vendor devices receive the shifted block data via their CKDatabaseSubscription
-            // change feed. Without this, NSPersistentCloudKitContainer pushes the mutated
-            // records but CloudKit's sharing mechanism excludes them from the shared zone
-            // because the `parent` field is not maintained automatically.
-            if let event, event.shareURL != nil {
-                Task {
+        Task {
+            do {
+                try await eventRepo.save()
+                watchSessionManager.sendCurrentContext()
+                writeWidgetData()
+                updateLiveActivity()
+                // Repair the CloudKit parent-field hierarchy on the private database so
+                // vendor devices receive the shifted block data via their CKDatabaseSubscription
+                // change feed. Without this, NSPersistentCloudKitContainer pushes the mutated
+                // records but CloudKit's sharing mechanism excludes them from the shared zone
+                // because the `parent` field is not maintained automatically.
+                if let event, event.shareURL != nil {
                     await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
                 }
+            } catch {
+                // Save failed — don't push stale context to Watch.
             }
-        } catch {
-            // Save failed — don't push stale context to Watch.
         }
     }
 
@@ -375,8 +384,10 @@ struct LiveDashboardView: View {
 
         liveActivityManager.end()
         writeNextEventPlaceholder()
-        try? modelContext.save()
-        dismiss()
+        Task {
+            try? await eventRepo.save()
+            dismiss()
+        }
     }
 
     // MARK: - Widget Data
