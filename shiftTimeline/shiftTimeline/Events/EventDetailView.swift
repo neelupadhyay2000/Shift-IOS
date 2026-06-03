@@ -256,9 +256,36 @@ struct EventDetailView: View {
             }
 
             if isOwner {
-                shareWithVendorsButton(event)
+                if FeatureFlags.vendorSharing {
+                    shareWithVendorsButton(event)
+                } else {
+                    vendorSharingPlaceholder
+                }
             }
         }
+    }
+
+    private var vendorSharingPlaceholder: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(String(localized: "Share with Vendors"))
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "Sharing temporarily unavailable"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            Spacer()
+        }
+        .premiumCard()
+        .opacity(0.6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Vendor sharing — temporarily unavailable"))
     }
 
     private func shareWithVendorsButton(_ event: EventModel) -> some View {
