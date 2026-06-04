@@ -223,7 +223,6 @@ private struct UseTemplateSheet: View {
             longitude: longitude,
             venueNames: venueNames
         )
-        event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         modelContext.insert(event)
         AnalyticsService.send(.templateUsed, parameters: ["templateName": template.name])
 

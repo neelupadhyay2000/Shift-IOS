@@ -1,6 +1,6 @@
 import Foundation
 
-/// The identity used to invite a vendor as a locked CKShare participant.
+/// The contact method used to invite a vendor.
 nonisolated enum VendorInviteLookup: Equatable {
     case phone(String)
     case email(String)

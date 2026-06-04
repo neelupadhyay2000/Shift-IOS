@@ -3,13 +3,12 @@ import SwiftUI
 /// Source of truth for the in-app Privacy Policy and Terms of Service.
 ///
 /// The text is drafted in a conventional legal register and reflects what the
-/// app actually does: iCloud/CloudKit storage of the user's own data, read-only
-/// vendor sharing via `CKShare`, anonymous TelemetryDeck analytics, venue
-/// coordinates sent to Apple WeatherKit and sunrise-sunset.org, microphone voice
-/// memos, and App Store purchases. Update the constants below (entity, contact,
-/// jurisdiction, effective date) and have the documents reviewed by counsel
-/// before App Store submission. These documents are a starting point, not legal
-/// advice.
+/// app actually does: local SwiftData storage, anonymous TelemetryDeck analytics,
+/// venue coordinates sent to Apple WeatherKit and sunrise-sunset.org, microphone
+/// voice memos, and App Store purchases. Update the constants below (entity,
+/// contact, jurisdiction, effective date) and have the documents reviewed by
+/// counsel before App Store submission. These documents are a starting point,
+/// not legal advice.
 enum LegalContent {
 
     // MARK: - Editable constants
@@ -76,9 +75,8 @@ enum LegalContent {
                         "Comply with applicable legal obligations."
                     ])
                 ]),
-                LegalSection(heading: "iCloud and CloudKit Storage", blocks: [
-                    .paragraph("Where you are signed in to iCloud, the App uses Apple CloudKit to store and synchronize your data within your private iCloud database. This data is associated with your Apple ID and is subject to Apple's Privacy Policy. We do not operate a server backend and do not have access to the contents of your private iCloud database."),
-                    .paragraph("When you share a timeline, the App creates a read-only CloudKit share (a **\"CKShare\"**). Only individuals you expressly invite may view the shared timeline, and they may not modify it. You may revoke access at any time.")
+                LegalSection(heading: "Data Storage", blocks: [
+                    .paragraph("Your event data is stored locally on your device using Apple SwiftData. It is not automatically uploaded to any third-party server. We do not have access to the contents of your local store.")
                 ]),
                 LegalSection(heading: "Location and Venue Information", blocks: [
                     .paragraph("The App does not access your device's GPS location and does not perform background location tracking. When you search for a venue, Apple MapKit returns location results from which you select the coordinates associated with your event."),

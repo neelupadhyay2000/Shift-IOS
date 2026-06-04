@@ -17,8 +17,7 @@ enum DeepLinkDestination: Equatable {
 }
 
 /// Observable deep-link router that external systems (notification taps,
-/// URL opens, Watch complication taps, CKShare acceptance) use to drive
-/// navigation into `RootNavigator`.
+/// URL opens, Watch complication taps) use to drive navigation into `RootNavigator`.
 ///
 /// Inject via `.environment()` at the app root. `RootNavigator` observes
 /// `pendingDestination` and routes accordingly.

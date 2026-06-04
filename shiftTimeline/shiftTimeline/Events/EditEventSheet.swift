@@ -114,11 +114,6 @@ struct EditEventSheet: View {
         event.touchForSync()
         try? await eventRepo.save()
 
-        // Immediately write child parent-fields to CloudKit so participants receive
-        // a push notification for this edit without waiting for NSPersistentCloudKitContainer's
-        // batched sync — which can take minutes and is the root cause of stale vendor views.
-        Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
-
         if (locationChanged || dateChanged) && (newLatitude != 0 || newLongitude != 0) {
             let service = SunsetService()
             _ = await service.fetchIfNeeded(for: event)

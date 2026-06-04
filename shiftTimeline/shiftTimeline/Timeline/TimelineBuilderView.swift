@@ -78,11 +78,7 @@ struct TimelineBuilderView: View {
 
     private var event: EventModel? { results.first }
 
-    /// True when the current user does not own this event (shared read-only).
-    private var isReadOnly: Bool {
-        guard let event else { return false }
-        return !event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
-    }
+    private var isReadOnly: Bool { false }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
@@ -228,14 +224,9 @@ struct TimelineBuilderView: View {
                 blockToInspect = nil
                 // iPad live-write inspector closed — re-scan in case venue changed.
                 scanForVenueSwitches()
-                // iPad uses InspectorLiveWriteModifier (no explicit Save button) — repairs
-                // parent-fields on close so the session's live-written changes reach vendors.
                 if let event {
                     event.touchForSync()
-                    Task {
-                        try? await eventRepo.save()
-                        await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
-                    }
+                    Task { try? await eventRepo.save() }
                 }
             }
         }
@@ -990,14 +981,9 @@ struct TimelineBuilderView: View {
         // observer fires automatically since scheduledStart values changed.
         skippedVenuePairs.removeAll()
 
-        // Repair parent-fields so vendors see the reordered (updated scheduledStart)
-        // timeline immediately, without waiting for NSPersistentCloudKitContainer.
         if let event {
             event.touchForSync()
-            Task {
-                try? await eventRepo.save()
-                await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
-            }
+            Task { try? await eventRepo.save() }
         }
     }
 
@@ -1018,12 +1004,9 @@ struct TimelineBuilderView: View {
         Task {
             try? await blockRepo.delete(block)
             recalculateStartTimesAfterDelete(excluding: deletedID)
-            // Repair parent-fields on remaining blocks so vendors receive a push
-            // for both the deletion and the recalculated scheduledStart values.
             if let event {
                 event.touchForSync()
                 try? await blockRepo.save()
-                await CloudKitShareRepairService.repairParentFieldsIfShared(for: event)
             }
         }
     }

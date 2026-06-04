@@ -4,7 +4,7 @@ import UIKit
 import MessageUI
 
 /// SwiftUI wrapper over `MFMessageComposeViewController` — pre-addressed to the
-/// vendor's phone number with the locked CKShare invite link in the body.
+/// vendor's phone number with the invite link in the body.
 ///
 /// MessageUI (UIKit) is a justified exception to the no-UIKit rule, like PDFKit:
 /// there is no SwiftUI equivalent for presenting a pre-filled iMessage draft.
@@ -42,8 +42,8 @@ struct MessageComposeView: UIViewControllerRepresentable {
 }
 
 /// SwiftUI wrapper over `MFMailComposeViewController` — pre-addressed to the
-/// vendor's email with the locked CKShare invite link in the body. Used only
-/// when the vendor has no phone number.
+/// vendor's email with the invite link in the body. Used only when the vendor
+/// has no phone number.
 struct MailComposeView: UIViewControllerRepresentable {
 
     let recipient: String

@@ -127,7 +127,7 @@ struct EventRosterView: View {
                 .accessibilityIdentifier(AccessibilityID.Roster.statusFilter)
 
                 ForEach(filteredEvents) { event in
-                    let isOwner = event.isOwnedBy(CloudKitIdentity.shared.currentUserRecordName)
+                    let isOwner = true
                     NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
                         EventRowView(
                             title: event.title,
@@ -177,17 +177,13 @@ struct EventRosterView: View {
 
     // MARK: - Actions
 
-    /// Deletes an event the current user owns. Saving immediately commits the
-    /// delete so `NSPersistentCloudKitContainer` pushes it to CloudKit, which is
-    /// what lets the deletion reach any vendors the event was shared with.
     private func deleteOwnedEvent(_ event: EventModel) {
         modelContext.delete(event)
         try? modelContext.save()
     }
 
     /// Removes a *shared* event from this device. The planner remains the owner;
-    /// this only clears the vendor's local copy. Recording the dismissal first
-    /// stops `SharedRecordSyncer` from re-creating it on the next sync.
+    /// this only clears the vendor's local copy.
     private func removeSharedEvent(_ event: EventModel) {
         SharedEventDismissalStore.dismiss(event.id)
         modelContext.delete(event)

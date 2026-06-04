@@ -55,17 +55,7 @@ struct BlockInspectorView: View {
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
-    /// Whether the current user (as a vendor) is assigned to this block.
-    /// Owners always see full details. Non-owners only see details if their
-    /// linked VendorModel is in this block's vendors list.
-    private var canSeeDetails: Bool {
-        if !isReadOnly { return true }
-        guard let event else { return false }
-        guard let currentVendor = event.vendorForUser(CloudKitIdentity.shared.currentUserRecordName) else {
-            return false
-        }
-        return (block.vendors ?? []).contains { $0.id == currentVendor.id }
-    }
+    private var canSeeDetails: Bool { !isReadOnly }
 
     // MARK: - State
 
@@ -446,18 +436,8 @@ struct BlockInspectorView: View {
         if blockLatitude != 0 || blockLongitude != 0 {
             event?.weatherSnapshot = nil
         }
-        // Always save explicitly — previously conditional on location change, which
-        // caused mutations (title, time, duration) to rely on SwiftData autosave and
-        // never trigger the CloudKit repair below.
         event?.touchForSync()
         try? await blockRepo.save()
-
-        // Immediately write child parent-fields to CloudKit so participants receive
-        // a push notification for this block edit without waiting for
-        // NSPersistentCloudKitContainer's batched sync.
-        if let event {
-            Task { await CloudKitShareRepairService.repairParentFieldsIfShared(for: event) }
-        }
 
         dismiss()
     }

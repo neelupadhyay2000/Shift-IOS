@@ -1,11 +1,10 @@
 import Foundation
 
 /// Where a vendor stands in the invite → accept lifecycle. Derived purely from
-/// the two stored fields so the UI never has to hit CloudKit to render status.
+/// two stored model fields so the UI never has to hit a remote service to render.
 ///
-/// - `accepted`: the vendor's iCloud identity has been linked
-///   (`cloudKitRecordName` stamped by `VendorParticipantReconciler`).
-/// - `invited`: a locked CKShare invite was sent (`invitedAt`) but not yet claimed.
+/// - `accepted`: the vendor's identity record has been linked (`cloudKitRecordName` set).
+/// - `invited`: an invite was sent (`invitedAt`) but not yet claimed.
 /// - `notInvited`: never invited (or a contact-only vendor).
 nonisolated enum VendorInviteStatus: String {
     case notInvited

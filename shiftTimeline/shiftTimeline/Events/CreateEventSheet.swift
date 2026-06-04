@@ -88,7 +88,6 @@ struct CreateEventSheet: View {
             longitude: longitude,
             venueNames: venueNames
         )
-        event.ownerRecordName = CloudKitIdentity.shared.currentUserRecordName
         try? await eventRepo.insert(event)
         AnalyticsService.send(.eventCreated)
         AddBlockTip.hasCreatedFirstEvent = true

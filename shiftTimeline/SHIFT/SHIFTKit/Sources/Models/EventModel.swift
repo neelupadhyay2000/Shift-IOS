@@ -14,12 +14,10 @@ public final class EventModel {
     public var weatherSnapshot: Data?
     public var status: EventStatus = EventStatus.planning
 
-    /// The URL string of the CKShare associated with this event, if shared.
-    /// Persisted so re-tapping "Share" opens the existing share for management
-    /// instead of creating a duplicate.
+    /// The URL string of the share link associated with this event, if shared.
     public var shareURL: String?
 
-    /// The CloudKit user record name of the event creator.
+    /// The identity record name of the event creator.
     /// Set at creation time so shared recipients can detect they don't own the event.
     /// `nil` for events created before this field was added — treated as "owned by current user".
     public var ownerRecordName: String?
@@ -34,19 +32,13 @@ public final class EventModel {
     /// `wentLiveAt` to compute live-session duration in analytics.
     public var completedAt: Date?
 
-    /// Wall-clock timestamp of the most recent change vendors should receive
-    /// (timeline shift, block add/edit/delete, event edit). This is a CloudKit
-    /// "parent tickle": child-only mutations can be exported slowly by
-    /// `NSPersistentCloudKitContainer`, so stamping the parent gives NSPCC a
-    /// parent-record change to export alongside the children, firing the
-    /// vendor's shared-zone `CKDatabaseSubscription` so they converge promptly
-    /// without the planner opening the sharing sheet. Bump via `touchForSync()`
-    /// immediately before saving any shared-event mutation. (Field name kept for
-    /// schema stability; it now covers all mutations, not just shifts.)
+    /// Wall-clock timestamp of the most recent mutation (shift, block add/edit/delete,
+    /// event edit). Bumped via `touchForSync()` before every save so consumers can
+    /// detect that something changed without diffing the full model graph.
     public var lastShiftedAt: Date?
 
-    /// Stamps the CloudKit parent tickle. Call immediately before
-    /// `modelContext.save()` on any change that should sync to vendors.
+    /// Records the current time as the mutation timestamp. Call immediately before
+    /// `modelContext.save()` on any change that should be visible to sync consumers.
     public func touchForSync() {
         lastShiftedAt = .now
     }
@@ -80,19 +72,16 @@ public final class EventModel {
     @Relationship(deleteRule: .cascade, inverse: \ShiftRecord.event)
     public var shiftRecords: [ShiftRecord]?
 
-    /// Returns `true` when the current user is the event owner (planner).
-    /// Returns `true` for pre-feature events (`ownerRecordName == nil`).
-    /// Returns `false` when the event has an owner but the current user's
-    /// identity is unknown — this prevents shared events from appearing
-    /// editable before iCloud identity is fetched.
+    /// Returns `true` when the supplied identity string matches the event owner.
+    /// Returns `true` for pre-sharing events (`ownerRecordName == nil`).
+    /// Returns `false` when the event has an owner but the identity is unknown.
     public func isOwnedBy(_ currentUserRecordName: String?) -> Bool {
         guard let ownerRecordName else { return true }
         guard let currentUserRecordName else { return false }
         return ownerRecordName == currentUserRecordName
     }
 
-    /// Returns the `VendorModel` linked to the current iCloud user, if any.
-    /// Used to scope block detail visibility for shared event recipients.
+    /// Returns the `VendorModel` whose identity record matches the supplied string.
     public func vendorForUser(_ currentUserRecordName: String?) -> VendorModel? {
         guard let currentUserRecordName else { return nil }
         return (vendors ?? []).first { $0.cloudKitRecordName == currentUserRecordName }
