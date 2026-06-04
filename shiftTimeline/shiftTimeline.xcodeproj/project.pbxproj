@@ -26,6 +26,7 @@
 		5F9C4F722F908A9100331621 /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 5F9C4F702F908A0000331621 /* Models */; };
 		5FB232272FA1B2E200E611FF /* TelemetryClient in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB232262FA1B2E200E611FF /* TelemetryClient */; };
 		5FB232292FA1B2E200E611FF /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB232282FA1B2E200E611FF /* TelemetryDeck */; };
+		5FB2332C2FA1B2E200E611FF /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB2332B2FA1B2E200E611FF /* Supabase */; };
 		5FB9FB772FA04DB900FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB762FA04DB900FBA0A1 /* TestSupport */; };
 		5FB9FB792FA04DD200FBA0A1 /* TestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 5FB9FB782FA04DD200FBA0A1 /* TestSupport */; };
 /* End PBXBuildFile section */
@@ -202,6 +203,7 @@
 				5F21CFE32F85EF6500110808 /* Models in Frameworks */,
 				5F21CFE12F85EF6500110808 /* Engine in Frameworks */,
 				5FB232292FA1B2E200E611FF /* TelemetryDeck in Frameworks */,
+				5FB2332C2FA1B2E200E611FF /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -322,6 +324,7 @@
 				5FB9FB762FA04DB900FBA0A1 /* TestSupport */,
 				5FB232262FA1B2E200E611FF /* TelemetryClient */,
 				5FB232282FA1B2E200E611FF /* TelemetryDeck */,
+				5FB2332B2FA1B2E200E611FF /* Supabase */,
 			);
 			productName = shiftTimeline;
 			productReference = 5F21CF722F85C1B000110808 /* shiftTimeline.app */;
@@ -493,6 +496,7 @@
 			packageReferences = (
 				5F21CFE62F85F0D600110808 /* XCLocalSwiftPackageReference "SHIFT/SHIFTKit" */,
 				5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+				5FB2332A2FA1B2E200E611FF /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5F21CF732F85C1B000110808 /* Products */;
@@ -636,7 +640,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -676,7 +680,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimeline/shiftTimeline.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -836,7 +840,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -871,7 +875,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -907,7 +911,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
@@ -941,7 +945,7 @@
 				CODE_SIGN_ENTITLEMENTS = shiftTimelineWidgetExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWidget/Info.plist;
@@ -1022,7 +1026,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
@@ -1056,7 +1060,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 37;
+				CURRENT_PROJECT_VERSION = 38;
 				DEVELOPMENT_TEAM = 23WXR2JP8Z;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = shiftTimelineWatchWidget/Info.plist;
@@ -1209,6 +1213,14 @@
 				minimumVersion = 2.12.0;
 			};
 		};
+		5FB2332A2FA1B2E200E611FF /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1264,6 +1276,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5FB232252FA1B2E200E611FF /* XCRemoteSwiftPackageReference "SwiftSDK" */;
 			productName = TelemetryDeck;
+		};
+		5FB2332B2FA1B2E200E611FF /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5FB2332A2FA1B2E200E611FF /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 		5FB9FB762FA04DB900FBA0A1 /* TestSupport */ = {
 			isa = XCSwiftPackageProductDependency;
