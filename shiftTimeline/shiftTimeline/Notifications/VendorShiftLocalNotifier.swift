@@ -78,11 +78,9 @@ enum VendorShiftLocalNotifier {
     ) async {
         let vendors = event.vendors ?? []
 
-        // When the current user's record name is known, restrict processing
-        // to only their own vendor entry. This prevents a vendor's device from
-        // posting notifications on behalf of other vendors they can see in the
-        // shared event. Falls back to all vendors when cloudKitRecordName is
-        // not yet populated (e.g. legacy entries without the field set).
+        // When the current user's identity is known, restrict to their own vendor
+        // entry so a device doesn't post notifications on behalf of other vendors.
+        // Falls back to all vendors when identity is not yet resolved.
         let candidateVendors: [VendorModel]
         if let recordName = currentUserRecordName {
             let matched = vendors.filter { $0.cloudKitRecordName == recordName }

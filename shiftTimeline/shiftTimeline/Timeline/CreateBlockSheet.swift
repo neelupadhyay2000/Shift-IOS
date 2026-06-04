@@ -152,9 +152,6 @@ struct CreateBlockSheet: View {
         block.blockLongitude = blockLongitude
         try? await blockRepo.insert(block, into: track)
 
-        // Tickle the parent + save so the new block and a parent-record change
-        // export together (see EventModel.touchForSync). Previously this relied
-        // on autosave, which made added blocks reach vendors slowly.
         event.touchForSync()
         try? await blockRepo.save()
 

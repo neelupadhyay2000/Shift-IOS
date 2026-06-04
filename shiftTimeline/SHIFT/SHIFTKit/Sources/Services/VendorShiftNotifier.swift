@@ -13,14 +13,14 @@ import os
 ///      It is set on ALL vendors (even those below threshold or unassigned)
 ///      so the planner's grid shows every vendor as pending after a shift.
 ///   2. **Push notification trigger** — `VendorShiftLocalNotifier` reads it
-///      on the vendor's device after CloudKit sync and posts a visible local
-///      notification only when `abs(pendingShiftDelta) >= notificationThreshold`.
+///      and posts a visible local notification only when
+///      `abs(pendingShiftDelta) >= notificationThreshold`.
 ///
 /// The field is cleared when the vendor taps the acknowledgment banner.
 public enum VendorShiftNotifier {
 
     private static let logger = Logger(
-        subsystem: "com.shift.cloudkit",
+        subsystem: "com.shift.services",
         category: "VendorShiftNotifier"
     )
 
@@ -48,11 +48,6 @@ public enum VendorShiftNotifier {
 
         guard !blockDeltas.isEmpty else { return }
 
-        // CloudKit parent tickle: a shift only mutates child TimeBlockModels, and
-        // NSPersistentCloudKitContainer can defer exporting those. Stamping the
-        // parent event forces a parent-record change to export with the children,
-        // firing the vendor's shared-zone subscription so they converge promptly.
-        // The caller persists this with its existing `modelContext.save()`.
         event.touchForSync()
 
         let allVendors = event.vendors ?? []

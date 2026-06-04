@@ -12,16 +12,16 @@ public struct DiagnosticEvent: Sendable, Codable, Equatable, Identifiable {
     /// The funnel stage this event belongs to. Used to group/filter in the UI
     /// and to map to a TelemetryDeck signal in the app-layer bridge.
     public enum Category: String, Sendable, Codable, CaseIterable {
-        case mirror        // CloudKit mirror health at launch
-        case identity      // iCloud user record-name fetch
-        case account       // CKAccountStatus
-        case subscription  // shared-DB CKDatabaseSubscription
-        case shareCreate   // planner creates a CKShare
-        case parentRepair  // CloudKit parent-field patching
-        case shareAccept   // vendor accepts a CKShare
-        case fetch         // shared-DB change fetch
+        case mirror        // store / sync health at launch
+        case identity      // user identity fetch
+        case account       // account status
+        case subscription  // push subscription registration
+        case shareCreate   // share creation
+        case parentRepair  // share hierarchy repair
+        case shareAccept   // share acceptance
+        case fetch         // remote change fetch
         case merge         // record import into SwiftData
-        case push          // silent push / foreground poll tick
+        case push          // push / poll tick
         case notify        // vendor shift local notification
     }
 

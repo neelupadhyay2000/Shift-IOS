@@ -177,9 +177,6 @@ struct EventRosterView: View {
 
     // MARK: - Actions
 
-    /// Deletes an event the current user owns. Saving immediately commits the
-    /// delete so `NSPersistentCloudKitContainer` pushes it to CloudKit, which is
-    /// what lets the deletion reach any vendors the event was shared with.
     private func deleteOwnedEvent(_ event: EventModel) {
         modelContext.delete(event)
         try? modelContext.save()
