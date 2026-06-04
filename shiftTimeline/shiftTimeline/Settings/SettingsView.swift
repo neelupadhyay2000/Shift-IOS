@@ -1,6 +1,7 @@
 import SwiftUI
 import StoreKit
 import TipKit
+import Supabase
 import Services
 
 /// Centralized `UserDefaults` keys exposed to user-facing preferences. Keep all `@AppStorage`
@@ -11,11 +12,14 @@ enum SettingsDefaultsKey {
 
 struct SettingsView: View {
 
+    @Environment(AuthState.self) private var authState
+
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
     @State private var showRestoreErrorAlert = false
     @State private var isShowingPaywall = false
     @State private var isManagingSubscriptions = false
+    @State private var isShowingPhoneSignIn = false
     @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
@@ -38,6 +42,12 @@ struct SettingsView: View {
         }
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $isShowingPhoneSignIn) {
+            PhoneSignInSheet(
+                service: PhoneAuthService(client: SupabaseClientProvider.shared.client),
+                onSessionEstablished: { isShowingPhoneSignIn = false }
+            )
+        }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
         }
@@ -79,6 +89,28 @@ struct SettingsView: View {
 
     private var accountSection: some View {
         Section(String(localized: "Account")) {
+            if authState.isAuthenticated {
+                if let phone = authState.currentUser?.phone {
+                    LabeledContent(String(localized: "Phone")) {
+                        Text(phone).foregroundStyle(.secondary)
+                    }
+                } else if let email = authState.currentUser?.email {
+                    LabeledContent(String(localized: "Email")) {
+                        Text(email).foregroundStyle(.secondary)
+                    }
+                }
+                Button(String(localized: "Sign Out"), role: .destructive) {
+                    Task {
+                        try? await SupabaseClientProvider.shared.client.auth.signOut()
+                    }
+                }
+            } else {
+                Button(String(localized: "Sign In with Phone")) {
+                    isShowingPhoneSignIn = true
+                }
+                .foregroundStyle(Color.accentColor)
+            }
+
             LabeledContent(String(localized: "Subscription")) {
                 Text(subscriptionStatusLabel)
                     .foregroundStyle(SubscriptionManager.shared.isProUser ? .primary : .secondary)
