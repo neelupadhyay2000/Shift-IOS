@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV10() {
+    @Test func latestSchemaVersionIsV11() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 10, "Latest schema must be V10 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 11, "Latest schema must be V11 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V9 → V10 plan continuity
+    // MARK: - V10 → V11 plan continuity
 
-    @Test func planExposesTenSchemasAndNineStages() {
+    @Test func planExposesElevenSchemasAndTenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 10,
-            "Expected schemas [V1 … V10] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 11,
+            "Expected schemas [V1 … V11] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 9,
-            "Expected 9 lightweight stages (V1→V2 … V9→V10) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 10,
+            "Expected 10 lightweight stages (V1→V2 … V10→V11) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV10() {
+    @Test func schemasAreOrderedV1ThroughV11() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -116,6 +116,58 @@ struct SchemaMigrationPlanTests {
         try context.save()
 
         #expect(vendor.invitedAt == stamp)
+    }
+
+    /// Lightweight V10 → V11 migration drops CloudKit-only fields. Verify that
+    /// the retained Supabase cache fields (`invitedAt`, `pendingShiftDelta`,
+    /// `hasAcknowledgedLatestShift`) and the event analytics timestamps
+    /// (`wentLiveAt`, `completedAt`) still round-trip correctly.
+    @Test @MainActor func freshContainerWithV11PlanRoundTripsRetainedCacheFields() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let vendor = VendorModel(name: "Alice", role: .photographer)
+        vendor.event = event
+        context.insert(vendor)
+
+        try context.save()
+
+        // Defaults
+        #expect(vendor.invitedAt == nil)
+        #expect(vendor.pendingShiftDelta == nil)
+        #expect(vendor.hasAcknowledgedLatestShift == false)
+        #expect(event.wentLiveAt == nil)
+        #expect(event.completedAt == nil)
+
+        // Explicit round-trip
+        let inviteStamp = Date(timeIntervalSince1970: 1_790_000_000)
+        let liveStamp = Date(timeIntervalSince1970: 1_790_001_000)
+        let doneStamp = Date(timeIntervalSince1970: 1_790_005_000)
+        vendor.invitedAt = inviteStamp
+        vendor.pendingShiftDelta = 300
+        vendor.hasAcknowledgedLatestShift = true
+        event.wentLiveAt = liveStamp
+        event.completedAt = doneStamp
+        try context.save()
+
+        #expect(vendor.invitedAt == inviteStamp)
+        #expect(vendor.pendingShiftDelta == 300)
+        #expect(vendor.hasAcknowledgedLatestShift == true)
+        #expect(event.wentLiveAt == liveStamp)
+        #expect(event.completedAt == doneStamp)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

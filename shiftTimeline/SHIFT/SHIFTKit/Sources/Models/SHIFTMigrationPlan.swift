@@ -15,6 +15,9 @@ import SwiftData
 ///             `TimeBlockModel.voiceMemoCreatedAt` (`Date?`) for voice memo metadata.
 /// - V8 → V9: adds `VendorModel.invitedAt` (`Date?`) for invite-status tracking.
 /// - V9 → V10: adds `EventModel.lastShiftedAt` (`Date?`) — CloudKit parent tickle.
+/// - V10 → V11: drops CloudKit-only fields — `EventModel.shareURL`,
+///              `EventModel.ownerRecordName`, `EventModel.lastShiftedAt`,
+///              `VendorModel.cloudKitRecordName` (all `Optional`; lightweight).
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -30,11 +33,11 @@ import SwiftData
 /// silently disables CloudKit mirroring.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -80,5 +83,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV9toV10 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV9.self,
         toVersion: SHIFTSchemaV10.self
+    )
+
+    private static let migrateV10toV11 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV10.self,
+        toVersion: SHIFTSchemaV11.self
     )
 }
