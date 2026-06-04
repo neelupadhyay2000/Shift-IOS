@@ -1,0 +1,6 @@
+// Release configuration — points at the prod Supabase project.
+// Requires Config/Secrets.xcconfig to be present (see Secrets.xcconfig.template).
+#include "Secrets.xcconfig"
+
+SUPABASE_REF = $(SUPABASE_PROD_REF)
+SUPABASE_ANON_KEY = $(SUPABASE_PROD_ANON_KEY)

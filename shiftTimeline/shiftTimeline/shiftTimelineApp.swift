@@ -26,6 +26,7 @@ struct shiftTimelineApp: App {
 
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
+    @State private var authState = AuthState()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
     private let deepLinkRouter = DeepLinkRouter.shared
@@ -35,6 +36,11 @@ struct shiftTimelineApp: App {
     /// `true` when the process was launched by the XCUITest runner with `-UITestMode 1`.
     /// Evaluated once at process start; safe to read from any context.
     static let isUITestMode = CommandLine.arguments.contains("-UITestMode")
+
+    /// `true` when XCTest/Swift Testing is hosting the process.
+    /// `XCTestSessionIdentifier` is injected by Xcode into every test run.
+    /// Used to skip initializations that require build-time secrets (e.g. Supabase).
+    static let isUnitTestMode = ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
 
     /// The active `ModelContainer` for this process.
     ///
@@ -136,6 +142,7 @@ struct shiftTimelineApp: App {
     var body: some Scene {
         WindowGroup {
             RootNavigator()
+                .environment(authState)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
@@ -144,6 +151,9 @@ struct shiftTimelineApp: App {
                 }
                 .task {
                     guard !Self.isUITestMode else { return }
+                    if !Self.isUnitTestMode {
+                        authState.startListening(using: SupabaseClientProvider.shared.client)
+                    }
                     watchSessionManager.activate()
                     liveActivityManager.reclaimExistingActivity()
                 }
