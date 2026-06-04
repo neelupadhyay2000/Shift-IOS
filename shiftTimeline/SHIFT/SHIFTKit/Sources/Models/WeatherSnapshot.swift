@@ -16,7 +16,7 @@ public struct BlockRainEntry: Codable, Sendable, Hashable {
 ///
 /// Stored as JSON-encoded `Data` on `EventModel.weatherSnapshot`.
 /// The `isFresh` property gates both the service cache-skip and the UI banner.
-public struct WeatherSnapshot: Codable, Sendable {
+public struct WeatherSnapshot: Codable, Sendable, Equatable {
     /// Per-block resolved precipitation probabilities.
     public let entries: [BlockRainEntry]
     /// The time at which this snapshot was last fetched from WeatherKit.
