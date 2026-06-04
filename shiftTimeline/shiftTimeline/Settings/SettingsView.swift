@@ -12,7 +12,7 @@ enum SettingsDefaultsKey {
 
 struct SettingsView: View {
 
-    @Environment(AuthState.self) private var authState
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
@@ -89,19 +89,19 @@ struct SettingsView: View {
 
     private var accountSection: some View {
         Section(String(localized: "Account")) {
-            if authState.isAuthenticated {
-                if let phone = authState.currentUser?.phone {
+            if authService.isAuthenticated {
+                if let phone = authService.currentUser?.phone {
                     LabeledContent(String(localized: "Phone")) {
                         Text(phone).foregroundStyle(.secondary)
                     }
-                } else if let email = authState.currentUser?.email {
+                } else if let email = authService.currentUser?.email {
                     LabeledContent(String(localized: "Email")) {
                         Text(email).foregroundStyle(.secondary)
                     }
                 }
                 Button(String(localized: "Sign Out"), role: .destructive) {
                     Task {
-                        try? await SupabaseClientProvider.shared.client.auth.signOut()
+                        try? await authService.signOut()
                     }
                 }
             } else {

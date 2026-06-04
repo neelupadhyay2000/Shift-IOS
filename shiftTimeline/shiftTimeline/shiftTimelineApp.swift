@@ -26,7 +26,7 @@ struct shiftTimelineApp: App {
 
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
-    @State private var authState = AuthState()
+    @State private var authService = SupabaseAuthService()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
     private let deepLinkRouter = DeepLinkRouter.shared
@@ -142,7 +142,7 @@ struct shiftTimelineApp: App {
     var body: some Scene {
         WindowGroup {
             RootNavigator()
-                .environment(authState)
+                .environment(authService)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
@@ -152,7 +152,12 @@ struct shiftTimelineApp: App {
                 .task {
                     guard !Self.isUITestMode else { return }
                     if !Self.isUnitTestMode {
-                        authState.startListening(using: SupabaseClientProvider.shared.client)
+                        let client = SupabaseClientProvider.shared.client
+                        authService.startListening(
+                            client: client,
+                            profileRepository: SupabaseProfileRepository(client: client),
+                            modelContext: PersistenceController.shared.container.mainContext
+                        )
                     }
                     watchSessionManager.activate()
                     liveActivityManager.reclaimExistingActivity()
