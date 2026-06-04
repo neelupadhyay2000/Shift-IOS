@@ -4,6 +4,23 @@ import Foundation
 import Supabase
 import UIKit
 
+// MARK: - Result
+
+/// The outcome of a completed Sign in with Apple flow.
+///
+/// `isNewUser` is `true` when Apple delivered `fullName` in the credential,
+/// which only happens on the user's first sign-in. `displayName` and `email`
+/// are non-nil only in that first-time case — the caller must persist them
+/// immediately (they will be `nil` on all subsequent sign-ins).
+struct AppleSignInResult: Sendable {
+    let session: Session
+    let isNewUser: Bool
+    /// Formatted display name from `PersonNameComponents`; only present on first sign-in.
+    let displayName: String?
+    /// Email address from the Apple credential; only present on first sign-in.
+    let email: String?
+}
+
 // MARK: - Error
 
 enum AppleSignInError: Error, Sendable {
@@ -30,7 +47,7 @@ final class AppleSignInService: NSObject {
     private var authorizationController: ASAuthorizationController?
 
     private var currentNonce: String?
-    private var continuation: CheckedContinuation<Session, Error>?
+    private var continuation: CheckedContinuation<AppleSignInResult, Error>?
 
     init(client: SupabaseClient) {
         self.client = client
@@ -41,9 +58,12 @@ final class AppleSignInService: NSObject {
     /// Initiates the Sign in with Apple sheet and exchanges the returned
     /// identity token with Supabase's Apple provider.
     ///
-    /// - Returns: The established Supabase `Session`.
+    /// - Returns: An `AppleSignInResult` containing the Supabase session plus
+    ///   first-time user metadata (`displayName`, `email`) when Apple provides them.
+    ///   The caller must persist `displayName` and `email` immediately — Apple
+    ///   only delivers them on the user's very first sign-in.
     /// - Throws: `AppleSignInError` or a Supabase `AuthError`.
-    func signIn() async throws -> Session {
+    func signIn() async throws -> AppleSignInResult {
         let nonce = Self.generateNonce()
         currentNonce = nonce
 
@@ -87,6 +107,28 @@ final class AppleSignInService: NSObject {
         return hash.map { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: - First-time vs Returning User
+
+    /// Returns `true` when the Apple credential is from a first-time sign-in.
+    ///
+    /// Apple only populates `fullName` (with at least one non-nil name component)
+    /// on the user's first authorization. On all subsequent sign-ins the value is
+    /// an empty `PersonNameComponents` or `nil`.
+    nonisolated static func isFirstTimeSignIn(fullName: PersonNameComponents?) -> Bool {
+        guard let fullName else { return false }
+        return fullName.givenName != nil || fullName.familyName != nil
+    }
+
+    /// Formats `PersonNameComponents` into a localized display name string.
+    ///
+    /// Returns `nil` when `components` is `nil` or produces an empty string
+    /// (e.g., an empty `PersonNameComponents` from a returning Apple user).
+    nonisolated static func displayName(from components: PersonNameComponents?) -> String? {
+        guard let components else { return nil }
+        let formatted = PersonNameComponentsFormatter().string(from: components)
+        return formatted.isEmpty ? nil : formatted
+    }
+
     // MARK: - Private
 
     private func handleAuthorization(_ authorization: ASAuthorization) async {
@@ -110,7 +152,13 @@ final class AppleSignInService: NSObject {
             let session = try await client.auth.signInWithIdToken(
                 credentials: .init(provider: .apple, idToken: idToken, nonce: nonce)
             )
-            continuation?.resume(returning: session)
+            let result = AppleSignInResult(
+                session: session,
+                isNewUser: Self.isFirstTimeSignIn(fullName: appleCredential.fullName),
+                displayName: Self.displayName(from: appleCredential.fullName),
+                email: appleCredential.email
+            )
+            continuation?.resume(returning: result)
         } catch {
             continuation?.resume(throwing: error)
         }

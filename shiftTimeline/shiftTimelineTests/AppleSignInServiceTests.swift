@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import Contacts
 @testable import shiftTimeline
 
 @Suite("AppleSignInService")
@@ -62,5 +63,80 @@ struct AppleSignInServiceTests {
         let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
         let service = AppleSignInService(client: provider.client)
         _ = service
+    }
+}
+
+// MARK: - First-time vs returning user detection
+
+@Suite("AppleSignInService — first-time detection")
+struct AppleSignInFirstTimeDetectionTests {
+
+    @Test("isFirstTimeSignIn returns true when fullName has a givenName")
+    func firstTimeWhenGivenNamePresent() {
+        var components = PersonNameComponents()
+        components.givenName = "Ada"
+        #expect(AppleSignInService.isFirstTimeSignIn(fullName: components))
+    }
+
+    @Test("isFirstTimeSignIn returns true when fullName has a familyName")
+    func firstTimeWhenFamilyNamePresent() {
+        var components = PersonNameComponents()
+        components.familyName = "Lovelace"
+        #expect(AppleSignInService.isFirstTimeSignIn(fullName: components))
+    }
+
+    @Test("isFirstTimeSignIn returns true when fullName has both given and family name")
+    func firstTimeWhenBothNamesPresent() {
+        var components = PersonNameComponents()
+        components.givenName = "Ada"
+        components.familyName = "Lovelace"
+        #expect(AppleSignInService.isFirstTimeSignIn(fullName: components))
+    }
+
+    @Test("isFirstTimeSignIn returns false when fullName is nil")
+    func returningUserWhenFullNameNil() {
+        #expect(!AppleSignInService.isFirstTimeSignIn(fullName: nil))
+    }
+
+    @Test("isFirstTimeSignIn returns false when fullName has no name components")
+    func returningUserWhenAllComponentsEmpty() {
+        let components = PersonNameComponents()
+        #expect(!AppleSignInService.isFirstTimeSignIn(fullName: components))
+    }
+}
+
+// MARK: - Display name formatting
+
+@Suite("AppleSignInService — displayName")
+struct AppleSignInDisplayNameTests {
+
+    @Test("displayName formats given and family name into a non-empty string")
+    func formatsFullName() {
+        var components = PersonNameComponents()
+        components.givenName = "Ada"
+        components.familyName = "Lovelace"
+        let result = AppleSignInService.displayName(from: components)
+        #expect(result != nil)
+        #expect(result?.isEmpty == false)
+    }
+
+    @Test("displayName returns a non-empty string when only givenName is present")
+    func formatsGivenNameOnly() {
+        var components = PersonNameComponents()
+        components.givenName = "Ada"
+        let result = AppleSignInService.displayName(from: components)
+        #expect(result != nil)
+        #expect(result?.isEmpty == false)
+    }
+
+    @Test("displayName returns nil when components is nil")
+    func returnsNilForNilComponents() {
+        #expect(AppleSignInService.displayName(from: nil) == nil)
+    }
+
+    @Test("displayName returns nil when all name components are empty")
+    func returnsNilForEmptyComponents() {
+        let components = PersonNameComponents()
+        #expect(AppleSignInService.displayName(from: components) == nil)
     }
 }
