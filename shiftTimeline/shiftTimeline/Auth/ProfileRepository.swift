@@ -8,20 +8,29 @@ import Supabase
 /// Only non-nil fields are included in the encoded JSON — nil fields are
 /// omitted entirely so an upsert on a returning user never overwrites
 /// existing Postgres values with NULL.
-struct ProfileDTO: Codable, Equatable {
+///
+/// All conformance witnesses are explicitly `nonisolated` so Swift 6's
+/// conformance-isolation inference does not mark them as `@MainActor`-isolated
+/// when `ProfileDTO` is stored in `SupabaseAuthService` (`@Observable @MainActor`).
+// swiftformat:disable:next redundantSendable
+struct ProfileDTO: Sendable {
     let id: UUID
     let displayName: String?
     let phone: String?
     let email: String?
 
-    enum CodingKeys: String, CodingKey {
+    private enum CodingKeys: String, CodingKey {
         case id
         case displayName = "display_name"
         case phone
         case email
     }
+}
 
-    func encode(to encoder: Encoder) throws {
+// MARK: - Encodable
+
+extension ProfileDTO: Encodable {
+    nonisolated func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         if let displayName { try container.encode(displayName, forKey: .displayName) }
@@ -29,6 +38,31 @@ struct ProfileDTO: Codable, Equatable {
         if let email { try container.encode(email, forKey: .email) }
     }
 }
+
+// MARK: - Decodable
+
+extension ProfileDTO: Decodable {
+    nonisolated init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        email = try container.decodeIfPresent(String.self, forKey: .email)
+    }
+}
+
+// MARK: - Equatable
+
+// swiftformat:disable all
+extension ProfileDTO: Equatable {
+    nonisolated static func == (lhs: ProfileDTO, rhs: ProfileDTO) -> Bool {
+        lhs.id == rhs.id
+            && lhs.displayName == rhs.displayName
+            && lhs.phone == rhs.phone
+            && lhs.email == rhs.email
+    }
+}
+// swiftformat:enable all
 
 // MARK: - Protocol
 

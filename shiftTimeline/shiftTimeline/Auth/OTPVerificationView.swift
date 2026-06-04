@@ -3,8 +3,8 @@ import SwiftUI
 /// Second step of the phone-OTP sign-in flow.
 ///
 /// Accepts the 6-digit code sent to `phone`, verifies it with Supabase, and
-/// calls `onSessionEstablished` on success. `AuthState` is updated automatically
-/// via its `authStateChanges` listener — this callback is purely for navigation.
+/// calls `onSessionEstablished` on success. `SupabaseAuthService` is updated
+/// automatically via its `authStateChanges` listener — this callback is purely for navigation.
 ///
 /// Resend is gated behind a 60-second cooldown that starts when the view appears
 /// and resets each time a new code is dispatched.
