@@ -20,6 +20,9 @@ struct EventDetailView: View {
     @State private var isShowingEditSheet = false
     @State private var isShowingVendorSharing = false
     @State private var isShowingSignIn = false
+    /// Set when sign-in was prompted by a share attempt, so the share flow
+    /// resumes automatically once the sign-in sheet dismisses.
+    @State private var pendingShareAfterSignIn = false
 
     private let eventID: UUID
 
@@ -59,9 +62,40 @@ struct EventDetailView: View {
                 EditEventSheet(event: event)
             }
         }
-        .sheet(isPresented: $isShowingSignIn) {
+        .sheet(isPresented: $isShowingSignIn, onDismiss: resumeShareAfterSignIn) {
             SignInView()
         }
+        .sheet(isPresented: $isShowingVendorSharing) {
+            NavigationStack {
+                VendorSharingView(eventID: eventID)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(String(localized: "Done")) { isShowingVendorSharing = false }
+                        }
+                    }
+            }
+        }
+    }
+
+    // MARK: - Sharing flow
+
+    /// Presents vendor sharing, gating behind the Pro paywall first.
+    /// Shared by the signed-in button tap and the post-sign-in continuation.
+    private func presentVendorSharing() {
+        guard SubscriptionManager.shared.isProUser else {
+            paywallTrigger = .vendorSharing
+            return
+        }
+        isShowingVendorSharing = true
+    }
+
+    /// Called when the sign-in sheet dismisses. Resumes the share attempt only
+    /// if it was triggered by one and the user actually signed in (not cancelled).
+    private func resumeShareAfterSignIn() {
+        guard pendingShareAfterSignIn else { return }
+        pendingShareAfterSignIn = false
+        guard authService.isAuthenticated else { return }
+        presentVendorSharing()
     }
 
     private func eventContent(_ event: EventModel) -> some View {
@@ -303,7 +337,10 @@ struct EventDetailView: View {
 
     /// Shown when sharing is enabled but the user is not signed in.
     private var signInToShareButton: some View {
-        Button { isShowingSignIn = true } label: {
+        Button {
+            pendingShareAfterSignIn = true
+            isShowingSignIn = true
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 18, weight: .semibold))
@@ -330,11 +367,7 @@ struct EventDetailView: View {
 
     private func shareWithVendorsButton(_: EventModel) -> some View {
         Button {
-            guard SubscriptionManager.shared.isProUser else {
-                paywallTrigger = .vendorSharing
-                return
-            }
-            isShowingVendorSharing = true
+            presentVendorSharing()
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
@@ -353,16 +386,6 @@ struct EventDetailView: View {
             .premiumCard()
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $isShowingVendorSharing) {
-            NavigationStack {
-                VendorSharingView(eventID: eventID)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(String(localized: "Done")) { isShowingVendorSharing = false }
-                        }
-                    }
-            }
-        }
     }
 
     private func startLiveMode(for event: EventModel) {
