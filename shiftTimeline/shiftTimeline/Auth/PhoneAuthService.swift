@@ -5,11 +5,19 @@ import Supabase
 
 enum PhoneAuthError: LocalizedError, Sendable {
     case invalidPhoneNumber
+    case invalidOTPToken
+    /// `AuthResponse` came back without a session — should not happen for SMS OTP
+    /// but handled defensively.
+    case sessionMissing
 
     var errorDescription: String? {
         switch self {
         case .invalidPhoneNumber:
             String(localized: "Please enter a valid phone number.")
+        case .invalidOTPToken:
+            String(localized: "Please enter the 6-digit code.")
+        case .sessionMissing:
+            String(localized: "Sign-in failed. Please try again.")
         }
     }
 }
@@ -41,6 +49,44 @@ final class PhoneAuthService {
             throw PhoneAuthError.invalidPhoneNumber
         }
         try await client.auth.signInWithOTP(phone: normalized)
+    }
+
+    // MARK: - OTP Verification
+
+    /// Exchanges `token` for a Supabase `Session`.
+    ///
+    /// Validates `token` locally (must be 6 digits) before hitting the network.
+    /// Supabase returns `AuthResponse`; the session is unwrapped or
+    /// `PhoneAuthError.sessionMissing` is thrown — which is a defensive guard
+    /// since phone OTP verification always yields a session when successful.
+    @discardableResult
+    func verifyOTP(phone: String, token: String) async throws -> Session {
+        guard Self.isValidOTPToken(token) else {
+            throw PhoneAuthError.invalidOTPToken
+        }
+        let response = try await client.auth.verifyOTP(
+            phone: phone,
+            token: token,
+            type: .sms
+        )
+        guard let session = response.session else {
+            throw PhoneAuthError.sessionMissing
+        }
+        return session
+    }
+
+    /// Re-sends an OTP to `phone`. Semantically distinct from `requestOTP` so
+    /// call sites read clearly, but the implementation is identical — Supabase
+    /// invalidates the previous code and issues a fresh one.
+    func resendOTP(phone: String) async throws {
+        try await requestOTP(phone: phone)
+    }
+
+    // MARK: - OTP Token Validation
+
+    /// Returns `true` when `token` is exactly 6 decimal digits.
+    nonisolated static func isValidOTPToken(_ token: String) -> Bool {
+        token.count == 6 && token.allSatisfy(\.isNumber)
     }
 
     // MARK: - Phone Normalization
