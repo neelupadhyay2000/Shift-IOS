@@ -10,14 +10,19 @@ import Supabase
 final class SupabaseClientProvider {
 
     /// Shared instance initialized from main-bundle Info.plist.
+    ///
+    /// `SUPABASE_REF` is the bare Supabase project reference ID (no slashes) so
+    /// xcconfig comment-stripping of `//` doesn't corrupt the value.
+    /// The full URL is constructed here as `https://<ref>.supabase.co`.
     static let shared: SupabaseClientProvider = {
         guard
-            let urlString = Bundle.main.infoDictionary?["SUPABASE_URL"] as? String,
-            let url = URL(string: urlString),
+            let ref = Bundle.main.infoDictionary?["SUPABASE_REF"] as? String,
+            !ref.isEmpty,
+            let url = URL(string: "https://\(ref).supabase.co"),
             let key = Bundle.main.infoDictionary?["SUPABASE_ANON_KEY"] as? String,
             !key.isEmpty
         else {
-            fatalError("Info.plist must define SUPABASE_URL and SUPABASE_ANON_KEY via Secrets.xcconfig")
+            fatalError("Info.plist must define SUPABASE_REF and SUPABASE_ANON_KEY via Config/Debug.xcconfig or Config/Release.xcconfig")
         }
         return SupabaseClientProvider(supabaseURL: url, supabaseKey: key)
     }()

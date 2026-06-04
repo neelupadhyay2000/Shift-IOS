@@ -24,7 +24,7 @@ final class AuthState {
     func startListening(using client: SupabaseClient) {
         guard listenerTask == nil else { return }
         listenerTask = Task { @MainActor [weak self] in
-            for await (_, session) in await client.auth.authStateChanges {
+            for await (_, session) in client.auth.authStateChanges {
                 self?.session = session
             }
         }

@@ -24,8 +24,8 @@
 		<string>fetch</string>
 		<string>remote-notification</string>
 	</array>
-	<key>SUPABASE_URL</key>
-	<string>$(SUPABASE_URL)</string>
+	<key>SUPABASE_REF</key>
+	<string>$(SUPABASE_REF)</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>UIApplicationSceneManifest</key>

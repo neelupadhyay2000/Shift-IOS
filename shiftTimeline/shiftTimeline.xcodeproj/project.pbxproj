@@ -114,8 +114,10 @@
 		5F21CFB42F85CA9C00110808 /* shiftTimelineWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = shiftTimelineWidgetExtension.entitlements; sourceTree = "<group>"; };
 		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWatchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Secrets.xcconfig; path = ../Config/Secrets.xcconfig; sourceTree = SOURCE_ROOT; };
+		5FC0FFEF2FA1B2E200E611FF /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../Config/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		5FC0FFF02FA1B2E200E611FF /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../Config/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -270,6 +272,7 @@
 				5FF066E82FA0256C00B6152E /* shiftTimelineUITests */,
 				5F21CF9D2F85CA0900110808 /* Frameworks */,
 				5F21CF732F85C1B000110808 /* Products */,
+				5F3E1F612FD2090C00EE83FA /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -293,6 +296,14 @@
 				5F21CFA02F85CA0900110808 /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5F3E1F612FD2090C00EE83FA /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -635,7 +646,7 @@
 /* Begin XCBuildConfiguration section */
 		5F21CF812F85C1B000110808 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */;
+			baseConfigurationReference = 5FC0FFEF2FA1B2E200E611FF /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -669,8 +680,6 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SUPABASE_ANON_KEY = "sb_publishable_PDxW-dpdwIbUieLKWIvrLg_8x2VVFgo";
-				SUPABASE_URL = "https://wrhrpyinkcopqsibmkrf.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -678,7 +687,7 @@
 		};
 		5F21CF822F85C1B000110808 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */;
+			baseConfigurationReference = 5FC0FFF02FA1B2E200E611FF /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -712,8 +721,6 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SUPABASE_ANON_KEY = "sb_publishable_amMuIi9rXYAXqCsV0UkLOg_50fjdegY";
-				SUPABASE_URL = "https://jakrlxnvdnsunrnspwnt.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

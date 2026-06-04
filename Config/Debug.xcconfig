@@ -1,0 +1,6 @@
+// Debug configuration — points at the dev Supabase project.
+// Requires Config/Secrets.xcconfig to be present (see Secrets.xcconfig.template).
+#include "Secrets.xcconfig"
+
+SUPABASE_REF = $(SUPABASE_DEV_REF)
+SUPABASE_ANON_KEY = $(SUPABASE_DEV_ANON_KEY)
