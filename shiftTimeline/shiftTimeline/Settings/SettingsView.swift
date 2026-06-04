@@ -1,8 +1,8 @@
-import SwiftUI
-import StoreKit
-import TipKit
-import Supabase
 import Services
+import StoreKit
+import Supabase
+import SwiftUI
+import TipKit
 
 /// Centralized `UserDefaults` keys exposed to user-facing preferences. Keep all `@AppStorage`
 /// keys here so a typo can't silently disconnect the slider/toggle from its consumer.
@@ -11,7 +11,6 @@ enum SettingsDefaultsKey {
 }
 
 struct SettingsView: View {
-
     @Environment(SupabaseAuthService.self) private var authService
 
     @State private var isRestoring = false
@@ -19,7 +18,7 @@ struct SettingsView: View {
     @State private var showRestoreErrorAlert = false
     @State private var isShowingPaywall = false
     @State private var isManagingSubscriptions = false
-    @State private var isShowingPhoneSignIn = false
+    @State private var isShowingSignIn = false
     @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
@@ -37,16 +36,13 @@ struct SettingsView: View {
             aboutSection
             diagnosticsSection
             #if DEBUG
-            debugSection
+                debugSection
             #endif
         }
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
-        .sheet(isPresented: $isShowingPhoneSignIn) {
-            PhoneSignInSheet(
-                service: PhoneAuthService(client: SupabaseClientProvider.shared.client),
-                onSessionEstablished: { isShowingPhoneSignIn = false }
-            )
+        .sheet(isPresented: $isShowingSignIn) {
+            SignInView()
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
@@ -63,12 +59,12 @@ struct SettingsView: View {
         }
         .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
-            Button(String(localized: "OK"), role: .cancel) { }
+            Button(String(localized: "OK"), role: .cancel) {}
         } message: {
             Text(String(localized: "We couldn't find any active purchases for this Apple ID. If you believe this is an error, contact support."))
         }
         .alert(String(localized: "Restore Failed"), isPresented: $showRestoreErrorAlert) {
-            Button(String(localized: "OK"), role: .cancel) { }
+            Button(String(localized: "OK"), role: .cancel) {}
         } message: {
             Text(String(localized: "Restore failed. Please check your connection and try again."))
         }
@@ -105,8 +101,8 @@ struct SettingsView: View {
                     }
                 }
             } else {
-                Button(String(localized: "Sign In with Phone")) {
-                    isShowingPhoneSignIn = true
+                Button(String(localized: "Sign In")) {
+                    isShowingSignIn = true
                 }
                 .foregroundStyle(Color.accentColor)
             }
@@ -154,7 +150,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
-            Slider(value: $thresholdMinutes, in: 1...60, step: 1) {
+            Slider(value: $thresholdMinutes, in: 1 ... 60, step: 1) {
                 Text(String(localized: "Threshold"))
             } minimumValueLabel: {
                 Text("1").font(.caption2)
@@ -210,14 +206,14 @@ struct SettingsView: View {
     // MARK: - Debug (only in DEBUG builds)
 
     #if DEBUG
-    private var debugSection: some View {
-        Section(String(localized: "Developer")) {
-            Button(String(localized: "Reset Tips")) {
-                try? Tips.resetDatastore()
+        private var debugSection: some View {
+            Section(String(localized: "Developer")) {
+                Button(String(localized: "Reset Tips")) {
+                    try? Tips.resetDatastore()
+                }
+                .foregroundStyle(.red)
             }
-            .foregroundStyle(.red)
         }
-    }
     #endif
 
     // MARK: - Actions
@@ -244,7 +240,9 @@ private enum LegalSheet: Identifiable {
     case privacy
     case terms
 
-    var id: Self { self }
+    var id: Self {
+        self
+    }
 
     var document: LegalDocument {
         switch self {

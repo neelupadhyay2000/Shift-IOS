@@ -1,24 +1,25 @@
-import SwiftUI
-import SwiftData
-import WidgetKit
 import Models
 import Services
+import SwiftData
+import SwiftUI
+import WidgetKit
 
 /// Displays the details for a single event.
 ///
 /// Fetched by `id` so the view works correctly whether pushed on iPhone
 /// or shown in the iPad detail column.
 struct EventDetailView: View {
-
     @Environment(\.modelContext) private var modelContext
     @Environment(WatchSessionManager.self) private var watchSessionManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
+    @Environment(SupabaseAuthService.self) private var authService
 
     @Query private var results: [EventModel]
 
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
     @State private var isShowingVendorSharing = false
+    @State private var isShowingSignIn = false
 
     private let eventID: UUID
 
@@ -29,9 +30,13 @@ struct EventDetailView: View {
         )
     }
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? {
+        results.first
+    }
 
-    private var isOwner: Bool { true }
+    private var isOwner: Bool {
+        true
+    }
 
     var body: some View {
         Group {
@@ -53,6 +58,9 @@ struct EventDetailView: View {
             if let event {
                 EditEventSheet(event: event)
             }
+        }
+        .sheet(isPresented: $isShowingSignIn) {
+            SignInView()
         }
     }
 
@@ -104,7 +112,8 @@ struct EventDetailView: View {
     private func atRiskOutdoorBlocks(for event: EventModel) -> [(blockTitle: String, probability: Double)] {
         guard let data = event.weatherSnapshot,
               let snapshot = try? JSONDecoder().decode(WeatherSnapshot.self, from: data),
-              snapshot.isFresh else {
+              snapshot.isFresh
+        else {
             return []
         }
         let allBlocks = (event.tracks ?? [])
@@ -257,7 +266,11 @@ struct EventDetailView: View {
 
             if isOwner {
                 if FeatureFlags.vendorSharing {
-                    shareWithVendorsButton(event)
+                    if authService.isAuthenticated {
+                        shareWithVendorsButton(event)
+                    } else {
+                        signInToShareButton
+                    }
                 } else {
                     vendorSharingPlaceholder
                 }
@@ -288,7 +301,34 @@ struct EventDetailView: View {
         .accessibilityLabel(String(localized: "Vendor sharing — temporarily unavailable"))
     }
 
-    private func shareWithVendorsButton(_ event: EventModel) -> some View {
+    /// Shown when sharing is enabled but the user is not signed in.
+    private var signInToShareButton: some View {
+        Button { isShowingSignIn = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Share with Vendors"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(String(localized: "Sign in to invite vendors"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+            .premiumCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Share with Vendors — sign in required"))
+    }
+
+    private func shareWithVendorsButton(_: EventModel) -> some View {
         Button {
             guard SubscriptionManager.shared.isProUser else {
                 paywallTrigger = .vendorSharing
