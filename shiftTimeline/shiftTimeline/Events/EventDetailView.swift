@@ -297,13 +297,11 @@ struct EventDetailView: View {
             isShowingVendorSharing = true
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: event.shareURL != nil ? "person.2.badge.gearshape" : "square.and.arrow.up")
+                Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.green)
                     .accessibilityHidden(true)
-                Text(event.shareURL != nil
-                     ? String(localized: "Manage Vendor Sharing")
-                     : String(localized: "Share with Vendors"))
+                Text(String(localized: "Share with Vendors"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()

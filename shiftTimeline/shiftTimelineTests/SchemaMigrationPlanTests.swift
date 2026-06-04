@@ -56,66 +56,37 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV10() {
+    @Test func latestSchemaVersionIsV12() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 10, "Latest schema must be V10 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 12, "Latest schema must be V12 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
         let latestModels = SHIFTMigrationPlan.schemas.last?.models ?? []
-        let liveModelCount = 5 // EventModel, TimeBlockModel, TimelineTrack, VendorModel, ShiftRecord
+        let liveModelCount = 6 // EventModel, TimeBlockModel, TimelineTrack, VendorModel, ShiftRecord, OutboxEntry
         #expect(
             latestModels.count == liveModelCount,
             "Latest Versioned Schema must declare all \(liveModelCount) model types"
         )
     }
 
-    // MARK: - V9 → V10 plan continuity
+    // MARK: - V11 → V12 plan continuity
 
-    @Test func planExposesTenSchemasAndNineStages() {
+    @Test func planExposesTwelveSchemasAndElevenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 10,
-            "Expected schemas [V1 … V10] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 12,
+            "Expected schemas [V1 … V12] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 9,
-            "Expected 9 lightweight stages (V1→V2 … V9→V10) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 11,
+            "Expected 11 lightweight stages (V1→V2 … V11→V12) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV10() {
+    @Test func schemasAreOrderedV1ThroughV12() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    }
-
-    /// Lightweight V9 → V10 migration must default `EventModel.lastShiftedAt`
-    /// to `nil` for legacy rows and round-trip an explicit value.
-    @Test @MainActor func freshContainerWithV10PlanRoundTripsLastShiftedAt() throws {
-        let schema = PersistenceController.schema
-        let config = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: true,
-            cloudKitDatabase: .none
-        )
-        let container = try ModelContainer(
-            for: schema,
-            migrationPlan: SHIFTMigrationPlan.self,
-            configurations: [config]
-        )
-        let context = container.mainContext
-
-        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
-        context.insert(event)
-        try context.save()
-
-        #expect(event.lastShiftedAt == nil)
-
-        let stamp = Date(timeIntervalSince1970: 1_780_000_000)
-        event.lastShiftedAt = stamp
-        try context.save()
-
-        #expect(event.lastShiftedAt == stamp)
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -145,6 +116,104 @@ struct SchemaMigrationPlanTests {
         try context.save()
 
         #expect(vendor.invitedAt == stamp)
+    }
+
+    /// Lightweight V10 → V11 migration drops CloudKit-only fields. Verify that
+    /// the retained Supabase cache fields (`invitedAt`, `pendingShiftDelta`,
+    /// `hasAcknowledgedLatestShift`) and the event analytics timestamps
+    /// (`wentLiveAt`, `completedAt`) still round-trip correctly.
+    @Test @MainActor func freshContainerWithV11PlanRoundTripsRetainedCacheFields() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
+        context.insert(event)
+
+        let vendor = VendorModel(name: "Alice", role: .photographer)
+        vendor.event = event
+        context.insert(vendor)
+
+        try context.save()
+
+        // Defaults
+        #expect(vendor.invitedAt == nil)
+        #expect(vendor.pendingShiftDelta == nil)
+        #expect(vendor.hasAcknowledgedLatestShift == false)
+        #expect(event.wentLiveAt == nil)
+        #expect(event.completedAt == nil)
+
+        // Explicit round-trip
+        let inviteStamp = Date(timeIntervalSince1970: 1_790_000_000)
+        let liveStamp = Date(timeIntervalSince1970: 1_790_001_000)
+        let doneStamp = Date(timeIntervalSince1970: 1_790_005_000)
+        vendor.invitedAt = inviteStamp
+        vendor.pendingShiftDelta = 300
+        vendor.hasAcknowledgedLatestShift = true
+        event.wentLiveAt = liveStamp
+        event.completedAt = doneStamp
+        try context.save()
+
+        #expect(vendor.invitedAt == inviteStamp)
+        #expect(vendor.pendingShiftDelta == 300)
+        #expect(vendor.hasAcknowledgedLatestShift == true)
+        #expect(event.wentLiveAt == liveStamp)
+        #expect(event.completedAt == doneStamp)
+    }
+
+    /// Lightweight V11 → V12 migration adds `OutboxEntry`. Verify that the
+    /// new table is queryable and that all fields default correctly and
+    /// round-trip an explicit insert.
+    @Test @MainActor func freshContainerWithV12PlanRoundTripsOutboxEntry() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        // Table starts empty
+        let initial = try context.fetch(FetchDescriptor<OutboxEntry>())
+        #expect(initial.isEmpty)
+
+        // Insert and persist
+        let rowID = UUID()
+        let entry = OutboxEntry(tableName: "events", rowID: rowID, operation: "update")
+        context.insert(entry)
+        try context.save()
+
+        // Defaults
+        #expect(entry.attempts == 0)
+        #expect(entry.payload == nil)
+
+        // Explicit round-trip
+        let payload = try #require("{\"title\":\"Wedding\"}".data(using: .utf8))
+        entry.attempts = 2
+        entry.payload = payload
+        try context.save()
+
+        let fetched = try context.fetch(FetchDescriptor<OutboxEntry>())
+        let saved = try #require(fetched.first)
+        #expect(saved.tableName == "events")
+        #expect(saved.rowID == rowID)
+        #expect(saved.operation == "update")
+        #expect(saved.attempts == 2)
+        #expect(saved.payload == payload)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

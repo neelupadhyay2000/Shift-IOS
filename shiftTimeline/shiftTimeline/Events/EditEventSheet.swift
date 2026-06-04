@@ -111,7 +111,6 @@ struct EditEventSheet: View {
             event.goldenHourStart = nil
         }
 
-        event.touchForSync()
         try? await eventRepo.save()
 
         if (locationChanged || dateChanged) && (newLatitude != 0 || newLongitude != 0) {

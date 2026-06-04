@@ -48,8 +48,6 @@ public enum VendorShiftNotifier {
 
         guard !blockDeltas.isEmpty else { return }
 
-        event.touchForSync()
-
         let allVendors = event.vendors ?? []
         let eventMaxDelta = blockDeltas.values
             .max(by: { abs($0) < abs($1) }) ?? 0
