@@ -27,6 +27,7 @@ public final class PersistenceController: Sendable {
             TimelineTrack.self,
             VendorModel.self,
             ShiftRecord.self,
+            OutboxEntry.self,
         ])
     }
 
