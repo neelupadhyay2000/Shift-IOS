@@ -115,6 +115,7 @@
 		5F21CFF72F85F2BF00110808 /* shiftTimelineTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F9C4F562F9089FF00331621 /* shiftTimelineWatchWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shiftTimelineWatchWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5FF066E72FA0256C00B6152E /* shiftTimelineUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = shiftTimelineUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Secrets.xcconfig; path = ../Config/Secrets.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -634,6 +635,7 @@
 /* Begin XCBuildConfiguration section */
 		5F21CF812F85C1B000110808 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -667,6 +669,8 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SUPABASE_ANON_KEY = "sb_publishable_PDxW-dpdwIbUieLKWIvrLg_8x2VVFgo";
+				SUPABASE_URL = "https://wrhrpyinkcopqsibmkrf.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -674,6 +678,7 @@
 		};
 		5F21CF822F85C1B000110808 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -707,6 +712,8 @@
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SUPABASE_ANON_KEY = "sb_publishable_amMuIi9rXYAXqCsV0UkLOg_50fjdegY";
+				SUPABASE_URL = "https://jakrlxnvdnsunrnspwnt.supabase.co";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
