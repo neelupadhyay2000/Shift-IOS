@@ -18,7 +18,7 @@ protocol VendorNotificationScheduling: Sendable {
 extension UNUserNotificationCenter: VendorNotificationScheduling {}
 
 /// Posts visible local notifications to vendors when `pendingShiftDelta`
-/// is set on their `VendorModel` after a CloudKit sync.
+/// is set on their `VendorModel`.
 ///
 /// Body formatting is delegated to `VendorShiftNotificationContent` (in
 /// SHIFTKit) so it can be unit-tested independently.
@@ -52,42 +52,25 @@ enum VendorShiftLocalNotifier {
     /// that exceeds **both** their per-vendor threshold and the planner's
     /// global Settings threshold. Posts a visible local notification only for
     /// above-threshold vendors.
-    ///
-    /// `currentUserRecordName` scopes the scan to the matching vendor entry so
-    /// a vendor device only receives a notification for itself, not for all
-    /// vendors in the shared event. Pass `nil` to process all vendors (legacy
-    /// path / tests).
-    static func processAndNotify(event: EventModel, currentUserRecordName: String? = nil) async {
+    static func processAndNotify(event: EventModel) async {
         await processAndNotify(
             event: event,
             center: UNUserNotificationCenter.current(),
-            globalThresholdSeconds: readGlobalThresholdSeconds(),
-            currentUserRecordName: currentUserRecordName
+            globalThresholdSeconds: readGlobalThresholdSeconds()
         )
     }
 
     /// Testable overload — accepts injected `NotificationScheduling`,
-    /// global threshold, identity, and dedupe store so tests never touch
+    /// global threshold, and dedupe store so tests never touch
     /// `UNUserNotificationCenter.current()` or `UserDefaults.standard`.
     static func processAndNotify(
         event: EventModel,
         center: any VendorNotificationScheduling,
         globalThresholdSeconds: TimeInterval,
-        currentUserRecordName: String? = nil,
         dedupeStore: UserDefaults = .standard
     ) async {
         let vendors = event.vendors ?? []
-
-        // When the current user's identity is known, restrict to their own vendor
-        // entry so a device doesn't post notifications on behalf of other vendors.
-        // Falls back to all vendors when identity is not yet resolved.
-        let candidateVendors: [VendorModel]
-        if let recordName = currentUserRecordName {
-            let matched = vendors.filter { $0.cloudKitRecordName == recordName }
-            candidateVendors = matched.isEmpty ? vendors : matched
-        } else {
-            candidateVendors = vendors
-        }
+        let candidateVendors = vendors
 
         for vendor in candidateVendors {
             guard let delta = vendor.pendingShiftDelta else { continue }

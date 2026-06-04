@@ -152,7 +152,6 @@ struct CreateBlockSheet: View {
         block.blockLongitude = blockLongitude
         try? await blockRepo.insert(block, into: track)
 
-        event.touchForSync()
         try? await blockRepo.save()
 
         dismiss()

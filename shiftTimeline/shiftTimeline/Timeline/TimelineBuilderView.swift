@@ -225,7 +225,6 @@ struct TimelineBuilderView: View {
                 // iPad live-write inspector closed — re-scan in case venue changed.
                 scanForVenueSwitches()
                 if let event {
-                    event.touchForSync()
                     Task { try? await eventRepo.save() }
                 }
             }
@@ -982,7 +981,6 @@ struct TimelineBuilderView: View {
         skippedVenuePairs.removeAll()
 
         if let event {
-            event.touchForSync()
             Task { try? await eventRepo.save() }
         }
     }
@@ -1005,7 +1003,6 @@ struct TimelineBuilderView: View {
             try? await blockRepo.delete(block)
             recalculateStartTimesAfterDelete(excluding: deletedID)
             if let event {
-                event.touchForSync()
                 try? await blockRepo.save()
             }
         }

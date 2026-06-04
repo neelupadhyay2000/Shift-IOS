@@ -436,7 +436,6 @@ struct BlockInspectorView: View {
         if blockLatitude != 0 || blockLongitude != 0 {
             event?.weatherSnapshot = nil
         }
-        event?.touchForSync()
         try? await blockRepo.save()
 
         dismiss()

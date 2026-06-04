@@ -89,35 +89,6 @@ struct SchemaMigrationPlanTests {
         #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     }
 
-    /// Lightweight V9 → V10 migration must default `EventModel.lastShiftedAt`
-    /// to `nil` for legacy rows and round-trip an explicit value.
-    @Test @MainActor func freshContainerWithV10PlanRoundTripsLastShiftedAt() throws {
-        let schema = PersistenceController.schema
-        let config = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: true,
-            cloudKitDatabase: .none
-        )
-        let container = try ModelContainer(
-            for: schema,
-            migrationPlan: SHIFTMigrationPlan.self,
-            configurations: [config]
-        )
-        let context = container.mainContext
-
-        let event = EventModel(title: "Wedding", date: .now, latitude: 0, longitude: 0)
-        context.insert(event)
-        try context.save()
-
-        #expect(event.lastShiftedAt == nil)
-
-        let stamp = Date(timeIntervalSince1970: 1_780_000_000)
-        event.lastShiftedAt = stamp
-        try context.save()
-
-        #expect(event.lastShiftedAt == stamp)
-    }
-
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
     /// `nil` for legacy rows and round-trip an explicit value.
     @Test @MainActor func freshContainerWithV9PlanRoundTripsInvitedAt() throws {
