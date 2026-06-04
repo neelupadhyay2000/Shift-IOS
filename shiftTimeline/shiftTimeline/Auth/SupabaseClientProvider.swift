@@ -25,6 +25,9 @@ final class SupabaseClientProvider {
     let client: SupabaseClient
 
     init(supabaseURL: URL, supabaseKey: String) {
+        // supabase-swift 2.x defaults on Apple platforms:
+        //   storage       → KeychainLocalStorage  (session survives relaunch)
+        //   autoRefreshToken → true               (tokens refresh silently before expiry)
         client = SupabaseClient(supabaseURL: supabaseURL, supabaseKey: supabaseKey)
     }
 }
