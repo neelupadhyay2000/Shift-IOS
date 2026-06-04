@@ -103,5 +103,8 @@ openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/tasks.md
 openspec/changes/archive/2026-04-25-fix-cloudkit-schema-v5-regression/specs/cloudkit-sync-integrity/spec.md
 openspec/specs/cloudkit-sync-integrity/spec.md
 SUPABASE DB Password
+
+# Supabase secrets — fill in from Secrets.xcconfig.template; NEVER commit
+Config/Secrets.xcconfig
 docs/SUPABASE_MIGRATION_BLUEPRINT.md
 docs/SUPABASE_MIGRATION_JIRA.md
