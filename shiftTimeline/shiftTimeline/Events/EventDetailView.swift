@@ -1,24 +1,28 @@
-import SwiftUI
-import SwiftData
-import WidgetKit
 import Models
 import Services
+import SwiftData
+import SwiftUI
+import WidgetKit
 
 /// Displays the details for a single event.
 ///
 /// Fetched by `id` so the view works correctly whether pushed on iPhone
 /// or shown in the iPad detail column.
 struct EventDetailView: View {
-
     @Environment(\.modelContext) private var modelContext
     @Environment(WatchSessionManager.self) private var watchSessionManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
+    @Environment(SupabaseAuthService.self) private var authService
 
     @Query private var results: [EventModel]
 
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
     @State private var isShowingVendorSharing = false
+    @State private var isShowingSignIn = false
+    /// Set when sign-in was prompted by a share attempt, so the share flow
+    /// resumes automatically once the sign-in sheet dismisses.
+    @State private var pendingShareAfterSignIn = false
 
     private let eventID: UUID
 
@@ -29,9 +33,13 @@ struct EventDetailView: View {
         )
     }
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? {
+        results.first
+    }
 
-    private var isOwner: Bool { true }
+    private var isOwner: Bool {
+        true
+    }
 
     var body: some View {
         Group {
@@ -54,6 +62,40 @@ struct EventDetailView: View {
                 EditEventSheet(event: event)
             }
         }
+        .sheet(isPresented: $isShowingSignIn, onDismiss: resumeShareAfterSignIn) {
+            SignInView()
+        }
+        .sheet(isPresented: $isShowingVendorSharing) {
+            NavigationStack {
+                VendorSharingView(eventID: eventID)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(String(localized: "Done")) { isShowingVendorSharing = false }
+                        }
+                    }
+            }
+        }
+    }
+
+    // MARK: - Sharing flow
+
+    /// Presents vendor sharing, gating behind the Pro paywall first.
+    /// Shared by the signed-in button tap and the post-sign-in continuation.
+    private func presentVendorSharing() {
+        guard SubscriptionManager.shared.isProUser else {
+            paywallTrigger = .vendorSharing
+            return
+        }
+        isShowingVendorSharing = true
+    }
+
+    /// Called when the sign-in sheet dismisses. Resumes the share attempt only
+    /// if it was triggered by one and the user actually signed in (not cancelled).
+    private func resumeShareAfterSignIn() {
+        guard pendingShareAfterSignIn else { return }
+        pendingShareAfterSignIn = false
+        guard authService.isAuthenticated else { return }
+        presentVendorSharing()
     }
 
     private func eventContent(_ event: EventModel) -> some View {
@@ -104,7 +146,8 @@ struct EventDetailView: View {
     private func atRiskOutdoorBlocks(for event: EventModel) -> [(blockTitle: String, probability: Double)] {
         guard let data = event.weatherSnapshot,
               let snapshot = try? JSONDecoder().decode(WeatherSnapshot.self, from: data),
-              snapshot.isFresh else {
+              snapshot.isFresh
+        else {
             return []
         }
         let allBlocks = (event.tracks ?? [])
@@ -257,7 +300,11 @@ struct EventDetailView: View {
 
             if isOwner {
                 if FeatureFlags.vendorSharing {
-                    shareWithVendorsButton(event)
+                    if authService.isAuthenticated {
+                        shareWithVendorsButton(event)
+                    } else {
+                        signInToShareButton
+                    }
                 } else {
                     vendorSharingPlaceholder
                 }
@@ -288,13 +335,39 @@ struct EventDetailView: View {
         .accessibilityLabel(String(localized: "Vendor sharing — temporarily unavailable"))
     }
 
-    private func shareWithVendorsButton(_ event: EventModel) -> some View {
+    /// Shown when sharing is enabled but the user is not signed in.
+    private var signInToShareButton: some View {
         Button {
-            guard SubscriptionManager.shared.isProUser else {
-                paywallTrigger = .vendorSharing
-                return
+            pendingShareAfterSignIn = true
+            isShowingSignIn = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Share with Vendors"))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(String(localized: "Sign in to invite vendors"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
-            isShowingVendorSharing = true
+            .premiumCard()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Share with Vendors — sign in required"))
+    }
+
+    private func shareWithVendorsButton(_: EventModel) -> some View {
+        Button {
+            presentVendorSharing()
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "square.and.arrow.up")
@@ -313,16 +386,6 @@ struct EventDetailView: View {
             .premiumCard()
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $isShowingVendorSharing) {
-            NavigationStack {
-                VendorSharingView(eventID: eventID)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(String(localized: "Done")) { isShowingVendorSharing = false }
-                        }
-                    }
-            }
-        }
     }
 
     private func startLiveMode(for event: EventModel) {
