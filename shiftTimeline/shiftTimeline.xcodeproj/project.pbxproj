@@ -302,6 +302,8 @@
 			isa = PBXGroup;
 			children = (
 				5FC0FFEE2FA1B2E200E611FF /* Secrets.xcconfig */,
+				5FC0FFEF2FA1B2E200E611FF /* Debug.xcconfig */,
+				5FC0FFF02FA1B2E200E611FF /* Release.xcconfig */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
