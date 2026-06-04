@@ -155,7 +155,8 @@ struct shiftTimelineApp: App {
                         let client = SupabaseClientProvider.shared.client
                         authService.startListening(
                             client: client,
-                            profileRepository: SupabaseProfileRepository(client: client)
+                            profileRepository: SupabaseProfileRepository(client: client),
+                            modelContext: PersistenceController.shared.container.mainContext
                         )
                     }
                     watchSessionManager.activate()

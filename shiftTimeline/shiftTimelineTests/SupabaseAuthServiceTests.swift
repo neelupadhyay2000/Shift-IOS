@@ -1,6 +1,9 @@
 import Foundation
+import Models
+import Services
 @testable import shiftTimeline
 import Supabase
+import SwiftData
 import Testing
 
 // MARK: - Fake repo
@@ -174,6 +177,61 @@ struct SupabaseAuthServiceSignOutTests {
         let svc = SupabaseAuthService()
         // guard let client else { return } path — must not crash
         try await svc.signOut()
+    }
+}
+
+// MARK: - Sign-out cache clearing
+
+@Suite("SupabaseAuthService — cache clearing")
+@MainActor
+struct SupabaseAuthServiceCacheClearingTests {
+    @Test("clearSyncedCaches deletes all OutboxEntry rows")
+    func clearSyncedCachesDeletesOutboxEntries() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        context.insert(OutboxEntry(tableName: "events", rowID: UUID(), operation: "insert"))
+        context.insert(OutboxEntry(tableName: "blocks", rowID: UUID(), operation: "update"))
+        try context.save()
+
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        let repo = FakeProfileRepository()
+        let svc = SupabaseAuthService(client: provider.client, profileRepository: repo, modelContext: context)
+
+        svc.clearSyncedCaches()
+
+        let count = try context.fetchCount(FetchDescriptor<OutboxEntry>())
+        #expect(count == 0)
+    }
+
+    @Test("clearSyncedCaches preserves EventModel rows (local-only data is never deleted)")
+    func clearSyncedCachesPreservesEventModel() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        context.insert(EventModel(title: "Wedding", date: .now, latitude: 37.7, longitude: -122.4))
+        context.insert(OutboxEntry(tableName: "events", rowID: UUID(), operation: "insert"))
+        try context.save()
+
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        let repo = FakeProfileRepository()
+        let svc = SupabaseAuthService(client: provider.client, profileRepository: repo, modelContext: context)
+
+        svc.clearSyncedCaches()
+
+        let outboxCount = try context.fetchCount(FetchDescriptor<OutboxEntry>())
+        #expect(outboxCount == 0)
+
+        let eventCount = try context.fetchCount(FetchDescriptor<EventModel>())
+        #expect(eventCount == 1)
+    }
+
+    @Test("clearSyncedCaches is a no-op when no modelContext is injected")
+    func clearSyncedCachesNoOpWithoutContext() {
+        let svc = SupabaseAuthService()
+        svc.clearSyncedCaches() // guard let context else { return } path — must not crash
     }
 }
 

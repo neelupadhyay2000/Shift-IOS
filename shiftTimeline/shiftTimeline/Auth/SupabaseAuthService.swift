@@ -1,6 +1,8 @@
 import Foundation
+import Models
 import Observation
 import Supabase
+import SwiftData
 
 /// Single auth-facing surface for the app, replacing the removed CloudKit identity.
 ///
@@ -37,28 +39,38 @@ final class SupabaseAuthService {
     @ObservationIgnored
     private var profileRepository: (any ProfileRepositing)?
     @ObservationIgnored
+    private var modelContext: ModelContext?
+    @ObservationIgnored
     private var listenerTask: Task<Void, Never>?
 
     // MARK: - Init
 
     /// Parameterless init — safe as `@State` in the `App` struct.
-    /// Wire dependencies later via `startListening(client:profileRepository:)`.
+    /// Wire dependencies later via `startListening(client:profileRepository:modelContext:)`.
     init() {}
 
     /// Dependency-injected init for tests and Xcode Previews.
-    init(client: SupabaseClient, profileRepository: any ProfileRepositing) {
+    /// `modelContext` is optional — omit it when testing behaviour that doesn't
+    /// involve cache clearing.
+    init(client: SupabaseClient, profileRepository: any ProfileRepositing, modelContext: ModelContext? = nil) {
         self.client = client
         self.profileRepository = profileRepository
+        self.modelContext = modelContext
     }
 
     // MARK: - Lifecycle
 
-    /// Wires dependencies and begins streaming auth changes.
+    /// Wires all dependencies and begins streaming auth changes.
     /// Idempotent — subsequent calls are no-ops.
-    func startListening(client: SupabaseClient, profileRepository: any ProfileRepositing) {
+    func startListening(
+        client: SupabaseClient,
+        profileRepository: any ProfileRepositing,
+        modelContext: ModelContext? = nil
+    ) {
         guard listenerTask == nil else { return }
         self.client = client
         self.profileRepository = profileRepository
+        self.modelContext = modelContext
         beginListening(using: client)
     }
 
@@ -73,7 +85,7 @@ final class SupabaseAuthService {
     ///
     /// Pass `displayName` only on a first-time Apple sign-in — Apple delivers
     /// the user's name in the credential exactly once. For phone-OTP and
-    /// returning Apple users, pass `nil` so existing Postgres values are kept.
+    /// returning Apple users pass `nil` so existing Postgres values are kept.
     /// Non-fatal: sign-in succeeds even if the write fails.
     func upsertProfile(from user: User, displayName: String?) async {
         await performProfileUpsert(user: user, displayName: displayName)
@@ -81,10 +93,33 @@ final class SupabaseAuthService {
 
     // MARK: - Sign out
 
+    /// Signs out from Supabase and clears all synced caches.
+    ///
+    /// Local-only data (events, tracks, blocks, vendors, shift records) is
+    /// intentionally preserved — the user still owns it on-device and it
+    /// remains fully usable offline after sign-out.
     func signOut() async throws {
         guard let client else { return }
         try await client.auth.signOut()
-        // authStateChanges fires .signedOut → session and currentProfile cleared in beginListening
+        clearSyncedCaches()
+        // authStateChanges fires .signedOut → clears session + currentProfile
+    }
+
+    // MARK: - Cache clearing
+
+    /// Deletes all Supabase-synced local caches without touching the user's
+    /// local-only timeline data (EventModel, TimelineTrack, TimeBlockModel,
+    /// VendorModel, ShiftRecord).
+    ///
+    /// Currently clears: OutboxEntry (pending sync queue).
+    /// Future epics will add: Realtime cursors, delta-fetch timestamps, etc.
+    func clearSyncedCaches() {
+        guard let context = modelContext else { return }
+        do {
+            try context.delete(model: OutboxEntry.self)
+        } catch {
+            // Non-fatal — sign-out proceeds regardless of cache-clear failure
+        }
     }
 
     // MARK: - Private
