@@ -6,15 +6,19 @@ import SwiftData
 import Supabase
 import Testing
 
-/// SHIFT-615: timeline conflict resolution. Timeline rows are planner-authoritative
-/// (only the owner can write them — enforced server-side by RLS); between the
-/// owner's own devices, the apply layer resolves last-write-wins by server
-/// `updated_at`, so a stale remote change never clobbers a newer local version
-/// regardless of arrival order. (Multi-device convergence scenarios: SHIFT-617.)
-@Suite("Conflict resolution — timeline LWW")
+/// SHIFT-605 conflict resolution. Timeline rows are planner-authoritative (only
+/// the owner can write them — enforced server-side by RLS); between the owner's
+/// own devices, the apply layer resolves last-write-wins by server `updated_at`,
+/// so a stale remote change never clobbers a newer local version regardless of
+/// arrival order (SHIFT-615). Vendor acknowledgment is the same row-level LWW,
+/// with echo/origin handling so a vendor ack and a planner edit never ping-pong
+/// (SHIFT-616). The convergence suite proves concurrent edits land on identical
+/// state across devices under every apply order (SHIFT-617).
+@Suite("Conflict resolution — LWW & convergence")
 @MainActor
 struct ConflictResolutionTests {
 
+    private let t0 = Date(timeIntervalSince1970: 1_770_000_000)
     private let t1 = Date(timeIntervalSince1970: 1_780_000_000)
     private let t2 = Date(timeIntervalSince1970: 1_790_000_000)
     private let t3 = Date(timeIntervalSince1970: 1_800_000_000)
@@ -80,6 +84,32 @@ struct ConflictResolutionTests {
 
     private func vendor(_ context: ModelContext) throws -> VendorModel? {
         try context.fetch(FetchDescriptor<VendorModel>()).first
+    }
+
+    /// A value snapshot of a device's converged state — the fields LWW resolves.
+    private struct DeviceState: Equatable {
+        let eventTitles: [UUID: String]
+        let blockTitles: [UUID: String]
+        let vendorAcks: [UUID: Bool]
+    }
+
+    private func snapshot(_ context: ModelContext) throws -> DeviceState {
+        DeviceState(
+            eventTitles: Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<EventModel>()).map { ($0.id, $0.title) }),
+            blockTitles: Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<TimeBlockModel>()).map { ($0.id, $0.title) }),
+            vendorAcks: Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<VendorModel>()).map { ($0.id, $0.hasAcknowledgedLatestShift) })
+        )
+    }
+
+    /// One device: applies the causal `setup` (parents-before-children creation,
+    /// as realtime/delta always deliver), then the `concurrent` edits in the
+    /// given order. Returns the converged state.
+    private func device(setup: [RealtimeChange], concurrent: [RealtimeChange]) throws -> DeviceState {
+        let stack = try makeStack()
+        for change in setup + concurrent {
+            try stack.applier.apply(change)
+        }
+        return try snapshot(stack.context)
     }
 
     // MARK: - LWW
@@ -211,5 +241,73 @@ struct ConflictResolutionTests {
         try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t2))
 
         #expect(try vendor(stack.context)?.hasAcknowledgedLatestShift == false)
+    }
+
+    // MARK: - Multi-device convergence (SHIFT-617)
+
+    @Test("concurrent edits to the same event converge regardless of apply order")
+    func concurrentEventEditsConverge() throws {
+        let id = UUID()
+        let setup = [try eventChange(id: id, title: "init", updatedAt: t0)]
+        let concurrent = [
+            try eventChange(id: id, title: "deviceA", updatedAt: t1),
+            try eventChange(id: id, title: "deviceB", updatedAt: t2),
+        ]
+
+        let a = try device(setup: setup, concurrent: concurrent)
+        let b = try device(setup: setup, concurrent: Array(concurrent.reversed()))
+
+        #expect(a.eventTitles[id] == "deviceB") // highest updated_at wins
+        #expect(a == b)
+    }
+
+    @Test("a concurrent vendor ack and planner reset converge on both devices")
+    func concurrentVendorAckConverges() throws {
+        let vendorID = UUID(), eventID = UUID()
+        let setup = [try vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t0)]
+        let concurrent = [
+            try vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t2),  // vendor acks
+            try vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t1), // planner reset (older)
+        ]
+
+        let a = try device(setup: setup, concurrent: concurrent)
+        let b = try device(setup: setup, concurrent: Array(concurrent.reversed()))
+
+        #expect(a.vendorAcks[vendorID] == true) // the t2 ack wins
+        #expect(a == b)
+    }
+
+    @Test("concurrent edits across the whole graph converge identically under three orderings")
+    func multiRowConcurrentEditsConvergeAcrossOrderings() throws {
+        let eventID = UUID(), trackID = UUID(), blockID = UUID(), vendorID = UUID()
+        // Causal creation (parents before children) — as realtime/delta deliver.
+        let setup = [
+            try eventChange(id: eventID, title: "init", updatedAt: t0),
+            try trackChange(id: trackID, eventID: eventID, name: "init", updatedAt: t0),
+            try blockChange(id: blockID, trackID: trackID, eventID: eventID, title: "init", updatedAt: t0),
+            try vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t0),
+        ]
+        // Concurrent edits from multiple devices, interleaved with stale ones.
+        let concurrent = [
+            try eventChange(id: eventID, title: "E2", updatedAt: t2),
+            try blockChange(id: blockID, trackID: trackID, eventID: eventID, title: "B3", updatedAt: t3),
+            try vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t2),
+            try eventChange(id: eventID, title: "E1", updatedAt: t1), // stale
+            try blockChange(id: blockID, trackID: trackID, eventID: eventID, title: "B1", updatedAt: t1), // stale
+        ]
+
+        let forward = try device(setup: setup, concurrent: concurrent)
+        let reversed = try device(setup: setup, concurrent: Array(concurrent.reversed()))
+        let scrambled = try device(setup: setup, concurrent: [
+            concurrent[3], concurrent[1], concurrent[4], concurrent[0], concurrent[2],
+        ])
+
+        // Correct: each row converges to its highest-updated_at version.
+        #expect(forward.eventTitles[eventID] == "E2")
+        #expect(forward.blockTitles[blockID] == "B3")
+        #expect(forward.vendorAcks[vendorID] == true)
+        // Convergent: every apply order lands on the same state.
+        #expect(forward == reversed)
+        #expect(forward == scrambled)
     }
 }
