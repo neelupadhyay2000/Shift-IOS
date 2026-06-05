@@ -81,10 +81,10 @@ struct EventMappingTests {
         #expect(model.wentLiveAt == event.wentLiveAt)
         #expect(model.completedAt == event.completedAt)
         #expect(model.postEventReport == report)
-        let decoded = try #require(model.weatherSnapshot).map {
-            try JSONDecoder().decode(WeatherSnapshot.self, from: $0)
+        let roundTrippedSnapshot = model.weatherSnapshot.flatMap {
+            try? JSONDecoder().decode(WeatherSnapshot.self, from: $0)
         }
-        #expect(decoded == snapshot)
+        #expect(roundTrippedSnapshot == snapshot)
     }
 
     @Test("backward: an unknown status string falls back to .planning")
