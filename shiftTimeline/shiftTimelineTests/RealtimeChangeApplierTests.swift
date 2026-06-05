@@ -16,10 +16,11 @@ struct RealtimeChangeApplierTests {
         let applier: RealtimeChangeApplier
     }
 
-    private func makeStack() throws -> Stack {
+    private func makeStack(suppressor: RealtimeEchoSuppressor? = nil) throws -> Stack {
         let container = try PersistenceController.forTesting()
         let context = container.mainContext
-        return Stack(container: container, context: context, applier: RealtimeChangeApplier(context: context))
+        let applier = RealtimeChangeApplier(context: context, echoSuppressor: suppressor)
+        return Stack(container: container, context: context, applier: applier)
     }
 
     // MARK: - Fixtures
@@ -156,5 +157,49 @@ struct RealtimeChangeApplierTests {
 
         let titles = Set(try events(in: stack.context).map(\.title))
         #expect(titles == ["A", "B"])
+    }
+
+    // MARK: - Echo suppression
+
+    @Test("a self-written row's echo is suppressed, not re-applied")
+    func selfEchoIsSuppressed() throws {
+        let suppressor = RealtimeEchoSuppressor()
+        let stack = try makeStack(suppressor: suppressor)
+        let id = UUID()
+        suppressor.recordLocalWrite(table: "events", id: id)
+
+        try stack.applier.apply(upsert("events", eventDTO(id: id, title: "Echo")))
+
+        #expect(try events(in: stack.context).isEmpty)
+    }
+
+    @Test("a self-echo does not clobber a newer local edit")
+    func selfEchoDoesNotClobberNewerLocalState() throws {
+        let suppressor = RealtimeEchoSuppressor()
+        let stack = try makeStack(suppressor: suppressor)
+        let id = UUID()
+        let local = EventModel(id: id, title: "Newer", date: fixedTimestamp, latitude: 0, longitude: 0)
+        stack.context.insert(local)
+        try stack.context.save()
+        suppressor.recordLocalWrite(table: "events", id: id)
+
+        // A stale echo of an earlier write arrives.
+        try stack.applier.apply(upsert("events", eventDTO(id: id, title: "Older")))
+
+        let event = try #require(try events(in: stack.context).first)
+        #expect(event.title == "Newer")
+    }
+
+    @Test("a change from another device is applied normally")
+    func nonSelfChangeIsApplied() throws {
+        let suppressor = RealtimeEchoSuppressor()
+        let stack = try makeStack(suppressor: suppressor)
+        let id = UUID()
+        // No recordLocalWrite — this is not our write.
+
+        try stack.applier.apply(upsert("events", eventDTO(id: id, title: "FromPeer")))
+
+        let event = try #require(try events(in: stack.context).first)
+        #expect(event.title == "FromPeer")
     }
 }

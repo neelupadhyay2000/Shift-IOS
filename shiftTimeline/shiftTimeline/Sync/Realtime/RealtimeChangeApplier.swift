@@ -17,15 +17,25 @@ struct RealtimeChangeApplier {
     private let context: ModelContext
     private let decoder: JSONDecoder
     private let diagnostics: SyncDiagnosticsCenter
+    private let echoSuppressor: RealtimeEchoSuppressor?
+
+    /// Tables with a single `id` primary key, for which a self-write echo can be
+    /// recognized by id. Junctions apply incrementally (idempotent) and aren't
+    /// suppressed.
+    private static let suppressibleTables: Set<String> = [
+        "events", "tracks", "blocks", "event_vendors", "shift_records",
+    ]
 
     init(
         context: ModelContext,
         decoder: JSONDecoder = JSONDecoder(),
-        diagnostics: SyncDiagnosticsCenter = .shared
+        diagnostics: SyncDiagnosticsCenter = .shared,
+        echoSuppressor: RealtimeEchoSuppressor? = nil
     ) {
         self.context = context
         self.decoder = decoder
         self.diagnostics = diagnostics
+        self.echoSuppressor = echoSuppressor
     }
 
     /// Consumes the realtime stream, applying each change on the main actor.
@@ -45,8 +55,10 @@ struct RealtimeChangeApplier {
         }
     }
 
-    /// Applies a single change and saves.
+    /// Applies a single change and saves. A change that is this device's own
+    /// echo is skipped so it never re-applies over (or clobbers) local state.
     func apply(_ change: RealtimeChange) throws {
+        if isSelfEcho(change) { return }
         switch change {
         case let .upsert(table, record):
             try applyUpsert(table: table, record: record)
@@ -54,6 +66,19 @@ struct RealtimeChangeApplier {
             try applyDelete(table: table, oldRecord: oldRecord)
         }
         try context.save()
+    }
+
+    private func isSelfEcho(_ change: RealtimeChange) -> Bool {
+        guard let echoSuppressor else { return false }
+        let table = change.table
+        guard Self.suppressibleTables.contains(table) else { return false }
+        let payload: JSONObject
+        switch change {
+        case let .upsert(_, record): payload = record
+        case let .delete(_, oldRecord): payload = oldRecord
+        }
+        guard let id = uuid(payload, "id") else { return false }
+        return echoSuppressor.shouldSuppress(table: table, id: id)
     }
 
     // MARK: - Upsert (insert / update)
