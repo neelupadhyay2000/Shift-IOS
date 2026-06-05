@@ -48,7 +48,8 @@ final class ConnectivityMonitor {
         let pathMonitor = NWPathMonitor()
         pathMonitor.pathUpdateHandler = { [weak self] path in
             let online = path.status == .satisfied
-            Task { @MainActor in self?.pathDidUpdate(isOnline: online) }
+            guard let self else { return }
+            Task { @MainActor in self.pathDidUpdate(isOnline: online) }
         }
         pathMonitor.start(queue: monitorQueue)
         monitor = pathMonitor
