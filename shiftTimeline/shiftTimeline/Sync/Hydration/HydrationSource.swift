@@ -43,29 +43,66 @@ protocol HydrationSource: Sendable {
     func fetchSnapshot() async throws -> HydrationSnapshot
 }
 
-/// Supabase-backed source: one RLS-scoped `select *` per table. Nonisolated so
-/// the fetches run off the main actor. Pagination/batching is layered on in
-/// SHIFT-595; this fetches each table whole.
+/// Pulls pages from `fetchPage` (inclusive `[from, to]` bounds) until a page
+/// shorter than `pageSize` signals the end, accumulating every row. A stable
+/// total order in the underlying query is required so consecutive ranges
+/// partition the result set without overlapping or skipping rows.
+nonisolated func paginate<Row>(
+    pageSize: Int,
+    fetchPage: (_ from: Int, _ to: Int) async throws -> [Row]
+) async rethrows -> [Row] {
+    var all: [Row] = []
+    var offset = 0
+    while true {
+        let page = try await fetchPage(offset, offset + pageSize - 1)
+        all.append(contentsOf: page)
+        if page.count < pageSize { break }
+        offset += pageSize
+    }
+    return all
+}
+
+/// Supabase-backed source. Each table is fetched in `pageSize` batches via
+/// PostgREST `range`, ordered by a stable key, so large datasets load without a
+/// single huge query timing out or a single huge response spiking memory.
+/// Nonisolated so the fetches run off the main actor.
+///
+/// `pageSize` must be ≤ the project's PostgREST `db-max-rows` (if set), otherwise
+/// a capped full page would be mistaken for the last page.
 nonisolated struct SupabaseHydrationSource: HydrationSource {
     private let client: SupabaseClient
+    private let pageSize: Int
 
-    init(client: SupabaseClient) {
+    init(client: SupabaseClient, pageSize: Int = 1000) {
         self.client = client
+        self.pageSize = max(1, pageSize)
     }
 
     func fetchSnapshot() async throws -> HydrationSnapshot {
         HydrationSnapshot(
-            events: try await fetch("events"),
-            tracks: try await fetch("tracks"),
-            blocks: try await fetch("blocks"),
-            vendors: try await fetch("event_vendors"),
-            blockVendors: try await fetch("block_vendors"),
-            blockDependencies: try await fetch("block_dependencies"),
-            shiftRecords: try await fetch("shift_records")
+            events: try await fetch("events", orderBy: "id"),
+            tracks: try await fetch("tracks", orderBy: "id"),
+            blocks: try await fetch("blocks", orderBy: "id"),
+            vendors: try await fetch("event_vendors", orderBy: "id"),
+            blockVendors: try await fetch("block_vendors", orderBy: "block_id", "event_vendor_id"),
+            blockDependencies: try await fetch("block_dependencies", orderBy: "block_id", "depends_on_block_id"),
+            shiftRecords: try await fetch("shift_records", orderBy: "id")
         )
     }
 
-    private func fetch<Row: Decodable>(_ table: String) async throws -> [Row] {
-        try await client.from(table).select().execute().value
+    /// Paginated `select *` over `table`, ordered by `first` (plus any `rest`
+    /// columns) to form a stable total order for range paging.
+    private func fetch<Row: Decodable>(
+        _ table: String,
+        orderBy first: String,
+        _ rest: String...
+    ) async throws -> [Row] {
+        try await paginate(pageSize: pageSize) { from, to in
+            var query = self.client.from(table).select().order(first)
+            for column in rest {
+                query = query.order(column)
+            }
+            return try await query.range(from: from, to: to).execute().value
+        }
     }
 }
