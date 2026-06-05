@@ -87,16 +87,16 @@ struct RealtimeChangeApplier {
         switch table {
         case "events":
             let dto = try decode(EventDTO.self, record)
-            if dto.deletedAt != nil { try deleteEvent(id: dto.id) } else { try upsertEvent(dto) }
+            if dto.deletedAt != nil { try softDeleteEvent(dto) } else { try upsertEvent(dto) }
         case "tracks":
             let dto = try decode(TrackDTO.self, record)
-            if dto.deletedAt != nil { try deleteTrack(id: dto.id) } else { try upsertTrack(dto) }
+            if dto.deletedAt != nil { try softDeleteTrack(dto) } else { try upsertTrack(dto) }
         case "blocks":
             let dto = try decode(BlockDTO.self, record)
-            if dto.deletedAt != nil { try deleteBlock(id: dto.id) } else { try upsertBlock(dto) }
+            if dto.deletedAt != nil { try softDeleteBlock(dto) } else { try upsertBlock(dto) }
         case "event_vendors":
             let dto = try decode(EventVendorDTO.self, record)
-            if dto.deletedAt != nil { try deleteVendor(id: dto.id) } else { try upsertVendor(dto) }
+            if dto.deletedAt != nil { try softDeleteVendor(dto) } else { try upsertVendor(dto) }
         case "shift_records":
             let dto = try decode(ShiftRecordDTO.self, record)
             if dto.deletedAt != nil { try deleteShiftRecord(id: dto.id) } else { try upsertShiftRecord(dto) }
@@ -183,6 +183,38 @@ struct RealtimeChangeApplier {
     private func shouldApply(incoming: Date?, onto current: Date?) -> Bool {
         guard let incoming, let current else { return true }
         return incoming > current
+    }
+
+    // MARK: - Soft-delete (tombstone)
+
+    // A soft-delete arrives as an upsert whose DTO carries `deleted_at` (SHIFT-618).
+    // The local row is removed, but only under the same LWW rule as an edit: a
+    // tombstone older than the local version is skipped, so a stale delete can't
+    // wipe a newer edit. The row stays a tombstone on the server until purged, so
+    // a device that was offline still learns of the deletion via the delta.
+
+    private func softDeleteEvent(_ dto: EventDTO) throws {
+        guard let existing = try existingEvent(id: dto.id),
+              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+        context.delete(existing)
+    }
+
+    private func softDeleteTrack(_ dto: TrackDTO) throws {
+        guard let existing = try existingTrack(id: dto.id),
+              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+        context.delete(existing)
+    }
+
+    private func softDeleteBlock(_ dto: BlockDTO) throws {
+        guard let existing = try existingBlock(id: dto.id),
+              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+        context.delete(existing)
+    }
+
+    private func softDeleteVendor(_ dto: EventVendorDTO) throws {
+        guard let existing = try existingVendor(id: dto.id),
+              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+        context.delete(existing)
     }
 
     // MARK: - Delete

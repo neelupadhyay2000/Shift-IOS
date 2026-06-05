@@ -24,7 +24,7 @@ struct SupabaseOutboxSender: OutboxSending {
         case .insert, .update:
             try await upsert(item)
         case .delete:
-            try await delete(item)
+            try await softDelete(item)
         }
     }
 
@@ -51,18 +51,25 @@ struct SupabaseOutboxSender: OutboxSending {
         }
     }
 
-    private func delete(_ item: OutboxItem) async throws {
+    /// A delete is a **soft-delete** (SHIFT-618): set `deleted_at` rather than
+    /// removing the row, so the tombstone survives in the table and a device that
+    /// was offline still learns of the deletion via the delta (`deleted_at`/
+    /// `updated_at > since`). The `updated_at` trigger bumps on this update, so the
+    /// tombstone carries a fresh server time for LWW. Old tombstones are reaped by
+    /// ``TombstonePurger``.
+    private func softDelete(_ item: OutboxItem) async throws {
+        let patch = ["deleted_at": SupabaseTimestamp.string(from: Date())]
         switch item.table {
         case "events", "tracks", "blocks", "event_vendors", "shift_records":
             try await client.from(item.table)
-                .delete()
+                .update(patch)
                 .eq("id", value: item.rowID.uuidString)
                 .execute()
         case "block_vendors":
             guard let payload = item.payload else { throw OutboxSendError.missingPayload(table: item.table) }
             let dto = try decode(BlockVendorDTO.self, payload)
             try await client.from(item.table)
-                .delete()
+                .update(patch)
                 .eq("block_id", value: dto.blockID.uuidString)
                 .eq("event_vendor_id", value: dto.eventVendorID.uuidString)
                 .execute()
@@ -70,7 +77,7 @@ struct SupabaseOutboxSender: OutboxSending {
             guard let payload = item.payload else { throw OutboxSendError.missingPayload(table: item.table) }
             let dto = try decode(BlockDependencyDTO.self, payload)
             try await client.from(item.table)
-                .delete()
+                .update(patch)
                 .eq("block_id", value: dto.blockID.uuidString)
                 .eq("depends_on_block_id", value: dto.dependsOnBlockID.uuidString)
                 .execute()

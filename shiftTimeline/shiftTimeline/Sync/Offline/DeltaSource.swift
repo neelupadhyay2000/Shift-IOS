@@ -31,8 +31,8 @@ nonisolated struct SupabaseDeltaSource: DeltaSource {
             tracks: try await fetchUpdated("tracks", since: bound, orderBy: "id"),
             blocks: try await fetchUpdated("blocks", since: bound, orderBy: "id"),
             vendors: try await fetchUpdated("event_vendors", since: bound, orderBy: "id"),
-            blockVendors: try await fetchCreated("block_vendors", since: bound, orderBy: "block_id", "event_vendor_id"),
-            blockDependencies: try await fetchCreated("block_dependencies", since: bound, orderBy: "block_id", "depends_on_block_id"),
+            blockVendors: try await fetchChangedJunction("block_vendors", since: bound, orderBy: "block_id", "event_vendor_id"),
+            blockDependencies: try await fetchChangedJunction("block_dependencies", since: bound, orderBy: "block_id", "depends_on_block_id"),
             shiftRecords: try await fetchUpdated("shift_records", since: bound, orderBy: "id")
         )
     }
@@ -54,16 +54,16 @@ nonisolated struct SupabaseDeltaSource: DeltaSource {
     }
 
     /// Junction tables have no `updated_at` — they're immutable rows that are
-    /// created or (with SHIFT-606's soft-delete) tombstoned. Here we pull rows
-    /// created since the watermark: new assignments/dependencies. Removal
-    /// propagation arrives with SHIFT-606 — extend this to also match
-    /// `deleted_at > since`.
-    private func fetchCreated<Row: Decodable>(
+    /// created or (SHIFT-618) soft-deleted. Pull rows whose `created_at` OR
+    /// `deleted_at` is past the watermark: new assignments/dependencies AND
+    /// removals (tombstones). The applier turns a `deleted_at` junction into an
+    /// unassign/remove-dependency, so offline removals propagate on reconnect.
+    private func fetchChangedJunction<Row: Decodable>(
         _ table: String, since: String?, orderBy first: String, _ rest: String...
     ) async throws -> [Row] {
         try await paginate(pageSize: pageSize) { from, to in
             let selected = self.client.from(table).select()
-            let bounded = since.map { selected.gt("created_at", value: $0) } ?? selected
+            let bounded = since.map { selected.or("created_at.gt.\($0),deleted_at.gt.\($0)") } ?? selected
             var query = bounded.order(first)
             for column in rest { query = query.order(column) }
             return try await query.range(from: from, to: to).execute().value
