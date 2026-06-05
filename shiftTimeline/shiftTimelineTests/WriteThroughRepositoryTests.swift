@@ -22,11 +22,17 @@ final class RemoteSpy {
     var addedDependencies: [(block: UUID, dependency: UUID)] = []
 }
 
+enum SpyRemoteError: Error { case boom }
+
 @MainActor
 private final class SpyEventRepository: EventRepositing {
     let spy: RemoteSpy
+    var failInsert = false
     init(_ spy: RemoteSpy) { self.spy = spy }
-    func insert(_ event: EventModel) async throws { spy.insertedEvents.append(event.id) }
+    func insert(_ event: EventModel) async throws {
+        if failInsert { throw SpyRemoteError.boom }
+        spy.insertedEvents.append(event.id)
+    }
     func fetch(id: UUID) async throws -> EventModel? { nil }
     func fetchAll() async throws -> [EventModel] { [] }
     func delete(_ event: EventModel) async throws { spy.deletedEvents.append(event.id) }
@@ -94,8 +100,10 @@ private struct SpyRepositoryProvider: RepositoryProviding {
     let blocks: any BlockRepositing
     let vendors: any VendorRepositing
     let shiftRecords: any ShiftRecordRepositing
-    init(spy: RemoteSpy) {
-        events = SpyEventRepository(spy)
+    init(spy: RemoteSpy, failEventInsert: Bool = false) {
+        let eventRepo = SpyEventRepository(spy)
+        eventRepo.failInsert = failEventInsert
+        events = eventRepo
         tracks = SpyTrackRepository(spy)
         blocks = SpyBlockRepository(spy)
         vendors = SpyVendorRepository(spy)
@@ -236,5 +244,39 @@ struct WriteThroughRepositoryTests {
         try await stack.provider.shiftRecords.save()
 
         #expect(stack.spy.insertedShiftRecords.contains(record.id))
+    }
+
+    @Test("a remote write failure is recorded in diagnostics and never silently dropped")
+    func remoteFailureRecorded() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        context.autosaveEnabled = false
+        let suite = "shift.diagnostics.test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let diagnostics = SyncDiagnosticsCenter(defaults: defaults, storageKey: "events", maxEvents: 100)
+        let provider = WriteThroughRepositoryProvider(
+            context: context,
+            local: SwiftDataRepositoryProvider(context: context),
+            remote: SpyRepositoryProvider(spy: RemoteSpy(), failEventInsert: true),
+            diagnostics: diagnostics
+        )
+
+        let event = EventModel(title: "Wedding", date: fixedTimestamp, latitude: 0, longitude: 0)
+        // Local-first: this must NOT throw even though the remote write fails.
+        try await provider.events.insert(event)
+
+        // The local write still landed.
+        #expect(try await provider.events.fetch(id: event.id) != nil)
+
+        // The remote failure is recorded — visible, not silently dropped.
+        let recorded = try #require(
+            diagnostics.events.first { $0.name == "remoteWriteFailed" }
+        )
+        #expect(recorded.severity == .error)
+        #expect(recorded.category == .push)
+        #expect(recorded.params["op"] == "insert")
+        #expect(recorded.params["table"] == "events")
+        #expect(recorded.params["id"] == event.id.uuidString)
     }
 }
