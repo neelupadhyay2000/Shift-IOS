@@ -1,12 +1,22 @@
 import Supabase
 
-/// One realtime row change for a specific table, as delivered by Supabase
-/// Realtime over an event's channel.
+/// One realtime row change for a specific table, normalized from the Supabase
+/// `AnyAction`.
 ///
-/// `action` is `.insert` / `.update` / `.delete`; the row payload lives on it
-/// (`record` for insert/update, `oldRecord` for delete). SHIFT-597 decodes that
-/// payload into a DTO and applies it to SwiftData on the main actor.
-nonisolated struct RealtimeChange {
-    let table: String
-    let action: AnyAction
+/// INSERT and UPDATE both become `upsert` (apply the new `record`); DELETE
+/// carries the `oldRecord` (its primary-key columns). Carrying the raw
+/// `JSONObject` — rather than the SDK's `AnyAction` — keeps the apply layer
+/// (SHIFT-597) decode-driven and unit-testable. The `record` is decoded into a
+/// DTO and applied to SwiftData on the main actor.
+nonisolated enum RealtimeChange {
+    case upsert(table: String, record: JSONObject)
+    case delete(table: String, oldRecord: JSONObject)
+
+    /// The affected table.
+    var table: String {
+        switch self {
+        case let .upsert(table, _): return table
+        case let .delete(table, _): return table
+        }
+    }
 }

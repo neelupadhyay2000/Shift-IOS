@@ -53,7 +53,7 @@ nonisolated struct RealtimeSyncService {
             return AsyncStream { continuation in
                 let task = Task {
                     for await action in actions {
-                        continuation.yield(RealtimeChange(table: table, action: action))
+                        continuation.yield(Self.change(from: action, table: table))
                     }
                     continuation.finish()
                 }
@@ -66,7 +66,7 @@ nonisolated struct RealtimeSyncService {
         // Subscribe once all bindings are registered; forward the merged stream
         // to the consumer; unsubscribe on teardown.
         return AsyncStream { continuation in
-            let subscribeTask = Task { await channel.subscribe() }
+            let subscribeTask = Task { try? await channel.subscribeWithError() }
             let forwardTask = Task {
                 for await change in merged {
                     continuation.yield(change)
@@ -78,6 +78,16 @@ nonisolated struct RealtimeSyncService {
                 forwardTask.cancel()
                 Task { await channel.unsubscribe() }
             }
+        }
+    }
+
+    /// Normalizes a Supabase `AnyAction` into a ``RealtimeChange`` for `table`.
+    /// INSERT/UPDATE carry the new row; DELETE carries the old row's keys.
+    static func change(from action: AnyAction, table: String) -> RealtimeChange {
+        switch action {
+        case let .insert(insert): return .upsert(table: table, record: insert.record)
+        case let .update(update): return .upsert(table: table, record: update.record)
+        case let .delete(delete): return .delete(table: table, oldRecord: delete.oldRecord)
         }
     }
 }

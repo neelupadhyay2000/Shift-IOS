@@ -1,0 +1,260 @@
+import Foundation
+import Models
+import Services
+import SwiftData
+import Supabase
+
+/// Applies realtime row changes to the local SwiftData store on the main actor,
+/// so `@Query`-driven views update live.
+///
+/// INSERT/UPDATE → **upsert by id** (find-or-create, apply scalars, wire the
+/// parent relationship); DELETE → remove the local row. A row whose decoded DTO
+/// carries `deleted_at` is treated as a delete (soft-delete tombstone arriving
+/// as an UPDATE). Junction tables apply as incremental add/remove rather than a
+/// row upsert. Each change is saved immediately so the UI reflects it at once.
+@MainActor
+struct RealtimeChangeApplier {
+    private let context: ModelContext
+    private let decoder: JSONDecoder
+    private let diagnostics: SyncDiagnosticsCenter
+
+    init(
+        context: ModelContext,
+        decoder: JSONDecoder = JSONDecoder(),
+        diagnostics: SyncDiagnosticsCenter = .shared
+    ) {
+        self.context = context
+        self.decoder = decoder
+        self.diagnostics = diagnostics
+    }
+
+    /// Consumes the realtime stream, applying each change on the main actor.
+    /// A failed row is recorded to diagnostics and skipped so it doesn't stall
+    /// the stream.
+    func apply(_ changes: AsyncStream<RealtimeChange>) async {
+        for await change in changes {
+            do {
+                try apply(change)
+            } catch {
+                diagnostics.record(
+                    .merge, "realtimeApplyFailed",
+                    params: ["table": change.table, "error": String(describing: error)],
+                    severity: .error
+                )
+            }
+        }
+    }
+
+    /// Applies a single change and saves.
+    func apply(_ change: RealtimeChange) throws {
+        switch change {
+        case let .upsert(table, record):
+            try applyUpsert(table: table, record: record)
+        case let .delete(table, oldRecord):
+            try applyDelete(table: table, oldRecord: oldRecord)
+        }
+        try context.save()
+    }
+
+    // MARK: - Upsert (insert / update)
+
+    private func applyUpsert(table: String, record: JSONObject) throws {
+        switch table {
+        case "events":
+            let dto = try decode(EventDTO.self, record)
+            if dto.deletedAt != nil { try deleteEvent(id: dto.id) } else { try upsertEvent(dto) }
+        case "tracks":
+            let dto = try decode(TrackDTO.self, record)
+            if dto.deletedAt != nil { try deleteTrack(id: dto.id) } else { try upsertTrack(dto) }
+        case "blocks":
+            let dto = try decode(BlockDTO.self, record)
+            if dto.deletedAt != nil { try deleteBlock(id: dto.id) } else { try upsertBlock(dto) }
+        case "event_vendors":
+            let dto = try decode(EventVendorDTO.self, record)
+            if dto.deletedAt != nil { try deleteVendor(id: dto.id) } else { try upsertVendor(dto) }
+        case "shift_records":
+            let dto = try decode(ShiftRecordDTO.self, record)
+            if dto.deletedAt != nil { try deleteShiftRecord(id: dto.id) } else { try upsertShiftRecord(dto) }
+        case "block_vendors":
+            let dto = try decode(BlockVendorDTO.self, record)
+            if dto.deletedAt != nil {
+                try unassign(blockID: dto.blockID, vendorID: dto.eventVendorID)
+            } else {
+                try assign(blockID: dto.blockID, vendorID: dto.eventVendorID)
+            }
+        case "block_dependencies":
+            let dto = try decode(BlockDependencyDTO.self, record)
+            if dto.deletedAt != nil {
+                try removeDependency(blockID: dto.blockID, dependsOnID: dto.dependsOnBlockID)
+            } else {
+                try addDependency(blockID: dto.blockID, dependsOnID: dto.dependsOnBlockID)
+            }
+        default:
+            break
+        }
+    }
+
+    private func upsertEvent(_ dto: EventDTO) throws {
+        let model = try existingEvent(id: dto.id) ?? insert(dto.makeModel())
+        dto.apply(to: model)
+    }
+
+    private func upsertTrack(_ dto: TrackDTO) throws {
+        let model = try existingTrack(id: dto.id) ?? insert(dto.makeModel())
+        dto.apply(to: model)
+        if let event = try existingEvent(id: dto.eventID) {
+            dto.linkRelationships(model, events: [event.id: event])
+        }
+    }
+
+    private func upsertBlock(_ dto: BlockDTO) throws {
+        let model = try existingBlock(id: dto.id) ?? insert(dto.makeModel())
+        dto.apply(to: model)
+        if let track = try existingTrack(id: dto.trackID) {
+            dto.linkParent(model, tracks: [track.id: track])
+        }
+    }
+
+    private func upsertVendor(_ dto: EventVendorDTO) throws {
+        let model = try existingVendor(id: dto.id) ?? insert(dto.makeModel())
+        dto.apply(to: model)
+        if let event = try existingEvent(id: dto.eventID) {
+            dto.linkRelationships(model, events: [event.id: event])
+        }
+    }
+
+    private func upsertShiftRecord(_ dto: ShiftRecordDTO) throws {
+        let model = try existingShiftRecord(id: dto.id) ?? insert(dto.makeModel())
+        dto.apply(to: model)
+        var events: [UUID: EventModel] = [:]
+        if let event = try existingEvent(id: dto.eventID) { events[event.id] = event }
+        var blocks: [UUID: TimeBlockModel] = [:]
+        if let sourceID = dto.sourceBlockID, let block = try existingBlock(id: sourceID) {
+            blocks[block.id] = block
+        }
+        dto.linkRelationships(model, events: events, blocks: blocks)
+    }
+
+    // MARK: - Delete
+
+    private func applyDelete(table: String, oldRecord: JSONObject) throws {
+        switch table {
+        case "events":
+            if let id = uuid(oldRecord, "id") { try deleteEvent(id: id) }
+        case "tracks":
+            if let id = uuid(oldRecord, "id") { try deleteTrack(id: id) }
+        case "blocks":
+            if let id = uuid(oldRecord, "id") { try deleteBlock(id: id) }
+        case "event_vendors":
+            if let id = uuid(oldRecord, "id") { try deleteVendor(id: id) }
+        case "shift_records":
+            if let id = uuid(oldRecord, "id") { try deleteShiftRecord(id: id) }
+        case "block_vendors":
+            if let block = uuid(oldRecord, "block_id"), let vendor = uuid(oldRecord, "event_vendor_id") {
+                try unassign(blockID: block, vendorID: vendor)
+            }
+        case "block_dependencies":
+            if let block = uuid(oldRecord, "block_id"), let dependsOn = uuid(oldRecord, "depends_on_block_id") {
+                try removeDependency(blockID: block, dependsOnID: dependsOn)
+            }
+        default:
+            break
+        }
+    }
+
+    private func deleteEvent(id: UUID) throws {
+        if let model = try existingEvent(id: id) { context.delete(model) }
+    }
+
+    private func deleteTrack(id: UUID) throws {
+        if let model = try existingTrack(id: id) { context.delete(model) }
+    }
+
+    private func deleteBlock(id: UUID) throws {
+        if let model = try existingBlock(id: id) { context.delete(model) }
+    }
+
+    private func deleteVendor(id: UUID) throws {
+        if let model = try existingVendor(id: id) { context.delete(model) }
+    }
+
+    private func deleteShiftRecord(id: UUID) throws {
+        if let model = try existingShiftRecord(id: id) { context.delete(model) }
+    }
+
+    // MARK: - Junction relationships
+
+    private func assign(blockID: UUID, vendorID: UUID) throws {
+        guard let block = try existingBlock(id: blockID),
+              let vendor = try existingVendor(id: vendorID) else { return }
+        var vendors = block.vendors ?? []
+        guard !vendors.contains(where: { $0.id == vendorID }) else { return }
+        vendors.append(vendor)
+        block.vendors = vendors
+    }
+
+    private func unassign(blockID: UUID, vendorID: UUID) throws {
+        guard let block = try existingBlock(id: blockID) else { return }
+        block.vendors?.removeAll { $0.id == vendorID }
+    }
+
+    private func addDependency(blockID: UUID, dependsOnID: UUID) throws {
+        guard let block = try existingBlock(id: blockID),
+              let dependency = try existingBlock(id: dependsOnID) else { return }
+        var dependencies = block.dependencies ?? []
+        guard !dependencies.contains(where: { $0.id == dependsOnID }) else { return }
+        dependencies.append(dependency)
+        block.dependencies = dependencies
+    }
+
+    private func removeDependency(blockID: UUID, dependsOnID: UUID) throws {
+        guard let block = try existingBlock(id: blockID) else { return }
+        block.dependencies?.removeAll { $0.id == dependsOnID }
+    }
+
+    // MARK: - Lookups & helpers
+
+    private func decode<Row: Decodable>(_ type: Row.Type, _ record: JSONObject) throws -> Row {
+        try record.decode(as: Row.self, decoder: decoder)
+    }
+
+    private func uuid(_ record: JSONObject, _ key: String) -> UUID? {
+        record[key]?.stringValue.flatMap(UUID.init(uuidString:))
+    }
+
+    @discardableResult
+    private func insert<Model: PersistentModel>(_ model: Model) -> Model {
+        context.insert(model)
+        return model
+    }
+
+    private func existingEvent(id: UUID) throws -> EventModel? {
+        var descriptor = FetchDescriptor<EventModel>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
+    private func existingTrack(id: UUID) throws -> TimelineTrack? {
+        var descriptor = FetchDescriptor<TimelineTrack>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
+    private func existingBlock(id: UUID) throws -> TimeBlockModel? {
+        var descriptor = FetchDescriptor<TimeBlockModel>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
+    private func existingVendor(id: UUID) throws -> VendorModel? {
+        var descriptor = FetchDescriptor<VendorModel>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
+    private func existingShiftRecord(id: UUID) throws -> ShiftRecord? {
+        var descriptor = FetchDescriptor<ShiftRecord>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+}
