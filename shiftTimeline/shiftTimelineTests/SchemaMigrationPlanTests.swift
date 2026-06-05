@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV12() {
+    @Test func latestSchemaVersionIsV13() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 12, "Latest schema must be V12 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 13, "Latest schema must be V13 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V11 → V12 plan continuity
+    // MARK: - V12 → V13 plan continuity
 
-    @Test func planExposesTwelveSchemasAndElevenStages() {
+    @Test func planExposesThirteenSchemasAndTwelveStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 12,
-            "Expected schemas [V1 … V12] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 13,
+            "Expected schemas [V1 … V13] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 11,
-            "Expected 11 lightweight stages (V1→V2 … V11→V12) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 12,
+            "Expected 12 lightweight stages (V1→V2 … V12→V13) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV12() {
+    @Test func schemasAreOrderedV1ThroughV13() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -214,6 +214,51 @@ struct SchemaMigrationPlanTests {
         #expect(saved.operation == "update")
         #expect(saved.attempts == 2)
         #expect(saved.payload == payload)
+    }
+
+    /// Lightweight V12 → V13 migration adds `OutboxEntry.sequence`. Verify it
+    /// defaults to `0` for unassigned rows, round-trips an explicit value, and
+    /// that fetching ordered by `sequence` yields a deterministic FIFO order
+    /// (the causality guarantee the offline SyncEngine relies on).
+    @Test @MainActor func freshContainerWithV13PlanRoundTripsOutboxSequence() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        // Default: sequence is 0 for an unassigned entry.
+        let unassigned = OutboxEntry(tableName: "events", rowID: UUID(), operation: "insert")
+        context.insert(unassigned)
+        try context.save()
+        #expect(unassigned.sequence == 0)
+
+        context.delete(unassigned)
+        try context.save()
+
+        // Insert entries out of createdAt/insertion order but with explicit
+        // sequences, then assert the sequence sort yields parent-before-child order.
+        let parentID = UUID()
+        let childID = UUID()
+        let child = OutboxEntry(sequence: 2, tableName: "tracks", rowID: childID, operation: "insert")
+        let parent = OutboxEntry(sequence: 1, tableName: "events", rowID: parentID, operation: "insert")
+        context.insert(child)
+        context.insert(parent)
+        try context.save()
+
+        let ordered = try context.fetch(
+            FetchDescriptor<OutboxEntry>(sortBy: [SortDescriptor(\.sequence)])
+        )
+        #expect(ordered.map(\.sequence) == [1, 2])
+        #expect(ordered.map(\.rowID) == [parentID, childID])
+        #expect(ordered.first?.tableName == "events")
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`
