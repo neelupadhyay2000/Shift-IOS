@@ -3,14 +3,21 @@ import Models
 
 @MainActor
 extension TimeBlockModel {
-    /// Projects this block to its wire form.
+    /// Projects this block to its wire form, reading `track_id` / `event_id`
+    /// from the graph.
     /// - Throws: `ModelMappingError.missingTrack` / `.missingEvent` if detached.
     func toDTO() throws -> BlockDTO {
         guard let track else { throw ModelMappingError.missingTrack }
         guard let eventID = track.event?.id else { throw ModelMappingError.missingEvent }
-        return BlockDTO(
+        return toDTO(trackID: track.id, eventID: eventID)
+    }
+
+    /// Projects this block using explicitly supplied parent ids — used by the
+    /// remote repository, which already knows the owning track and event.
+    func toDTO(trackID: UUID, eventID: UUID) -> BlockDTO {
+        BlockDTO(
             id: id,
-            trackID: track.id,
+            trackID: trackID,
             eventID: eventID,
             title: title,
             scheduledStart: PostgresTimestamp(scheduledStart),

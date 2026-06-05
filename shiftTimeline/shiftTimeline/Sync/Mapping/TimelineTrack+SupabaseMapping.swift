@@ -3,11 +3,17 @@ import Models
 
 @MainActor
 extension TimelineTrack {
-    /// Projects this track to its wire form.
+    /// Projects this track to its wire form, reading `event_id` from the graph.
     /// - Throws: `ModelMappingError.missingEvent` if the track is detached.
     func toDTO() throws -> TrackDTO {
         guard let eventID = event?.id else { throw ModelMappingError.missingEvent }
-        return TrackDTO(
+        return toDTO(eventID: eventID)
+    }
+
+    /// Projects this track using an explicitly supplied `event_id` — used by the
+    /// remote repository, which already knows the owning event.
+    func toDTO(eventID: UUID) -> TrackDTO {
+        TrackDTO(
             id: id,
             eventID: eventID,
             name: name,
