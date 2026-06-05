@@ -12,7 +12,13 @@ extension VendorModel {
     /// - Throws: `ModelMappingError.missingEvent` if the vendor is detached.
     func toDTO() throws -> EventVendorDTO {
         guard let eventID = event?.id else { throw ModelMappingError.missingEvent }
-        return EventVendorDTO(
+        return toDTO(eventID: eventID)
+    }
+
+    /// Projects this vendor using an explicitly supplied `event_id` — used by the
+    /// remote repository, which already knows the owning event.
+    func toDTO(eventID: UUID) -> EventVendorDTO {
+        EventVendorDTO(
             id: id,
             eventID: eventID,
             profileID: nil,
