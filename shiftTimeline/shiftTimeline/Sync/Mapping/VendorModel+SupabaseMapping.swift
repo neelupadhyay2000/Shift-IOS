@@ -60,6 +60,7 @@ extension EventVendorDTO {
         model.hasAcknowledgedLatestShift = hasAcknowledgedLatestShift
         model.pendingShiftDelta = pendingShiftDelta
         model.invitedAt = invitedAt?.value
+        model.updatedAt = updatedAt?.value
     }
 
     /// Wires the parent relationship by resolving `event_id` against `events`.

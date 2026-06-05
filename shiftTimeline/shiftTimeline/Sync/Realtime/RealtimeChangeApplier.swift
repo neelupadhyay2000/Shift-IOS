@@ -120,12 +120,16 @@ struct RealtimeChangeApplier {
     }
 
     private func upsertEvent(_ dto: EventDTO) throws {
-        let model = try existingEvent(id: dto.id) ?? insert(dto.makeModel())
+        let existing = try existingEvent(id: dto.id)
+        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
     }
 
     private func upsertTrack(_ dto: TrackDTO) throws {
-        let model = try existingTrack(id: dto.id) ?? insert(dto.makeModel())
+        let existing = try existingTrack(id: dto.id)
+        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let event = try existingEvent(id: dto.eventID) {
             dto.linkRelationships(model, events: [event.id: event])
@@ -133,7 +137,9 @@ struct RealtimeChangeApplier {
     }
 
     private func upsertBlock(_ dto: BlockDTO) throws {
-        let model = try existingBlock(id: dto.id) ?? insert(dto.makeModel())
+        let existing = try existingBlock(id: dto.id)
+        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let track = try existingTrack(id: dto.trackID) {
             dto.linkParent(model, tracks: [track.id: track])
@@ -141,7 +147,13 @@ struct RealtimeChangeApplier {
     }
 
     private func upsertVendor(_ dto: EventVendorDTO) throws {
-        let model = try existingVendor(id: dto.id) ?? insert(dto.makeModel())
+        // Vendor ack (and the rest of the row) is last-write-wins by server
+        // `updated_at` (SHIFT-616): a stale version — e.g. a vendor's own ack
+        // arriving after the planner's newer reset — is skipped rather than
+        // clobbering the current state, so ack and edits never ping-pong.
+        let existing = try existingVendor(id: dto.id)
+        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let event = try existingEvent(id: dto.eventID) {
             dto.linkRelationships(model, events: [event.id: event])
@@ -158,6 +170,19 @@ struct RealtimeChangeApplier {
             blocks[block.id] = block
         }
         dto.linkRelationships(model, events: events, blocks: blocks)
+    }
+
+    /// Last-write-wins (SHIFT-605): apply a remote row only when it isn't older
+    /// than the local version. `incoming`/`current` are server `updated_at`s; a
+    /// `nil` on either side (no known server time) applies — there's no basis to
+    /// call it stale. Equal versions are skipped so a re-delivery or self-echo
+    /// can't clobber a local edit made on top of that same version. Combined with
+    /// the planner-authoritative rule (only the owner can write timeline data,
+    /// enforced by RLS), this converges the owner's own devices on the newest
+    /// server write regardless of arrival order.
+    private func shouldApply(incoming: Date?, onto current: Date?) -> Bool {
+        guard let incoming, let current else { return true }
+        return incoming > current
     }
 
     // MARK: - Delete

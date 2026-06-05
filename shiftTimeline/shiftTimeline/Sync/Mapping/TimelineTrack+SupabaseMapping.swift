@@ -41,6 +41,7 @@ extension TrackDTO {
         model.name = name
         model.sortOrder = sortOrder
         model.isDefault = isDefault
+        model.updatedAt = updatedAt?.value
     }
 
     /// Wires the parent relationship by resolving `event_id` against `events`.

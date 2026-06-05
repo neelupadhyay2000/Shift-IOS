@@ -40,6 +40,10 @@ public final class TimeBlockModel {
     public var completedTime: Date?
     public var track: TimelineTrack?
 
+    /// Server `updated_at` of the last remote version applied to this row — the
+    /// basis for last-write-wins conflict resolution (see `EventModel.updatedAt`).
+    public var updatedAt: Date?
+
     @Relationship(deleteRule: .nullify, inverse: \ShiftRecord.sourceBlock)
     public var shiftRecords: [ShiftRecord]?
 

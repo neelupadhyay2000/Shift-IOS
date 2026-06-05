@@ -121,6 +121,7 @@ extension BlockDTO {
         model.blockLongitude = blockLongitude ?? 0
         model.isTransitBlock = isTransitBlock
         model.completedTime = completedTime?.value
+        model.updatedAt = updatedAt?.value
     }
 
     /// Wires the parent relationship by resolving `track_id` against `tracks`.
