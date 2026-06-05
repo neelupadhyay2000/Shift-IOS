@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV13() {
+    @Test func latestSchemaVersionIsV14() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 13, "Latest schema must be V13 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 14, "Latest schema must be V14 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V12 → V13 plan continuity
+    // MARK: - V13 → V14 plan continuity
 
-    @Test func planExposesThirteenSchemasAndTwelveStages() {
+    @Test func planExposesFourteenSchemasAndThirteenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 13,
-            "Expected schemas [V1 … V13] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 14,
+            "Expected schemas [V1 … V14] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 12,
-            "Expected 12 lightweight stages (V1→V2 … V12→V13) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 13,
+            "Expected 13 lightweight stages (V1→V2 … V13→V14) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV13() {
+    @Test func schemasAreOrderedV1ThroughV14() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -259,6 +259,53 @@ struct SchemaMigrationPlanTests {
         #expect(ordered.map(\.sequence) == [1, 2])
         #expect(ordered.map(\.rowID) == [parentID, childID])
         #expect(ordered.first?.tableName == "events")
+    }
+
+    /// Lightweight V13 → V14 migration adds `updatedAt` to the four mutable
+    /// synced models. Verify it defaults `nil` for a locally-created row and
+    /// round-trips an explicit server timestamp.
+    @Test @MainActor func freshContainerWithV14PlanRoundTripsUpdatedAt() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "E", date: .distantPast, latitude: 0, longitude: 0)
+        #expect(event.updatedAt == nil) // a locally-created row has no server time yet
+
+        let t = Date(timeIntervalSince1970: 1_780_000_000)
+        event.updatedAt = t
+        context.insert(event)
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0)
+        track.updatedAt = t
+        track.event = event
+        context.insert(track)
+
+        let block = TimeBlockModel(title: "B", scheduledStart: .distantPast, duration: 60)
+        block.updatedAt = t
+        block.track = track
+        context.insert(block)
+
+        let vendor = VendorModel(name: "DJ", role: .dj)
+        vendor.updatedAt = t
+        vendor.event = event
+        context.insert(vendor)
+
+        try context.save()
+
+        #expect(try context.fetch(FetchDescriptor<EventModel>()).first?.updatedAt == t)
+        #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).first?.updatedAt == t)
+        #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).first?.updatedAt == t)
+        #expect(try context.fetch(FetchDescriptor<VendorModel>()).first?.updatedAt == t)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

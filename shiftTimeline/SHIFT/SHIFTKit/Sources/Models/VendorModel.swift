@@ -19,6 +19,10 @@ public final class VendorModel {
     public var invitedAt: Date?
     public var event: EventModel?
 
+    /// Server `updated_at` of the last remote version applied to this row — the
+    /// basis for last-write-wins conflict resolution (see `EventModel.updatedAt`).
+    public var updatedAt: Date?
+
     @Relationship(deleteRule: .nullify)
     public var assignedBlocks: [TimeBlockModel]?
 

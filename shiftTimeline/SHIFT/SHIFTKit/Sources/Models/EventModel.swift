@@ -44,6 +44,13 @@ public final class EventModel {
         }
     }
 
+    /// Server `updated_at` of the last remote version applied to this row — the
+    /// basis for last-write-wins conflict resolution. `nil` for a row created
+    /// locally that has never been reconciled with the server. Set by the
+    /// Supabase mapping when a fetched/realtime/delta row is applied; never
+    /// touched by local edits, so it stays the version a local edit is based on.
+    public var updatedAt: Date?
+
     @Relationship(deleteRule: .cascade, inverse: \TimelineTrack.event)
     public var tracks: [TimelineTrack]?
 

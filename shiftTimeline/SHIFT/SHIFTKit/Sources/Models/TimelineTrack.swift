@@ -12,6 +12,10 @@ public final class TimelineTrack {
     public var isDefault: Bool = false
     public var event: EventModel?
 
+    /// Server `updated_at` of the last remote version applied to this row — the
+    /// basis for last-write-wins conflict resolution (see `EventModel.updatedAt`).
+    public var updatedAt: Date?
+
     @Relationship(deleteRule: .cascade, inverse: \TimeBlockModel.track)
     public var blocks: [TimeBlockModel]?
 
