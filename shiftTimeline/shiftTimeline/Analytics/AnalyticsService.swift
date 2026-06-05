@@ -24,18 +24,15 @@ nonisolated enum AnalyticsService {
         case purchaseCompleted
         case sessionCompleted
 
-        // Sync/share diagnostics — one signal per funnel stage so the
-        // planner→vendor pipeline is traceable in the TelemetryDeck dashboard.
-        case syncMirror
-        case syncIdentity
-        case syncAccount
-        case syncSubscription
-        case syncShareCreate
-        case syncParentRepair
-        case syncShareAccept
+        // Supabase sync funnel — one signal per stage so the sync pipeline is
+        // traceable in the TelemetryDeck dashboard.
+        case syncAuth
+        case syncConnect
+        case syncSubscribe
         case syncFetch
-        case syncMerge
+        case syncApplyRemote
         case syncPush
+        case syncConflict
         case syncNotify
     }
 
@@ -68,16 +65,13 @@ nonisolated enum AnalyticsService {
 private extension DiagnosticEvent.Category {
     nonisolated var signal: AnalyticsService.Signal {
         switch self {
-        case .mirror: return .syncMirror
-        case .identity: return .syncIdentity
-        case .account: return .syncAccount
-        case .subscription: return .syncSubscription
-        case .shareCreate: return .syncShareCreate
-        case .parentRepair: return .syncParentRepair
-        case .shareAccept: return .syncShareAccept
+        case .auth: return .syncAuth
+        case .connect: return .syncConnect
+        case .subscribe: return .syncSubscribe
         case .fetch: return .syncFetch
-        case .merge: return .syncMerge
+        case .applyRemote: return .syncApplyRemote
         case .push: return .syncPush
+        case .conflict: return .syncConflict
         case .notify: return .syncNotify
         }
     }

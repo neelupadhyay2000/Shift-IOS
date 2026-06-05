@@ -47,7 +47,7 @@ struct RealtimeChangeApplier {
                 try apply(change)
             } catch {
                 diagnostics.record(
-                    .merge, "realtimeApplyFailed",
+                    .applyRemote, "realtimeApplyFailed",
                     params: ["table": change.table, "error": String(describing: error)],
                     severity: .error
                 )

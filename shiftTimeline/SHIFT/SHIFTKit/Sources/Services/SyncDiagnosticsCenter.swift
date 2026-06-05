@@ -1,28 +1,33 @@
 import Foundation
 import os
 
-/// A single structured diagnostic event in the share/sync funnel.
+/// A single structured diagnostic event in the Supabase sync funnel.
 ///
-/// Recorded by every stage (share creation, parent-field repair, share
-/// acceptance, zone fetch, record merge, silent push, vendor notification)
-/// so the planner→vendor pipeline can be traced end-to-end on-device and in
-/// TelemetryDeck without a cable.
+/// Recorded by every stage (auth, realtime connect/subscribe, fetch/hydration,
+/// applying remote changes, pushing local writes, conflict resolution) so the
+/// sync pipeline can be traced end-to-end on-device and in TelemetryDeck
+/// without a cable.
 public struct DiagnosticEvent: Sendable, Codable, Equatable, Identifiable {
 
     /// The funnel stage this event belongs to. Used to group/filter in the UI
     /// and to map to a TelemetryDeck signal in the app-layer bridge.
     public enum Category: String, Sendable, Codable, CaseIterable {
-        case mirror        // store / sync health at launch
-        case identity      // user identity fetch
-        case account       // account status
-        case subscription  // push subscription registration
-        case shareCreate   // share creation
-        case parentRepair  // share hierarchy repair
-        case shareAccept   // share acceptance
-        case fetch         // remote change fetch
-        case merge         // record import into SwiftData
-        case push          // push / poll tick
-        case notify        // vendor shift local notification
+        /// Supabase Auth: sign-in (Apple / phone OTP), session restore & refresh.
+        case auth
+        /// Realtime socket connection.
+        case connect
+        /// Realtime channel subscription, per active event.
+        case subscribe
+        /// Initial or delta hydration fetch from Postgres.
+        case fetch
+        /// Applying a remote change (realtime or fetched) into SwiftData.
+        case applyRemote
+        /// Pushing a local write through to Supabase.
+        case push
+        /// Conflict resolution between local and remote state.
+        case conflict
+        /// Vendor shift local notification — retained; not part of the sync funnel.
+        case notify
     }
 
     public enum Severity: String, Sendable, Codable {

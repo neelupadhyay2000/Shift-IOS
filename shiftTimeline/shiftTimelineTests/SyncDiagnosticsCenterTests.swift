@@ -25,8 +25,8 @@ import Services
     @Test func recordsNewestFirst() {
         let (center, _, _) = makeCenter()
 
-        center.record(.shareCreate, "started")
-        center.record(.shareCreate, "succeeded")
+        center.record(.subscribe, "started")
+        center.record(.subscribe, "succeeded")
 
         #expect(center.events.count == 2)
         #expect(center.events.first?.name == "succeeded")
@@ -48,7 +48,7 @@ import Services
     @Test func persistsAcrossInstancesViaInjectedDefaults() {
         let (center, defaults, key) = makeCenter()
 
-        center.record(.merge, "completed", params: ["events": "1", "blocks": "4"])
+        center.record(.applyRemote, "completed", params: ["events": "1", "blocks": "4"])
 
         // A fresh center reading the same defaults must reload the event.
         let reloaded = SyncDiagnosticsCenter(defaults: defaults, storageKey: key, maxEvents: 500)
@@ -60,10 +60,10 @@ import Services
     @Test func exportTextIncludesCategoryNameAndParams() {
         let (center, _, _) = makeCenter()
 
-        center.record(.parentRepair, "skipped", params: ["reason": "notShared"], severity: .warning)
+        center.record(.conflict, "skipped", params: ["reason": "notShared"], severity: .warning)
 
         let text = center.exportText()
-        #expect(text.contains("parentRepair"))
+        #expect(text.contains("conflict"))
         #expect(text.contains("skipped"))
         #expect(text.contains("reason"))
         #expect(text.contains("notShared"))
