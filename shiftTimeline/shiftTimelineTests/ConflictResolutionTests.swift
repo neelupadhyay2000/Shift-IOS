@@ -17,6 +17,7 @@ struct ConflictResolutionTests {
 
     private let t1 = Date(timeIntervalSince1970: 1_780_000_000)
     private let t2 = Date(timeIntervalSince1970: 1_790_000_000)
+    private let t3 = Date(timeIntervalSince1970: 1_800_000_000)
 
     /// Holds the container so it isn't deallocated mid-test (a dropped
     /// `ModelContainer` tears down the store and `context.fetch` then traps).
@@ -26,10 +27,14 @@ struct ConflictResolutionTests {
         let applier: RealtimeChangeApplier
     }
 
-    private func makeStack() throws -> Stack {
+    private func makeStack(echoSuppressor: RealtimeEchoSuppressor? = nil) throws -> Stack {
         let container = try PersistenceController.forTesting()
         let context = container.mainContext
-        return Stack(container: container, context: context, applier: RealtimeChangeApplier(context: context))
+        return Stack(
+            container: container,
+            context: context,
+            applier: RealtimeChangeApplier(context: context, echoSuppressor: echoSuppressor)
+        )
     }
 
     private func eventChange(id: UUID, title: String, updatedAt: Date?) throws -> RealtimeChange {
@@ -60,8 +65,21 @@ struct ConflictResolutionTests {
         return .upsert(table: "blocks", record: try JSONObject(dto))
     }
 
+    private func vendorChange(id: UUID, eventID: UUID, acknowledged: Bool, updatedAt: Date) throws -> RealtimeChange {
+        let dto = EventVendorDTO(
+            id: id, eventID: eventID, displayName: "DJ", role: "dj",
+            notificationThreshold: 600, hasAcknowledgedLatestShift: acknowledged,
+            updatedAt: PostgresTimestamp(updatedAt)
+        )
+        return .upsert(table: "event_vendors", record: try JSONObject(dto))
+    }
+
     private func event(_ context: ModelContext) throws -> EventModel? {
         try context.fetch(FetchDescriptor<EventModel>()).first
+    }
+
+    private func vendor(_ context: ModelContext) throws -> VendorModel? {
+        try context.fetch(FetchDescriptor<VendorModel>()).first
     }
 
     // MARK: - LWW
@@ -132,5 +150,66 @@ struct ConflictResolutionTests {
         let block = try #require(try stack.context.fetch(FetchDescriptor<TimeBlockModel>()).first)
         #expect(block.title == "v2")
         #expect(block.updatedAt == t2)
+    }
+
+    // MARK: - Vendor acknowledgment LWW (SHIFT-616)
+
+    @Test("a vendor's newer ack wins over an older version")
+    func vendorNewerAckWins() throws {
+        let stack = try makeStack()
+        let vendorID = UUID(), eventID = UUID()
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t1))
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t2))
+
+        let vendor = try #require(try vendor(stack.context))
+        #expect(vendor.hasAcknowledgedLatestShift == true)
+        #expect(vendor.updatedAt == t2)
+    }
+
+    @Test("a stale ack can't clobber a newer reset (no ping-pong)")
+    func staleAckDoesNotClobberNewerReset() throws {
+        let stack = try makeStack()
+        let vendorID = UUID(), eventID = UUID()
+        // Planner reset (ack=false) at the newer t2 arrives first…
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t2))
+        // …then the vendor's older ack (ack=true) at t1 arrives late.
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t1))
+
+        let vendor = try #require(try vendor(stack.context))
+        #expect(vendor.hasAcknowledgedLatestShift == false) // newer reset stands
+        #expect(vendor.updatedAt == t2)
+    }
+
+    // MARK: - Echo / origin handling (SHIFT-616)
+
+    @Test("a vendor's own write echo is suppressed even if newer (origin handling)")
+    func vendorSelfEchoSuppressed() throws {
+        let suppressor = RealtimeEchoSuppressor()
+        let stack = try makeStack(echoSuppressor: suppressor)
+        let vendorID = UUID(), eventID = UUID()
+        // Local ack state at t1.
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t1))
+        // This device just wrote that row (its ack).
+        suppressor.recordLocalWrite(table: "event_vendors", id: vendorID)
+
+        // Its own echo comes back with a NEWER updated_at — LWW alone would apply
+        // it, but origin handling recognizes the self-write and skips it, so it
+        // can't ping-pong over local state.
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t3))
+
+        let vendor = try #require(try vendor(stack.context))
+        #expect(vendor.hasAcknowledgedLatestShift == true) // echo suppressed
+    }
+
+    @Test("a planner change to a row this device didn't write still applies")
+    func plannerChangeAppliesWhenNotSelfWritten() throws {
+        let suppressor = RealtimeEchoSuppressor()
+        let stack = try makeStack(echoSuppressor: suppressor)
+        let vendorID = UUID(), eventID = UUID()
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: true, updatedAt: t1))
+        // No recordLocalWrite for this row — a genuine peer change must apply.
+        try stack.applier.apply(vendorChange(id: vendorID, eventID: eventID, acknowledged: false, updatedAt: t2))
+
+        #expect(try vendor(stack.context)?.hasAcknowledgedLatestShift == false)
     }
 }

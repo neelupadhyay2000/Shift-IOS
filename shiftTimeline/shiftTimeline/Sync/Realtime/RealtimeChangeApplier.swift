@@ -147,7 +147,13 @@ struct RealtimeChangeApplier {
     }
 
     private func upsertVendor(_ dto: EventVendorDTO) throws {
-        let model = try existingVendor(id: dto.id) ?? insert(dto.makeModel())
+        // Vendor ack (and the rest of the row) is last-write-wins by server
+        // `updated_at` (SHIFT-616): a stale version — e.g. a vendor's own ack
+        // arriving after the planner's newer reset — is skipped rather than
+        // clobbering the current state, so ack and edits never ping-pong.
+        let existing = try existingVendor(id: dto.id)
+        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let event = try existingEvent(id: dto.eventID) {
             dto.linkRelationships(model, events: [event.id: event])
