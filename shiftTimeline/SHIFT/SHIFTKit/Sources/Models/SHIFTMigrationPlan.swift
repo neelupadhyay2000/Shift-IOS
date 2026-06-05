@@ -19,6 +19,8 @@ import SwiftData
 ///              `EventModel.ownerRecordName`, `EventModel.lastShiftedAt`,
 ///              `VendorModel.cloudKitRecordName` (all `Optional`; lightweight).
 /// - V11 → V12: adds `OutboxEntry` — the local offline write queue for E-SB5.
+/// - V12 → V13: adds `OutboxEntry.sequence` (`Int`, default `0`) — the monotonic
+///              FIFO/causality key for the offline SyncEngine (E13).
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -34,11 +36,11 @@ import SwiftData
 /// silently disables CloudKit mirroring.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12, migrateV12toV13]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -94,5 +96,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV11toV12 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV11.self,
         toVersion: SHIFTSchemaV12.self
+    )
+
+    private static let migrateV12toV13 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV12.self,
+        toVersion: SHIFTSchemaV13.self
     )
 }
