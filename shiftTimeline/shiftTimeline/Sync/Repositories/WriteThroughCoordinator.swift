@@ -22,15 +22,18 @@ final class WriteThroughCoordinator {
     private let context: ModelContext
     private let remote: any RepositoryProviding
     private let diagnostics: SyncDiagnosticsCenter
+    private let echoSuppressor: RealtimeEchoSuppressor?
 
     init(
         context: ModelContext,
         remote: any RepositoryProviding,
-        diagnostics: SyncDiagnosticsCenter = .shared
+        diagnostics: SyncDiagnosticsCenter = .shared,
+        echoSuppressor: RealtimeEchoSuppressor? = nil
     ) {
         self.context = context
         self.remote = remote
         self.diagnostics = diagnostics
+        self.echoSuppressor = echoSuppressor
     }
 
     /// Runs a remote write, recording any failure to diagnostics instead of
@@ -44,6 +47,8 @@ final class WriteThroughCoordinator {
     ) async {
         do {
             try await work()
+            // Remember the write so its realtime echo is recognized and skipped.
+            echoSuppressor?.recordLocalWrite(table: table, id: id)
         } catch {
             var params = detail
             params["op"] = op

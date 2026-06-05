@@ -24,9 +24,15 @@ struct WriteThroughRepositoryProvider: RepositoryProviding {
         context: ModelContext,
         local: any RepositoryProviding,
         remote: any RepositoryProviding,
-        diagnostics: SyncDiagnosticsCenter = .shared
+        diagnostics: SyncDiagnosticsCenter = .shared,
+        echoSuppressor: RealtimeEchoSuppressor? = nil
     ) {
-        let coordinator = WriteThroughCoordinator(context: context, remote: remote, diagnostics: diagnostics)
+        let coordinator = WriteThroughCoordinator(
+            context: context,
+            remote: remote,
+            diagnostics: diagnostics,
+            echoSuppressor: echoSuppressor
+        )
         events = WriteThroughEventRepository(local: local.events, remote: remote.events, coordinator: coordinator)
         tracks = WriteThroughTrackRepository(local: local.tracks, remote: remote.tracks, coordinator: coordinator)
         blocks = WriteThroughBlockRepository(local: local.blocks, remote: remote.blocks, coordinator: coordinator)
