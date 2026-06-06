@@ -141,6 +141,31 @@ struct RealtimeChangeApplierTests {
         #expect(block.vendors?.isEmpty ?? true)
     }
 
+    /// SHIFT-633: a vendor's ack arrives as an `event_vendors` UPDATE; applying it
+    /// flips `has_acknowledged_latest_shift` on the planner's local row (upsert by
+    /// id, no duplicate), which is what drives the planner's ack grid live.
+    @Test("event_vendors UPDATE flips has_acknowledged_latest_shift locally")
+    func appliesVendorAckUpdate() throws {
+        let stack = try makeStack()
+        let vendorID = UUID(), eventID = UUID()
+
+        // Vendor present, not yet acknowledged.
+        try stack.applier.apply(upsert("event_vendors", vendorDTO(id: vendorID, eventID: eventID)))
+        let initial = try #require(stack.context.fetch(FetchDescriptor<VendorModel>()).first)
+        #expect(initial.hasAcknowledgedLatestShift == false)
+
+        // Vendor acknowledges → realtime UPDATE with has_acknowledged_latest_shift = true.
+        let acked = EventVendorDTO(
+            id: vendorID, eventID: eventID, displayName: "DJ", role: "dj",
+            notificationThreshold: 600, hasAcknowledgedLatestShift: true
+        )
+        try stack.applier.apply(upsert("event_vendors", acked))
+
+        let vendors = try stack.context.fetch(FetchDescriptor<VendorModel>())
+        #expect(vendors.count == 1, "Upsert by id — the ack must not create a duplicate row")
+        #expect(vendors.first?.hasAcknowledgedLatestShift == true, "Planner's local vendor reflects the ack")
+    }
+
     // MARK: - Stream loop
 
     @Test("the stream loop applies every change on the main actor")

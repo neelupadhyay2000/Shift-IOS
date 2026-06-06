@@ -7,12 +7,17 @@ import Models
 /// explicitly tap to confirm they've seen the change.
 ///
 /// Tapping sets `hasAcknowledgedLatestShift = true` and clears
-/// `pendingShiftDelta` on the vendor's record, which syncs back to
-/// CloudKit so the planner's acknowledgment grid updates.
+/// `pendingShiftDelta` locally, then writes only `has_acknowledged_latest_shift`
+/// to Supabase (the one column the vendor's RLS policy permits) so the planner's
+/// acknowledgment grid updates (SHIFT-632).
 struct ShiftAcknowledgmentBanner: View {
 
     @Environment(\.modelContext) private var modelContext
     @Bindable var vendor: VendorModel
+
+    private var ackService: VendorAckService {
+        VendorAckService(writer: SupabaseVendorAckWriter(client: SupabaseClientProvider.shared.client))
+    }
 
     private var formattedDelta: String {
         guard let delta = vendor.pendingShiftDelta else { return "" }
@@ -21,11 +26,14 @@ struct ShiftAcknowledgmentBanner: View {
 
     var body: some View {
         Button {
+            let service = ackService
             withAnimation(.easeOut(duration: 0.25)) {
-                vendor.hasAcknowledgedLatestShift = true
-                vendor.pendingShiftDelta = nil
-                try? modelContext.save()
+                service.applyLocalAck(vendor)
             }
+            try? modelContext.save()
+            // Push only the ack column to Supabase; the local state already
+            // reflects it, so a failed push just means the planner sees it later.
+            Task { @MainActor in try? await service.pushAck(vendor) }
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.triangle.2.circlepath")
