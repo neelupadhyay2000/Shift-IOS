@@ -55,10 +55,11 @@ extension EventDTO {
     }
 
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
-    /// `ownerID`, `lastShiftedAt`, and sync metadata have no local column and
-    /// are intentionally not applied.
+    /// `lastShiftedAt` and write-side sync metadata have no local column and are
+    /// intentionally not applied.
     func apply(to model: EventModel) {
         model.id = id
+        model.ownerId = ownerID
         model.title = title
         model.date = date.value
         model.latitude = latitude ?? 0

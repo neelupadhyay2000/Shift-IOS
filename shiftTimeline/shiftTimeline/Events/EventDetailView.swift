@@ -38,7 +38,7 @@ struct EventDetailView: View {
     }
 
     private var isOwner: Bool {
-        true
+        EventAccess.isOwner(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
     }
 
     var body: some View {

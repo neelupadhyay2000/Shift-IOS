@@ -14,6 +14,7 @@ struct EventRosterView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
@@ -127,7 +128,7 @@ struct EventRosterView: View {
                 .accessibilityIdentifier(AccessibilityID.Roster.statusFilter)
 
                 ForEach(filteredEvents) { event in
-                    let isOwner = true
+                    let isOwner = EventAccess.isOwner(ownerId: event.ownerId, currentProfileID: authService.currentProfileID)
                     NavigationLink(value: EventDestination.eventDetail(id: event.id)) {
                         EventRowView(
                             title: event.title,
@@ -226,6 +227,8 @@ enum EventStatusFilter: String, CaseIterable, Identifiable {
     NavigationStack {
         EventRosterView()
     }
+    .environment(SupabaseAuthService())
+    .environment(DeepLinkRouter.shared)
     .modelContainer(previewContainerWithEvents())
 }
 
@@ -233,6 +236,8 @@ enum EventStatusFilter: String, CaseIterable, Identifiable {
     NavigationStack {
         EventRosterView()
     }
+    .environment(SupabaseAuthService())
+    .environment(DeepLinkRouter.shared)
     .modelContainer(try! PersistenceController.forTesting())
 }
 

@@ -87,6 +87,18 @@ struct EventMappingTests {
         #expect(roundTrippedSnapshot == snapshot)
     }
 
+    @Test("inbound: makeModel/apply carries the owner id (drives shared gating)")
+    func appliesOwnerID() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        let (event, _, _) = try makeEvent(in: context)
+        let ownerID = UUID()
+
+        let model = event.toDTO(ownerID: ownerID).makeModel()
+
+        #expect(model.ownerId == ownerID)
+    }
+
     @Test("backward: an unknown status string falls back to .planning")
     func unknownStatusFallback() throws {
         let container = try PersistenceController.forTesting()

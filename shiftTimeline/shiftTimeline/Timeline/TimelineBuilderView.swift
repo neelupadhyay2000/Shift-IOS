@@ -25,6 +25,7 @@ struct TimelineBuilderView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.eventRepository) private var injectedEventRepo
     @Environment(\.trackRepository) private var injectedTrackRepo
     @Environment(\.blockRepository) private var injectedBlockRepo
@@ -78,7 +79,11 @@ struct TimelineBuilderView: View {
 
     private var event: EventModel? { results.first }
 
-    private var isReadOnly: Bool { false }
+    /// Vendors viewing an event shared to them get a read-only timeline — no
+    /// add/edit/move/delete affordances (SHIFT-622). The owner edits as before.
+    private var isReadOnly: Bool {
+        EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
+    }
 
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
@@ -1151,6 +1156,7 @@ struct TimelineBuilderView: View {
     NavigationStack {
         TimelineBuilderView(eventID: previewEventID)
     }
+    .environment(SupabaseAuthService())
     .modelContainer(previewTimelineContainer())
 }
 
@@ -1158,6 +1164,7 @@ struct TimelineBuilderView: View {
     NavigationStack {
         TimelineBuilderView(eventID: previewEmptyEventID)
     }
+    .environment(SupabaseAuthService())
     .modelContainer(previewEmptyTimelineContainer())
 }
 
