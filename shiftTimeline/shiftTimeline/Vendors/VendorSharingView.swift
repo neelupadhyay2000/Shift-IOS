@@ -135,37 +135,41 @@ struct VendorSharingView: View {
         errorMessage = String(localized: "Vendor invites are temporarily unavailable.")
     }
 
-    private func presentDelivery(for vendor: VendorModel, url: URL, eventTitle: String) {
-        let body = String(localized: "Here's your SHIFT timeline invite for \(eventTitle). Open this link on your iPhone to join: \(url.absoluteString)")
-        let subject = String(localized: "SHIFT timeline invite: \(eventTitle)")
+    private func presentDelivery(for vendor: VendorModel, eventTitle: String) {
+        let message = VendorInviteLink.message(
+            eventTitle: eventTitle,
+            vendorID: vendor.id,
+            eventID: eventID
+        )
 
         switch VendorInviteEligibility.preferredLookup(phone: vendor.phone, email: vendor.email) {
         case .phone(let number):
             #if canImport(UIKit)
             if MessageComposeView.canSend {
-                pendingInvite = PendingInvite(phone: number, email: nil, subject: subject, body: body)
+                pendingInvite = PendingInvite(phone: number, email: nil, subject: message.subject, body: message.body)
                 return
             }
             #endif
-            copyLink(url)
+            copyInviteLink(for: vendor)
         case .email(let address):
             #if canImport(UIKit)
             if MailComposeView.canSend {
-                pendingInvite = PendingInvite(phone: nil, email: address, subject: subject, body: body)
+                pendingInvite = PendingInvite(phone: nil, email: address, subject: message.subject, body: message.body)
                 return
             }
             #endif
-            copyLink(url)
+            copyInviteLink(for: vendor)
         case .none:
-            copyLink(url)
+            copyInviteLink(for: vendor)
         }
     }
 
-    private func copyLink(_ url: URL) {
+    private func copyInviteLink(for vendor: VendorModel) {
+        let link = VendorInviteLink.deepLinkString(vendorID: vendor.id, eventID: eventID)
         #if canImport(UIKit)
-        UIPasteboard.general.string = url.absoluteString
+        UIPasteboard.general.string = link
         #endif
-        infoMessage = String(localized: "This device can't send a message, so the invite link was copied. Paste it to the vendor — only their Apple ID can accept.")
+        infoMessage = String(localized: "This device can't send a message, so the invite link was copied. Paste it to the vendor — only the phone or email you invited can accept.")
     }
 
     // MARK: - Pending invite
