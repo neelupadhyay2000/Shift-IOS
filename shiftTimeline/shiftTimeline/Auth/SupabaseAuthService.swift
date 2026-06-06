@@ -42,6 +42,8 @@ final class SupabaseAuthService {
     @ObservationIgnored
     private var inviteClaimer: (any InviteClaiming)?
     @ObservationIgnored
+    private var deviceTokenRegistrar: DeviceTokenRegistrar?
+    @ObservationIgnored
     private var modelContext: ModelContext?
     @ObservationIgnored
     private var listenerTask: Task<Void, Never>?
@@ -60,11 +62,13 @@ final class SupabaseAuthService {
         client: SupabaseClient,
         profileRepository: any ProfileRepositing,
         inviteClaimer: (any InviteClaiming)? = nil,
+        deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.client = client
         self.profileRepository = profileRepository
         self.inviteClaimer = inviteClaimer
+        self.deviceTokenRegistrar = deviceTokenRegistrar
         self.modelContext = modelContext
     }
 
@@ -76,12 +80,14 @@ final class SupabaseAuthService {
         client: SupabaseClient,
         profileRepository: any ProfileRepositing,
         inviteClaimer: (any InviteClaiming)? = nil,
+        deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
         modelContext: ModelContext? = nil
     ) {
         guard listenerTask == nil else { return }
         self.client = client
         self.profileRepository = profileRepository
         self.inviteClaimer = inviteClaimer
+        self.deviceTokenRegistrar = deviceTokenRegistrar
         self.modelContext = modelContext
         beginListening(using: client)
     }
@@ -180,9 +186,13 @@ final class SupabaseAuthService {
                         // Runs on every sign-in / restored session; idempotent
                         // server-side, so re-running is a no-op once claimed.
                         await self.claimPendingInvites()
+                        // Register this device's APNs token for the now-signed-in
+                        // profile (SHIFT-642). No-op until a token has arrived.
+                        await self.deviceTokenRegistrar?.updateProfile(user.id)
                     }
                 case .signedOut:
                     self.currentProfile = nil
+                    await self.deviceTokenRegistrar?.updateProfile(nil)
                 default:
                     break
                 }
