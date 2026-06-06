@@ -1,6 +1,7 @@
 import Foundation
 import Models
 import Observation
+import Services
 import Supabase
 import SwiftData
 
@@ -39,6 +40,8 @@ final class SupabaseAuthService {
     @ObservationIgnored
     private var profileRepository: (any ProfileRepositing)?
     @ObservationIgnored
+    private var inviteClaimer: (any InviteClaiming)?
+    @ObservationIgnored
     private var modelContext: ModelContext?
     @ObservationIgnored
     private var listenerTask: Task<Void, Never>?
@@ -51,10 +54,17 @@ final class SupabaseAuthService {
 
     /// Dependency-injected init for tests and Xcode Previews.
     /// `modelContext` is optional — omit it when testing behaviour that doesn't
-    /// involve cache clearing.
-    init(client: SupabaseClient, profileRepository: any ProfileRepositing, modelContext: ModelContext? = nil) {
+    /// involve cache clearing. `inviteClaimer` is optional — omit it when the
+    /// claim-on-sign-in path is not under test.
+    init(
+        client: SupabaseClient,
+        profileRepository: any ProfileRepositing,
+        inviteClaimer: (any InviteClaiming)? = nil,
+        modelContext: ModelContext? = nil
+    ) {
         self.client = client
         self.profileRepository = profileRepository
+        self.inviteClaimer = inviteClaimer
         self.modelContext = modelContext
     }
 
@@ -65,11 +75,13 @@ final class SupabaseAuthService {
     func startListening(
         client: SupabaseClient,
         profileRepository: any ProfileRepositing,
+        inviteClaimer: (any InviteClaiming)? = nil,
         modelContext: ModelContext? = nil
     ) {
         guard listenerTask == nil else { return }
         self.client = client
         self.profileRepository = profileRepository
+        self.inviteClaimer = inviteClaimer
         self.modelContext = modelContext
         beginListening(using: client)
     }
@@ -89,6 +101,37 @@ final class SupabaseAuthService {
     /// Non-fatal: sign-in succeeds even if the write fails.
     func upsertProfile(from user: User, displayName: String?) async {
         await performProfileUpsert(user: user, displayName: displayName)
+    }
+
+    // MARK: - Invite claim (SHIFT-628)
+
+    /// Runs the authoritative server-side invite claim (`claim_invite` RPC) and
+    /// returns the `event_vendors` rows the server linked to this identity.
+    ///
+    /// The match is performed server-side against the verified `auth.users`
+    /// identity, so the client cannot claim an invite that wasn't addressed to
+    /// it. Non-fatal: sign-in proceeds even if the claim fails. A no-op when no
+    /// `inviteClaimer` is injected (e.g. in tests that don't exercise claiming).
+    @discardableResult
+    func claimPendingInvites() async -> [EventVendorDTO] {
+        guard let inviteClaimer else { return [] }
+        do {
+            let claimed = try await inviteClaimer.claimInvites()
+            if !claimed.isEmpty {
+                SyncDiagnosticsCenter.shared.record(
+                    .auth, "invitesClaimed",
+                    params: ["count": String(claimed.count)]
+                )
+            }
+            return claimed
+        } catch {
+            SyncDiagnosticsCenter.shared.record(
+                .auth, "inviteClaimFailed",
+                params: ["error": String(describing: error)],
+                severity: .error
+            )
+            return []
+        }
     }
 
     // MARK: - Sign out
@@ -133,6 +176,10 @@ final class SupabaseAuthService {
                 case .signedIn, .initialSession:
                     if let user = session?.user {
                         await self.performProfileUpsert(user: user, displayName: nil)
+                        // Claim any invites addressed to this identity (SHIFT-628).
+                        // Runs on every sign-in / restored session; idempotent
+                        // server-side, so re-running is a no-op once claimed.
+                        await self.claimPendingInvites()
                     }
                 case .signedOut:
                     self.currentProfile = nil

@@ -20,6 +20,21 @@ final class FakeProfileRepository: ProfileRepositing {
     }
 }
 
+/// In-process fake `InviteClaiming`. @MainActor + final gives implicit Sendable
+/// (mirrors `FakeProfileRepository`).
+@MainActor
+final class FakeInviteClaimer: InviteClaiming {
+    var claimed: [EventVendorDTO] = []
+    var shouldThrow = false
+    private(set) var callCount = 0
+
+    func claimInvites() async throws -> [EventVendorDTO] {
+        callCount += 1
+        if shouldThrow { throw URLError(.badServerResponse) }
+        return claimed
+    }
+}
+
 // MARK: - Initial state
 
 @Suite("SupabaseAuthService — initial state")
@@ -232,6 +247,66 @@ struct SupabaseAuthServiceCacheClearingTests {
     func clearSyncedCachesNoOpWithoutContext() {
         let svc = SupabaseAuthService()
         svc.clearSyncedCaches() // guard let context else { return } path — must not crash
+    }
+}
+
+// MARK: - claimPendingInvites (SHIFT-628)
+
+@Suite("SupabaseAuthService — claimPendingInvites")
+@MainActor
+struct SupabaseAuthServiceClaimInvitesTests {
+
+    private func makeService(claimer: (any InviteClaiming)?) throws -> SupabaseAuthService {
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        return SupabaseAuthService(
+            client: provider.client,
+            profileRepository: FakeProfileRepository(),
+            inviteClaimer: claimer
+        )
+    }
+
+    private func claimedDTO() -> EventVendorDTO {
+        EventVendorDTO(
+            id: UUID(),
+            eventID: UUID(),
+            profileID: UUID(),
+            displayName: "Claimed",
+            role: "photographer",
+            notificationThreshold: 300,
+            hasAcknowledgedLatestShift: false
+        )
+    }
+
+    @Test("returns the rows the server claimed")
+    func returnsClaimedRows() async throws {
+        let claimer = FakeInviteClaimer()
+        claimer.claimed = [claimedDTO(), claimedDTO()]
+        let svc = try makeService(claimer: claimer)
+
+        let claimed = await svc.claimPendingInvites()
+
+        #expect(claimed.count == 2)
+        #expect(claimer.callCount == 1)
+    }
+
+    @Test("is non-fatal when the claim RPC throws")
+    func nonFatalOnThrow() async throws {
+        let claimer = FakeInviteClaimer()
+        claimer.shouldThrow = true
+        let svc = try makeService(claimer: claimer)
+
+        let claimed = await svc.claimPendingInvites()
+
+        #expect(claimed.isEmpty)
+        #expect(claimer.callCount == 1)
+    }
+
+    @Test("is a no-op when no claimer is injected")
+    func noOpWithoutClaimer() async throws {
+        let svc = try makeService(claimer: nil)
+        let claimed = await svc.claimPendingInvites()
+        #expect(claimed.isEmpty)
     }
 }
 

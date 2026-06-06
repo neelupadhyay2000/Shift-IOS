@@ -156,6 +156,7 @@ struct shiftTimelineApp: App {
                         authService.startListening(
                             client: client,
                             profileRepository: SupabaseProfileRepository(client: client),
+                            inviteClaimer: SupabaseInviteClaimer(client: client),
                             modelContext: PersistenceController.shared.container.mainContext
                         )
                     }
