@@ -179,7 +179,7 @@ struct VendorManagerView: View {
 
     @ViewBuilder
     private func inviteStatusBadge(for vendor: VendorModel) -> some View {
-        switch VendorInviteStatus.of(invitedAt: vendor.invitedAt, profileId: nil) {
+        switch VendorInviteStatus.of(invitedAt: vendor.invitedAt, profileId: vendor.profileId?.uuidString) {
         case .accepted:
             Image(systemName: "checkmark.seal.fill")
                 .font(.caption2)

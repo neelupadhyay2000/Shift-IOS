@@ -74,6 +74,33 @@ struct VendorMappingTests {
         #expect(model.email == "")
     }
 
+    @Test("inbound: a claimed row applies profile_id + accepted_at locally")
+    func claimedRowAppliesClaimState() throws {
+        let profileID = UUID()
+        let acceptedAt = fixedTimestamp
+        let dto = EventVendorDTO(
+            id: UUID(),
+            eventID: UUID(),
+            profileID: profileID,
+            invitedPhone: "+14155550101",
+            invitedEmail: "jane@example.com",
+            displayName: "Jane's Photo",
+            role: "photographer",
+            notificationThreshold: 600,
+            hasAcknowledgedLatestShift: false,
+            invitedAt: PostgresTimestamp(fixedTimestamp),
+            acceptedAt: PostgresTimestamp(acceptedAt)
+        )
+
+        let model = dto.makeModel()
+        #expect(model.profileId == profileID)
+        #expect(model.acceptedAt == acceptedAt)
+        // A claimed row reads as accepted.
+        #expect(
+            VendorInviteStatus.of(invitedAt: model.invitedAt, profileId: model.profileId?.uuidString) == .accepted
+        )
+    }
+
     @Test("forward: throws when the vendor is detached from its event")
     func detachedThrows() throws {
         let vendor = VendorModel(name: "Orphan", role: .custom)
