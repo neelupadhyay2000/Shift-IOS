@@ -17,6 +17,7 @@ struct BlockInspectorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.blockRepository) private var injectedBlockRepo
+    @Environment(SupabaseAuthService.self) private var authService
 
     private var blockRepo: any BlockRepositing {
         injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
@@ -55,7 +56,17 @@ struct BlockInspectorView: View {
             .sorted { $0.scheduledStart < $1.scheduledStart }
     }
 
-    private var canSeeDetails: Bool { !isReadOnly }
+    /// Owners see every block's full detail. A vendor viewing a shared event
+    /// (`isReadOnly`) sees full detail — notes, voice memo, vendors, dependencies
+    /// — only for blocks they're assigned to (via `block_vendors`); unassigned
+    /// blocks show just scheduling context (SHIFT-630).
+    private var canSeeDetails: Bool {
+        BlockDetailScope.showsFullDetail(
+            isReadOnly: isReadOnly,
+            assignedProfileIDs: (block.vendors ?? []).compactMap(\.profileId),
+            currentProfileID: authService.currentProfileID
+        )
+    }
 
     // MARK: - State
 
