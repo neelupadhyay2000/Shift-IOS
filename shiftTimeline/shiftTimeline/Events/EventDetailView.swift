@@ -24,8 +24,9 @@ struct EventDetailView: View {
     /// Set when sign-in was prompted by a share attempt, so the share flow
     /// resumes automatically once the sign-in sheet dismisses.
     @State private var pendingShareAfterSignIn = false
-    /// Drives the per-event Supabase Realtime channel while viewing a shared
-    /// event (SHIFT-631). Lazily created the first time a shared event appears.
+    /// Drives the per-event Supabase Realtime channel while signed in and viewing
+    /// an event — a vendor's shared timeline (SHIFT-631) or the planner watching
+    /// vendor acknowledgments land in the ack grid (SHIFT-633). Lazily created.
     @State private var realtime: RealtimeLifecycleManager?
 
     private let eventID: UUID
@@ -80,7 +81,7 @@ struct EventDetailView: View {
             }
         }
         .onAppear { configureRealtime() }
-        .onChange(of: event?.ownerId) { _, _ in configureRealtime() }
+        .onChange(of: authService.currentProfileID) { _, _ in configureRealtime() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 realtime?.didEnterForeground()
@@ -114,14 +115,18 @@ struct EventDetailView: View {
 
     // MARK: - Realtime (SHIFT-631)
 
-    /// Subscribes to the event's Supabase Realtime channel while a vendor views an
-    /// event shared to them, so the owner's shifts/edits appear live without a
-    /// manual refresh (the `RealtimeChangeApplier` writes into the shared
-    /// `modelContext`, which `@Query` reflects). Only shared events are streamed:
-    /// a vendor's view is read-only, so applied remote changes never collide with
-    /// local edits. Owned events are not streamed here.
+    /// Subscribes to the event's Supabase Realtime channel while signed in and
+    /// viewing the event, so remote changes appear live without a manual refresh
+    /// (the `RealtimeChangeApplier` writes into the shared `modelContext`, which
+    /// `@Query` reflects). Serves both a vendor watching a shared timeline
+    /// (SHIFT-631) and the planner watching vendor acknowledgments land in the ack
+    /// grid (SHIFT-633). Signed-out / local-only use is not streamed.
+    ///
+    /// NOTE: when the data-layer cutover wires the planner's write path to
+    /// Supabase, a shared `RealtimeEchoSuppressor` must be passed to both the write
+    /// path and this applier so the planner's own writes aren't re-applied as echoes.
     private func configureRealtime() {
-        guard EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID) else {
+        guard authService.currentProfileID != nil else {
             realtime?.setActiveEvent(nil)
             return
         }
