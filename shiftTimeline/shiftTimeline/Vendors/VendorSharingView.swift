@@ -14,12 +14,20 @@ struct VendorSharingView: View {
     let eventID: UUID
 
     @Query private var results: [EventModel]
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.vendorRepository) private var injectedVendorRepo
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var pendingInvite: PendingInvite?
     @State private var infoMessage: String?
 
     private var event: EventModel? { results.first }
+
+    /// Repository used to stamp invite state. Falls back to a SwiftData-backed
+    /// instance when no provider is injected (matches the other write sites).
+    private var vendorRepo: any VendorRepositing {
+        injectedVendorRepo ?? SwiftDataVendorRepository(context: modelContext)
+    }
 
     init(eventID: UUID) {
         self.eventID = eventID
@@ -37,7 +45,7 @@ struct VendorSharingView: View {
                         .foregroundStyle(.secondary)
                 }
             } footer: {
-                Text(String(localized: "Only vendors you've added can be invited, and each invite is locked to that vendor's phone or email — only that Apple ID can accept."))
+                Text(String(localized: "Only vendors you've added can be invited, and each invite is locked to that vendor's phone or email — only someone signing in with that phone or email can accept."))
             }
         }
         .navigationTitle(String(localized: "Invite Vendors"))
@@ -131,8 +139,23 @@ struct VendorSharingView: View {
 
     // MARK: - Actions
 
+    /// Marks the vendor invited on Supabase (stamps `invited_at`; `profile_id`
+    /// stays null until they claim) and then opens the phone-first composer to
+    /// deliver the deep link. Re-sending refreshes `invited_at` and re-delivers.
     private func invite(_ vendor: VendorModel) {
-        errorMessage = String(localized: "Vendor invites are temporarily unavailable.")
+        let eventTitle = event?.title ?? ""
+        Task { @MainActor in
+            isWorking = true
+            defer { isWorking = false }
+            do {
+                try await VendorInviteService(repository: vendorRepo).markInvited(vendor)
+                presentDelivery(for: vendor, eventTitle: eventTitle)
+            } catch VendorInviteError.notInvitable {
+                errorMessage = String(localized: "This vendor has no phone or email, so there's no way to send them an invite.")
+            } catch {
+                errorMessage = String(localized: "Couldn't send the invite. Please try again.")
+            }
+        }
     }
 
     private func presentDelivery(for vendor: VendorModel, eventTitle: String) {
