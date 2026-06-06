@@ -41,10 +41,10 @@ struct ConflictResolutionTests {
         )
     }
 
-    private func eventChange(id: UUID, title: String, updatedAt: Date?) throws -> RealtimeChange {
+    private func eventChange(id: UUID, title: String, updatedAt: Date?, deletedAt: Date? = nil) throws -> RealtimeChange {
         let dto = EventDTO(
             id: id, ownerID: UUID(), title: title, date: PostgresTimestamp(t1),
-            status: "planning", updatedAt: PostgresTimestamp(updatedAt)
+            status: "planning", updatedAt: PostgresTimestamp(updatedAt), deletedAt: PostgresTimestamp(deletedAt)
         )
         return .upsert(table: "events", record: try JSONObject(dto))
     }
@@ -309,5 +309,53 @@ struct ConflictResolutionTests {
         // Convergent: every apply order lands on the same state.
         #expect(forward == reversed)
         #expect(forward == scrambled)
+    }
+
+    // MARK: - Soft-delete / tombstones (SHIFT-618)
+
+    @Test("a tombstone deletes the local row")
+    func tombstoneDeletesLocalRow() throws {
+        let stack = try makeStack()
+        let id = UUID()
+        try stack.applier.apply(eventChange(id: id, title: "live", updatedAt: t1))
+        try stack.applier.apply(eventChange(id: id, title: "live", updatedAt: t2, deletedAt: t2))
+
+        #expect(try event(stack.context) == nil)
+    }
+
+    @Test("a stale tombstone is skipped — a newer edit survives the delete")
+    func staleTombstoneSkipped() throws {
+        let stack = try makeStack()
+        let id = UUID()
+        try stack.applier.apply(eventChange(id: id, title: "edited", updatedAt: t2)) // newer edit
+        try stack.applier.apply(eventChange(id: id, title: "x", updatedAt: t1, deletedAt: t1)) // older tombstone
+
+        let event = try #require(try event(stack.context))
+        #expect(event.title == "edited") // not deleted by the stale tombstone
+    }
+
+    @Test("a tombstone for an unknown row is a no-op")
+    func tombstoneForUnknownRowIsNoOp() throws {
+        let stack = try makeStack()
+        try stack.applier.apply(eventChange(id: UUID(), title: "x", updatedAt: t1, deletedAt: t1))
+
+        #expect(try stack.context.fetch(FetchDescriptor<EventModel>()).isEmpty)
+    }
+
+    @Test("a delete and an edit converge to the newer one regardless of order")
+    func deleteEditConvergesByLWW() throws {
+        let id = UUID()
+        let setup = [try eventChange(id: id, title: "init", updatedAt: t0)]
+        // A delete at t1 and an edit at t2 — the later (edit) wins, on both orders.
+        let concurrent = [
+            try eventChange(id: id, title: "x", updatedAt: t1, deletedAt: t1),
+            try eventChange(id: id, title: "resurrected", updatedAt: t2),
+        ]
+
+        let forward = try device(setup: setup, concurrent: concurrent)
+        let reversed = try device(setup: setup, concurrent: Array(concurrent.reversed()))
+
+        #expect(forward.eventTitles[id] == "resurrected") // newer edit beats older delete
+        #expect(forward == reversed)
     }
 }
