@@ -332,6 +332,10 @@ struct LiveDashboardView: View {
                 event: event,
                 blocks: result.blocks
             )
+            // SHIFT-634: propagate the ack reset to Supabase so vendors must
+            // re-acknowledge the new shift. Snapshot first (Sendable), then push.
+            let vendorResets = VendorShiftResetService.resets(for: event)
+            Task { await VendorShiftResetService.live.pushReset(vendorResets) }
             PersistenceController.recordShift(
                 deltaMinutes: minutes,
                 triggeredBy: .manual,
