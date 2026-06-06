@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV14() {
+    @Test func latestSchemaVersionIsV15() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 14, "Latest schema must be V14 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 15, "Latest schema must be V15 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V13 → V14 plan continuity
+    // MARK: - V14 → V15 plan continuity
 
-    @Test func planExposesFourteenSchemasAndThirteenStages() {
+    @Test func planExposesFifteenSchemasAndFourteenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 14,
-            "Expected schemas [V1 … V14] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 15,
+            "Expected schemas [V1 … V15] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 13,
-            "Expected 13 lightweight stages (V1→V2 … V13→V14) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 14,
+            "Expected 14 lightweight stages (V1→V2 … V14→V15) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV14() {
+    @Test func schemasAreOrderedV1ThroughV15() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -306,6 +306,42 @@ struct SchemaMigrationPlanTests {
         #expect(try context.fetch(FetchDescriptor<TimelineTrack>()).first?.updatedAt == t)
         #expect(try context.fetch(FetchDescriptor<TimeBlockModel>()).first?.updatedAt == t)
         #expect(try context.fetch(FetchDescriptor<VendorModel>()).first?.updatedAt == t)
+    }
+
+    /// Lightweight V14 → V15 migration adds `VendorModel.profileId` (`UUID?`) and
+    /// `acceptedAt` (`Date?`) for claim-on-sign-in. Verify both default `nil` for a
+    /// not-yet-claimed row and round-trip an explicit claim.
+    @Test @MainActor func freshContainerWithV15PlanRoundTripsClaimFields() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let vendor = VendorModel(name: "Avery", role: .photographer)
+        context.insert(vendor)
+        try context.save()
+
+        // An invited-but-unclaimed row has no profile / accept time.
+        #expect(vendor.profileId == nil)
+        #expect(vendor.acceptedAt == nil)
+
+        let profile = UUID()
+        let acceptStamp = Date(timeIntervalSince1970: 1_800_000_000)
+        vendor.profileId = profile
+        vendor.acceptedAt = acceptStamp
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<VendorModel>()).first)
+        #expect(fetched.profileId == profile)
+        #expect(fetched.acceptedAt == acceptStamp)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

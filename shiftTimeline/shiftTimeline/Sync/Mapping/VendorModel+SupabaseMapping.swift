@@ -5,10 +5,9 @@ import Models
 extension VendorModel {
     /// Projects this vendor to its `event_vendors` wire form.
     ///
-    /// The local model predates the invite/claim columns, so `profile_id` and
-    /// `accepted_at` are sent null — they become authoritative in E14. The
-    /// model's contact `phone`/`email` map to the invite-matching columns; an
-    /// empty contact string maps to null.
+    /// The model's contact `phone`/`email` map to the invite-matching columns
+    /// (empty → null). `profile_id` / `accepted_at` are null until the invite is
+    /// claimed on sign-in (SHIFT-621), and carry the claim once stamped.
     /// - Throws: `ModelMappingError.missingEvent` if the vendor is detached.
     func toDTO() throws -> EventVendorDTO {
         guard let eventID = event?.id else { throw ModelMappingError.missingEvent }
@@ -21,7 +20,7 @@ extension VendorModel {
         EventVendorDTO(
             id: id,
             eventID: eventID,
-            profileID: nil,
+            profileID: profileId,
             invitedPhone: phone.isEmpty ? nil : phone,
             invitedEmail: email.isEmpty ? nil : email,
             displayName: name,
@@ -31,7 +30,7 @@ extension VendorModel {
             hasAcknowledgedLatestShift: hasAcknowledgedLatestShift,
             pendingShiftDelta: pendingShiftDelta,
             invitedAt: PostgresTimestamp(invitedAt),
-            acceptedAt: nil,
+            acceptedAt: PostgresTimestamp(acceptedAt),
             createdAt: nil,
             updatedAt: nil,
             deletedAt: nil
@@ -49,7 +48,8 @@ extension EventVendorDTO {
     }
 
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
-    /// `profile_id` / `accepted_at` have no local column and are not applied.
+    /// Includes the claim state (`profile_id` / `accepted_at`) so a row claimed
+    /// server-side flips to `accepted` locally once it syncs back.
     func apply(to model: VendorModel) {
         model.id = id
         model.name = displayName
@@ -60,6 +60,8 @@ extension EventVendorDTO {
         model.hasAcknowledgedLatestShift = hasAcknowledgedLatestShift
         model.pendingShiftDelta = pendingShiftDelta
         model.invitedAt = invitedAt?.value
+        model.profileId = profileID
+        model.acceptedAt = acceptedAt?.value
         model.updatedAt = updatedAt?.value
     }
 

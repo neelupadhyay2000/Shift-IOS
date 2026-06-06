@@ -70,7 +70,7 @@ struct VendorSharingView: View {
 
     @ViewBuilder
     private func vendorRow(_ vendor: VendorModel) -> some View {
-        let status = VendorInviteStatus.of(invitedAt: vendor.invitedAt, profileId: nil)
+        let status = VendorInviteStatus.of(invitedAt: vendor.invitedAt, profileId: vendor.profileId?.uuidString)
         let lookup = VendorInviteEligibility.preferredLookup(phone: vendor.phone, email: vendor.email)
 
         HStack(spacing: 12) {

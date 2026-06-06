@@ -24,6 +24,9 @@ import SwiftData
 /// - V13 → V14: adds `updatedAt` (`Date?`) to `EventModel`, `TimelineTrack`,
 ///              `TimeBlockModel`, `VendorModel` — the server-time basis for
 ///              last-write-wins conflict resolution (E13).
+/// - V14 → V15: adds `VendorModel.profileId` (`UUID?`) and
+///              `VendorModel.acceptedAt` (`Date?`) — the claim-on-sign-in state
+///              mirroring `event_vendors.profile_id` / `accepted_at` (E14).
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -39,11 +42,11 @@ import SwiftData
 /// silently disables CloudKit mirroring.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self, SHIFTSchemaV14.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self, SHIFTSchemaV14.self, SHIFTSchemaV15.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12, migrateV12toV13, migrateV13toV14]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12, migrateV12toV13, migrateV13toV14, migrateV14toV15]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -109,5 +112,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV13toV14 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV13.self,
         toVersion: SHIFTSchemaV14.self
+    )
+
+    private static let migrateV14toV15 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV14.self,
+        toVersion: SHIFTSchemaV15.self
     )
 }
