@@ -13,6 +13,7 @@ struct EventDetailView: View {
     @Environment(WatchSessionManager.self) private var watchSessionManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(\.scenePhase) private var scenePhase
 
     @Query private var results: [EventModel]
 
@@ -23,6 +24,9 @@ struct EventDetailView: View {
     /// Set when sign-in was prompted by a share attempt, so the share flow
     /// resumes automatically once the sign-in sheet dismisses.
     @State private var pendingShareAfterSignIn = false
+    /// Drives the per-event Supabase Realtime channel while viewing a shared
+    /// event (SHIFT-631). Lazily created the first time a shared event appears.
+    @State private var realtime: RealtimeLifecycleManager?
 
     private let eventID: UUID
 
@@ -75,6 +79,16 @@ struct EventDetailView: View {
                     }
             }
         }
+        .onAppear { configureRealtime() }
+        .onChange(of: event?.ownerId) { _, _ in configureRealtime() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                realtime?.didEnterForeground()
+            } else {
+                realtime?.didEnterBackground()
+            }
+        }
+        .onDisappear { realtime?.setActiveEvent(nil) }
     }
 
     // MARK: - Sharing flow
@@ -96,6 +110,30 @@ struct EventDetailView: View {
         pendingShareAfterSignIn = false
         guard authService.isAuthenticated else { return }
         presentVendorSharing()
+    }
+
+    // MARK: - Realtime (SHIFT-631)
+
+    /// Subscribes to the event's Supabase Realtime channel while a vendor views an
+    /// event shared to them, so the owner's shifts/edits appear live without a
+    /// manual refresh (the `RealtimeChangeApplier` writes into the shared
+    /// `modelContext`, which `@Query` reflects). Only shared events are streamed:
+    /// a vendor's view is read-only, so applied remote changes never collide with
+    /// local edits. Owned events are not streamed here.
+    private func configureRealtime() {
+        guard EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID) else {
+            realtime?.setActiveEvent(nil)
+            return
+        }
+        if realtime == nil {
+            let client = SupabaseClientProvider.shared.client
+            realtime = RealtimeLifecycleManager(
+                service: RealtimeSyncService(client: client),
+                applier: RealtimeChangeApplier(context: modelContext),
+                isForeground: scenePhase == .active
+            )
+        }
+        realtime?.setActiveEvent(eventID)
     }
 
     private func eventContent(_ event: EventModel) -> some View {
