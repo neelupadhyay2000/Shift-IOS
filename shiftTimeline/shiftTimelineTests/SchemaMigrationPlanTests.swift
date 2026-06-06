@@ -56,9 +56,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV15() {
+    @Test func latestSchemaVersionIsV16() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 15, "Latest schema must be V15 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 16, "Latest schema must be V16 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -70,23 +70,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V14 → V15 plan continuity
+    // MARK: - V15 → V16 plan continuity
 
-    @Test func planExposesFifteenSchemasAndFourteenStages() {
+    @Test func planExposesSixteenSchemasAndFifteenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 15,
-            "Expected schemas [V1 … V15] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 16,
+            "Expected schemas [V1 … V16] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 14,
-            "Expected 14 lightweight stages (V1→V2 … V14→V15) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 15,
+            "Expected 15 lightweight stages (V1→V2 … V15→V16) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV15() {
+    @Test func schemasAreOrderedV1ThroughV16() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -342,6 +342,38 @@ struct SchemaMigrationPlanTests {
         let fetched = try #require(try context.fetch(FetchDescriptor<VendorModel>()).first)
         #expect(fetched.profileId == profile)
         #expect(fetched.acceptedAt == acceptStamp)
+    }
+
+    /// Lightweight V15 → V16 migration adds `EventModel.ownerId` (`UUID?`).
+    /// Verify it defaults `nil` for a locally-created event and round-trips an
+    /// explicit owner.
+    @Test @MainActor func freshContainerWithV16PlanRoundTripsOwnerId() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let event = EventModel(title: "E", date: .distantPast, latitude: 0, longitude: 0)
+        context.insert(event)
+        try context.save()
+
+        // A locally-created event has no known owner.
+        #expect(event.ownerId == nil)
+
+        let owner = UUID()
+        event.ownerId = owner
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<EventModel>()).first)
+        #expect(fetched.ownerId == owner)
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`
