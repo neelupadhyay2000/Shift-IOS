@@ -153,10 +153,16 @@ struct shiftTimelineApp: App {
                     guard !Self.isUITestMode else { return }
                     if !Self.isUnitTestMode {
                         let client = SupabaseClientProvider.shared.client
+                        // Wire the APNs registrar before listening so a restored
+                        // session immediately registers the device token (SHIFT-642).
+                        await DeviceTokenRegistrar.shared.configure(
+                            writer: SupabaseDeviceTokenWriter(client: client)
+                        )
                         authService.startListening(
                             client: client,
                             profileRepository: SupabaseProfileRepository(client: client),
                             inviteClaimer: SupabaseInviteClaimer(client: client),
+                            deviceTokenRegistrar: DeviceTokenRegistrar.shared,
                             modelContext: PersistenceController.shared.container.mainContext
                         )
                     }
@@ -216,6 +222,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         Self.logger.info("Launch diagnostic — scene manifest present: \(hasManifest), SHIFTSceneDelegate class resolved: \(delegateClass != nil ? "YES" : "NO — MISSING")")
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }
+        // Register with APNs every launch so we always have the current token
+        // (Apple delivers it via didRegisterForRemoteNotifications). SHIFT-642.
+        application.registerForRemoteNotifications()
         return true
     }
 
@@ -229,6 +238,30 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
         config.delegateClass = SHIFTSceneDelegate.self
         return config
+    }
+
+    // MARK: - APNs registration (SHIFT-642)
+
+    /// APNs delivered a device token — hand it to the registrar, which upserts it
+    /// into `device_tokens` once a profile is signed in.
+    func application(
+        _ application: UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    ) {
+        Task { @MainActor in await DeviceTokenRegistrar.shared.updateAPNsToken(deviceToken) }
+    }
+
+    /// APNs registration failed — surface in diagnostics; nothing to register.
+    func application(
+        _ application: UIApplication,
+        didFailToRegisterForRemoteNotificationsWithError error: Error
+    ) {
+        Self.logger.error("APNs registration failed: \(error.localizedDescription, privacy: .public)")
+        SyncDiagnosticsCenter.shared.record(
+            .push, "apnsRegistrationFailed",
+            params: ["error": String(describing: error)],
+            severity: .error
+        )
     }
 
     // MARK: - UNUserNotificationCenterDelegate
