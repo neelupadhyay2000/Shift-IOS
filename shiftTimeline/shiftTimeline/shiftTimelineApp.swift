@@ -305,11 +305,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
-        // Vendor shift notification — deep-link to event detail.
-        if let eventIDString = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
-           let eventID = UUID(uuidString: eventIDString) {
+        // Vendor shift notification — deep-link to event detail (SHIFT-647).
+        // Parse off the MainActor (Sendable payload), then route on it.
+        if let payload = RemoteShiftPushHandler.parse(userInfo) {
             Task { @MainActor in
-                DeepLinkRouter.shared.pendingEventID = eventID
+                RemoteShiftPushHandler.routeTap(payload, router: .shared)
             }
         }
         completionHandler()

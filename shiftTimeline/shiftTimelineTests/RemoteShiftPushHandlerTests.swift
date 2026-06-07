@@ -129,4 +129,22 @@ struct RemoteShiftPushHandlerTests {
         #expect(payload.eventVendorID == vendorID)
         #expect(payload.delta == 900)
     }
+
+    @Test("tapping a shift notification routes to its event via DeepLinkRouter")
+    @MainActor
+    func tapRoutesToEventViaDeepLinkRouter() {
+        let router = DeepLinkRouter.shared
+        router.pendingDestination = nil
+        defer { router.pendingDestination = nil }
+
+        let eventID = UUID()
+        let payload = RemoteShiftPushHandler.ShiftPushPayload(
+            eventID: eventID, eventVendorID: nil, delta: nil
+        )
+
+        let routed = RemoteShiftPushHandler.routeTap(payload, router: router)
+
+        #expect(routed == eventID)
+        #expect(router.pendingDestination == .event(id: eventID))
+    }
 }

@@ -23,17 +23,30 @@ enum RemoteShiftPushHandler {
     }
 
     /// Payload keys — must match the Edge Function's body (SHIFT-644).
-    private static let eventVendorIDKey = "event_vendor_id"
-    private static let deltaKey = "pending_shift_delta"
+    /// `nonisolated` so the nonisolated `parse` can read them.
+    private nonisolated static let eventVendorIDKey = "event_vendor_id"
+    private nonisolated static let deltaKey = "pending_shift_delta"
 
     /// Returns a parsed payload when `userInfo` is one of our shift pushes, else nil.
-    static func parse(_ userInfo: [AnyHashable: Any]) -> ShiftPushPayload? {
+    /// `nonisolated` so the (nonisolated) notification-tap delegate can extract the
+    /// Sendable payload before hopping to the MainActor router.
+    nonisolated static func parse(_ userInfo: [AnyHashable: Any]) -> ShiftPushPayload? {
         guard let raw = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
               let eventID = UUID(uuidString: raw) else { return nil }
         let eventVendorID = (userInfo[eventVendorIDKey] as? String).flatMap { UUID(uuidString: $0) }
         let delta = (userInfo[deltaKey] as? TimeInterval)
             ?? (userInfo[deltaKey] as? NSNumber)?.doubleValue
         return ShiftPushPayload(eventID: eventID, eventVendorID: eventVendorID, delta: delta)
+    }
+
+    /// Routes a tapped shift notification to its event via `DeepLinkRouter`
+    /// (SHIFT-647). `RootNavigator` observes `pendingDestination` and pushes
+    /// `EventDetailView` for the event. Returns the routed event id.
+    @MainActor
+    @discardableResult
+    static func routeTap(_ payload: ShiftPushPayload, router: DeepLinkRouter) -> UUID {
+        router.pendingEventID = payload.eventID
+        return payload.eventID
     }
 
     /// Production entry: posts via the real notification center + Settings threshold.

@@ -8,8 +8,8 @@ import Services
 /// entitlement Xcode emits per build configuration: Debug → sandbox, Release
 /// (TestFlight / App Store) → prod. Stored verbatim in `device_tokens.environment`.
 enum APNsEnvironment {
-    static let sandbox = "sandbox"
-    static let prod = "prod"
+    nonisolated static let sandbox = "sandbox"
+    nonisolated static let prod = "prod"
 
     /// `nonisolated` so it can seed a default argument (which is evaluated in a
     /// nonisolated context) — it's pure compile-time logic with no state.
