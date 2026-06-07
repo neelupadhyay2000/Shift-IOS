@@ -141,7 +141,7 @@ struct shiftTimelineApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootNavigator()
+            RootContainerView()
                 .environment(authService)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
@@ -264,6 +264,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         )
     }
 
+    /// Background (content-available) shift push from the shift-notify Edge
+    /// Function (SHIFT-646): wake → post the rich local notification via the
+    /// existing notifier. Non-shift pushes are ignored.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        guard let payload = RemoteShiftPushHandler.parse(userInfo) else {
+            completionHandler(.noData)
+            return
+        }
+        let container = PersistenceController.shared.container
+        Task {
+            let handled = await RemoteShiftPushHandler.handle(payload: payload, container: container)
+            completionHandler(handled ? .newData : .noData)
+        }
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     /// Handle notification tap — deep-link into the shared event or live session.
@@ -286,31 +305,42 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
-        // Vendor shift notification — deep-link to event detail.
-        if let eventIDString = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
-           let eventID = UUID(uuidString: eventIDString) {
+        // Vendor shift notification — deep-link to event detail (SHIFT-647).
+        // Parse off the MainActor (Sendable payload), then route on it.
+        if let payload = RemoteShiftPushHandler.parse(userInfo) {
             Task { @MainActor in
-                DeepLinkRouter.shared.pendingEventID = eventID
+                RemoteShiftPushHandler.routeTap(payload, router: .shared)
             }
         }
         completionHandler()
     }
 
-    /// Show notifications even when app is in foreground — except for vendor
-    /// shift notifications, which are surfaced in-app via `ShiftAcknowledgmentBanner`.
-    /// Suppressing the banner prevents the planner from seeing a push notification
-    /// for their own shift while on the live dashboard.
+    /// Show notifications even when the app is in the foreground — except for
+    /// vendor shift notifications (SHIFT-648). Those are suppressed as a system
+    /// banner and surfaced as an in-app banner instead, so the user isn't
+    /// double-notified for a shift they're already looking at.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         // Vendor shift notifications carry a deterministic "shift-<UUID>" identifier.
-        // The in-app ShiftAcknowledgmentBanner handles these when the app is visible.
-        if notification.request.identifier.hasPrefix("shift-") {
-            completionHandler([])
-        } else {
+        let request = notification.request
+        guard request.identifier.hasPrefix("shift-") else {
             completionHandler([.banner, .sound])
+            return
         }
+
+        // Foreground: suppress the system banner and surface it in-app instead.
+        // Extract the Sendable banner on this actor, then publish on the MainActor.
+        if let banner = RemoteShiftPushHandler.makeForegroundBanner(
+            identifier: request.identifier,
+            title: request.content.title,
+            body: request.content.body,
+            userInfo: request.content.userInfo
+        ) {
+            Task { @MainActor in DeepLinkRouter.shared.foregroundShiftBanner = banner }
+        }
+        completionHandler([])
     }
 }

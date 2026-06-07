@@ -34,6 +34,13 @@ final class DeepLinkRouter {
     /// Set this to trigger navigation. `RootNavigator` clears it after routing.
     var pendingDestination: DeepLinkDestination?
 
+    /// The most recent foreground shift push, surfaced as an in-app banner
+    /// instead of a system notification (SHIFT-648). `RootContainerView` observes
+    /// this, shows a transient top toast, and clears it on tap or timeout.
+    /// `AppDelegate.willPresent` sets it when it suppresses a foreground `shift-`
+    /// notification.
+    var foregroundShiftBanner: InAppShiftBanner?
+
     /// `true` while a CloudKit share invitation is being accepted and the
     /// mirrored records are still syncing into the local SwiftData store.
     /// `EventRosterView` observes this to show a syncing indicator.

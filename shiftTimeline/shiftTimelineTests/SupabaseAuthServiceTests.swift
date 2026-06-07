@@ -14,9 +14,11 @@ final class FakeProfileRepository: ProfileRepositing {
     private(set) var upsertedProfiles: [ProfileDTO] = []
     var shouldThrow = false
 
-    func upsert(_ profile: ProfileDTO) async throws {
+    @discardableResult
+    func upsert(_ profile: ProfileDTO) async throws -> ProfileDTO {
         if shouldThrow { throw URLError(.badServerResponse) }
         upsertedProfiles.append(profile)
+        return profile
     }
 }
 

@@ -67,19 +67,28 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
     if (!tokens || tokens.length === 0) return json({ skipped: "no_devices" }, 200);
 
+    // Background (content-available) push: no visible alert. The client wakes,
+    // then posts a RICH local notification via VendorShiftNotificationContent
+    // (SHIFT-646). The payload carries only ids + the authoritative delta so the
+    // client can render the body and drive the in-app acknowledgment banner.
+    // shiftBody() is included as a fallback the client can use if local data is
+    // unavailable.
     const apsPayload = {
-      aps: {
-        alert: { title: "Schedule updated", body: shiftBody(delta) },
-        sound: "default",
-        "thread-id": payload.event_id,
-      },
+      aps: { "content-available": 1 },
       [EVENT_ID_KEY]: payload.event_id,
+      event_vendor_id: payload.event_vendor_id,
       pending_shift_delta: delta,
+      fallback_body: shiftBody(delta),
     };
 
     // One push per device token → "exactly one push per eligible vendor device".
     const results = await Promise.all(
-      tokens.map((t) => sendApns(apns, t.apns_token, t.environment, apsPayload)),
+      tokens.map((t) =>
+        sendApns(apns, t.apns_token, t.environment, apsPayload, {
+          pushType: "background",
+          priority: "5",
+        })
+      ),
     );
 
     // APNs 410 = token no longer valid → stop targeting it.

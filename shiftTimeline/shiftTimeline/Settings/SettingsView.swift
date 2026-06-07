@@ -19,6 +19,8 @@ struct SettingsView: View {
     @State private var isShowingPaywall = false
     @State private var isManagingSubscriptions = false
     @State private var isShowingSignIn = false
+    @State private var isEditingName = false
+    @State private var nameDraft = ""
     @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
@@ -32,6 +34,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             accountSection
+            subscriptionSection
             notificationsSection
             aboutSection
             diagnosticsSection
@@ -68,6 +71,16 @@ struct SettingsView: View {
         } message: {
             Text(String(localized: "Restore failed. Please check your connection and try again."))
         }
+        .alert(String(localized: "Your Name"), isPresented: $isEditingName) {
+            TextField(String(localized: "Name"), text: $nameDraft)
+                .textInputAutocapitalization(.words)
+            Button(String(localized: "Save")) {
+                Task { await saveName() }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "This is the name vendors and collaborators see."))
+        }
     }
 
     // MARK: - Account
@@ -86,19 +99,9 @@ struct SettingsView: View {
     private var accountSection: some View {
         Section(String(localized: "Account")) {
             if authService.isAuthenticated {
-                if let phone = authService.currentUser?.phone {
-                    LabeledContent(String(localized: "Phone")) {
-                        Text(phone).foregroundStyle(.secondary)
-                    }
-                } else if let email = authService.currentUser?.email {
-                    LabeledContent(String(localized: "Email")) {
-                        Text(email).foregroundStyle(.secondary)
-                    }
-                }
+                profileHeader
                 Button(String(localized: "Sign Out"), role: .destructive) {
-                    Task {
-                        try? await authService.signOut()
-                    }
+                    Task { try? await authService.signOut() }
                 }
             } else {
                 Button(String(localized: "Sign In")) {
@@ -106,8 +109,58 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(Color.accentColor)
             }
+        }
+    }
 
-            LabeledContent(String(localized: "Subscription")) {
+    /// Identity row: avatar + name with a contact line beneath. Tap to edit the
+    /// display name (the name vendors/collaborators see).
+    private var profileHeader: some View {
+        Button {
+            nameDraft = nonEmpty(authService.currentProfile?.displayName) ?? ""
+            isEditingName = true
+        } label: {
+            HStack(spacing: 14) {
+                avatar
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(accountPrimaryLabel)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(accountSecondaryLabel)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "pencil")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Edit your name"))
+    }
+
+    private var avatar: some View {
+        ZStack {
+            Circle().fill(Color.accentColor.opacity(0.15))
+            if let initials = accountInitials {
+                Text(initials)
+                    .font(.headline)
+                    .foregroundStyle(Color.accentColor)
+            } else {
+                Image(systemName: "person.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .frame(width: 46, height: 46)
+    }
+
+    private var subscriptionSection: some View {
+        Section(String(localized: "Subscription")) {
+            LabeledContent(String(localized: "Plan")) {
                 Text(subscriptionStatusLabel)
                     .foregroundStyle(SubscriptionManager.shared.isProUser ? .primary : .secondary)
             }
@@ -139,6 +192,49 @@ struct SettingsView: View {
             }
             .disabled(isRestoring)
         }
+    }
+
+    // MARK: - Account identity helpers
+
+    /// Primary line: display name when known, else the contact used to sign in.
+    private var accountPrimaryLabel: String {
+        nonEmpty(authService.currentProfile?.displayName)
+            ?? nonEmpty(authService.currentUser?.email)
+            ?? nonEmpty(authService.currentUser?.phone)
+            ?? String(localized: "Your Account")
+    }
+
+    /// Secondary line: the contact email/phone when the name is the primary line,
+    /// otherwise a generic provider hint.
+    private var accountSecondaryLabel: String {
+        if nonEmpty(authService.currentProfile?.displayName) != nil {
+            return nonEmpty(authService.currentUser?.email)
+                ?? nonEmpty(authService.currentUser?.phone)
+                ?? String(localized: "Signed in")
+        }
+        return String(localized: "Signed in")
+    }
+
+    /// Up to two uppercase initials from the name, else the first letter of the email.
+    private var accountInitials: String? {
+        if let name = nonEmpty(authService.currentProfile?.displayName) {
+            let initials = name.split(separator: " ").prefix(2)
+                .compactMap(\.first)
+                .map(String.init)
+                .joined()
+            return initials.isEmpty ? nil : initials.uppercased()
+        }
+        if let email = nonEmpty(authService.currentUser?.email), let first = email.first {
+            return String(first).uppercased()
+        }
+        return nil
+    }
+
+    private func nonEmpty(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     // MARK: - Notifications
@@ -217,6 +313,16 @@ struct SettingsView: View {
     #endif
 
     // MARK: - Actions
+
+    /// Writes the edited display name to `profiles.display_name` and refreshes
+    /// `currentProfile` so the header updates. No-ops on an empty value — the
+    /// nil-omitting DTO encode can't null out an already-stored name anyway.
+    private func saveName() async {
+        guard let user = authService.currentUser else { return }
+        let trimmed = nameDraft.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        await authService.upsertProfile(from: user, displayName: trimmed)
+    }
 
     private func restore() async {
         isRestoring = true
