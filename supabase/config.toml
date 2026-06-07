@@ -385,6 +385,12 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# SHIFT-644: shift-notify is invoked by the trg_notify_shift_delta DB trigger,
+# which sends the service_role JWT as a bearer token — verify_jwt rejects any
+# caller without a valid project JWT at the gateway.
+[functions.shift-notify]
+verify_jwt = true
+
 [analytics]
 enabled = true
 port = 54327

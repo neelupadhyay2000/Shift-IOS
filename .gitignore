@@ -108,3 +108,7 @@ SUPABASE DB Password
 Config/Secrets.xcconfig
 docs/SUPABASE_MIGRATION_BLUEPRINT.md
 docs/SUPABASE_MIGRATION_JIRA.md
+
+# APNs auth keys — download-once secrets; NEVER commit (SHIFT-641/645)
+*.p8
+AuthKey_*.p8
