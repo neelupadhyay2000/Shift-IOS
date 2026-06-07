@@ -72,7 +72,12 @@ extension ProfileDTO: Equatable {
 /// it on a returning user updates only the fields present in the payload
 /// rather than inserting a duplicate row.
 protocol ProfileRepositing: Sendable {
-    func upsert(_ profile: ProfileDTO) async throws
+    /// Upserts and returns the resulting stored row. Because the encode omits nil
+    /// fields, a returning user's upsert keeps the server's existing values (e.g.
+    /// the display name captured on first Apple sign-in) — and the returned row
+    /// carries them back, so the UI can show the name on every launch.
+    @discardableResult
+    func upsert(_ profile: ProfileDTO) async throws -> ProfileDTO
 }
 
 // MARK: - Supabase Implementation
@@ -85,10 +90,14 @@ struct SupabaseProfileRepository: ProfileRepositing {
         self.client = client
     }
 
-    func upsert(_ profile: ProfileDTO) async throws {
+    @discardableResult
+    func upsert(_ profile: ProfileDTO) async throws -> ProfileDTO {
         try await client
             .from("profiles")
             .upsert(profile, onConflict: "id")
+            .select()
+            .single()
             .execute()
+            .value
     }
 }

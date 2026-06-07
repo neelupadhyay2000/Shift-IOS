@@ -10,9 +10,17 @@ struct SignInView: View {
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.dismiss) private var dismiss
 
+    /// When `false`, the Cancel button is hidden — used by the launch auth gate,
+    /// where sign-in is mandatory and there's nothing to dismiss back to.
+    let isDismissible: Bool
+
     @State private var isShowingPhoneSignIn = false
     @State private var isAppleSignInInProgress = false
     @State private var errorMessage: String?
+
+    init(isDismissible: Bool = true) {
+        self.isDismissible = isDismissible
+    }
 
     var body: some View {
         NavigationStack {
@@ -27,9 +35,11 @@ struct SignInView: View {
             .navigationTitle(String(localized: "Sign In"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) { dismiss() }
-                        .tint(.secondary)
+                if isDismissible {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button(String(localized: "Cancel")) { dismiss() }
+                            .tint(.secondary)
+                    }
                 }
             }
         }
@@ -77,7 +87,11 @@ struct SignInView: View {
     private var signInButtons: some View {
         VStack(spacing: 12) {
             appleButton
-            phoneButton
+            // Phone OTP is gated off until an SMS provider is configured
+            // (FeatureFlags.phoneSignIn) — see PhoneAuthService / Supabase Auth.
+            if FeatureFlags.phoneSignIn {
+                phoneButton
+            }
         }
     }
 
@@ -87,18 +101,21 @@ struct SignInView: View {
         } label: {
             HStack(spacing: 8) {
                 if isAppleSignInInProgress {
-                    ProgressView().controlSize(.small).tint(.white)
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Color(uiColor: .systemBackground))
                 } else {
-                    Image(systemName: "apple.logo").font(.body.bold())
+                    Image(systemName: "apple.logo")
                 }
-                Text(String(localized: "Sign in with Apple")).font(.body.bold())
+                Text(String(localized: "Sign in with Apple"))
             }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Color(uiColor: .systemBackground))
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(.primary)
-            .foregroundStyle(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.vertical, 15)
+            .background(Color.primary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
+        .buttonStyle(.plain)
         .disabled(isAppleSignInInProgress)
         .accessibilityLabel(String(localized: "Sign in with Apple"))
     }
@@ -108,15 +125,19 @@ struct SignInView: View {
             isShowingPhoneSignIn = true
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "phone.fill").font(.body.bold())
-                Text(String(localized: "Sign in with Phone")).font(.body.bold())
+                Image(systemName: "phone.fill")
+                Text(String(localized: "Sign in with Phone"))
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(.secondarySystemBackground))
+            .font(.body.weight(.semibold))
             .foregroundStyle(.primary)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "Sign in with Phone"))
     }
 

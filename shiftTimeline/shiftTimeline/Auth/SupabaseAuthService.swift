@@ -21,6 +21,11 @@ final class SupabaseAuthService {
     private(set) var session: Session?
     private(set) var currentProfile: ProfileDTO?
 
+    /// `true` once the SDK has emitted its initial (stored) session on launch.
+    /// The auth gate shows a loading state until this flips, so a returning user
+    /// never sees a flash of the sign-in screen before the session restores.
+    private(set) var hasResolvedInitialSession = false
+
     var isAuthenticated: Bool {
         session != nil
     }
@@ -178,17 +183,24 @@ final class SupabaseAuthService {
             guard let self else { return }
             for await (event, session) in client.auth.authStateChanges {
                 self.session = session
+                if event == .initialSession {
+                    self.hasResolvedInitialSession = true
+                }
                 switch event {
-                case .signedIn, .initialSession:
+                case .signedIn:
                     if let user = session?.user {
-                        await self.performProfileUpsert(user: user, displayName: nil)
-                        // Claim any invites addressed to this identity (SHIFT-628).
-                        // Runs on every sign-in / restored session; idempotent
-                        // server-side, so re-running is a no-op once claimed.
-                        await self.claimPendingInvites()
-                        // Register this device's APNs token for the now-signed-in
-                        // profile (SHIFT-642). No-op until a token has arrived.
-                        await self.deviceTokenRegistrar?.updateProfile(user.id)
+                        await self.establishSession(for: user)
+                    }
+                case .initialSession, .tokenRefreshed:
+                    // With `emitLocalSessionAsInitialSession`, the stored session is
+                    // emitted on launch even if expired; `.tokenRefreshed` arrives
+                    // after the silent refresh. Establish only for a valid session
+                    // not yet established this launch — so an expired-at-launch
+                    // session waits for its refresh instead of firing failing writes.
+                    if let user = session?.user,
+                       session?.isExpired == false,
+                       self.currentProfile == nil {
+                        await self.establishSession(for: user)
                     }
                 case .signedOut:
                     self.currentProfile = nil
@@ -200,6 +212,15 @@ final class SupabaseAuthService {
         }
     }
 
+    /// Post-sign-in side effects, idempotent so they can re-run on a restored or
+    /// refreshed session: upsert the profile, claim pending invites (SHIFT-628),
+    /// and register this device's APNs token (SHIFT-642).
+    private func establishSession(for user: User) async {
+        await performProfileUpsert(user: user, displayName: nil)
+        await claimPendingInvites()
+        await deviceTokenRegistrar?.updateProfile(user.id)
+    }
+
     private func performProfileUpsert(user: User, displayName: String?) async {
         guard let repo = profileRepository else { return }
         let dto = ProfileDTO(
@@ -209,8 +230,9 @@ final class SupabaseAuthService {
             email: user.email
         )
         do {
-            try await repo.upsert(dto)
-            currentProfile = dto
+            // Use the returned row so the stored display name (set on first
+            // sign-in) is shown on every launch, not just the first.
+            currentProfile = try await repo.upsert(dto)
         } catch {
             // Non-fatal — SyncDiagnosticsCenter surfaces this in SHIFT-1305
         }

@@ -141,7 +141,7 @@ struct shiftTimelineApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootNavigator()
+            RootContainerView()
                 .environment(authService)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
@@ -262,6 +262,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             params: ["error": String(describing: error)],
             severity: .error
         )
+    }
+
+    /// Background (content-available) shift push from the shift-notify Edge
+    /// Function (SHIFT-646): wake → post the rich local notification via the
+    /// existing notifier. Non-shift pushes are ignored.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        guard let payload = RemoteShiftPushHandler.parse(userInfo) else {
+            completionHandler(.noData)
+            return
+        }
+        let container = PersistenceController.shared.container
+        Task {
+            let handled = await RemoteShiftPushHandler.handle(payload: payload, container: container)
+            completionHandler(handled ? .newData : .noData)
+        }
     }
 
     // MARK: - UNUserNotificationCenterDelegate

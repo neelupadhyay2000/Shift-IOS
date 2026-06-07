@@ -33,6 +33,18 @@ final class SupabaseClientProvider {
         // supabase-swift 2.x defaults on Apple platforms:
         //   storage       → KeychainLocalStorage  (session survives relaunch)
         //   autoRefreshToken → true               (tokens refresh silently before expiry)
-        client = SupabaseClient(supabaseURL: supabaseURL, supabaseKey: supabaseKey)
+        //
+        // emitLocalSessionAsInitialSession: opt in to the next-major behavior now
+        // (the legacy default is deprecated). The stored session is emitted on
+        // launch even if expired, so SupabaseAuthService guards on `isExpired` and
+        // (re)establishes on `.tokenRefreshed`. The convenience AuthOptions init
+        // keeps the default Keychain storage + auto-refresh.
+        client = SupabaseClient(
+            supabaseURL: supabaseURL,
+            supabaseKey: supabaseKey,
+            options: SupabaseClientOptions(
+                auth: SupabaseClientOptions.AuthOptions(emitLocalSessionAsInitialSession: true)
+            )
+        )
     }
 }

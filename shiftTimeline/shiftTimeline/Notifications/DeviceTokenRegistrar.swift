@@ -11,7 +11,9 @@ enum APNsEnvironment {
     static let sandbox = "sandbox"
     static let prod = "prod"
 
-    static var current: String {
+    /// `nonisolated` so it can seed a default argument (which is evaluated in a
+    /// nonisolated context) — it's pure compile-time logic with no state.
+    nonisolated static var current: String {
         #if DEBUG
         sandbox
         #else

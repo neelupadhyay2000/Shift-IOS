@@ -67,12 +67,18 @@ async function providerToken(cfg: ApnsConfig): Promise<string> {
   return jwt;
 }
 
-/** Sends one alert push to one device, choosing the host by the token's environment. */
+export interface ApnsSendOptions {
+  pushType?: "alert" | "background";
+  priority?: "5" | "10";
+}
+
+/** Sends one push to one device, choosing the host by the token's environment. */
 export async function sendApns(
   cfg: ApnsConfig,
   deviceToken: string,
   environment: string,
   payload: Record<string, unknown>,
+  options: ApnsSendOptions = {},
 ): Promise<ApnsResult> {
   const jwt = await providerToken(cfg);
   const host = environment === "prod" ? APNS_HOST.prod : APNS_HOST.sandbox;
@@ -82,8 +88,8 @@ export async function sendApns(
     headers: {
       authorization: `bearer ${jwt}`,
       "apns-topic": cfg.bundleId,
-      "apns-push-type": "alert",
-      "apns-priority": "10",
+      "apns-push-type": options.pushType ?? "alert",
+      "apns-priority": options.priority ?? "10",
     },
     body: JSON.stringify(payload),
   });
