@@ -422,6 +422,12 @@ struct EventDetailView: View {
             // Save failed — don't push stale context to Watch.
         }
 
+        // Schedule the local golden-hour/sunset reminder from the cached sun
+        // times (SHIFT-649). Local-only, all tiers; no-ops if the times are unknown
+        // or already within the 30-min lead window. The Task inherits this view's
+        // MainActor context, so reading `event` stays isolation-safe.
+        Task { await GoldenHourNotifier.schedule(for: event) }
+
         // Widgets and Live Activities are Pro-only features. Free users still enter live
         // mode (the core function), but we silently skip the Pro side-effects rather than
         // interrupting their flow with a mid-action paywall. Upsell happens elsewhere.
