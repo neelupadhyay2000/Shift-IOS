@@ -315,21 +315,32 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         completionHandler()
     }
 
-    /// Show notifications even when app is in foreground — except for vendor
-    /// shift notifications, which are surfaced in-app via `ShiftAcknowledgmentBanner`.
-    /// Suppressing the banner prevents the planner from seeing a push notification
-    /// for their own shift while on the live dashboard.
+    /// Show notifications even when the app is in the foreground — except for
+    /// vendor shift notifications (SHIFT-648). Those are suppressed as a system
+    /// banner and surfaced as an in-app banner instead, so the user isn't
+    /// double-notified for a shift they're already looking at.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         // Vendor shift notifications carry a deterministic "shift-<UUID>" identifier.
-        // The in-app ShiftAcknowledgmentBanner handles these when the app is visible.
-        if notification.request.identifier.hasPrefix("shift-") {
-            completionHandler([])
-        } else {
+        let request = notification.request
+        guard request.identifier.hasPrefix("shift-") else {
             completionHandler([.banner, .sound])
+            return
         }
+
+        // Foreground: suppress the system banner and surface it in-app instead.
+        // Extract the Sendable banner on this actor, then publish on the MainActor.
+        if let banner = RemoteShiftPushHandler.makeForegroundBanner(
+            identifier: request.identifier,
+            title: request.content.title,
+            body: request.content.body,
+            userInfo: request.content.userInfo
+        ) {
+            Task { @MainActor in DeepLinkRouter.shared.foregroundShiftBanner = banner }
+        }
+        completionHandler([])
     }
 }

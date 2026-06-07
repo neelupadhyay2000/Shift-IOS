@@ -3,6 +3,20 @@ import Models
 import Services
 import SwiftData
 
+/// A foreground shift notification rendered as an in-app banner instead of a
+/// system notification (SHIFT-648). The app-root view observes the most recent
+/// one on `DeepLinkRouter` and surfaces it as a transient top toast that
+/// deep-links to its event on tap.
+///
+/// `id` is unique per presentation so SwiftUI animates a fresh banner even when
+/// two consecutive pushes carry the same event.
+struct InAppShiftBanner: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let title: String
+    let body: String
+    let eventID: UUID
+}
+
 /// Handles an incoming APNs shift push on the client (SHIFT-646).
 ///
 /// The `shift-notify` Edge Function (SHIFT-644) sends a **background**
@@ -37,6 +51,28 @@ enum RemoteShiftPushHandler {
         let delta = (userInfo[deltaKey] as? TimeInterval)
             ?? (userInfo[deltaKey] as? NSNumber)?.doubleValue
         return ShiftPushPayload(eventID: eventID, eventVendorID: eventVendorID, delta: delta)
+    }
+
+    /// Builds the in-app banner for a foreground shift notification (SHIFT-648).
+    ///
+    /// `AppDelegate`'s `willPresent` suppresses the system banner for any
+    /// `shift-`prefixed notification while the app is visible; this turns the
+    /// suppressed notification's already-formatted title/body + event id into the
+    /// banner model the root view shows in its place. Returns nil for any
+    /// notification that isn't one of our shift pushes (so non-shift foreground
+    /// notifications fall through to the system presentation unchanged).
+    /// `nonisolated` so it can run on the delegate's actor before hopping to the
+    /// MainActor router; takes primitives so it's testable without `UNNotification`.
+    nonisolated static func makeForegroundBanner(
+        identifier: String,
+        title: String,
+        body: String,
+        userInfo: [AnyHashable: Any]
+    ) -> InAppShiftBanner? {
+        guard identifier.hasPrefix("shift-"),
+              let raw = userInfo[VendorShiftNotificationContent.eventIDKey] as? String,
+              let eventID = UUID(uuidString: raw) else { return nil }
+        return InAppShiftBanner(id: UUID(), title: title, body: body, eventID: eventID)
     }
 
     /// Routes a tapped shift notification to its event via `DeepLinkRouter`

@@ -11,8 +11,18 @@ import SwiftUI
 /// directly.
 struct RootContainerView: View {
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     var body: some View {
+        content
+            // Foreground shift pushes are suppressed as system notifications and
+            // surfaced here as an in-app banner instead (SHIFT-648).
+            .overlay(alignment: .top) { foregroundBanner }
+            .animation(.spring(duration: 0.35), value: deepLinkRouter.foregroundShiftBanner)
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()
         } else if !authService.hasResolvedInitialSession {
@@ -21,6 +31,28 @@ struct RootContainerView: View {
             RootNavigator()
         } else {
             SignInView(isDismissible: false)
+        }
+    }
+
+    @ViewBuilder
+    private var foregroundBanner: some View {
+        if let banner = deepLinkRouter.foregroundShiftBanner {
+            ForegroundShiftBannerView(
+                banner: banner,
+                onTap: {
+                    deepLinkRouter.pendingDestination = .event(id: banner.eventID)
+                    deepLinkRouter.foregroundShiftBanner = nil
+                },
+                onDismiss: {
+                    // Only clear if this exact banner is still showing — a newer
+                    // push may have replaced it while this one's timer ran.
+                    if deepLinkRouter.foregroundShiftBanner?.id == banner.id {
+                        deepLinkRouter.foregroundShiftBanner = nil
+                    }
+                }
+            )
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .zIndex(1)
         }
     }
 
