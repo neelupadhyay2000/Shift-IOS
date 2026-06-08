@@ -49,6 +49,8 @@ final class SupabaseAuthService {
     @ObservationIgnored
     private var deviceTokenRegistrar: DeviceTokenRegistrar?
     @ObservationIgnored
+    private var dataBackfiller: (any DataBackfilling)?
+    @ObservationIgnored
     private var modelContext: ModelContext?
     @ObservationIgnored
     private var listenerTask: Task<Void, Never>?
@@ -68,12 +70,14 @@ final class SupabaseAuthService {
         profileRepository: any ProfileRepositing,
         inviteClaimer: (any InviteClaiming)? = nil,
         deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
+        dataBackfiller: (any DataBackfilling)? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.client = client
         self.profileRepository = profileRepository
         self.inviteClaimer = inviteClaimer
         self.deviceTokenRegistrar = deviceTokenRegistrar
+        self.dataBackfiller = dataBackfiller
         self.modelContext = modelContext
     }
 
@@ -86,6 +90,7 @@ final class SupabaseAuthService {
         profileRepository: any ProfileRepositing,
         inviteClaimer: (any InviteClaiming)? = nil,
         deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
+        dataBackfiller: (any DataBackfilling)? = nil,
         modelContext: ModelContext? = nil
     ) {
         guard listenerTask == nil else { return }
@@ -93,6 +98,7 @@ final class SupabaseAuthService {
         self.profileRepository = profileRepository
         self.inviteClaimer = inviteClaimer
         self.deviceTokenRegistrar = deviceTokenRegistrar
+        self.dataBackfiller = dataBackfiller
         self.modelContext = modelContext
         beginListening(using: client)
     }
@@ -214,11 +220,13 @@ final class SupabaseAuthService {
 
     /// Post-sign-in side effects, idempotent so they can re-run on a restored or
     /// refreshed session: upsert the profile, claim pending invites (SHIFT-628),
-    /// and register this device's APNs token (SHIFT-642).
+    /// register this device's APNs token (SHIFT-642), and run the one-time data
+    /// backfill (SHIFT-657 — gated to fire once per account).
     private func establishSession(for user: User) async {
         await performProfileUpsert(user: user, displayName: nil)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)
+        await dataBackfiller?.runIfNeeded(profileID: user.id)
     }
 
     private func performProfileUpsert(user: User, displayName: String?) async {
