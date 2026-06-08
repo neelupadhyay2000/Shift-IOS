@@ -163,6 +163,9 @@ struct shiftTimelineApp: App {
                             profileRepository: SupabaseProfileRepository(client: client),
                             inviteClaimer: SupabaseInviteClaimer(client: client),
                             deviceTokenRegistrar: DeviceTokenRegistrar.shared,
+                            dataBackfiller: DataBackfillRunner(
+                                context: PersistenceController.shared.container.mainContext
+                            ),
                             modelContext: PersistenceController.shared.container.mainContext
                         )
                     }
