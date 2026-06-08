@@ -24,6 +24,16 @@ private struct ShiftRecordRepositoryKey: EnvironmentKey {
     static let defaultValue: (any ShiftRecordRepositing)? = nil
 }
 
+/// The cutover's shared ``RealtimeEchoSuppressor`` (SHIFT-658). Injected by the
+/// app when `FeatureFlags.supabaseSync` is on so the per-event realtime applier
+/// in `EventDetailView` consults the *same* instance the Outbox flush records
+/// into — that's what lets the planner's own writes be recognized as echoes and
+/// skipped. `nil` when sync is off (no realtime), so the applier suppresses
+/// nothing.
+private struct RealtimeEchoSuppressorKey: EnvironmentKey {
+    static let defaultValue: RealtimeEchoSuppressor? = nil
+}
+
 extension EnvironmentValues {
     var eventRepository: (any EventRepositing)? {
         get { self[EventRepositoryKey.self] }
@@ -45,6 +55,10 @@ extension EnvironmentValues {
         get { self[ShiftRecordRepositoryKey.self] }
         set { self[ShiftRecordRepositoryKey.self] = newValue }
     }
+    var realtimeEchoSuppressor: RealtimeEchoSuppressor? {
+        get { self[RealtimeEchoSuppressorKey.self] }
+        set { self[RealtimeEchoSuppressorKey.self] = newValue }
+    }
 }
 
 // MARK: - View injection modifier
@@ -62,7 +76,7 @@ extension View {
     /// MyView()
     ///     .repositories(FakeRepositoryProvider())
     /// ```
-    @MainActor func repositories(_ provider: some RepositoryProviding) -> some View {
+    @MainActor func repositories(_ provider: any RepositoryProviding) -> some View {
         self
             .environment(\.eventRepository, provider.events)
             .environment(\.trackRepository, provider.tracks)
