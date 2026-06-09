@@ -45,6 +45,11 @@ final class OutboxCoordinator {
     private let context: ModelContext
     private let currentOwnerID: @MainActor () -> UUID?
     private let diagnostics: SyncDiagnosticsCenter
+    /// Called after every enqueue so the SyncEngine can schedule a (debounced)
+    /// flush — this is what makes a local write reach Supabase within seconds
+    /// instead of only on the next launch / sign-in / foreground / reconnect.
+    /// Defaults to a no-op so the local-only and test paths don't need it.
+    private let onEnqueue: @MainActor () -> Void
     private let encoder = JSONEncoder()
 
     /// In-memory high-water mark, seeded lazily from the store's max on first
@@ -57,11 +62,13 @@ final class OutboxCoordinator {
     init(
         context: ModelContext,
         currentOwnerID: @escaping @MainActor () -> UUID?,
-        diagnostics: SyncDiagnosticsCenter = .shared
+        diagnostics: SyncDiagnosticsCenter = .shared,
+        onEnqueue: @escaping @MainActor () -> Void = {}
     ) {
         self.context = context
         self.currentOwnerID = currentOwnerID
         self.diagnostics = diagnostics
+        self.onEnqueue = onEnqueue
     }
 
     // MARK: - Enqueue (explicit repository ops)
@@ -136,6 +143,9 @@ final class OutboxCoordinator {
             payload: payload
         )
         context.insert(entry)
+        // Nudge a debounced flush; a burst (event → track → blocks) collapses into
+        // one flush via the scheduler's window.
+        onEnqueue()
     }
 
     private func nextSequence() -> Int {

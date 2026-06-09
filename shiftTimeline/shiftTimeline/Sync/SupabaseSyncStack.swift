@@ -59,16 +59,9 @@ final class SupabaseSyncStack: SessionSyncing {
         let suppressor = RealtimeEchoSuppressor()
         echoSuppressor = suppressor
 
-        // Writes: local SwiftData + Outbox enqueue (owner stamped from the session).
-        repositoryProvider = OutboxRepositoryProvider(
-            context: context,
-            local: SwiftDataRepositoryProvider(context: context),
-            currentOwnerID: currentOwnerID,
-            diagnostics: diagnostics
-        )
-
         // Push: drain the Outbox to Supabase, recording each write so its realtime
-        // echo is recognized and skipped.
+        // echo is recognized and skipped. Built before the write path so the
+        // scheduler can be the writes' flush trigger.
         let flusher = OutboxFlusher(
             context: context,
             remote: SupabaseOutboxSender(client: client),
@@ -80,6 +73,17 @@ final class SupabaseSyncStack: SessionSyncing {
         let scheduler = FlushScheduler { await flusher.flush() }
         self.scheduler = scheduler
         connectivity = ConnectivityMonitor { scheduler.requestFlush() }
+
+        // Writes: local SwiftData + Outbox enqueue (owner stamped from the session).
+        // Each enqueue nudges the scheduler, so a write reaches Supabase within
+        // seconds — not just on the next launch / sign-in / foreground / reconnect.
+        repositoryProvider = OutboxRepositoryProvider(
+            context: context,
+            local: SwiftDataRepositoryProvider(context: context),
+            currentOwnerID: currentOwnerID,
+            diagnostics: diagnostics,
+            onEnqueue: { scheduler.requestFlush() }
+        )
 
         // Pull: full hydration on session establishment; foreground delta catch-up.
         hydrator = InitialHydrator(

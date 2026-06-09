@@ -31,12 +31,14 @@ struct OutboxRepositoryProvider: RepositoryProviding {
         context: ModelContext,
         local: any RepositoryProviding,
         currentOwnerID: @escaping @MainActor () -> UUID?,
-        diagnostics: SyncDiagnosticsCenter = .shared
+        diagnostics: SyncDiagnosticsCenter = .shared,
+        onEnqueue: @escaping @MainActor () -> Void = {}
     ) {
         let coordinator = OutboxCoordinator(
             context: context,
             currentOwnerID: currentOwnerID,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            onEnqueue: onEnqueue
         )
         events = OutboxEventRepository(local: local.events, coordinator: coordinator)
         tracks = OutboxTrackRepository(local: local.tracks, coordinator: coordinator)

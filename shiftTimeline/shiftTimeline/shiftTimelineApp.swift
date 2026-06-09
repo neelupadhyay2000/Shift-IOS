@@ -153,19 +153,16 @@ struct shiftTimelineApp: App {
                 .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
-                    // A tapped vendor invite (shift://invite/…): re-run the
-                    // identity-based claim and re-hydrate so the shared event
-                    // appears even for an already-signed-in vendor (the sign-in
-                    // claim ran once, before this invite existed). A signed-out
-                    // vendor claims on sign-in; the routed destination shows the
-                    // event once access lands.
-                    if url.scheme == "shift",
-                       url.host == VendorInviteLink.host,
-                       authService.isAuthenticated {
-                        Task {
-                            await authService.claimPendingInvites()
-                            await syncStack?.onSessionEstablished()
-                        }
+                    // A tapped invite link claims the specific row by id
+                    // (possession-based) once signed in — works for any sign-in
+                    // method, no identity/phone-OTP match needed.
+                    Task { await claimLinkInviteIfPending() }
+                }
+                .onChange(of: authService.isAuthenticated) { _, isAuthenticated in
+                    // A vendor who tapped the invite while signed out claims it
+                    // right after they sign in.
+                    if isAuthenticated {
+                        Task { await claimLinkInviteIfPending() }
                     }
                 }
                 .task { await bootstrap() }
@@ -195,6 +192,19 @@ struct shiftTimelineApp: App {
             return provider
         }
         return SwiftDataRepositoryProvider(context: Self.modelContainer.mainContext)
+    }
+
+    /// Claims a pending invite link (possession-based, `claim_invite_by_id`) once
+    /// the user is authenticated, then hydrates so the shared event appears in the
+    /// roster. No-op until both a tapped invite and a session exist — so it's safe
+    /// to call from both the tap (`onOpenURL`) and the post-sign-in transition.
+    @MainActor
+    private func claimLinkInviteIfPending() async {
+        guard authService.isAuthenticated,
+              let vendorID = deepLinkRouter.pendingInviteVendorID else { return }
+        await authService.claimInvite(vendorID: vendorID)
+        await syncStack?.onSessionEstablished()
+        deepLinkRouter.pendingInviteVendorID = nil
     }
 
     /// One-time launch wiring: build the Supabase sync stack (when enabled), start
