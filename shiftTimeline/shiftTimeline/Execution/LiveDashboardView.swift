@@ -31,6 +31,7 @@ struct LiveDashboardView: View {
 
     @Environment(WatchSessionManager.self) private var watchSessionManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var isShowingExitConfirmation = false
     @State private var isShowingQuickShift = false
@@ -54,6 +55,13 @@ struct LiveDashboardView: View {
     // MARK: Derived state
 
     private var event: EventModel? { results.first }
+
+    /// The planner owns the event → full controls. A vendor (shared event owned
+    /// by someone else) gets a read-only mirror: no shift, advance, ack grid, or
+    /// timeline mutations.
+    private var isOwner: Bool {
+        EventAccess.isOwner(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
+    }
 
     private var sortedBlocks: [TimeBlockModel] {
         guard let event else { return [] }
@@ -85,35 +93,39 @@ struct LiveDashboardView: View {
             activeBlock: activeBlock,
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
+            isOwner: isOwner,
             onAdvance: advanceToNextBlock,
-            onExitTapped: { isShowingExitConfirmation = true },
+            onExitTapped: { handleExitTapped() },
             onDismiss: { dismiss() }
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
-                    isShowingExitConfirmation = true
+                    handleExitTapped()
                 } label: {
                     Label(String(localized: "Back"), systemImage: "chevron.backward")
                 }
                 .accessibilityIdentifier(AccessibilityID.Live.exitLiveButton)
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    isShowingQuickShift = true
-                } label: {
-                    Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
+            // Shifting the timeline is a planner-only action.
+            if isOwner {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isShowingQuickShift = true
+                    } label: {
+                        Label(String(localized: "Shift Timeline"), systemImage: "clock.arrow.circlepath")
+                    }
+                    .popoverTip(shiftTip, arrowEdge: .top)
+                    .task {
+                        guard case .available = shiftTip.status else { return }
+                        try? await Task.sleep(for: .seconds(5))
+                        shiftTip.invalidate(reason: .tipClosed)
+                    }
+                    .disabled(isEventComplete)
+                    .accessibilityHint(isEventComplete ? String(localized: "Event is complete") : "")
+                    .accessibilityIdentifier(AccessibilityID.Live.shiftTimelineButton)
                 }
-                .popoverTip(shiftTip, arrowEdge: .top)
-                .task {
-                    guard case .available = shiftTip.status else { return }
-                    try? await Task.sleep(for: .seconds(5))
-                    shiftTip.invalidate(reason: .tipClosed)
-                }
-                .disabled(isEventComplete)
-                .accessibilityHint(isEventComplete ? String(localized: "Event is complete") : "")
-                .accessibilityIdentifier(AccessibilityID.Live.shiftTimelineButton)
             }
         }
         .sheet(isPresented: $isShowingQuickShift, onDismiss: {
@@ -155,9 +167,13 @@ struct LiveDashboardView: View {
             #if canImport(UIKit)
             UIApplication.shared.isIdleTimerDisabled = true
             #endif
-            activateFirstIncompleteBlockIfNeeded()
-            fetchSunsetIfNeeded()
-            ShiftTimelineTip.hasEnteredLiveMode = true
+            // A vendor's view is read-only — never activate blocks, fetch sunset,
+            // or otherwise mutate the planner's event.
+            if isOwner {
+                activateFirstIncompleteBlockIfNeeded()
+                fetchSunsetIfNeeded()
+                ShiftTimelineTip.hasEnteredLiveMode = true
+            }
         }
         .onDisappear {
             #if canImport(UIKit)
@@ -167,6 +183,16 @@ struct LiveDashboardView: View {
     }
 
     // MARK: Actions
+
+    /// Back/exit: the owner confirms (exiting live mode mutates the event), a
+    /// vendor just pops their read-only view.
+    private func handleExitTapped() {
+        if isOwner {
+            isShowingExitConfirmation = true
+        } else {
+            dismiss()
+        }
+    }
 
     private func activateFirstIncompleteBlockIfNeeded() {
         let blocks = sortedBlocks
@@ -486,6 +512,9 @@ private struct _LiveDashboardContent: View {
     let activeBlock: TimeBlockModel?
     let nextBlock: TimeBlockModel?
     let isEventComplete: Bool
+    /// Planner (owner) shows the full controls; a vendor sees a read-only mirror
+    /// — same hero + next-block, no ack grid / slide-to-advance / shift.
+    let isOwner: Bool
     let onAdvance: () -> Void
     let onExitTapped: () -> Void
     let onDismiss: () -> Void
@@ -586,9 +615,11 @@ private struct _LiveDashboardContent: View {
                 VendorQuickContactRow(vendors: activeBlock.vendors ?? [])
                 .padding(.bottom, 8)
 
-                // ── Vendor acknowledgment grid ───────────────────────
-                VendorAckGrid(vendors: event.vendors ?? [])
-                    .padding(.bottom, 8)
+                // ── Vendor acknowledgment grid (planner only) ────────
+                if isOwner {
+                    VendorAckGrid(vendors: event.vendors ?? [])
+                        .padding(.bottom, 8)
+                }
             } else {
                 VStack {
                     Spacer()
@@ -604,23 +635,29 @@ private struct _LiveDashboardContent: View {
             if activeBlock != nil {
                 NextBlockCard(nextBlock: nextBlock)
 
-                // Siri tip — suggested when event is live
-                SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
-                    .siriTipViewStyle(.dark)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                // Siri tip + slide-to-advance are planner-only controls; a vendor
+                // sees a read-only timeline (the planner advances it).
+                if isOwner {
+                    // Siri tip — suggested when event is live
+                    SiriTipView(intent: ShiftTimelineIntent(), isVisible: $isSiriTipVisible)
+                        .siriTipViewStyle(.dark)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
 
-                // Slide-to-advance track
-                SlideToAdvanceView(onAdvance: onAdvance)
-                    .popoverTip(slideToAdvanceTip, arrowEdge: .bottom)
-                    .task {
-                        try? await Task.sleep(for: .seconds(5))
-                        slideToAdvanceTip.invalidate(reason: .tipClosed)
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .padding(.bottom, 28)
-                    .accessibilityIdentifier(AccessibilityID.Live.slideToAdvance)
+                    // Slide-to-advance track
+                    SlideToAdvanceView(onAdvance: onAdvance)
+                        .popoverTip(slideToAdvanceTip, arrowEdge: .bottom)
+                        .task {
+                            try? await Task.sleep(for: .seconds(5))
+                            slideToAdvanceTip.invalidate(reason: .tipClosed)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 28)
+                        .accessibilityIdentifier(AccessibilityID.Live.slideToAdvance)
+                } else {
+                    Spacer().frame(height: 28)
+                }
             }
         }
     }
@@ -697,6 +734,7 @@ private struct _LiveDashboardContent: View {
     LiveDashboardView(eventID: UUID())
         .environment(WatchSessionManager())
         .environment(LiveActivityManager())
+        .environment(SupabaseAuthService())
         .environment(\.colorScheme, .light)
 }
 
@@ -704,5 +742,6 @@ private struct _LiveDashboardContent: View {
     LiveDashboardView(eventID: UUID())
         .environment(WatchSessionManager())
         .environment(LiveActivityManager())
+        .environment(SupabaseAuthService())
         .environment(\.colorScheme, .dark)
 }

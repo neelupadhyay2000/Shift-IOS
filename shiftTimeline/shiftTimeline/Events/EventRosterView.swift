@@ -15,6 +15,7 @@ struct EventRosterView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(\.supabaseSyncStack) private var syncStack
 
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
@@ -94,6 +95,7 @@ struct EventRosterView: View {
                 Text(String(localized: "Are you sure you want to delete \"\(event.title)\"? This will also remove all tracks, blocks, and vendors."))
             }
         }
+        .refreshable { await refresh() }
     }
 
     // MARK: - Subviews
@@ -166,13 +168,18 @@ struct EventRosterView: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label(String(localized: "No events yet"), systemImage: "calendar")
-        } actions: {
-            Button(String(localized: "Create Event")) {
-                isShowingCreateSheet = true
+        // Wrapped in a ScrollView so pull-to-refresh works with no local events —
+        // the case where a vendor pulls to fetch a freshly claimed shared event.
+        ScrollView {
+            ContentUnavailableView {
+                Label(String(localized: "No events yet"), systemImage: "calendar")
+            } actions: {
+                Button(String(localized: "Create Event")) {
+                    isShowingCreateSheet = true
+                }
+                .accessibilityIdentifier(AccessibilityID.Roster.createEventButton)
             }
-            .accessibilityIdentifier(AccessibilityID.Roster.createEventButton)
+            .containerRelativeFrame(.vertical, alignment: .center)
         }
     }
 
@@ -189,6 +196,18 @@ struct EventRosterView: View {
         SharedEventDismissalStore.dismiss(event.id)
         modelContext.delete(event)
         try? modelContext.save()
+    }
+
+    // MARK: - Sync
+
+    /// Pull-to-refresh: drives the sync stack's flush + full hydrate so the signed-
+    /// in user's complete accessible graph (RLS-scoped) is pulled — newly shared
+    /// events and remote edits (shifts, acks) appear without relaunching the app.
+    /// A full hydrate (not a delta) is what makes an older, newly shared event
+    /// load. No-op when signed out or when Supabase sync is off.
+    private func refresh() async {
+        guard authService.isAuthenticated else { return }
+        await syncStack?.refresh()
     }
 }
 

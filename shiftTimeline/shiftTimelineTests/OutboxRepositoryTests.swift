@@ -14,6 +14,9 @@ struct OutboxRepositoryTests {
 
     private let ownerID = UUID()
 
+    /// Reference counter for the `onEnqueue` flush-trigger test.
+    @MainActor private final class NudgeCounter { var count = 0 }
+
     private struct Stack {
         let container: ModelContainer
         let context: ModelContext
@@ -345,5 +348,34 @@ struct OutboxRepositoryTests {
         let refetched = try outbox(stack.context)
         #expect(refetched.map(\.rowID) == entries.map(\.rowID))
         #expect(refetched.map(\.operation) == entries.map(\.operation))
+    }
+
+    // MARK: - Flush trigger (post-write)
+
+    @Test("each enqueued write nudges the flush trigger so writes push promptly")
+    func enqueueNudgesFlushTrigger() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        context.autosaveEnabled = false
+        let counter = NudgeCounter()
+        let owner = ownerID
+        let provider = OutboxRepositoryProvider(
+            context: context,
+            local: SwiftDataRepositoryProvider(context: context),
+            currentOwnerID: { owner },
+            onEnqueue: { counter.count += 1 }
+        )
+
+        let event = EventModel(title: "E", date: fixedTimestamp, latitude: 0, longitude: 0)
+        try await provider.events.insert(event)
+        #expect(counter.count == 1) // the insert nudged once
+
+        let track = TimelineTrack(name: "Main", sortOrder: 0)
+        try await provider.tracks.insert(track, into: event)
+        #expect(counter.count == 2) // and again for the track
+
+        // A delete also routes through the Outbox, so it nudges too.
+        try await provider.events.delete(event)
+        #expect(counter.count == 3)
     }
 }

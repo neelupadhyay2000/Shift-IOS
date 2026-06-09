@@ -157,6 +157,32 @@ final class SupabaseAuthService {
         }
     }
 
+    /// Possession-based claim for a tapped invite link (`claim_invite_by_id`).
+    /// Claims the one `event_vendors` row the link points to, regardless of
+    /// whether the invite's phone/email matches this identity — so a phone
+    /// invite is claimable via email OTP. Non-fatal; a no-op without a claimer.
+    @discardableResult
+    func claimInvite(vendorID: UUID) async -> [EventVendorDTO] {
+        guard let inviteClaimer else { return [] }
+        do {
+            let claimed = try await inviteClaimer.claimInvite(vendorID: vendorID)
+            if !claimed.isEmpty {
+                SyncDiagnosticsCenter.shared.record(
+                    .auth, "inviteClaimedByLink",
+                    params: ["count": String(claimed.count), "vendor": vendorID.uuidString]
+                )
+            }
+            return claimed
+        } catch {
+            SyncDiagnosticsCenter.shared.record(
+                .auth, "inviteLinkClaimFailed",
+                params: ["vendor": vendorID.uuidString, "error": String(describing: error)],
+                severity: .error
+            )
+            return []
+        }
+    }
+
     // MARK: - Sign out
 
     /// Signs out from Supabase and clears all synced caches.

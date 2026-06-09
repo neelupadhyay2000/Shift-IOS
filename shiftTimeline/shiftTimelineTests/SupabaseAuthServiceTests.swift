@@ -29,9 +29,18 @@ final class FakeInviteClaimer: InviteClaiming {
     var claimed: [EventVendorDTO] = []
     var shouldThrow = false
     private(set) var callCount = 0
+    private(set) var byIDCallCount = 0
+    private(set) var lastClaimedVendorID: UUID?
 
     func claimInvites() async throws -> [EventVendorDTO] {
         callCount += 1
+        if shouldThrow { throw URLError(.badServerResponse) }
+        return claimed
+    }
+
+    func claimInvite(vendorID: UUID) async throws -> [EventVendorDTO] {
+        byIDCallCount += 1
+        lastClaimedVendorID = vendorID
         if shouldThrow { throw URLError(.badServerResponse) }
         return claimed
     }
@@ -309,6 +318,41 @@ struct SupabaseAuthServiceClaimInvitesTests {
         let svc = try makeService(claimer: nil)
         let claimed = await svc.claimPendingInvites()
         #expect(claimed.isEmpty)
+    }
+
+    // MARK: - claimInvite(vendorID:) — link-based (possession) claim
+
+    @Test("claimInvite(vendorID:) routes to the by-id claimer with the link's id")
+    func claimByIDRoutesToClaimer() async throws {
+        let claimer = FakeInviteClaimer()
+        claimer.claimed = [claimedDTO()]
+        let svc = try makeService(claimer: claimer)
+        let vendorID = UUID()
+
+        let claimed = await svc.claimInvite(vendorID: vendorID)
+
+        #expect(claimer.byIDCallCount == 1)
+        #expect(claimer.lastClaimedVendorID == vendorID)
+        #expect(claimed.count == 1)
+        #expect(claimer.callCount == 0) // identity claim untouched
+    }
+
+    @Test("claimInvite(vendorID:) is non-fatal when the RPC throws")
+    func claimByIDNonFatalOnThrow() async throws {
+        let claimer = FakeInviteClaimer()
+        claimer.shouldThrow = true
+        let svc = try makeService(claimer: claimer)
+
+        let claimed = await svc.claimInvite(vendorID: UUID())
+
+        #expect(claimed.isEmpty)
+        #expect(claimer.byIDCallCount == 1)
+    }
+
+    @Test("claimInvite(vendorID:) is a no-op when no claimer is injected")
+    func claimByIDNoOpWithoutClaimer() async throws {
+        let svc = try makeService(claimer: nil)
+        #expect(await svc.claimInvite(vendorID: UUID()).isEmpty)
     }
 }
 

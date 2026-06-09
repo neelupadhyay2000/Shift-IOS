@@ -34,6 +34,13 @@ private struct RealtimeEchoSuppressorKey: EnvironmentKey {
     static let defaultValue: RealtimeEchoSuppressor? = nil
 }
 
+/// The Supabase sync stack (E16 composition root), or `nil` when sync is off.
+/// Exposed so views can trigger an on-demand pull (flush + full hydrate), e.g.
+/// pull-to-refresh on the event roster.
+private struct SupabaseSyncStackKey: EnvironmentKey {
+    static let defaultValue: SupabaseSyncStack? = nil
+}
+
 extension EnvironmentValues {
     var eventRepository: (any EventRepositing)? {
         get { self[EventRepositoryKey.self] }
@@ -58,6 +65,10 @@ extension EnvironmentValues {
     var realtimeEchoSuppressor: RealtimeEchoSuppressor? {
         get { self[RealtimeEchoSuppressorKey.self] }
         set { self[RealtimeEchoSuppressorKey.self] = newValue }
+    }
+    var supabaseSyncStack: SupabaseSyncStack? {
+        get { self[SupabaseSyncStackKey.self] }
+        set { self[SupabaseSyncStackKey.self] = newValue }
     }
 }
 

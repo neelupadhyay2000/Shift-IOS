@@ -34,12 +34,30 @@ final class DeepLinkRouter {
     /// Set this to trigger navigation. `RootNavigator` clears it after routing.
     var pendingDestination: DeepLinkDestination?
 
+    /// The `event_vendors` row id from a tapped invite link, awaiting a
+    /// possession-based claim (`claim_invite_by_id`). The app claims it once the
+    /// user is authenticated — on the tap if already signed in, otherwise right
+    /// after they sign in — then clears it. This is what makes phone-addressed
+    /// invites joinable via email OTP, with no phone OTP.
+    var pendingInviteVendorID: UUID?
+
     /// The most recent foreground shift push, surfaced as an in-app banner
     /// instead of a system notification (SHIFT-648). `RootContainerView` observes
     /// this, shows a transient top toast, and clears it on tap or timeout.
     /// `AppDelegate.willPresent` sets it when it suppresses a foreground `shift-`
     /// notification.
     var foregroundShiftBanner: InAppShiftBanner?
+
+    /// Bumped whenever one of our server pushes (shift / assignment / go-live)
+    /// arrives or is tapped — a signal that remote data just changed. The app root
+    /// observes it and runs a delta reconcile so the in-app roster/detail refresh
+    /// in place, without needing a relaunch.
+    var remoteRefreshToken = UUID()
+
+    /// Signals that a server push just landed → trigger a remote refresh.
+    func requestRemoteRefresh() {
+        remoteRefreshToken = UUID()
+    }
 
     /// `true` while a CloudKit share invitation is being accepted and the
     /// mirrored records are still syncing into the local SwiftData store.
@@ -121,6 +139,11 @@ final class DeepLinkRouter {
             guard let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "event" })?.value,
                 let eventID = UUID(uuidString: raw) else { return false }
+            // The event_vendors row id is the first path component — captured for
+            // the possession-based link claim once the user is authenticated.
+            if url.pathComponents.count > 1, let vendorID = UUID(uuidString: url.pathComponents[1]) {
+                pendingInviteVendorID = vendorID
+            }
             pendingDestination = .event(id: eventID)
             return true
         }

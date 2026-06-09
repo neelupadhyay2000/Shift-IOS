@@ -46,3 +46,28 @@ export function shiftBody(deltaSeconds: number): string {
   const sign = minutes >= 0 ? "+" : "";
   return `Timeline shifted ${sign}${minutes} min.`;
 }
+
+export interface AssignmentPayload {
+  type: "assignment";
+  event_vendor_id: string;
+  event_id: string;
+  profile_id: string;
+  block_title: string;
+}
+
+/** Alert body for a vendor newly assigned to a block. */
+export function assignmentBody(blockTitle: string): string {
+  const title = (blockTitle ?? "").trim() || "a block";
+  return `You've been added to "${title}".`;
+}
+
+export interface GoLivePayload {
+  type: "golive";
+  event_id: string;
+  event_title: string;
+}
+
+/** Alert body when an event goes live (title carries the event name). */
+export function goLiveBody(): string {
+  return "The event is now live — tap to follow the timeline.";
+}

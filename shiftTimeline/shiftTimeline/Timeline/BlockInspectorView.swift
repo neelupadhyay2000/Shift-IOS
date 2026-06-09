@@ -17,10 +17,14 @@ struct BlockInspectorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(\.blockRepository) private var injectedBlockRepo
+    @Environment(\.vendorRepository) private var injectedVendorRepo
     @Environment(SupabaseAuthService.self) private var authService
 
     private var blockRepo: any BlockRepositing {
         injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
+    }
+    private var vendorRepo: any VendorRepositing {
+        injectedVendorRepo ?? SwiftDataVendorRepository(context: modelContext)
     }
 
     let block: TimeBlockModel
@@ -122,6 +126,14 @@ struct BlockInspectorView: View {
                     event.weatherSnapshot = nil
                 }
             }
+            // Junctions route through the repo (live) so assignment / dependency
+            // changes enqueue the block_vendors / block_dependencies rows.
+            .onChange(of: selectedVendorIDs) { _, new in
+                Task { await syncVendorAssignments(to: new) }
+            }
+            .onChange(of: selectedDependencyIDs) { _, new in
+                Task { await syncDependencies(to: new) }
+            }
             .modifier(InspectorLiveWriteModifier(block: block,
                                                  title: title,
                                                  startTime: startTime,
@@ -134,11 +146,7 @@ struct BlockInspectorView: View {
                                                  venueAddress: venueAddress,
                                                  venueName: venueName,
                                                  blockLatitude: blockLatitude,
-                                                 blockLongitude: blockLongitude,
-                                                 eventVendors: eventVendors,
-                                                 siblingBlocks: siblingBlocks,
-                                                 selectedVendorIDs: selectedVendorIDs,
-                                                 selectedDependencyIDs: selectedDependencyIDs))
+                                                 blockLongitude: blockLongitude))
     }
 
     private var inspectorForm: some View {
@@ -435,13 +443,19 @@ struct BlockInspectorView: View {
         block.colorTag = colorTag
         block.icon = icon
 
-        block.vendors = eventVendors.filter { selectedVendorIDs.contains($0.id) }
-        block.dependencies = siblingBlocks.filter { selectedDependencyIDs.contains($0.id) }
         block.isOutdoor = isOutdoor
         block.venueAddress = venueAddress
         block.venueName = venueName
         block.blockLatitude = blockLatitude
         block.blockLongitude = blockLongitude
+
+        // Vendor + dependency edits are M:N junctions — route them through the
+        // repo so the block_vendors / block_dependencies rows are enqueued to the
+        // Outbox (a direct `block.vendors = …` only marks the block dirty and the
+        // junction would never sync, so the vendor never sees the assignment and
+        // the assignment push never fires).
+        await syncVendorAssignments(to: selectedVendorIDs)
+        await syncDependencies(to: selectedDependencyIDs)
 
         // Bust the weather cache so EventDetailView re-fetches with the new location.
         if blockLatitude != 0 || blockLongitude != 0 {
@@ -450,6 +464,32 @@ struct BlockInspectorView: View {
         try? await blockRepo.save()
 
         dismiss()
+    }
+
+    /// Diffs current vs selected vendors and routes each change through
+    /// `vendorRepo.assign/unassign`, which enqueue the `block_vendors` junction.
+    @MainActor
+    private func syncVendorAssignments(to selectedIDs: Set<UUID>) async {
+        let current = Set((block.vendors ?? []).map(\.id))
+        for vendor in eventVendors where selectedIDs.contains(vendor.id) && !current.contains(vendor.id) {
+            try? await vendorRepo.assign(vendor, to: block)
+        }
+        for vendor in (block.vendors ?? []) where !selectedIDs.contains(vendor.id) {
+            try? await vendorRepo.unassign(vendor, from: block)
+        }
+    }
+
+    /// Diffs current vs selected dependencies and routes each change through
+    /// `blockRepo.addDependency/removeDependency` (enqueues block_dependencies).
+    @MainActor
+    private func syncDependencies(to selectedIDs: Set<UUID>) async {
+        let current = Set((block.dependencies ?? []).map(\.id))
+        for sibling in siblingBlocks where selectedIDs.contains(sibling.id) && !current.contains(sibling.id) {
+            try? await blockRepo.addDependency(sibling, to: block)
+        }
+        for sibling in (block.dependencies ?? []) where !selectedIDs.contains(sibling.id) {
+            try? await blockRepo.removeDependency(sibling, from: block)
+        }
     }
 
     // MARK: - Options
@@ -505,12 +545,6 @@ private struct InspectorLiveWriteModifier: ViewModifier {
     let blockLatitude: Double
     let blockLongitude: Double
 
-    // Relationships
-    let eventVendors: [VendorModel]
-    let siblingBlocks: [TimeBlockModel]
-    let selectedVendorIDs: Set<UUID>
-    let selectedDependencyIDs: Set<UUID>
-
     func body(content: Content) -> some View {
         content
             .onChange(of: title) { _, new in block.title = new.trimmingCharacters(in: .whitespaces) }
@@ -525,11 +559,5 @@ private struct InspectorLiveWriteModifier: ViewModifier {
             .onChange(of: venueName) { _, new in block.venueName = new }
             .onChange(of: blockLatitude) { _, new in block.blockLatitude = new }
             .onChange(of: blockLongitude) { _, new in block.blockLongitude = new }
-            .onChange(of: selectedVendorIDs) { _, new in
-                block.vendors = eventVendors.filter { new.contains($0.id) }
-            }
-            .onChange(of: selectedDependencyIDs) { _, new in
-                block.dependencies = siblingBlocks.filter { new.contains($0.id) }
-            }
     }
 }
