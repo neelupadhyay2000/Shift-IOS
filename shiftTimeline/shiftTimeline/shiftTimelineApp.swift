@@ -153,6 +153,20 @@ struct shiftTimelineApp: App {
                 .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
+                    // A tapped vendor invite (shift://invite/…): re-run the
+                    // identity-based claim and re-hydrate so the shared event
+                    // appears even for an already-signed-in vendor (the sign-in
+                    // claim ran once, before this invite existed). A signed-out
+                    // vendor claims on sign-in; the routed destination shows the
+                    // event once access lands.
+                    if url.scheme == "shift",
+                       url.host == VendorInviteLink.host,
+                       authService.isAuthenticated {
+                        Task {
+                            await authService.claimPendingInvites()
+                            await syncStack?.onSessionEstablished()
+                        }
+                    }
                 }
                 .task { await bootstrap() }
         }

@@ -1,28 +1,47 @@
 import SwiftUI
 
-/// Second step of the phone-OTP sign-in flow.
+/// Second step of an OTP sign-in flow — channel-agnostic (phone or email).
 ///
-/// Accepts the 6-digit code sent to `phone`, verifies it with Supabase, and
-/// calls `onSessionEstablished` on success. `SupabaseAuthService` is updated
-/// automatically via its `authStateChanges` listener — this callback is purely for navigation.
+/// Accepts a 6-digit code sent to `destination`, verifies it via the injected
+/// `verifyToken` closure, and calls `onSessionEstablished` on success.
+/// `SupabaseAuthService` is updated automatically via its `authStateChanges`
+/// listener — this callback is purely for navigation.
 ///
 /// Resend is gated behind a 60-second cooldown that starts when the view appears
 /// and resets each time a new code is dispatched.
 struct OTPVerificationView: View {
 
-    private let service: PhoneAuthService
-    /// The normalized E.164 phone number the OTP was sent to.
-    let phone: String
+    /// What the code was sent to (E.164 phone or email), shown in the header.
+    let destination: String
+    /// Channel-specific headline, e.g. "Check your messages" / "Check your email".
+    let headline: String
+    /// Verifies the entered code with Supabase; throws on failure.
+    let verifyToken: @MainActor (String) async throws -> Void
+    /// Re-sends a fresh code to `destination`.
+    let resendCode: @MainActor () async throws -> Void
     /// Called when Supabase returns a valid session. Use this to dismiss
     /// or advance the navigation stack.
     let onSessionEstablished: () -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(service: PhoneAuthService, phone: String, onSessionEstablished: @escaping () -> Void) {
-        self.service = service
-        self.phone = phone
+    init(
+        destination: String,
+        headline: String,
+        verifyToken: @escaping @MainActor (String) async throws -> Void,
+        resendCode: @escaping @MainActor () async throws -> Void,
+        onSessionEstablished: @escaping () -> Void
+    ) {
+        self.destination = destination
+        self.headline = headline
+        self.verifyToken = verifyToken
+        self.resendCode = resendCode
         self.onSessionEstablished = onSessionEstablished
+    }
+
+    /// Returns `true` when `token` is exactly 6 decimal digits.
+    private static func isValidToken(_ token: String) -> Bool {
+        token.count == 6 && token.allSatisfy(\.isNumber)
     }
 
     @State private var token = ""
@@ -37,7 +56,7 @@ struct OTPVerificationView: View {
     // MARK: - Derived state
 
     private var canVerify: Bool {
-        PhoneAuthService.isValidOTPToken(token) && !isVerifying
+        Self.isValidToken(token) && !isVerifying
     }
 
     private var canResend: Bool {
@@ -94,12 +113,12 @@ struct OTPVerificationView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "Check your messages"))
+            Text(headline)
                 .font(.title2.bold())
             Text(
                 String(
-                    localized: "Enter the 6-digit code sent to \(phone).",
-                    comment: "Subtitle on OTP entry screen. %@ is the phone number."
+                    localized: "Enter the 6-digit code sent to \(destination).",
+                    comment: "Subtitle on OTP entry screen. %@ is the phone number or email."
                 )
             )
             .font(.subheadline)
@@ -178,7 +197,7 @@ struct OTPVerificationView: View {
         isVerifying = true
         defer { isVerifying = false }
         do {
-            try await service.verifyOTP(phone: phone, token: token)
+            try await verifyToken(token)
             onSessionEstablished()
         } catch {
             token = ""
@@ -191,7 +210,7 @@ struct OTPVerificationView: View {
         isResending = true
         defer { isResending = false }
         do {
-            try await service.resendOTP(phone: phone)
+            try await resendCode()
             token = ""
             startCooldown()
         } catch {
@@ -223,13 +242,10 @@ struct OTPVerificationView: View {
 
 #Preview {
     OTPVerificationView(
-        service: PhoneAuthService(
-            client: SupabaseClientProvider(
-                supabaseURL: URL(string: "https://example.supabase.co")!,
-                supabaseKey: "preview-anon-key"
-            ).client
-        ),
-        phone: "+15551234567",
+        destination: "+15551234567",
+        headline: String(localized: "Check your messages"),
+        verifyToken: { _ in },
+        resendCode: { },
         onSessionEstablished: {
             print("Session established")
         }

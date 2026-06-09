@@ -147,6 +147,22 @@ private struct UseTemplateSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.eventRepository) private var injectedEventRepo
+    @Environment(\.trackRepository) private var injectedTrackRepo
+    @Environment(\.blockRepository) private var injectedBlockRepo
+
+    // Route writes through the injected repositories so a template-created event
+    // enqueues to the Outbox and syncs (SHIFT-658 cutover). Falls back to a local
+    // SwiftData repo when none is injected (previews / sync disabled).
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
+    private var trackRepo: any TrackRepositing {
+        injectedTrackRepo ?? SwiftDataTrackRepository(context: modelContext)
+    }
+    private var blockRepo: any BlockRepositing {
+        injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
+    }
 
     @State private var eventTitle: String = ""
     @State private var eventDate: Date = .now
@@ -196,10 +212,12 @@ private struct UseTemplateSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Create")) {
-                        let eventID = createEventFromTemplate()
-                        // Set the ID before dismiss so onDismiss can read it.
-                        onEventCreated(eventID)
-                        dismiss()
+                        Task {
+                            let eventID = await createEventFromTemplate()
+                            // Set the ID before dismiss so onDismiss can read it.
+                            onEventCreated(eventID)
+                            dismiss()
+                        }
                     }
                     .disabled(!canCreate)
                 }
@@ -207,7 +225,8 @@ private struct UseTemplateSheet: View {
         }
     }
 
-    private func createEventFromTemplate() -> UUID {
+    @MainActor
+    private func createEventFromTemplate() async -> UUID {
         let trimmedTitle = eventTitle.trimmingCharacters(in: .whitespaces)
         let latitude = locationResult?.coordinate?.latitude ?? 0
         let longitude = locationResult?.coordinate?.longitude ?? 0
@@ -223,11 +242,11 @@ private struct UseTemplateSheet: View {
             longitude: longitude,
             venueNames: venueNames
         )
-        modelContext.insert(event)
+        try? await eventRepo.insert(event)
         AnalyticsService.send(.templateUsed, parameters: ["templateName": template.name])
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
-        modelContext.insert(mainTrack)
+        try? await trackRepo.insert(mainTrack, into: event)
 
         let baseStart = combineDateAndTime(date: eventDate, time: startTime)
 
@@ -241,22 +260,22 @@ private struct UseTemplateSheet: View {
                 colorTag: templateBlock.colorTag,
                 icon: templateBlock.icon
             )
-            block.track = mainTrack
-            modelContext.insert(block)
+            try? await blockRepo.insert(block, into: mainTrack)
         }
 
-        // Fire-and-forget sunset fetch when both coordinates are provided.
+        // Persist (and enqueue) the whole graph before navigation so
+        // EventDetailView's @Query resolves the new record in the onDismiss callback.
+        try? await eventRepo.save()
+
+        // Fire-and-forget sunset enrichment; route the resulting edit back through
+        // the repository so the `sunsetTime` update also enqueues to the Outbox.
         if latitude != 0 && longitude != 0 {
+            let repo = eventRepo
             Task { @MainActor in
-                let service = SunsetService()
-                _ = await service.fetchIfNeeded(for: event)
-                try? modelContext.save()
+                _ = await SunsetService().fetchIfNeeded(for: event)
+                try? await repo.save()
             }
         }
-
-        // Synchronous save so EventDetailView's @Query can resolve the new
-        // record immediately when navigation fires in the onDismiss callback.
-        try? modelContext.save()
 
         return event.id
     }

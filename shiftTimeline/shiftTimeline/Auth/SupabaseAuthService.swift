@@ -234,6 +234,9 @@ final class SupabaseAuthService {
     /// hydrates (pull) and flushes (push) — so a freshly-migrated user's graph is
     /// queued, then uploaded by the same establishment.
     private func establishSession(for user: User) async {
+        SyncDiagnosticsCenter.shared.record(
+            .auth, "sessionEstablished", params: ["profile": user.id.uuidString]
+        )
         await performProfileUpsert(user: user, displayName: nil)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)

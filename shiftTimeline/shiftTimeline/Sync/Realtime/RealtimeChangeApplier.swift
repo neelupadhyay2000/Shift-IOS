@@ -44,7 +44,16 @@ struct RealtimeChangeApplier {
     func apply(_ changes: AsyncStream<RealtimeChange>) async {
         for await change in changes {
             do {
-                try apply(change)
+                // Record only genuinely-applied changes (not this device's own
+                // echoes) so the diagnostics `applyRemote` row is the proof that a
+                // *remote* edit landed — the money signal in a two-device test.
+                if try apply(change) {
+                    let op = if case .delete = change { "delete" } else { "upsert" }
+                    diagnostics.record(
+                        .applyRemote, "applied",
+                        params: ["table": change.table, "op": op]
+                    )
+                }
             } catch {
                 diagnostics.record(
                     .applyRemote, "realtimeApplyFailed",
@@ -55,10 +64,12 @@ struct RealtimeChangeApplier {
         }
     }
 
-    /// Applies a single change and saves. A change that is this device's own
-    /// echo is skipped so it never re-applies over (or clobbers) local state.
-    func apply(_ change: RealtimeChange) throws {
-        if isSelfEcho(change) { return }
+    /// Applies a single change and saves, returning whether it was applied. A
+    /// change that is this device's own echo is skipped (returns `false`) so it
+    /// never re-applies over (or clobbers) local state.
+    @discardableResult
+    func apply(_ change: RealtimeChange) throws -> Bool {
+        if isSelfEcho(change) { return false }
         switch change {
         case let .upsert(table, record):
             try applyUpsert(table: table, record: record)
@@ -66,6 +77,7 @@ struct RealtimeChangeApplier {
             try applyDelete(table: table, oldRecord: oldRecord)
         }
         try context.save()
+        return true
     }
 
     private func isSelfEcho(_ change: RealtimeChange) -> Bool {

@@ -60,6 +60,7 @@ struct OutboxFlusherTests {
 
     private func makeStack(
         echoSuppressor: RealtimeEchoSuppressor? = nil,
+        maxAttempts: Int = 8,
         sleep: @escaping @Sendable (TimeInterval) async -> Void = { _ in }
     ) throws -> Stack {
         let container = try PersistenceController.forTesting()
@@ -72,6 +73,7 @@ struct OutboxFlusherTests {
             echoSuppressor: echoSuppressor,
             baseDelay: 1,
             maxDelay: 60,
+            maxAttempts: maxAttempts,
             sleep: sleep
         )
         return Stack(container: container, context: context, sender: sender, flusher: flusher)
@@ -163,6 +165,34 @@ struct OutboxFlusherTests {
 
         #expect(head.attempts == 3)
         #expect(outcome == .retry(after: 4)) // backoff(attempt 3, base 1) = 4
+    }
+
+    @Test("a poison entry parks after maxAttempts so the rest of the queue still drains")
+    func poisonEntryParksAndQueueDrains() async throws {
+        let stack = try makeStack(maxAttempts: 2)
+        // A permanently-rejected entry (models an RLS 42501 that can't self-heal),
+        // ahead of a healthy entry it would otherwise block forever.
+        let poison = enqueue(stack.context, seq: 1, table: "event_vendors", op: .insert)
+        let good = enqueue(stack.context, seq: 2, table: "events", op: .insert)
+        stack.sender.failTables = ["event_vendors"]
+        try stack.context.save()
+
+        // Pass 1: poison fails (attempts 1 < 2) → head-of-line halt; nothing sent.
+        #expect(await stack.flusher.flushOnce() == .retry(after: 1))
+        #expect(poison.attempts == 1)
+        #expect(stack.sender.sent.isEmpty)
+
+        // Pass 2: poison fails again (attempts == maxAttempts) → parked + skipped,
+        // and the healthy entry behind it drains in the same pass.
+        #expect(await stack.flusher.flushOnce() == .drained)
+        #expect(poison.attempts == 2)
+        #expect(stack.sender.sent.map(\.table) == ["events"])
+        #expect(try outbox(stack.context).map(\.rowID) == [poison.rowID]) // good gone, poison parked
+
+        // Pass 3: the parked entry is skipped entirely (not even retried).
+        #expect(await stack.flusher.flushOnce() == .drained)
+        #expect(poison.attempts == 2) // unchanged — never re-sent
+        #expect(stack.sender.sent.map(\.table) == ["events"]) // no new sends
     }
 
     @Test("backoff is exponential and capped")
