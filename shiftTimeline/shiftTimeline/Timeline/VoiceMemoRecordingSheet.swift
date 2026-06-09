@@ -8,7 +8,7 @@ import Models
 @Observable
 final class AudioRecordingCoordinator: NSObject, AVAudioRecorderDelegate {
 
-    /// Hard cap to prevent runaway recordings from filling storage / CloudKit.
+    /// Hard cap to prevent runaway recordings from filling on-device storage.
     static let maxRecordingDuration: TimeInterval = 5 * 60
 
     var isRecording = false

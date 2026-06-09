@@ -5,7 +5,7 @@ import Models
 /// to decide whether a visible push notification is warranted.
 ///
 /// **Pure logic** — no side effects. Call sites decide how to dispatch
-/// the resulting decisions (e.g. set a flag on the model for CloudKit sync).
+/// the resulting decisions (e.g. set a flag on the model for sync).
 public enum VendorNotificationEvaluator {
 
     /// The notification decision for a single vendor after a shift.

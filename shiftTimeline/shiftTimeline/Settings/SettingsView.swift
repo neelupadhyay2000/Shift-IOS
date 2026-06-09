@@ -11,6 +11,9 @@ enum SettingsDefaultsKey {
 }
 
 struct SettingsView: View {
+    /// Hosted help / support page opened from the About section.
+    private static let supportURL = URL(string: "https://support.shifttimeline.app")
+
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.openURL) private var openURL
 
@@ -259,6 +262,12 @@ struct SettingsView: View {
                 Text(appVersion)
                     .foregroundStyle(.secondary)
             }
+            if let url = Self.supportURL {
+                Link(destination: url) {
+                    Label(String(localized: "Help & Support"), systemImage: "questionmark.circle")
+                }
+                .foregroundStyle(Color.accentColor)
+            }
             Button(String(localized: "Privacy Policy")) {
                 if let url = LegalContent.privacyPolicyURL { openURL(url) }
             }
@@ -270,7 +279,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Diagnostics (Release-visible — used to debug iCloud sharing on TestFlight)
+    // MARK: - Diagnostics (Release-visible — used to debug Supabase sync/sharing on TestFlight)
 
     private var diagnosticsSection: some View {
         Section {
@@ -285,7 +294,7 @@ struct SettingsView: View {
         } header: {
             Text(String(localized: "Diagnostics"))
         } footer: {
-            Text(String(localized: "Tools for troubleshooting iCloud sharing and sync. Tap Share in the top-right to export the log."))
+            Text(String(localized: "Tools for troubleshooting sync and vendor sharing. Tap Share in the top-right to export the log."))
         }
     }
 

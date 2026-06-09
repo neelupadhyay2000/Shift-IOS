@@ -9,7 +9,7 @@ import Testing
 ///
 /// Each test creates an isolated in-memory SwiftData container so
 /// relationship graphs (tracks → blocks) are fully wired without
-/// hitting a real CloudKit store.
+/// hitting a real on-disk store.
 @Suite("EventModel.applyGoLiveMutation")
 struct EventGoLiveTransitionTests {
 

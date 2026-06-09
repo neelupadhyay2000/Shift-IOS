@@ -8,21 +8,18 @@ import SwiftData
 ///     `nil` when no memo is present.
 ///
 /// Why this snapshot exists: per the SHIFT-303 post-mortem, every new stored
-/// property on a live `@Model` requires a frozen `VersionedSchema` snapshot or
-/// `NSPersistentCloudKitContainer` silently halts mirroring.
-/// The `CloudKitSyncIntegrityTests` reflection-based drift detector will
-/// fail the build if the live model and this snapshot drift apart.
+/// property on a live `@Model` requires a frozen `VersionedSchema` snapshot, or
+/// the migration plan can't carry an existing store forward across versions.
 ///
 /// **Critical:** Re-declares all `@Model` types in full so V8 has a distinct
 /// schema checksum from V7; reusing live types would collapse both versions
 /// onto the same checksum and cause `MigrationStage.lightweight(V7 → V8)`
 /// to throw.
 ///
-/// **CloudKit note:** Only the `voiceMemoDuration` and `voiceMemoCreatedAt`
-/// scalar fields sync via CloudKit. The audio file itself (`.m4a`) is stored
-/// on-device only. Cross-device playback degrades gracefully via
-/// `VoiceMemoStorage.resolve()` returning `nil` when the file is absent.
-/// Full `CKAsset` audio sync is deferred to a follow-up ticket.
+/// **Sync note:** the `voiceMemoDuration` and `voiceMemoCreatedAt` scalar fields
+/// sync; the audio file itself (`.m4a`) is stored on-device only. Cross-device
+/// playback degrades gracefully via `VoiceMemoStorage.resolve()` returning `nil`
+/// when the file is absent.
 public enum SHIFTSchemaV8: VersionedSchema {
     public static var versionIdentifier: Schema.Version { Schema.Version(8, 0, 0) }
 

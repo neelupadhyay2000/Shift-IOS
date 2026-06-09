@@ -113,8 +113,8 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
 
 /// Playback control row shown in BlockInspector when a voice memo exists.
 ///
-/// If the file is missing on disk (e.g. CloudKit-synced record whose audio
-/// has not been transferred to this device) the row shows an unavailable
+/// If the file is missing on disk (e.g. a block synced from another device whose
+/// audio has not been transferred here) the row shows an unavailable
 /// state but does **not** clear the model field — the file may still arrive
 /// later, or be present on another device.
 struct VoiceMemoPlaybackRow: View {

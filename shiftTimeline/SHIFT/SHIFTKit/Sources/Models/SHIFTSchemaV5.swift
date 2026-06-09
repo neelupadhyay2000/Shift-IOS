@@ -4,12 +4,9 @@ import SwiftData
 /// V5 schema — adds `TimeBlockModel.isTransitBlock: Bool` (default `false`).
 ///
 /// Why this snapshot exists: SHIFT-303 added the `isTransitBlock` stored
-/// property to the live `TimeBlockModel` without a matching `VersionedSchema`.
-/// `NSPersistentCloudKitContainer` could no longer reconcile the schema
-/// checksum against any version in `SHIFTMigrationPlan` and silently halted
-/// publishing records to iCloud — events and timeline blocks stopped syncing
-/// and "Share with Vendor" began permanently failing with
-/// "This event hasn't synced to iCloud yet…".
+/// property to the live `TimeBlockModel` without a matching `VersionedSchema`,
+/// leaving `SHIFTMigrationPlan` unable to migrate an existing store across the
+/// change. Every new stored property therefore needs a frozen snapshot here.
 ///
 /// **Critical:** Every `VersionedSchema` must contain frozen `@Model`
 /// snapshots — not references to live model types. Re-declaring the nested

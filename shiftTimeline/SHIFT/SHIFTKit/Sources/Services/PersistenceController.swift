@@ -4,11 +4,11 @@ import SwiftData
 import Models
 import ObjCException
 
-/// Local-only SwiftData persistence layer.
+/// Local-first SwiftData persistence layer.
 ///
-/// The store is configured with `cloudKitDatabase: .none`; the app runs fully
-/// offline with no iCloud account required. Supabase will become the
-/// sync/sharing back-end in a later epic (E12).
+/// The store is configured with `cloudKitDatabase: .none`, so it never mirrors to
+/// CloudKit and the app runs fully offline with no iCloud account required. Sync
+/// and sharing are handled separately by the Supabase backend.
 public final class PersistenceController: Sendable {
 
     private static let logger = Logger(subsystem: "com.shift.persistence", category: "store")

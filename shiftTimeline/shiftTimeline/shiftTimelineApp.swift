@@ -298,27 +298,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         guard !shiftTimelineApp.isUITestMode else { return true }
-        let hasManifest = Bundle.main.infoDictionary?["UIApplicationSceneManifest"] != nil
-        let delegateClass: AnyClass? = NSClassFromString("shiftTimeline.SHIFTSceneDelegate")
-        Self.logger.info("Launch diagnostic — scene manifest present: \(hasManifest), SHIFTSceneDelegate class resolved: \(delegateClass != nil ? "YES" : "NO — MISSING")")
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }
         // Register with APNs every launch so we always have the current token
         // (Apple delivers it via didRegisterForRemoteNotifications). SHIFT-642.
         application.registerForRemoteNotifications()
         return true
-    }
-
-    /// Wires `SHIFTSceneDelegate` as the scene delegate so scene-lifecycle
-    /// callbacks are delivered to the correct class.
-    func application(
-        _ application: UIApplication,
-        configurationForConnecting connectingSceneSession: UISceneSession,
-        options: UIScene.ConnectionOptions
-    ) -> UISceneConfiguration {
-        let config = UISceneConfiguration(name: nil, sessionRole: connectingSceneSession.role)
-        config.delegateClass = SHIFTSceneDelegate.self
-        return config
     }
 
     // MARK: - APNs registration (SHIFT-642)

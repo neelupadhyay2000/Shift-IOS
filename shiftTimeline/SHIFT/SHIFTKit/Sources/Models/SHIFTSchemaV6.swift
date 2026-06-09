@@ -9,9 +9,7 @@ import SwiftData
 ///
 /// Why this snapshot exists: per the SHIFT-303 post-mortem, every new
 /// stored property on a live `@Model` requires a frozen `VersionedSchema`
-/// snapshot or `NSPersistentCloudKitContainer` silently halts mirroring.
-/// The `CloudKitSyncIntegrityTests` reflection-based drift detector will
-/// fail the build if the live model and this snapshot drift apart.
+/// snapshot, or the migration plan can't carry an existing store forward.
 ///
 /// **Critical:** Re-declares the `@Model` types in full so V6 has a
 /// distinct schema checksum from V5; reusing live types would collapse

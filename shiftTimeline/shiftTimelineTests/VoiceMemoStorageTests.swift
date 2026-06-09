@@ -4,8 +4,8 @@
 //
 //  Coverage for the voice-memo storage helper:
 //   * Filename generation is deterministic and contains the block UUID.
-//   * `resolve(_:)` returns nil for missing files (CloudKit-synced records
-//     whose audio hasn't been transferred to this device).
+//   * `resolve(_:)` returns nil for missing files (a block synced from another
+//     device whose audio hasn't been transferred here).
 //   * `resolve(_:)` recovers when the absolute path stored on disk no longer
 //     matches the current Documents container (post-restore / reinstall).
 //   * `deleteFile(for:)` is idempotent when the file is already gone.
