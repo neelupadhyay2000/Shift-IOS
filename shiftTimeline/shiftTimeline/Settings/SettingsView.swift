@@ -16,6 +16,7 @@ struct SettingsView: View {
 
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.openURL) private var openURL
+    @Environment(\.syncStatusMonitor) private var syncStatusMonitor
 
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
@@ -283,6 +284,16 @@ struct SettingsView: View {
 
     private var diagnosticsSection: some View {
         Section {
+            if let monitor = syncStatusMonitor {
+                LabeledContent(String(localized: "Sync Status")) {
+                    SyncStatusIndicator(status: monitor.status)
+                }
+                if let message = monitor.message {
+                    Text(message)
+                        .font(.footnote)
+                        .foregroundStyle(monitor.status == .degraded ? .orange : .secondary)
+                }
+            }
             NavigationLink {
                 SyncDiagnosticsView()
             } label: {

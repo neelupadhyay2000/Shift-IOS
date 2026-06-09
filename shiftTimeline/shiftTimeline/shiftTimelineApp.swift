@@ -152,6 +152,7 @@ struct shiftTimelineApp: App {
                 .environment(deepLinkRouter)
                 .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
                 .environment(\.supabaseSyncStack, syncStack)
+                .environment(\.syncStatusMonitor, syncStack?.statusMonitor)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id

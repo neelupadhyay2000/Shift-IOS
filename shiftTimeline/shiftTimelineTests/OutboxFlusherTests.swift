@@ -61,6 +61,7 @@ struct OutboxFlusherTests {
     private func makeStack(
         echoSuppressor: RealtimeEchoSuppressor? = nil,
         maxAttempts: Int = 8,
+        jitter: @escaping @Sendable (TimeInterval) -> TimeInterval = { $0 },
         sleep: @escaping @Sendable (TimeInterval) async -> Void = { _ in }
     ) throws -> Stack {
         let container = try PersistenceController.forTesting()
@@ -74,6 +75,7 @@ struct OutboxFlusherTests {
             baseDelay: 1,
             maxDelay: 60,
             maxAttempts: maxAttempts,
+            jitter: jitter,
             sleep: sleep
         )
         return Stack(container: container, context: context, sender: sender, flusher: flusher)
@@ -204,6 +206,33 @@ struct OutboxFlusherTests {
         #expect(OutboxFlusher.backoffSeconds(forAttempt: 4, base: 1, cap: 60) == 8)
         #expect(OutboxFlusher.backoffSeconds(forAttempt: 7, base: 1, cap: 60) == 60) // 64 capped
         #expect(OutboxFlusher.backoffSeconds(forAttempt: 3, base: 2, cap: 60) == 8)
+    }
+
+    // MARK: - Backoff jitter (SHIFT-663)
+
+    @Test("equal jitter keeps half the backoff and randomizes the other half over [ceiling/2, ceiling]")
+    func equalJitterBoundsAndMidpoint() {
+        #expect(OutboxFlusher.equalJitter(8, random: { 0 }) == 4)    // lower bound: half only
+        #expect(OutboxFlusher.equalJitter(8, random: { 0.5 }) == 6)  // half + quarter
+        #expect(OutboxFlusher.equalJitter(8, random: { 1 }) == 8)    // upper bound (clamped)
+        #expect(OutboxFlusher.equalJitter(8, random: { 1.5 }) == 8)  // out-of-range clamped
+        #expect(OutboxFlusher.equalJitter(0, random: { 0.5 }) == 0)  // nothing to jitter
+        // For any r in [0,1) the result stays inside [ceiling/2, ceiling].
+        for step in 0..<10 {
+            let jittered = OutboxFlusher.equalJitter(10, random: { Double(step) / 10 })
+            #expect(jittered >= 5 && jittered <= 10)
+        }
+    }
+
+    @Test("the flush retry delay is the jittered backoff, not the raw ceiling")
+    func retryDelayIsJittered() async throws {
+        let stack = try makeStack(jitter: { $0 / 2 }) // deterministic half-jitter
+        enqueue(stack.context, seq: 1, table: "events", op: .insert)
+        try stack.context.save()
+        stack.sender.failuresRemaining = 1 // the head fails once
+
+        // backoff(attempt 1, base 1) = 1, then jitter halves it.
+        #expect(await stack.flusher.flushOnce() == .retry(after: 0.5))
     }
 
     // MARK: - Idempotency

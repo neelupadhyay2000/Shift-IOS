@@ -103,6 +103,23 @@ struct RealtimeLifecycleManagerTests {
         #expect(source.openedEvents == [first, second])
     }
 
+    @Test("holds at most one connection across rapid event switches (budget invariant, SHIFT-663)")
+    func holdsAtMostOneConnection() {
+        let source = FakeStreamSource()
+        let manager = makeManager(source)
+
+        // Rapidly switch through many events, as a user tapping around the roster.
+        let ids = (0..<25).map { _ in UUID() }
+        for id in ids { manager.setActiveEvent(id) }
+
+        // Each switch tore the prior channel down and opened exactly one new one,
+        // so the device never holds more than a single Realtime connection — the
+        // `connectionsPerActiveDevice == 1` the connection budget plans against.
+        #expect(manager.isStreaming)
+        #expect(manager.streamingEventID == ids.last)
+        #expect(source.openedEvents == ids) // one open per switch, never overlapping
+    }
+
     @Test("repeated foreground/background transitions don't reopen redundantly")
     func transitionsAreIdempotent() {
         let source = FakeStreamSource()

@@ -63,6 +63,7 @@ final class OutboxFlusher {
     private let baseDelay: TimeInterval
     private let maxDelay: TimeInterval
     private let maxAttempts: Int
+    private let jitter: @Sendable (TimeInterval) -> TimeInterval
     private let sleep: @Sendable (TimeInterval) async -> Void
 
     private var isFlushing = false
@@ -80,6 +81,7 @@ final class OutboxFlusher {
         baseDelay: TimeInterval = 1,
         maxDelay: TimeInterval = 60,
         maxAttempts: Int = 8,
+        jitter: @escaping @Sendable (TimeInterval) -> TimeInterval = { $0 },
         sleep: @escaping @Sendable (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
     ) {
         self.context = context
@@ -89,6 +91,7 @@ final class OutboxFlusher {
         self.baseDelay = baseDelay
         self.maxDelay = maxDelay
         self.maxAttempts = max(1, maxAttempts)
+        self.jitter = jitter
         self.sleep = sleep
     }
 
@@ -163,7 +166,8 @@ final class OutboxFlusher {
 
                 // Transient: halt at the head and retry the whole pass after a
                 // backoff, preserving ordering for causally-dependent writes.
-                let delay = Self.backoffSeconds(forAttempt: entry.attempts, base: baseDelay, cap: maxDelay)
+                // Jitter spreads a fleet's synchronized retries (default: none).
+                let delay = jitter(Self.backoffSeconds(forAttempt: entry.attempts, base: baseDelay, cap: maxDelay))
                 diagnostics.record(
                     .push, "outboxFlushRetry",
                     params: [
@@ -187,10 +191,22 @@ final class OutboxFlusher {
 
     /// Exponential backoff in seconds: `base · 2^(attempt-1)`, capped at `cap`.
     /// `attempt` is the (1-based) number of failures so far for the entry.
-    static func backoffSeconds(forAttempt attempt: Int, base: TimeInterval, cap: TimeInterval) -> TimeInterval {
+    nonisolated static func backoffSeconds(forAttempt attempt: Int, base: TimeInterval, cap: TimeInterval) -> TimeInterval {
         guard attempt > 0 else { return 0 }
         let raw = base * pow(2, Double(attempt - 1))
         return min(raw, cap)
+    }
+
+    /// "Equal jitter" (AWS-style): keep half the computed backoff, randomize the
+    /// other half over `random()` ∈ [0,1). A fleet of devices that all failed at
+    /// the same instant (a shared outage, or a Supabase rate-limit response) then
+    /// retries at *spread* times in `[ceiling/2, ceiling]` instead of hammering
+    /// the server in lockstep — the client half of staying inside the tier's
+    /// rate limits. Pass as `OutboxFlusher(jitter:)`.
+    nonisolated static func equalJitter(_ ceiling: TimeInterval, random: () -> Double) -> TimeInterval {
+        guard ceiling > 0 else { return 0 }
+        let half = ceiling / 2
+        return half + half * min(max(random(), 0), 1)
     }
 
     private func scheduleReflush(after delay: TimeInterval) {

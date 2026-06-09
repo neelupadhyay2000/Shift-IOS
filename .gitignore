@@ -112,3 +112,25 @@ docs/SUPABASE_MIGRATION_JIRA.md
 # APNs auth keys — download-once secrets; NEVER commit (SHIFT-641/645)
 *.p8
 AuthKey_*.p8
+docs/CLOUDKIT_DECOMMISSION_RUNBOOK.md
+docs/SUPABASE_CUTOVER_ROLLOUT.md
+docs/testing/00-README.md
+docs/testing/01-Onboarding-Auth-Account.md
+docs/testing/02-Event-Creation-Management.md
+docs/testing/03-Timeline-Builder-Blocks.md
+docs/testing/04-Templates.md
+docs/testing/05-Live-Execution.md
+docs/testing/06-Tactical-Shift-Ripple-Engine.md
+docs/testing/07-Vendors-Collaboration.md
+docs/testing/08-Sync-Offline-MultiDevice.md
+docs/testing/09-Watch-Companion.md
+docs/testing/10-Widgets-Live-Activities.md
+docs/testing/11-Notifications.md
+docs/testing/12-Siri-Shortcuts.md
+docs/testing/13-Paywall-Subscriptions.md
+docs/testing/14-PDF-Export-Reports.md
+docs/testing/15-Settings-Legal-Support.md
+docs/testing/16-Accessibility-Adaptive-UI.md
+docs/testing/17-Edge-Cases-Stress-Regression.md
+docs/testing/build_html.py
+docs/testing/index.html
