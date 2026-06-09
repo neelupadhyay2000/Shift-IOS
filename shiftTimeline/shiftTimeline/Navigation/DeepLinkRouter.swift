@@ -48,6 +48,17 @@ final class DeepLinkRouter {
     /// notification.
     var foregroundShiftBanner: InAppShiftBanner?
 
+    /// Bumped whenever one of our server pushes (shift / assignment / go-live)
+    /// arrives or is tapped — a signal that remote data just changed. The app root
+    /// observes it and runs a delta reconcile so the in-app roster/detail refresh
+    /// in place, without needing a relaunch.
+    var remoteRefreshToken = UUID()
+
+    /// Signals that a server push just landed → trigger a remote refresh.
+    func requestRemoteRefresh() {
+        remoteRefreshToken = UUID()
+    }
+
     /// `true` while a CloudKit share invitation is being accepted and the
     /// mirrored records are still syncing into the local SwiftData store.
     /// `EventRosterView` observes this to show a syncing indicator.

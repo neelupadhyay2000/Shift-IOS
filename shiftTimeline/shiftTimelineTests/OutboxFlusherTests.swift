@@ -173,7 +173,7 @@ struct OutboxFlusherTests {
         // A permanently-rejected entry (models an RLS 42501 that can't self-heal),
         // ahead of a healthy entry it would otherwise block forever.
         let poison = enqueue(stack.context, seq: 1, table: "event_vendors", op: .insert)
-        let good = enqueue(stack.context, seq: 2, table: "events", op: .insert)
+        _ = enqueue(stack.context, seq: 2, table: "events", op: .insert)
         stack.sender.failTables = ["event_vendors"]
         try stack.context.save()
 

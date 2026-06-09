@@ -151,6 +151,7 @@ struct shiftTimelineApp: App {
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
                 .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
+                .environment(\.supabaseSyncStack, syncStack)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -164,6 +165,13 @@ struct shiftTimelineApp: App {
                     if isAuthenticated {
                         Task { await claimLinkInviteIfPending() }
                     }
+                }
+                .onChange(of: deepLinkRouter.remoteRefreshToken) { _, _ in
+                    // A server push (shift / assignment / go-live) just landed while
+                    // the app is alive — reconcile so the roster/detail reflect it in
+                    // place (e.g. an event flipping to live), without a relaunch.
+                    guard !Self.isUITestMode, let syncStack else { return }
+                    Task { await syncStack.reconcileOnForeground() }
                 }
                 .task { await bootstrap() }
         }
@@ -382,6 +390,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         // Parse off the MainActor (Sendable payload), then route on it.
         if let payload = RemoteShiftPushHandler.parse(userInfo) {
             Task { @MainActor in
+                // A server push just landed → pull the change in so the event the
+                // tap opens is current (e.g. status now live), then route.
+                DeepLinkRouter.shared.requestRemoteRefresh()
                 RemoteShiftPushHandler.routeTap(payload, router: .shared)
             }
         }
@@ -399,6 +410,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     ) {
         // Vendor shift notifications carry a deterministic "shift-<UUID>" identifier.
         let request = notification.request
+
+        // Any of our server pushes (shift / assignment / go-live) carries the event
+        // id. Receiving one while foregrounded means remote data just changed, so
+        // reconcile — that's what makes the roster flip to "live" without a relaunch.
+        if RemoteShiftPushHandler.parse(request.content.userInfo) != nil {
+            Task { @MainActor in DeepLinkRouter.shared.requestRemoteRefresh() }
+        }
+
         guard request.identifier.hasPrefix("shift-") else {
             completionHandler([.banner, .sound])
             return

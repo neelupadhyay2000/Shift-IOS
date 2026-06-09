@@ -114,6 +114,14 @@ final class SupabaseSyncStack: SessionSyncing {
     /// remote. Best-effort: a failed hydrate is recorded by the hydrator and
     /// realtime/delta still converge.
     func onSessionEstablished() async {
+        await refresh()
+    }
+
+    /// Pull-to-refresh / on-demand sync: push pending writes, then re-hydrate the
+    /// **full** accessible graph. A full hydrate (not a delta) is required so an
+    /// event newly shared with this user — whose own `updated_at` may be old —
+    /// still loads, which a `updated_at > watermark` delta would miss.
+    func refresh() async {
         await flusher.flush()
         try? await hydrator.hydrate()
     }

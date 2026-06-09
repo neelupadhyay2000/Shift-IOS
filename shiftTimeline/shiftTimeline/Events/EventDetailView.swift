@@ -18,6 +18,13 @@ struct EventDetailView: View {
     /// sync stack is live. Handed to the realtime applier so the planner's own
     /// writes (now flushed to Supabase) aren't re-applied as echoes.
     @Environment(\.realtimeEchoSuppressor) private var echoSuppressor
+    @Environment(\.eventRepository) private var injectedEventRepo
+
+    /// Routes the go-live mutation through the Outbox so it syncs to shared
+    /// vendors (a bare `modelContext.save()` would stay local).
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
 
     @Query private var results: [EventModel]
 
@@ -269,6 +276,30 @@ struct EventDetailView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(String(localized: "Go Live"))
                 .accessibilityHint(String(localized: "Starts live event execution mode"))
+            } else if event.status == .live {
+                // Vendor on a shared event that's currently live → read-only live view.
+                NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "dot.radiowaves.left.and.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .accessibilityHidden(true)
+                        Text(String(localized: "View Live"))
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .accessibilityHidden(true)
+                    }
+                    .premiumCard()
+                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "View Live"))
+                .accessibilityHint(String(localized: "Opens the live timeline"))
             }
 
             HStack(spacing: 12) {
@@ -419,11 +450,12 @@ struct EventDetailView: View {
         AnalyticsService.send(.eventGoLive)
         let activeBlock = allBlocks.first(where: { $0.status == .active })
 
-        do {
-            try modelContext.save()
+        // Persist + enqueue through the Outbox so the go-live status (and the
+        // activated first block) syncs to shared vendors — a bare
+        // `modelContext.save()` would never leave this device.
+        Task { @MainActor in
+            try? await eventRepo.save()
             watchSessionManager.sendCurrentContext()
-        } catch {
-            // Save failed — don't push stale context to Watch.
         }
 
         // Schedule the local golden-hour/sunset reminder from the cached sun
