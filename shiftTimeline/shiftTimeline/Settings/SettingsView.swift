@@ -12,6 +12,7 @@ enum SettingsDefaultsKey {
 
 struct SettingsView: View {
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(\.openURL) private var openURL
 
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
@@ -21,7 +22,6 @@ struct SettingsView: View {
     @State private var isShowingSignIn = false
     @State private var isEditingName = false
     @State private var nameDraft = ""
-    @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
 
@@ -49,16 +49,6 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
-        }
-        .sheet(item: $legalSheet) { sheet in
-            NavigationStack {
-                LegalDocumentView(document: sheet.document)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(String(localized: "Done")) { legalSheet = nil }
-                        }
-                    }
-            }
         }
         .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
@@ -270,11 +260,11 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             Button(String(localized: "Privacy Policy")) {
-                legalSheet = .privacy
+                if let url = LegalContent.privacyPolicyURL { openURL(url) }
             }
             .foregroundStyle(Color.accentColor)
             Button(String(localized: "Terms of Service")) {
-                legalSheet = .terms
+                if let url = LegalContent.termsOfServiceURL { openURL(url) }
             }
             .foregroundStyle(Color.accentColor)
         }
@@ -334,26 +324,6 @@ struct SettingsView: View {
             }
         } catch {
             showRestoreErrorAlert = true
-        }
-    }
-}
-
-// MARK: - Supporting types
-
-/// Identifies which legal document to present in the sheet. `id` is `self` so it
-/// can drive `.sheet(item:)` directly.
-private enum LegalSheet: Identifiable {
-    case privacy
-    case terms
-
-    var id: Self {
-        self
-    }
-
-    var document: LegalDocument {
-        switch self {
-        case .privacy: LegalContent.privacyPolicy
-        case .terms: LegalContent.termsOfService
         }
     }
 }
