@@ -39,6 +39,9 @@ final class SupabaseSyncStack: SessionSyncing {
     /// Shared with the realtime applier (via the environment) so self-writes are
     /// recognized as echoes and skipped.
     let echoSuppressor: RealtimeEchoSuppressor
+    /// User-facing sync health (SHIFT-664): drives the `SyncStatusIndicator` and
+    /// the surfaced error message. Injected into the environment by the app.
+    let statusMonitor: SyncStatusMonitor
 
     @ObservationIgnored private let flusher: OutboxFlusher
     @ObservationIgnored private let scheduler: FlushScheduler
@@ -83,15 +86,28 @@ final class SupabaseSyncStack: SessionSyncing {
         self.scheduler = scheduler
         connectivity = ConnectivityMonitor { scheduler.requestFlush() }
 
+        // User-facing sync status (SHIFT-664): pending depth = the Outbox count;
+        // errors fold in from the diagnostics funnel it observes.
+        let monitor = SyncStatusMonitor(
+            diagnostics: diagnostics,
+            pendingWriteCount: { (try? context.fetchCount(FetchDescriptor<OutboxEntry>())) ?? 0 }
+        )
+        statusMonitor = monitor
+
         // Writes: local SwiftData + Outbox enqueue (owner stamped from the session).
         // Each enqueue nudges the scheduler, so a write reaches Supabase within
         // seconds — not just on the next launch / sign-in / foreground / reconnect.
+        // It also bumps the status monitor's pending count so the indicator
+        // reflects the queued write immediately.
         repositoryProvider = OutboxRepositoryProvider(
             context: context,
             local: SwiftDataRepositoryProvider(context: context),
             currentOwnerID: currentOwnerID,
             diagnostics: diagnostics,
-            onEnqueue: { scheduler.requestFlush() }
+            onEnqueue: {
+                scheduler.requestFlush()
+                monitor.refreshPending()
+            }
         )
 
         // Pull: full hydration on session establishment; foreground delta catch-up.

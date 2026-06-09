@@ -41,6 +41,13 @@ private struct SupabaseSyncStackKey: EnvironmentKey {
     static let defaultValue: SupabaseSyncStack? = nil
 }
 
+/// User-facing sync health (SHIFT-664), or `nil` when sync is off. Read by the
+/// `SyncStatusIndicator` so the user can tell whether sync is healthy, pending,
+/// or degraded.
+private struct SyncStatusMonitorKey: EnvironmentKey {
+    static let defaultValue: SyncStatusMonitor? = nil
+}
+
 extension EnvironmentValues {
     var eventRepository: (any EventRepositing)? {
         get { self[EventRepositoryKey.self] }
@@ -69,6 +76,10 @@ extension EnvironmentValues {
     var supabaseSyncStack: SupabaseSyncStack? {
         get { self[SupabaseSyncStackKey.self] }
         set { self[SupabaseSyncStackKey.self] = newValue }
+    }
+    var syncStatusMonitor: SyncStatusMonitor? {
+        get { self[SyncStatusMonitorKey.self] }
+        set { self[SyncStatusMonitorKey.self] = newValue }
     }
 }
 
