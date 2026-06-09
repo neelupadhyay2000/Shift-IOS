@@ -33,16 +33,15 @@ import SwiftData
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
-/// **Why this file exists:** Without a `SchemaMigrationPlan`, SwiftData's
-/// `NSPersistentCloudKitContainer` mirror treats post-change stores as
-/// unversioned and silently stops publishing records to CloudKit.
+/// **Why this file exists:** SwiftData needs a `SchemaMigrationPlan` to migrate an
+/// existing on-device store across schema versions without data loss.
 ///
 /// **Critical:** Every `VersionedSchema` must contain frozen `@Model`
 /// snapshots — not references to live model types. If two versions
 /// reference the same live type, their checksums are identical and
 /// `NSLightweightMigrationStage.init` throws an `NSException`, which
 /// cascades through `PersistenceController`'s fallback chain and
-/// silently disables CloudKit mirroring.
+/// aborts the store load.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
         [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self, SHIFTSchemaV14.self, SHIFTSchemaV15.self, SHIFTSchemaV16.self]

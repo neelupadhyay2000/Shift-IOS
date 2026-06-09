@@ -59,9 +59,8 @@ enum PaywallTrigger: String, Identifiable, Sendable {
 
 struct PaywallView: View {
 
-    /// TODO: Replace with the production marketing site URLs before TestFlight submission.
-    private static let termsOfUseURL = URL(string: "https://shift.app/terms")
-    private static let privacyPolicyURL = URL(string: "https://shift.app/privacy")
+    private static let termsOfUseURL = LegalContent.termsOfServiceURL
+    private static let privacyPolicyURL = LegalContent.privacyPolicyURL
 
     let trigger: PaywallTrigger
 

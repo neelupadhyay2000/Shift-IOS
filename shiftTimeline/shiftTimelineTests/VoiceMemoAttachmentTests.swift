@@ -8,13 +8,12 @@
 //   * Discard / cancel leaves block fields unchanged.
 //   * New blocks default all three fields to nil.
 //
-//  CloudKit sync note:
+//  Sync note:
 //   Audio files (.m4a) are stored on-device in the app's Documents directory and
-//   are NOT synced via CloudKit. Only the file URL string is stored in SwiftData
-//   and propagated via CloudKit private database sync. On other devices, the URL
-//   resolves to nil (VoiceMemoStorage.resolve returns nil when the file is absent),
-//   which causes BlockInspectorView to show the "not yet available" degraded state.
-//   Full audio-file CloudKit sync (CKAsset) is deferred to a follow-up ticket.
+//   are NOT synced. Only the file URL string is stored in SwiftData and synced.
+//   On other devices, the URL resolves to nil (VoiceMemoStorage.resolve returns
+//   nil when the file is absent), which causes BlockInspectorView to show the
+//   "not yet available" degraded state. Audio-file sync is a future enhancement.
 //
 
 import Foundation

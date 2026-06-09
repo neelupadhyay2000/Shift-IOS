@@ -5,8 +5,8 @@ import Foundation
 /// to `.completed`, then persisted on `EventModel.postEventReport`.
 ///
 /// The struct is `Codable` so it can be JSON-encoded into the SwiftData
-/// store via `EventModel.postEventReportData` and round-tripped through
-/// CloudKit alongside the rest of the event payload. It is `Sendable` so
+/// store via `EventModel.postEventReportData` and synced alongside the rest of
+/// the event payload. It is `Sendable` so
 /// the report can be passed across actor boundaries to the PDF renderer
 /// or shared via `ShareLink`.
 public struct PostEventReport: Codable, Sendable, Equatable {

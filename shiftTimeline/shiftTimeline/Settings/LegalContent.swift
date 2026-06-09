@@ -23,6 +23,12 @@ enum LegalContent {
     static let contactEmail = "privacy@shift.app"
     static let governingLaw = "the State of New Jersey, United States"
 
+    /// Hosted legal documents — the canonical, user-facing URLs linked from
+    /// everywhere the app references privacy/terms (Settings, paywall). Keep the
+    /// hosted pages in sync with the in-app `privacyPolicy` / `termsOfService` text.
+    static let privacyPolicyURL = URL(string: "https://legal.shifttimeline.app/privacy-policy.html")
+    static let termsOfServiceURL = URL(string: "https://legal.shifttimeline.app/TOS.html")
+
     /// The "Effective Date" shown on both documents.
     static let effectiveDate: Date = {
         var components = DateComponents()

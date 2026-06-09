@@ -11,7 +11,11 @@ enum SettingsDefaultsKey {
 }
 
 struct SettingsView: View {
+    /// Hosted help / support page opened from the About section.
+    private static let supportURL = URL(string: "https://support.shifttimeline.app")
+
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(\.openURL) private var openURL
 
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
@@ -21,7 +25,6 @@ struct SettingsView: View {
     @State private var isShowingSignIn = false
     @State private var isEditingName = false
     @State private var nameDraft = ""
-    @State private var legalSheet: LegalSheet?
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
 
@@ -49,16 +52,6 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
-        }
-        .sheet(item: $legalSheet) { sheet in
-            NavigationStack {
-                LegalDocumentView(document: sheet.document)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button(String(localized: "Done")) { legalSheet = nil }
-                        }
-                    }
-            }
         }
         .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
         .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
@@ -269,18 +262,24 @@ struct SettingsView: View {
                 Text(appVersion)
                     .foregroundStyle(.secondary)
             }
+            if let url = Self.supportURL {
+                Link(destination: url) {
+                    Label(String(localized: "Help & Support"), systemImage: "questionmark.circle")
+                }
+                .foregroundStyle(Color.accentColor)
+            }
             Button(String(localized: "Privacy Policy")) {
-                legalSheet = .privacy
+                if let url = LegalContent.privacyPolicyURL { openURL(url) }
             }
             .foregroundStyle(Color.accentColor)
             Button(String(localized: "Terms of Service")) {
-                legalSheet = .terms
+                if let url = LegalContent.termsOfServiceURL { openURL(url) }
             }
             .foregroundStyle(Color.accentColor)
         }
     }
 
-    // MARK: - Diagnostics (Release-visible — used to debug iCloud sharing on TestFlight)
+    // MARK: - Diagnostics (Release-visible — used to debug Supabase sync/sharing on TestFlight)
 
     private var diagnosticsSection: some View {
         Section {
@@ -295,7 +294,7 @@ struct SettingsView: View {
         } header: {
             Text(String(localized: "Diagnostics"))
         } footer: {
-            Text(String(localized: "Tools for troubleshooting iCloud sharing and sync. Tap Share in the top-right to export the log."))
+            Text(String(localized: "Tools for troubleshooting sync and vendor sharing. Tap Share in the top-right to export the log."))
         }
     }
 
@@ -334,26 +333,6 @@ struct SettingsView: View {
             }
         } catch {
             showRestoreErrorAlert = true
-        }
-    }
-}
-
-// MARK: - Supporting types
-
-/// Identifies which legal document to present in the sheet. `id` is `self` so it
-/// can drive `.sheet(item:)` directly.
-private enum LegalSheet: Identifiable {
-    case privacy
-    case terms
-
-    var id: Self {
-        self
-    }
-
-    var document: LegalDocument {
-        switch self {
-        case .privacy: LegalContent.privacyPolicy
-        case .terms: LegalContent.termsOfService
         }
     }
 }

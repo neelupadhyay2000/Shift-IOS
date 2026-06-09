@@ -7,10 +7,8 @@ import SwiftData
 ///     alongside the existing `cloudKitRecordName` (set on accept).
 ///
 /// Why this snapshot exists: per the SHIFT-303 post-mortem, every new stored
-/// property on a live `@Model` requires a frozen `VersionedSchema` snapshot or
-/// `NSPersistentCloudKitContainer` silently halts mirroring. The
-/// `CloudKitSyncIntegrityTests` reflection-based drift detector compares live
-/// models against the latest snapshot (this one) and fails the build on drift.
+/// property on a live `@Model` requires a frozen `VersionedSchema` snapshot, or
+/// the migration plan can't carry an existing store forward across versions.
 ///
 /// **Critical:** Re-declares all `@Model` types in full so V9 has a distinct
 /// schema checksum from V8; reusing live types would collapse both versions

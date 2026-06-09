@@ -4,13 +4,12 @@ import Services
 import SwiftData
 import Testing
 
-/// Guards against the exact failure mode that broke CloudKit sync:
-/// `VersionedSchema` types referencing live model types produce identical
-/// checksums, causing `MigrationStage.lightweight` to throw an
-/// `NSException` at container init time.
+/// Guards against the failure mode where `VersionedSchema` types reference live
+/// model types and produce identical checksums, causing `MigrationStage.lightweight`
+/// to throw an `NSException` at container init time.
 ///
-/// If any of these tests fail, the migration plan is broken and CloudKit
-/// sync will silently degrade in production.
+/// If any of these tests fail, the migration plan is broken and an existing
+/// on-device store will fail to migrate on the next release.
 @Suite("Schema Migration Plan Integrity")
 struct SchemaMigrationPlanTests {
 

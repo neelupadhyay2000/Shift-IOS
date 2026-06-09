@@ -8,9 +8,10 @@ import Foundation
 /// always resolve the file by its `lastPathComponent` against the current
 /// `Documents` directory.
 ///
-/// CloudKit-synced records that arrive from another device will reference an
-/// absolute path that doesn't exist locally; `resolve(_:)` returns `nil` in
-/// that case so the UI can degrade gracefully without erasing the field.
+/// A block synced from another device will reference an absolute path that
+/// doesn't exist locally (the audio file itself isn't synced); `resolve(_:)`
+/// returns `nil` in that case so the UI can degrade gracefully without erasing
+/// the field.
 enum VoiceMemoStorage {
 
     /// Returns the current Documents directory, or `nil` if the platform
@@ -38,8 +39,8 @@ enum VoiceMemoStorage {
     /// 1. If `stored` is absolute and the file exists at that path, return it.
     /// 2. Otherwise, look up `Documents/<lastPathComponent>` on the current
     ///    device and return it if the file exists.
-    /// 3. Return `nil` (file is missing — likely a CloudKit-synced record
-    ///    referencing audio that hasn't been transferred to this device).
+    /// 3. Return `nil` (file is missing — likely a block synced from another
+    ///    device whose audio file hasn't been transferred here).
     static func resolve(_ stored: URL?) -> URL? {
         guard let stored else { return nil }
         let fm = FileManager.default

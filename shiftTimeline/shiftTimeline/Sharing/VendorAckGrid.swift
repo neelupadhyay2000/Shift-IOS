@@ -7,7 +7,7 @@ import Models
 /// - Orange clock overlay: vendor has NOT yet acknowledged.
 ///
 /// Tapping a pending vendor presents a quick-call option. The grid re-renders
-/// automatically as CloudKit syncs `hasAcknowledgedLatestShift` changes.
+/// automatically as realtime sync applies `hasAcknowledgedLatestShift` changes.
 struct VendorAckGrid: View {
 
     let vendors: [VendorModel]
