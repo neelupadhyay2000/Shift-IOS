@@ -29,6 +29,9 @@ struct shiftTimelineApp: App {
     @State private var authService = SupabaseAuthService()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
+    /// The E16 cutover composition root (SHIFT-658). Built once in `bootstrap()`
+    /// when `FeatureFlags.supabaseSync` is on; `nil` keeps the app fully local.
+    @State private var syncStack: SupabaseSyncStack?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -142,36 +145,30 @@ struct shiftTimelineApp: App {
     var body: some Scene {
         WindowGroup {
             RootContainerView()
+                .repositories(effectiveProvider)
                 .environment(authService)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
+                .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
-                }
-                .task {
-                    guard !Self.isUITestMode else { return }
-                    if !Self.isUnitTestMode {
-                        let client = SupabaseClientProvider.shared.client
-                        // Wire the APNs registrar before listening so a restored
-                        // session immediately registers the device token (SHIFT-642).
-                        await DeviceTokenRegistrar.shared.configure(
-                            writer: SupabaseDeviceTokenWriter(client: client)
-                        )
-                        authService.startListening(
-                            client: client,
-                            profileRepository: SupabaseProfileRepository(client: client),
-                            inviteClaimer: SupabaseInviteClaimer(client: client),
-                            deviceTokenRegistrar: DeviceTokenRegistrar.shared,
-                            dataBackfiller: DataBackfillRunner(
-                                context: PersistenceController.shared.container.mainContext
-                            ),
-                            modelContext: PersistenceController.shared.container.mainContext
-                        )
+                    // A tapped vendor invite (shift://invite/…): re-run the
+                    // identity-based claim and re-hydrate so the shared event
+                    // appears even for an already-signed-in vendor (the sign-in
+                    // claim ran once, before this invite existed). A signed-out
+                    // vendor claims on sign-in; the routed destination shows the
+                    // event once access lands.
+                    if url.scheme == "shift",
+                       url.host == VendorInviteLink.host,
+                       authService.isAuthenticated {
+                        Task {
+                            await authService.claimPendingInvites()
+                            await syncStack?.onSessionEstablished()
+                        }
                     }
-                    watchSessionManager.activate()
-                    liveActivityManager.reclaimExistingActivity()
                 }
+                .task { await bootstrap() }
         }
         .modelContainer(Self.modelContainer)
         .onChange(of: scenePhase) { _, newPhase in
@@ -181,8 +178,71 @@ struct shiftTimelineApp: App {
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
+                // Catch up on changes missed while realtime was disconnected, then
+                // drain any writes queued offline (SHIFT-658).
+                if let syncStack {
+                    Task { await syncStack.reconcileOnForeground() }
+                }
             }
         }
+    }
+
+    /// The repository bundle injected at the scene root. When the Supabase sync
+    /// stack is live, every write routes through the Outbox (and on to Supabase);
+    /// otherwise (flag off / tests) writes stay local via a SwiftData provider.
+    private var effectiveProvider: any RepositoryProviding {
+        if let provider = syncStack?.repositoryProvider {
+            return provider
+        }
+        return SwiftDataRepositoryProvider(context: Self.modelContainer.mainContext)
+    }
+
+    /// One-time launch wiring: build the Supabase sync stack (when enabled), start
+    /// auth, and activate the watch / live-activity managers. The `syncStack == nil`
+    /// and `listenerTask` guards make a re-invocation safe.
+    @MainActor
+    private func bootstrap() async {
+        guard !Self.isUITestMode else { return }
+        if !Self.isUnitTestMode {
+            let client = SupabaseClientProvider.shared.client
+            let context = PersistenceController.shared.container.mainContext
+
+            // E16 cutover (SHIFT-658): build the sync stack and route writes
+            // through its Outbox provider when the master flag is on. Backfill and
+            // hydration run as post-session side effects inside the auth service.
+            var sessionSync: (any SessionSyncing)?
+            var backfiller: (any DataBackfilling)?
+            if FeatureFlags.supabaseSync {
+                if syncStack == nil {
+                    let stack = SupabaseSyncStack(
+                        client: client,
+                        context: context,
+                        currentOwnerID: { [weak authService] in authService?.currentProfileID }
+                    )
+                    syncStack = stack
+                    stack.start()
+                }
+                sessionSync = syncStack
+                backfiller = DataBackfillRunner(context: context)
+            }
+
+            // Wire the APNs registrar before listening so a restored session
+            // immediately registers the device token (SHIFT-642).
+            await DeviceTokenRegistrar.shared.configure(
+                writer: SupabaseDeviceTokenWriter(client: client)
+            )
+            authService.startListening(
+                client: client,
+                profileRepository: SupabaseProfileRepository(client: client),
+                inviteClaimer: SupabaseInviteClaimer(client: client),
+                deviceTokenRegistrar: DeviceTokenRegistrar.shared,
+                dataBackfiller: backfiller,
+                sessionSync: sessionSync,
+                modelContext: context
+            )
+        }
+        watchSessionManager.activate()
+        liveActivityManager.reclaimExistingActivity()
     }
 
     /// Writes the next upcoming event date to the widget App Group store

@@ -62,6 +62,7 @@ final class OutboxFlusher {
     private let echoSuppressor: RealtimeEchoSuppressor?
     private let baseDelay: TimeInterval
     private let maxDelay: TimeInterval
+    private let maxAttempts: Int
     private let sleep: @Sendable (TimeInterval) async -> Void
 
     private var isFlushing = false
@@ -78,6 +79,7 @@ final class OutboxFlusher {
         echoSuppressor: RealtimeEchoSuppressor? = nil,
         baseDelay: TimeInterval = 1,
         maxDelay: TimeInterval = 60,
+        maxAttempts: Int = 8,
         sleep: @escaping @Sendable (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
     ) {
         self.context = context
@@ -86,6 +88,7 @@ final class OutboxFlusher {
         self.echoSuppressor = echoSuppressor
         self.baseDelay = baseDelay
         self.maxDelay = maxDelay
+        self.maxAttempts = max(1, maxAttempts)
         self.sleep = sleep
     }
 
@@ -113,6 +116,12 @@ final class OutboxFlusher {
 
         var sentCount = 0
         for entry in entries {
+            // Skip entries that have exhausted their retries — a permanently
+            // failing write (e.g. an RLS rejection that can't self-heal) must not
+            // head-of-line-block the rest of the queue forever. It stays in the
+            // store (surfaced via `outboxEntryParked`) but is passed over.
+            if entry.attempts >= maxAttempts { continue }
+
             guard let item = OutboxItem(entry) else {
                 diagnostics.record(
                     .push, "outboxUnprocessable",
@@ -135,6 +144,25 @@ final class OutboxFlusher {
             } catch {
                 entry.attempts += 1
                 try? context.save()
+
+                // Exhausted: park it and keep draining the rest of the queue so one
+                // poison entry can't stall every other pending write.
+                if entry.attempts >= maxAttempts {
+                    diagnostics.record(
+                        .push, "outboxEntryParked",
+                        params: [
+                            "table": item.table,
+                            "id": item.rowID.uuidString,
+                            "attempts": String(entry.attempts),
+                            "error": String(describing: error),
+                        ],
+                        severity: .error
+                    )
+                    continue
+                }
+
+                // Transient: halt at the head and retry the whole pass after a
+                // backoff, preserving ordering for causally-dependent writes.
                 let delay = Self.backoffSeconds(forAttempt: entry.attempts, base: baseDelay, cap: maxDelay)
                 diagnostics.record(
                     .push, "outboxFlushRetry",

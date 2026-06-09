@@ -31,8 +31,10 @@ struct PhoneSignInSheet: View {
             }
         case .otpVerification(let phone):
             OTPVerificationView(
-                service: service,
-                phone: phone,
+                destination: phone,
+                headline: String(localized: "Check your messages"),
+                verifyToken: { token in _ = try await service.verifyOTP(phone: phone, token: token) },
+                resendCode: { try await service.resendOTP(phone: phone) },
                 onSessionEstablished: onSessionEstablished
             )
         }

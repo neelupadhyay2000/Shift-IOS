@@ -51,6 +51,8 @@ final class SupabaseAuthService {
     @ObservationIgnored
     private var dataBackfiller: (any DataBackfilling)?
     @ObservationIgnored
+    private var sessionSync: (any SessionSyncing)?
+    @ObservationIgnored
     private var modelContext: ModelContext?
     @ObservationIgnored
     private var listenerTask: Task<Void, Never>?
@@ -71,6 +73,7 @@ final class SupabaseAuthService {
         inviteClaimer: (any InviteClaiming)? = nil,
         deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
         dataBackfiller: (any DataBackfilling)? = nil,
+        sessionSync: (any SessionSyncing)? = nil,
         modelContext: ModelContext? = nil
     ) {
         self.client = client
@@ -78,6 +81,7 @@ final class SupabaseAuthService {
         self.inviteClaimer = inviteClaimer
         self.deviceTokenRegistrar = deviceTokenRegistrar
         self.dataBackfiller = dataBackfiller
+        self.sessionSync = sessionSync
         self.modelContext = modelContext
     }
 
@@ -91,6 +95,7 @@ final class SupabaseAuthService {
         inviteClaimer: (any InviteClaiming)? = nil,
         deviceTokenRegistrar: DeviceTokenRegistrar? = nil,
         dataBackfiller: (any DataBackfilling)? = nil,
+        sessionSync: (any SessionSyncing)? = nil,
         modelContext: ModelContext? = nil
     ) {
         guard listenerTask == nil else { return }
@@ -99,6 +104,7 @@ final class SupabaseAuthService {
         self.inviteClaimer = inviteClaimer
         self.deviceTokenRegistrar = deviceTokenRegistrar
         self.dataBackfiller = dataBackfiller
+        self.sessionSync = sessionSync
         self.modelContext = modelContext
         beginListening(using: client)
     }
@@ -220,13 +226,22 @@ final class SupabaseAuthService {
 
     /// Post-sign-in side effects, idempotent so they can re-run on a restored or
     /// refreshed session: upsert the profile, claim pending invites (SHIFT-628),
-    /// register this device's APNs token (SHIFT-642), and run the one-time data
-    /// backfill (SHIFT-657 — gated to fire once per account).
+    /// register this device's APNs token (SHIFT-642), run the one-time data
+    /// backfill (SHIFT-657 — enqueues local rows, gated once per account), then
+    /// hydrate the cache from Supabase and drain the Outbox (SHIFT-658).
+    ///
+    /// Order matters: backfill *enqueues* local rows before the sync stack
+    /// hydrates (pull) and flushes (push) — so a freshly-migrated user's graph is
+    /// queued, then uploaded by the same establishment.
     private func establishSession(for user: User) async {
+        SyncDiagnosticsCenter.shared.record(
+            .auth, "sessionEstablished", params: ["profile": user.id.uuidString]
+        )
         await performProfileUpsert(user: user, displayName: nil)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)
         await dataBackfiller?.runIfNeeded(profileID: user.id)
+        await sessionSync?.onSessionEstablished()
     }
 
     private func performProfileUpsert(user: User, displayName: String?) async {

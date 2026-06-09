@@ -15,6 +15,7 @@ struct SignInView: View {
     let isDismissible: Bool
 
     @State private var isShowingPhoneSignIn = false
+    @State private var isShowingEmailSignIn = false
     @State private var isAppleSignInInProgress = false
     @State private var errorMessage: String?
 
@@ -48,6 +49,15 @@ struct SignInView: View {
                 service: PhoneAuthService(client: SupabaseClientProvider.shared.client),
                 onSessionEstablished: {
                     isShowingPhoneSignIn = false
+                    dismiss()
+                }
+            )
+        }
+        .sheet(isPresented: $isShowingEmailSignIn) {
+            EmailSignInSheet(
+                service: EmailAuthService(client: SupabaseClientProvider.shared.client),
+                onSessionEstablished: {
+                    isShowingEmailSignIn = false
                     dismiss()
                 }
             )
@@ -87,12 +97,38 @@ struct SignInView: View {
     private var signInButtons: some View {
         VStack(spacing: 12) {
             appleButton
+            // Email OTP is gated off until the Supabase email template sends the
+            // code (FeatureFlags.emailSignIn) — see EmailAuthService.
+            if FeatureFlags.emailSignIn {
+                emailButton
+            }
             // Phone OTP is gated off until an SMS provider is configured
             // (FeatureFlags.phoneSignIn) — see PhoneAuthService / Supabase Auth.
             if FeatureFlags.phoneSignIn {
                 phoneButton
             }
         }
+    }
+
+    private var emailButton: some View {
+        Button {
+            isShowingEmailSignIn = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "envelope.fill")
+                Text(String(localized: "Sign in with Email"))
+            }
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Sign in with Email"))
     }
 
     private var appleButton: some View {

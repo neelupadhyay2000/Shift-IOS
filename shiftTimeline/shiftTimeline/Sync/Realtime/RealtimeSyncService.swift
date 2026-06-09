@@ -1,4 +1,5 @@
 import Foundation
+import Services
 import Supabase
 
 /// Opens one Supabase Realtime channel per active event, scoped to that event's
@@ -66,7 +67,22 @@ nonisolated struct RealtimeSyncService {
         // Subscribe once all bindings are registered; forward the merged stream
         // to the consumer; unsubscribe on teardown.
         return AsyncStream { continuation in
-            let subscribeTask = Task { try? await channel.subscribeWithError() }
+            let eventKey = eventID.uuidString
+            let subscribeTask = Task {
+                // Surface the realtime connect → subscribe stages in diagnostics so
+                // a two-device test can confirm the channel actually came up.
+                SyncDiagnosticsCenter.shared.record(.connect, "channelSubscribing", params: ["event": eventKey])
+                do {
+                    try await channel.subscribeWithError()
+                    SyncDiagnosticsCenter.shared.record(.subscribe, "subscribed", params: ["event": eventKey])
+                } catch {
+                    SyncDiagnosticsCenter.shared.record(
+                        .subscribe, "subscribeFailed",
+                        params: ["event": eventKey, "error": String(describing: error)],
+                        severity: .error
+                    )
+                }
+            }
             let forwardTask = Task {
                 for await change in merged {
                     continuation.yield(change)

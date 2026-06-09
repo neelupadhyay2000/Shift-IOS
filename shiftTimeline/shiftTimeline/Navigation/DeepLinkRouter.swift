@@ -112,6 +112,19 @@ final class DeepLinkRouter {
         guard url.scheme == "shift",
               let host = url.host else { return false }
 
+        // Vendor invite: shift://invite/{vendorID}?event={eventID}. The claim is
+        // identity-based and runs server-side (the app triggers a re-claim + hydrate
+        // on receipt); here we just route to the invited event so it's shown once
+        // access lands. The event id is in the `event` query, NOT pathComponents[1]
+        // (which is the event_vendors row id).
+        if host == VendorInviteLink.host {
+            guard let raw = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "event" })?.value,
+                let eventID = UUID(uuidString: raw) else { return false }
+            pendingDestination = .event(id: eventID)
+            return true
+        }
+
         // Support both shift://event/UUID and shift://event?id=UUID
         let rawID: String
         if let queryID = URLComponents(url: url, resolvingAgainstBaseURL: false)?

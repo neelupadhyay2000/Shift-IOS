@@ -14,6 +14,10 @@ struct EventDetailView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.scenePhase) private var scenePhase
+    /// The cutover's shared echo suppressor (SHIFT-658) — non-nil only when the
+    /// sync stack is live. Handed to the realtime applier so the planner's own
+    /// writes (now flushed to Supabase) aren't re-applied as echoes.
+    @Environment(\.realtimeEchoSuppressor) private var echoSuppressor
 
     @Query private var results: [EventModel]
 
@@ -122,11 +126,11 @@ struct EventDetailView: View {
     /// (SHIFT-631) and the planner watching vendor acknowledgments land in the ack
     /// grid (SHIFT-633). Signed-out / local-only use is not streamed.
     ///
-    /// NOTE: when the data-layer cutover wires the planner's write path to
-    /// Supabase, a shared `RealtimeEchoSuppressor` must be passed to both the write
-    /// path and this applier so the planner's own writes aren't re-applied as echoes.
+    /// The shared `RealtimeEchoSuppressor` (SHIFT-658) is injected from the
+    /// environment and passed to the applier, so the planner's own writes — now
+    /// flushed to Supabase via the Outbox — aren't re-applied here as echoes.
     private func configureRealtime() {
-        guard authService.currentProfileID != nil else {
+        guard FeatureFlags.supabaseSync, authService.currentProfileID != nil else {
             realtime?.setActiveEvent(nil)
             return
         }
@@ -134,7 +138,7 @@ struct EventDetailView: View {
             let client = SupabaseClientProvider.shared.client
             realtime = RealtimeLifecycleManager(
                 service: RealtimeSyncService(client: client),
-                applier: RealtimeChangeApplier(context: modelContext),
+                applier: RealtimeChangeApplier(context: modelContext, echoSuppressor: echoSuppressor),
                 isForeground: scenePhase == .active
             )
         }
@@ -342,7 +346,7 @@ struct EventDetailView: View {
             }
 
             if isOwner {
-                if FeatureFlags.vendorSharing {
+                if FeatureFlags.supabaseSync {
                     if authService.isAuthenticated {
                         shareWithVendorsButton(event)
                     } else {
