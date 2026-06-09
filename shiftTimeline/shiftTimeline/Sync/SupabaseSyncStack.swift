@@ -59,18 +59,27 @@ final class SupabaseSyncStack: SessionSyncing {
         let suppressor = RealtimeEchoSuppressor()
         echoSuppressor = suppressor
 
+        // Centralized backoff/rate-limit tuning (SHIFT-663).
+        let tuning = SyncTuning.default
+
         // Push: drain the Outbox to Supabase, recording each write so its realtime
         // echo is recognized and skipped. Built before the write path so the
-        // scheduler can be the writes' flush trigger.
+        // scheduler can be the writes' flush trigger. Backoff is tuned + equal-
+        // jittered so a fleet reconnecting after a shared outage spreads its
+        // retries instead of stampeding Supabase.
         let flusher = OutboxFlusher(
             context: context,
             remote: SupabaseOutboxSender(client: client),
             diagnostics: diagnostics,
-            echoSuppressor: suppressor
+            echoSuppressor: suppressor,
+            baseDelay: tuning.outboxBaseDelay,
+            maxDelay: tuning.outboxMaxDelay,
+            maxAttempts: tuning.outboxMaxAttempts,
+            jitter: { OutboxFlusher.equalJitter($0, random: { Double.random(in: 0..<1) }) }
         )
         self.flusher = flusher
         // Capture the locals (not `self`) in the trigger closures — no retain cycle.
-        let scheduler = FlushScheduler { await flusher.flush() }
+        let scheduler = FlushScheduler(interval: tuning.flushDebounceInterval) { await flusher.flush() }
         self.scheduler = scheduler
         connectivity = ConnectivityMonitor { scheduler.requestFlush() }
 
