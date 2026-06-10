@@ -185,8 +185,15 @@ struct TimelineBuilderView: View {
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
-            BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
-                .presentationDetents([.medium, .large])
+            // Vendors get a dedicated, scrollable read-only detail; owners get the
+            // editing inspector. (A disabled editing Form couldn't be scrolled.)
+            if isReadOnly {
+                BlockDetailReadOnlyView(block: block, eventID: eventID)
+                    .presentationDetents([.medium, .large])
+            } else {
+                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: false)
+                    .presentationDetents([.medium, .large])
+            }
         }
         // Voice memo recording sheet
         .sheet(item: $blockForRecording) { block in
@@ -215,8 +222,13 @@ struct TimelineBuilderView: View {
         // iPad: trailing inspector panel
         .inspector(isPresented: $isInspectorOpen) {
             if let block = blockToInspect {
-                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true, isReadOnly: isReadOnly)
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                if isReadOnly {
+                    BlockDetailReadOnlyView(block: block, eventID: eventID, isInspectorMode: true)
+                        .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                } else {
+                    BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true, isReadOnly: false)
+                        .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                }
             }
         }
         .onChange(of: blockToInspect) { _, newValue in
