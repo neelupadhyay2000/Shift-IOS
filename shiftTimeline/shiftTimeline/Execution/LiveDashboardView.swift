@@ -548,7 +548,7 @@ private struct _LiveDashboardContent: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .environment(\.colorScheme, .dark)
     }
 

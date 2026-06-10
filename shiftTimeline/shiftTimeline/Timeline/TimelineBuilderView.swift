@@ -475,7 +475,7 @@ struct TimelineBuilderView: View {
         }
         .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .accessibilityIdentifier(AccessibilityID.Timeline.blockList)
     }
 
@@ -545,7 +545,7 @@ struct TimelineBuilderView: View {
         }
         .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
     }
 
     // MARK: - Reorder List (iPhone edit mode)
@@ -570,7 +570,7 @@ struct TimelineBuilderView: View {
         .listStyle(.plain)
         .environment(\.editMode, .constant(.active))
         .scrollContentBackground(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         // Smooths the reflow when a pinned anchor re-sorts a block after the drop,
         // on top of the List's native drag-and-drop move animation.
         .animation(.snappy(duration: 0.28), value: filteredBlocks.map(\.id))
@@ -588,19 +588,13 @@ struct TimelineBuilderView: View {
             icon: block.icon,
             isCompact: false
         )
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-        )
+        .proSurface()
         .overlay {
-            RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                .strokeBorder(
-                    block.isPinned ? Color.secondary.opacity(0.25) : Color.accentColor.opacity(0.35),
-                    lineWidth: block.isPinned ? 0.5 : 1
-                )
+            if !block.isPinned {
+                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                    .strokeBorder(ShiftPalette.accent.opacity(0.35), lineWidth: 1)
+            }
         }
         .opacity(block.isPinned ? 0.6 : 1)
         .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
@@ -647,30 +641,15 @@ struct TimelineBuilderView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: height)
-            .background(
-                .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.4), .white.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
-            }
-            // Green halo so a vendor's own blocks pop out of the timeline at a glance.
+            .proSurface()
+            // Emerald halo so a vendor's own blocks pop out of the timeline at a glance.
             .overlay {
                 if isAssignedToViewer {
                     RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                        .strokeBorder(Color.green.opacity(0.7), lineWidth: 2)
+                        .strokeBorder(ShiftPalette.live.opacity(0.8), lineWidth: 1.5)
                 }
             }
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
-            .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))

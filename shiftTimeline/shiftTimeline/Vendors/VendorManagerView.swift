@@ -70,7 +70,7 @@ struct VendorManagerView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                     }
-                    .background { WarmBackground() }
+                    .background { ProBackground() }
                     .accessibilityIdentifier(AccessibilityID.Vendors.vendorList)
                 }
             }

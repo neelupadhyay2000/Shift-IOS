@@ -72,19 +72,21 @@ struct TemplatePreviewView: View {
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 16) {
-                    Label("\(template.blocks.count) blocks", systemImage: "rectangle.stack")
-                    Label(formattedDuration(template), systemImage: "clock")
+                    Label {
+                        Text("\(template.blocks.count) blocks").monospacedDigit()
+                    } icon: {
+                        Image(systemName: "rectangle.stack")
+                    }
+                    Label {
+                        Text(formattedDuration(template)).monospacedDigit()
+                    } icon: {
+                        Image(systemName: "clock")
+                    }
                     Spacer()
-                    Text(template.category.displayName)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(template.category.tintColor.opacity(0.15))
-                        .foregroundStyle(template.category.tintColor)
-                        .clipShape(Capsule())
+                    Text(template.category.displayName).microLabel()
                 }
                 .font(.subheadline)
+                .foregroundStyle(.secondary)
 
                 Button {
                     if events.count >= FreeTier.maxActiveEvents && !SubscriptionManager.shared.isProUser {
@@ -94,18 +96,25 @@ struct TemplatePreviewView: View {
                     }
                 } label: {
                     Label(String(localized: "Use This Template"), systemImage: "plus.circle.fill")
+                        .font(.headline)
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(ShiftPalette.accent)
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             }
 
-            Section(String(localized: "Blocks")) {
+            Section {
                 ForEach(Array(template.blocks.enumerated()), id: \.offset) { _, block in
                     TemplateBlockRow(block: block)
                 }
+            } header: {
+                Text(String(localized: "Blocks"))
             }
         }
+        .scrollContentBackground(.hidden)
+        .background { ProBackground() }
     }
 
     private func loadTemplate() async {
@@ -202,6 +211,8 @@ private struct UseTemplateSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { ProBackground() }
             .navigationTitle(String(localized: "New Event from Template"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -302,22 +313,27 @@ private struct TemplateBlockRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            // Same language as the timeline: the block's colour lives in one
+            // solid circular badge.
             Image(systemName: block.icon)
-                .font(.body)
-                .foregroundStyle(Color(hex: block.colorTag))
-                .frame(width: 28, height: 28)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+                .background(Color(hex: block.colorTag).gradient, in: Circle())
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(block.title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.subheadline.weight(.medium))
 
                 HStack(spacing: 8) {
                     Text(formattedOffset)
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                     Text(formattedDuration)
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundStyle(.secondary)
                 }
             }
@@ -327,7 +343,7 @@ private struct TemplateBlockRow: View {
             if block.isPinned {
                 Image(systemName: "pin.fill")
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.secondary)
             }
         }
         .accessibilityElement(children: .combine)

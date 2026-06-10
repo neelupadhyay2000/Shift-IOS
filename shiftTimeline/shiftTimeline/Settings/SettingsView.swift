@@ -46,6 +46,9 @@ struct SettingsView: View {
                 debugSection
             #endif
         }
+        .scrollContentBackground(.hidden)
+        .background { ProBackground() }
+        .tint(ShiftPalette.accent)
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $isShowingSignIn) {
@@ -101,7 +104,7 @@ struct SettingsView: View {
                 Button(String(localized: "Sign In")) {
                     isShowingSignIn = true
                 }
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(ShiftPalette.accent)
             }
         }
     }
@@ -138,15 +141,15 @@ struct SettingsView: View {
 
     private var avatar: some View {
         ZStack {
-            Circle().fill(Color.accentColor.opacity(0.15))
+            Circle().fill(ShiftPalette.accent.opacity(0.15))
             if let initials = accountInitials {
                 Text(initials)
                     .font(.headline)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(ShiftPalette.accent)
             } else {
                 Image(systemName: "person.fill")
                     .font(.title3)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(ShiftPalette.accent)
             }
         }
         .frame(width: 46, height: 46)
@@ -163,12 +166,12 @@ struct SettingsView: View {
                 Button(String(localized: "Upgrade to Pro")) {
                     isShowingPaywall = true
                 }
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(ShiftPalette.accent)
             } else if !SubscriptionManager.shared.isLifetimePro {
                 Button(String(localized: "Manage Subscription")) {
                     isManagingSubscriptions = true
                 }
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(ShiftPalette.accent)
             }
 
             Button {
@@ -267,16 +270,16 @@ struct SettingsView: View {
                 Link(destination: url) {
                     Label(String(localized: "Help & Support"), systemImage: "questionmark.circle")
                 }
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(ShiftPalette.accent)
             }
             Button(String(localized: "Privacy Policy")) {
                 if let url = LegalContent.privacyPolicyURL { openURL(url) }
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(ShiftPalette.accent)
             Button(String(localized: "Terms of Service")) {
                 if let url = LegalContent.termsOfServiceURL { openURL(url) }
             }
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(ShiftPalette.accent)
         }
     }
 
@@ -291,7 +294,7 @@ struct SettingsView: View {
                 if let message = monitor.message {
                     Text(message)
                         .font(.footnote)
-                        .foregroundStyle(monitor.status == .degraded ? .orange : .secondary)
+                        .foregroundStyle(monitor.status == .degraded ? ShiftPalette.warm : Color.secondary)
                 }
             }
             NavigationLink {

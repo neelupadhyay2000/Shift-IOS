@@ -187,34 +187,21 @@ struct TrackColumnView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: height)
-            .background(
-                .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-            )
+            .proSurface()
             .overlay {
-                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.4), .white.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
                 // Highlighted border for draggable blocks in edit mode
                 if isDraggable {
                     RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                        .strokeBorder(Color.accentColor.opacity(isDragging ? 0.7 : 0.4), lineWidth: 1.5)
+                        .strokeBorder(ShiftPalette.accent.opacity(isDragging ? 0.7 : 0.4), lineWidth: 1.5)
                         .animation(.easeInOut(duration: 0.2), value: isDragging)
                 }
-                // Green halo so a vendor's own blocks stand out at a glance.
+                // Emerald halo so a vendor's own blocks stand out at a glance.
                 if isAssignedToViewer {
                     RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                        .strokeBorder(Color.green.opacity(0.7), lineWidth: 2)
+                        .strokeBorder(ShiftPalette.live.opacity(0.8), lineWidth: 1.5)
                 }
             }
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
-            .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
         // Scale and opacity animate on lift/drop — scoped to isDragging so they
