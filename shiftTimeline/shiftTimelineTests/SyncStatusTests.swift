@@ -125,4 +125,61 @@ struct SyncStatusTests {
             #expect(!status.symbolName.isEmpty)
         }
     }
+
+    // MARK: - Transition telemetry (SHIFT-668)
+
+    @MainActor
+    @Test("status transitions fire the hook exactly once per change, with from/to")
+    func transitionHookFiresOncePerChange() {
+        final class Pending { var count = 0 }
+        let pending = Pending()
+        let center = SyncDiagnosticsCenter(
+            defaults: .standard, storageKey: "test.transition.\(UUID().uuidString)", maxEvents: 50
+        )
+        var transitions: [(from: SyncStatus, to: SyncStatus)] = []
+        let monitor = SyncStatusMonitor(
+            diagnostics: center,
+            pendingWriteCount: { pending.count },
+            onTransition: { from, to in transitions.append((from, to)) }
+        )
+
+        // healthy → pending
+        pending.count = 2
+        monitor.refreshPending()
+        // pending → degraded
+        monitor.ingest(DiagnosticEvent(category: .push, name: "outboxEntryParked", severity: .error))
+        // degraded → healthy
+        pending.count = 0
+        monitor.ingest(DiagnosticEvent(category: .push, name: "outboxDrained", severity: .info))
+
+        #expect(transitions.count == 3)
+        #expect(transitions[0].from == .healthy && transitions[0].to == .pending)
+        #expect(transitions[1].from == .pending && transitions[1].to == .degraded)
+        #expect(transitions[2].from == .degraded && transitions[2].to == .healthy)
+    }
+
+    @MainActor
+    @Test("a refresh that doesn't change the status does not fire the hook")
+    func noTransitionNoHook() {
+        final class Pending { var count = 0 }
+        let pending = Pending()
+        let center = SyncDiagnosticsCenter(
+            defaults: .standard, storageKey: "test.transition.\(UUID().uuidString)", maxEvents: 50
+        )
+        var fired = 0
+        let monitor = SyncStatusMonitor(
+            diagnostics: center,
+            pendingWriteCount: { pending.count },
+            onTransition: { _, _ in fired += 1 }
+        )
+
+        monitor.refreshPending()                 // healthy → healthy
+        monitor.refreshPending()                 // still healthy
+        pending.count = 3
+        monitor.refreshPending()                 // healthy → pending (fires)
+        pending.count = 4
+        monitor.refreshPending()                 // pending → pending (silent)
+
+        #expect(fired == 1)
+    }
 }

@@ -34,6 +34,11 @@ nonisolated enum AnalyticsService {
         case syncPush
         case syncConflict
         case syncNotify
+
+        // Sync-health transitions (SHIFT-668): fired once per status change
+        // with `from`/`to` parameters. Filter `to == degraded` for the
+        // production alert signal; `to == healthy` marks recovery.
+        case syncHealthChanged
     }
 
     static func send(_ signal: Signal) {

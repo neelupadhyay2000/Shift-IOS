@@ -87,10 +87,19 @@ final class SupabaseSyncStack: SessionSyncing {
         connectivity = ConnectivityMonitor { scheduler.requestFlush() }
 
         // User-facing sync status (SHIFT-664): pending depth = the Outbox count;
-        // errors fold in from the diagnostics funnel it observes.
+        // errors fold in from the diagnostics funnel it observes. Status
+        // *transitions* are forwarded to TelemetryDeck (SHIFT-668) so degraded /
+        // recovered sync health is observable in production — filter the
+        // `syncHealthChanged` signal on `to == degraded` for alerting.
         let monitor = SyncStatusMonitor(
             diagnostics: diagnostics,
-            pendingWriteCount: { (try? context.fetchCount(FetchDescriptor<OutboxEntry>())) ?? 0 }
+            pendingWriteCount: { (try? context.fetchCount(FetchDescriptor<OutboxEntry>())) ?? 0 },
+            onTransition: { from, to in
+                AnalyticsService.send(.syncHealthChanged, parameters: [
+                    "from": from.rawValue,
+                    "to": to.rawValue,
+                ])
+            }
         )
         statusMonitor = monitor
 
