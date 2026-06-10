@@ -32,6 +32,11 @@ struct shiftTimelineApp: App {
     /// The E16 cutover composition root (SHIFT-658). Built once in `bootstrap()`
     /// when `FeatureFlags.supabaseSync` is on; `nil` keeps the app fully local.
     @State private var syncStack: SupabaseSyncStack?
+
+    /// Online-only marketplace waitlist writer (SHIFT-717) — deliberately not
+    /// part of the sync stack. Built in `bootstrap()` because touching
+    /// `SupabaseClientProvider.shared` is unsafe in test modes.
+    @State private var waitlistService: SupabaseWaitlistService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -153,6 +158,7 @@ struct shiftTimelineApp: App {
                 .environment(\.realtimeEchoSuppressor, syncStack?.echoSuppressor)
                 .environment(\.supabaseSyncStack, syncStack)
                 .environment(\.syncStatusMonitor, syncStack?.statusMonitor)
+                .environment(\.waitlistService, waitlistService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -243,6 +249,11 @@ struct shiftTimelineApp: App {
                 }
                 sessionSync = syncStack
                 backfiller = DataBackfillRunner(context: context)
+            }
+
+            // Marketplace waitlist (SHIFT-717): direct-to-Supabase, online-only.
+            if waitlistService == nil {
+                waitlistService = SupabaseWaitlistService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session

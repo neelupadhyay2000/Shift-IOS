@@ -330,12 +330,38 @@ struct WaitlistSignupSheet: View {
                 category: vendorCategory,
                 region: region.trimmingCharacters(in: .whitespaces)
             )
+            // Demand measurement (SHIFT-717) — aggregate dimensions only, no
+            // PII: the free-text region never leaves the waitlist table.
+            AnalyticsService.send(.marketplaceWaitlistJoined, parameters: [
+                "role": interestRole.rawValue,
+                "category": vendorCategory?.rawValue ?? "none"
+            ])
             hasJoinedWaitlist = true
             isExistingEntry = true
             phase = .confirmed
         } catch {
             errorMessage = String(localized: "Couldn't reach the server. Check your connection and try again.")
             phase = .form
+        }
+    }
+}
+
+// MARK: - WaitlistInterestRole Display
+
+extension WaitlistInterestRole {
+    var displayName: String {
+        switch self {
+        case .vendor: String(localized: "I'm a vendor")
+        case .planner: String(localized: "I'm a planner")
+        case .both: String(localized: "Both")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .vendor: "storefront.fill"
+        case .planner: "clipboard.fill"
+        case .both: "person.2.fill"
         }
     }
 }
