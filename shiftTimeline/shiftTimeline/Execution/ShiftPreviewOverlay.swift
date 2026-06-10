@@ -40,7 +40,7 @@ struct ShiftPreviewOverlay: View {
     /// Whether the preview represents an error that prevents the shift.
     private var isErrorStatus: Bool {
         switch preview.status {
-        case .pinnedBlockCannotShift, .circularDependency:
+        case .pinnedBlockCannotShift, .circularDependency, .exceedsAvailableSlack:
             return true
         case .clean, .hasCollisions, .impossible:
             return false
@@ -175,6 +175,14 @@ struct ShiftPreviewOverlay: View {
             return String(localized: "A pinned block prevents this shift.")
         case .circularDependency:
             return String(localized: "A circular dependency prevents this shift.")
+        case .exceedsAvailableSlack:
+            // Tell the user the largest extension the timeline can absorb
+            // before the next pinned block (whole minutes, rounded down).
+            let maxMinutes = Int((preview.maximumExtension ?? 0) / 60)
+            if maxMinutes > 0 {
+                return String(localized: "You can extend by up to \(maxMinutes) min before the next pinned block.")
+            }
+            return String(localized: "The next pinned block leaves no room to extend.")
         case .clean, .hasCollisions, .impossible:
             return ""
         }

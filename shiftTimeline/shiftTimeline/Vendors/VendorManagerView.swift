@@ -4,6 +4,7 @@ import UIKit
 import SwiftUI
 import SwiftData
 import Models
+import Services
 
 struct VendorManagerView: View {
 
@@ -11,6 +12,7 @@ struct VendorManagerView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.openURL) private var openURL
+    @Environment(\.vendorRepository) private var injectedVendorRepo
     @Query private var results: [EventModel]
     @State private var showingAddSheet = false
     @State private var vendorToEdit: VendorModel?
@@ -250,6 +252,10 @@ struct VendorManagerView: View {
         showDeleteConfirmation = true
     }
 
+    private var vendorRepo: any VendorRepositing {
+        injectedVendorRepo ?? SwiftDataVendorRepository(context: modelContext)
+    }
+
     private func deleteVendor(_ vendor: VendorModel) {
         // Remove from all block assignments (nullify handled by SwiftData,
         // but explicitly clearing ensures immediate UI consistency)
@@ -258,7 +264,13 @@ struct VendorManagerView: View {
                 block.vendors?.removeAll(where: { $0.id == vendor.id })
             }
         }
-        modelContext.delete(vendor)
+        // Route through the repository so the removal reaches Supabase as an
+        // event_vendors tombstone — a bare modelContext.delete never syncs,
+        // leaving the removed vendor with live access to the event.
+        Task {
+            try? await vendorRepo.delete(vendor)
+            try? await vendorRepo.save()
+        }
         vendorToDelete = nil
     }
 }

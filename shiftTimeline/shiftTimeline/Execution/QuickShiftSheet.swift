@@ -24,9 +24,10 @@ struct QuickShiftSheet: View {
                     .font(.title2.weight(.bold))
                     .padding(.top, 8)
 
-                Text(String(localized: "Push all remaining blocks forward"))
+                Text(String(localized: "Running long? Extend the current block — everything after moves with it"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
 
                 // Preset buttons
                 VStack(spacing: 12) {

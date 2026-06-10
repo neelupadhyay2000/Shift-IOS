@@ -69,13 +69,14 @@ struct ShiftTimelineIntent: AppIntent {
             )
         }
 
-        // Run the full engine pipeline (shift → collide → compress) so a Siri
-        // shift commits the same resolved timeline as an in-app shift.
+        // Run the full extension pipeline (extend → ripple → collide →
+        // compress) so a Siri shift commits the same resolved timeline as an
+        // in-app shift: live +x extends the running block, never moves it.
         let delta = TimeInterval(shiftMinutes * 60)
         let engine = RippleEngine()
-        let result = engine.applyShift(
+        let result = engine.applyExtension(
             blocks: sortedBlocks,
-            changedBlockID: activeBlock.id,
+            activeBlockID: activeBlock.id,
             delta: delta
         )
 
@@ -87,6 +88,19 @@ struct ShiftTimelineIntent: AppIntent {
         case .circularDependency:
             return .result(
                 dialog: IntentDialog("A circular dependency prevents this shift.")
+            )
+        case .exceedsAvailableSlack:
+            let maximum = engine.maximumExtension(blocks: sortedBlocks, activeBlockID: activeBlock.id) ?? 0
+            let maxMinutes = Int(maximum / 60)
+            if maxMinutes > 0 {
+                return .result(
+                    dialog: IntentDialog(
+                        "You can extend by up to \(maxMinutes) minutes before the next pinned block."
+                    )
+                )
+            }
+            return .result(
+                dialog: IntentDialog("The next pinned block leaves no room to extend.")
             )
         case .clean, .hasCollisions, .impossible:
             VendorShiftNotifier.applyThresholdNotifications(

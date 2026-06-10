@@ -100,18 +100,27 @@ public struct ShiftPreview: Sendable {
     /// snapshot of the original state.
     public let diffs: [UUID: TimeInterval]
 
+    /// Live extension context (``ShiftPreviewGenerator/generateExtensionPreview``):
+    /// the largest delta the timeline can absorb before the first downstream
+    /// pinned wall, or `nil` when unbounded / not an extension preview. Drives
+    /// the "you can extend by at most N minutes" message when `status` is
+    /// ``RippleStatus/exceedsAvailableSlack``.
+    public let maximumExtension: TimeInterval?
+
     public init(
         previewBlocks: [PreviewBlock],
         collisions: [Collision],
         compressedBlockIDs: Set<UUID>,
         status: RippleStatus,
-        diffs: [UUID: TimeInterval]
+        diffs: [UUID: TimeInterval],
+        maximumExtension: TimeInterval? = nil
     ) {
         self.previewBlocks = previewBlocks.sorted { $0.scheduledStart < $1.scheduledStart }
         self.collisions = collisions
         self.compressedBlockIDs = compressedBlockIDs
         self.status = status
         self.diffs = diffs
+        self.maximumExtension = maximumExtension
     }
 }
 
@@ -325,6 +334,64 @@ public struct ShiftPreviewGenerator: Sendable {
             compressedBlockIDs: compressedIDs,
             status: finalStatus,
             diffs: diffs
+        )
+    }
+
+    /// Projects a **live extension** (``RippleEngine/applyExtension``) without
+    /// mutating any live block: the active block's duration grows, downstream
+    /// fluids ripple, trapped runs compress — or the whole thing is rejected
+    /// with ``RippleStatus/exceedsAvailableSlack``.
+    ///
+    /// Unlike ``generatePreview``, this runs the *actual* commit pipeline on
+    /// detached `TimeBlockModel` copies, so the projection is equal to the
+    /// commit by construction. `maximumExtension` is always populated when a
+    /// downstream pinned wall exists, so the confirm UI can show how much
+    /// slack remains. `collisions` is left empty — the live confirm overlay
+    /// renders from `diffs` and `status` only.
+    public func generateExtensionPreview(
+        blocks: [TimeBlockModel],
+        activeBlockID: UUID,
+        delta: TimeInterval
+    ) -> ShiftPreview {
+        let originalStarts = Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, $0.scheduledStart) })
+
+        // Detached copies — never attached to a ModelContext, so mutations
+        // are invisible to SwiftData and the live timeline.
+        let copies = blocks.map { block in
+            TimeBlockModel(
+                id: block.id,
+                title: block.title,
+                scheduledStart: block.scheduledStart,
+                originalStart: block.originalStart,
+                duration: block.duration,
+                minimumDuration: block.minimumDuration,
+                isPinned: block.isPinned,
+                status: block.status,
+                requiresReview: block.requiresReview
+            )
+        }
+
+        let engine = RippleEngine(
+            dependencyResolver: dependencyResolver,
+            collisionDetector: collisionDetector,
+            compressionCalculator: compressionCalculator
+        )
+        let maximum = engine.maximumExtension(blocks: copies, activeBlockID: activeBlockID)
+        let result = engine.applyExtension(blocks: copies, activeBlockID: activeBlockID, delta: delta)
+
+        let previewBlocks = result.blocks.map { PreviewBlock(copying: $0) }
+        let diffs = Dictionary(uniqueKeysWithValues: previewBlocks.compactMap { pb -> (UUID, TimeInterval)? in
+            guard let original = originalStarts[pb.id] else { return nil }
+            return (pb.id, pb.scheduledStart.timeIntervalSince(original))
+        })
+
+        return ShiftPreview(
+            previewBlocks: previewBlocks,
+            collisions: [],
+            compressedBlockIDs: result.compressedBlockIDs,
+            status: result.status,
+            diffs: diffs,
+            maximumExtension: maximum
         )
     }
 }

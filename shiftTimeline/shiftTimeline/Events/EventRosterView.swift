@@ -15,6 +15,12 @@ struct EventRosterView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.supabaseSyncStack) private var syncStack
+    @Environment(\.eventRepository) private var injectedEventRepo
+
+    /// Outbox-backed when sync is on (scene injection); SwiftData fallback otherwise.
+    private var eventRepo: any EventRepositing {
+        injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
 
     @State private var isShowingCreateSheet = false
     @State private var searchText = ""
@@ -164,8 +170,15 @@ struct EventRosterView: View {
     // MARK: - Actions
 
     private func deleteOwnedEvent(_ event: EventModel) {
-        modelContext.delete(event)
-        try? modelContext.save()
+        // Route through the repository so the delete reaches Supabase as a
+        // soft-delete tombstone and every other device (vendors included)
+        // converges via realtime/delta. A bare modelContext.delete stays
+        // local-only: the event lingers on vendors' rosters and resurrects
+        // here on the next full hydrate.
+        Task {
+            try? await eventRepo.delete(event)
+            try? await eventRepo.save()
+        }
     }
 
     /// Removes a *shared* event from this device. The planner remains the owner;

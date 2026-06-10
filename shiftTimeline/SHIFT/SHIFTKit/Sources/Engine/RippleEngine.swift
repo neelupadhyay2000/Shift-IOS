@@ -200,27 +200,208 @@ public struct RippleEngine: Sendable {
         switch shifted.status {
         case .pinnedBlockCannotShift, .circularDependency:
             return shifted
-        case .clean, .hasCollisions, .impossible:
+        case .clean, .hasCollisions, .impossible, .exceedsAvailableSlack:
             break
         }
         guard delta != 0 else { return shifted }
 
-        // Stage 3: collision detection (also re-stamps requiresReview on every
-        // fluid block, clearing stale flags from previously resolved overlaps).
+        return resolveCollisions(blocks: blocks)
+    }
+
+    // MARK: - Live extension (extend the active block, don't move it)
+
+    /// The largest delta ``applyExtension`` can absorb for the given active
+    /// block, or `nil` when no pinned block sits downstream (unbounded).
+    ///
+    /// - Wall immediately next: the slack is the gap between the active
+    ///   block's end and the wall's start (an extension may grow into a gap).
+    /// - Trapped fluid run before the wall: the run shifts with the extension
+    ///   and is then compressed toward minimum durations, so the slack is
+    ///   `wall.start − run.start − Σ minimumDuration(run)`.
+    ///
+    /// Never negative; an already-overrunning timeline reports `0`.
+    public func maximumExtension(
+        blocks: [TimeBlockModel],
+        activeBlockID: UUID
+    ) -> TimeInterval? {
+        let sorted = blocks.sorted(by: Self.canonicalOrder)
+        guard let activeIndex = sorted.firstIndex(where: { $0.id == activeBlockID }) else {
+            return nil
+        }
+
+        var fluidRunStart: Date?
+        var runMinimumsTotal: TimeInterval = 0
+        var wall: TimeBlockModel?
+        if activeIndex + 1 < sorted.count {
+            for i in (activeIndex + 1)..<sorted.count {
+                let block = sorted[i]
+                if block.isPinned {
+                    wall = block
+                    break
+                }
+                if fluidRunStart == nil { fluidRunStart = block.scheduledStart }
+                runMinimumsTotal += block.minimumDuration
+            }
+        }
+        guard let wall else { return nil }
+
+        if let fluidRunStart {
+            return max(0, wall.scheduledStart.timeIntervalSince(fluidRunStart) - runMinimumsTotal)
+        }
+        let active = sorted[activeIndex]
+        let activeEnd = active.scheduledStart.addingTimeInterval(active.duration)
+        return max(0, wall.scheduledStart.timeIntervalSince(activeEnd))
+    }
+
+    /// Live-mode `+x`: the active block is already running, so the delta
+    /// **extends its duration** — `scheduledStart` stays in the past where it
+    /// belongs — and downstream blocks restructure around the new end:
+    ///
+    /// - Subsequent fluid blocks shift later by `delta`, up to the first
+    ///   pinned block (the same bounded-ripple wall as ``recalculate``).
+    /// - A fluid run trapped before the wall is compressed proportionally
+    ///   (minimum durations respected) by the shared stage-3/4 pipeline.
+    /// - If the wall cannot absorb the extension, the call returns
+    ///   ``RippleStatus/exceedsAvailableSlack`` **without mutating anything**
+    ///   — live mode has no "review later"; pair with ``maximumExtension``
+    ///   to tell the user how far they *can* extend.
+    ///
+    /// A pinned **active** block may still extend: a pin anchors the start,
+    /// not the duration. Non-positive deltas and unknown IDs are no-ops.
+    public func applyExtension(
+        blocks: [TimeBlockModel],
+        activeBlockID: UUID,
+        delta: TimeInterval,
+        adjacency: [UUID: [UUID]]? = nil
+    ) -> RippleResult {
+        let sorted = blocks.sorted(by: Self.canonicalOrder)
+
+        guard delta > 0,
+              let activeIndex = sorted.firstIndex(where: { $0.id == activeBlockID }) else {
+            return RippleResult(blocks: sorted, status: .clean)
+        }
+
+        // Atomic slack check BEFORE any mutation: reject outright when the
+        // first downstream wall can't absorb the extension.
+        if let maximum = maximumExtension(blocks: blocks, activeBlockID: activeBlockID),
+           delta > maximum {
+            return RippleResult(blocks: sorted, status: .exceedsAvailableSlack)
+        }
+
+        // Explicit dependents keep their cross-wall contract (see recalculate).
+        let dependentIDs: Set<UUID>
+        if let adjacency {
+            switch dependencyResolver.resolve(adjacency: adjacency, from: activeBlockID) {
+            case .success(let ids):
+                dependentIDs = ids
+            case .failure:
+                return RippleResult(blocks: sorted, status: .circularDependency)
+            }
+        } else {
+            dependentIDs = []
+        }
+
+        // Bounded ripple set: the fluid run between the active block and the
+        // first pinned wall, in timeline order. The wall and run are captured
+        // here because the squeeze below is driven by this known membership —
+        // collision detection can't be trusted for it (a block pushed fully
+        // past the wall sorts after it and escapes both the detector and the
+        // backward trapped-run walk).
+        var trappedRun: [TimeBlockModel] = []
+        var wall: TimeBlockModel?
+        if activeIndex + 1 < sorted.count {
+            for i in (activeIndex + 1)..<sorted.count {
+                if sorted[i].isPinned {
+                    wall = sorted[i]
+                    break
+                }
+                trappedRun.append(sorted[i])
+            }
+        }
+        let shiftableIDs = Set(trappedRun.map(\.id)).union(dependentIDs)
+
+        // Extend the active block in place; only its end moves.
+        sorted[activeIndex].duration += delta
+
+        for block in sorted
+            where shiftableIDs.contains(block.id) && !block.isPinned && block.id != activeBlockID {
+            block.scheduledStart = block.scheduledStart.addingTimeInterval(delta)
+        }
+
+        // Squeeze the run directly against the wall when it overruns. The
+        // active block is never part of the run — it is running and its
+        // just-extended duration is ground truth.
+        var squeezeStatus: RippleStatus = .clean
+        var squeezedIDs = Set<UUID>()
+        if let wall, let lastRunBlock = trappedRun.last {
+            let runEnd = lastRunBlock.scheduledStart.addingTimeInterval(lastRunBlock.duration)
+            if runEnd > wall.scheduledStart {
+                let startsBefore = Dictionary(uniqueKeysWithValues: trappedRun.map { ($0.id, $0.scheduledStart) })
+                let durationsBefore = Dictionary(uniqueKeysWithValues: trappedRun.map { ($0.id, $0.duration) })
+
+                let compression = compressionCalculator.compress(
+                    run: trappedRun,
+                    wallStart: wall.scheduledStart
+                )
+                squeezeStatus = compression.status == .impossible ? .impossible : .hasCollisions
+                squeezedIDs = Set(
+                    trappedRun.filter {
+                        startsBefore[$0.id] != $0.scheduledStart || durationsBefore[$0.id] != $0.duration
+                    }.map(\.id)
+                )
+            }
+        }
+
+        // General pass for everything else (explicit dependents crossing
+        // walls, pre-existing overlaps); the barrier keeps the active block
+        // out of any collision-driven trapped run.
+        let resolved = resolveCollisions(blocks: blocks, barrierBlockID: activeBlockID)
+
+        let status: RippleStatus
+        if squeezeStatus == .impossible || resolved.status == .impossible {
+            status = .impossible
+        } else if squeezeStatus == .hasCollisions || resolved.status == .hasCollisions {
+            status = .hasCollisions
+        } else {
+            status = resolved.status
+        }
+
+        return RippleResult(
+            blocks: resolved.blocks,
+            collisions: resolved.collisions,
+            compressedBlockIDs: resolved.compressedBlockIDs.union(squeezedIDs),
+            status: status
+        )
+    }
+
+    // MARK: - Shared stages 3–4
+
+    /// Collision detection + compression, shared by ``applyShift`` and
+    /// ``applyExtension``. Snapshots before compressing so
+    /// `compressedBlockIDs` reports exactly what resolution changed.
+    /// `barrierBlockID` (live extensions: the active block) bounds every
+    /// trapped-run walk so the running block is never compressed.
+    private func resolveCollisions(
+        blocks: [TimeBlockModel],
+        barrierBlockID: UUID? = nil
+    ) -> RippleResult {
         let sorted = blocks.sorted(by: Self.canonicalOrder)
         let collisions = collisionDetector.detect(sortedBlocks: sorted)
         guard !collisions.isEmpty else {
             return RippleResult(blocks: sorted, status: .clean)
         }
 
-        // Stage 4: compress each trapped run to fit before its wall. Snapshot
-        // first so compressedBlockIDs reports exactly what resolution changed.
         let startsBefore = Dictionary(uniqueKeysWithValues: sorted.map { ($0.id, $0.scheduledStart) })
         let durationsBefore = Dictionary(uniqueKeysWithValues: sorted.map { ($0.id, $0.duration) })
 
         var status: RippleStatus = .hasCollisions
         for collision in collisions {
-            if compressionCalculator.compress(sortedBlocks: sorted, collision: collision).status == .impossible {
+            let compressed = compressionCalculator.compress(
+                sortedBlocks: sorted,
+                collision: collision,
+                barrierBlockID: barrierBlockID
+            )
+            if compressed.status == .impossible {
                 status = .impossible
             }
         }
