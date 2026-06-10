@@ -43,9 +43,7 @@ struct MarketplaceTeaserView: View {
         .navigationTitle(String(localized: "Marketplace"))
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $isPresentingSignup) {
-            // SHIFT-716 replaces this placeholder with the waitlist signup
-            // sheet (role / category / region) backed by WaitlistService.
-            waitlistSignupPlaceholder
+            WaitlistSignupSheet()
         }
     }
 
@@ -135,25 +133,6 @@ struct MarketplaceTeaserView: View {
         .accessibilityIdentifier(AccessibilityID.Marketplace.joinedBadge)
     }
 
-    // MARK: Signup placeholder (removed in SHIFT-716)
-
-    private var waitlistSignupPlaceholder: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                String(localized: "Waitlist signup"),
-                systemImage: "person.crop.circle.badge.clock",
-                description: Text(String(localized: "Coming in the next build."))
-            )
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel")) {
-                        isPresentingSignup = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
 }
 
 // MARK: - VendorPreviewCard

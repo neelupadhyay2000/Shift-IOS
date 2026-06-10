@@ -105,6 +105,17 @@ enum AccessibilityID {
         static let updateInterestsButton = "marketplace.update_interests_button"
     }
 
+    // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
+
+    enum Waitlist {
+        static let rolePicker     = "waitlist.role_picker"
+        static let categoryPicker = "waitlist.category_picker"
+        static let regionField    = "waitlist.region_field"
+        static let submitButton   = "waitlist.submit_button"
+        static let cancelButton   = "waitlist.cancel_button"
+        static let confirmedState = "waitlist.confirmed_state"
+    }
+
     // MARK: - Post-Event Report (PostEventReportPreviewView)
 
     enum Report {
