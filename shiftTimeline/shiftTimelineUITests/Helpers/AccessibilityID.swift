@@ -95,6 +95,16 @@ enum AccessibilityID {
         static let templateList = "templates.template_list"
     }
 
+    // MARK: - Marketplace (MarketplaceTeaserView)
+
+    enum Marketplace {
+        static let heroTitle             = "marketplace.hero_title"
+        static let previewCardList       = "marketplace.preview_card_list"
+        static let joinWaitlistButton    = "marketplace.join_waitlist_button"
+        static let joinedBadge           = "marketplace.joined_badge"
+        static let updateInterestsButton = "marketplace.update_interests_button"
+    }
+
     // MARK: - Post-Event Report (PostEventReportPreviewView)
 
     enum Report {
