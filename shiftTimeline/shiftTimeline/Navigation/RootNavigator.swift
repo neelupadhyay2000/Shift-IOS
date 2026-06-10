@@ -6,15 +6,17 @@ import Services
 
 /// Top-level tab destinations for the iPhone tab bar and iPad sidebar.
 enum Tab: String, Hashable, CaseIterable {
-    case events    = "Events"
-    case templates = "Templates"
-    case settings  = "Settings"
+    case events      = "Events"
+    case marketplace = "Marketplace"
+    case templates   = "Templates"
+    case settings    = "Settings"
 
     var systemImage: String {
         switch self {
-        case .events:    "calendar"
-        case .templates: "square.grid.2x2"
-        case .settings:  "gearshape"
+        case .events:      "calendar"
+        case .marketplace: "storefront"
+        case .templates:   "square.grid.2x2"
+        case .settings:    "gearshape"
         }
     }
 }
@@ -31,6 +33,11 @@ enum EventDestination: Hashable {
     case postEventReport(eventID: UUID)
     case liveDashboard(eventID: UUID)
 }
+
+/// Typed push destinations for the Marketplace stack.
+/// Intentionally empty — the teaser tab pushes nothing yet; marketplace
+/// browsing destinations land in E10 (SHIFT-724).
+enum MarketplaceDestination: Hashable {}
 
 /// Typed push destinations for the Templates stack.
 enum TemplateDestination: Hashable {
@@ -74,6 +81,7 @@ struct RootNavigator: View {
     // MARK: Per-tab @State path arrays (AC: navigation state via @State path arrays)
 
     @State private var eventPath: [EventDestination] = []
+    @State private var marketplacePath: [MarketplaceDestination] = []
     @State private var templatePath: [TemplateDestination] = []
     @State private var settingsPath: [SettingsDestination] = []
 
@@ -116,6 +124,13 @@ struct RootNavigator: View {
             }
             .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
             .tag(Tab.events)
+
+            // Marketplace tab — no push destinations until E10 (SHIFT-724)
+            NavigationStack(path: $marketplacePath) {
+                MarketplaceTeaserView()
+            }
+            .tabItem { Label(Tab.marketplace.rawValue, systemImage: Tab.marketplace.systemImage) }
+            .tag(Tab.marketplace)
 
             // Templates tab
             NavigationStack(path: $templatePath) {
@@ -204,6 +219,10 @@ struct RootNavigator: View {
                     .navigationDestination(for: EventDestination.self) { destination in
                         eventDestinationView(for: destination)
                     }
+            }
+        case .marketplace:
+            NavigationStack(path: $marketplacePath) {
+                MarketplaceTeaserView()
             }
         case .templates:
             NavigationStack(path: $templatePath) {

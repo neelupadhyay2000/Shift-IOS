@@ -13,9 +13,10 @@ enum AccessibilityID {
     // MARK: - Tab bar
 
     enum Tab {
-        static let events    = "tab.events"
-        static let templates = "tab.templates"
-        static let settings  = "tab.settings"
+        static let events      = "tab.events"
+        static let marketplace = "tab.marketplace"
+        static let templates   = "tab.templates"
+        static let settings    = "tab.settings"
     }
 
     // MARK: - Event Roster (EventRosterView)
@@ -92,6 +93,27 @@ enum AccessibilityID {
 
     enum Templates {
         static let templateList = "templates.template_list"
+    }
+
+    // MARK: - Marketplace (MarketplaceTeaserView)
+
+    enum Marketplace {
+        static let heroTitle             = "marketplace.hero_title"
+        static let previewCardList       = "marketplace.preview_card_list"
+        static let joinWaitlistButton    = "marketplace.join_waitlist_button"
+        static let joinedBadge           = "marketplace.joined_badge"
+        static let updateInterestsButton = "marketplace.update_interests_button"
+    }
+
+    // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
+
+    enum Waitlist {
+        static let rolePicker     = "waitlist.role_picker"
+        static let categoryPicker = "waitlist.category_picker"
+        static let regionField    = "waitlist.region_field"
+        static let submitButton   = "waitlist.submit_button"
+        static let cancelButton   = "waitlist.cancel_button"
+        static let confirmedState = "waitlist.confirmed_state"
     }
 
     // MARK: - Post-Event Report (PostEventReportPreviewView)
