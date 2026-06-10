@@ -340,6 +340,26 @@ struct WaitlistSignupSheet: View {
     }
 }
 
+// MARK: - WaitlistInterestRole Display
+
+extension WaitlistInterestRole {
+    var displayName: String {
+        switch self {
+        case .vendor: String(localized: "I'm a vendor")
+        case .planner: String(localized: "I'm a planner")
+        case .both: String(localized: "Both")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .vendor: "storefront.fill"
+        case .planner: "clipboard.fill"
+        case .both: "person.2.fill"
+        }
+    }
+}
+
 // MARK: - Previews
 
 /// In-memory fake for previews; SHIFT-717 provides the Supabase implementation.
