@@ -54,6 +54,35 @@ function makeSupabase(): SupabaseClient {
   );
 }
 
+// SHIFT-668: durable failure capture. pg_net trigger responses are
+// fire-and-forget, so a delivery failure that only lives in this function's
+// response is invisible in production. Every failure path writes a row to
+// `notification_failures` (service role) — the queryable alert source in the
+// launch-readiness runbook. Best-effort by design: alerting must never break
+// delivery or mask the original error.
+type FailureContext = { kind: string; eventId?: string; profileId?: string };
+
+async function recordFailure(
+  supabase: SupabaseClient,
+  ctx: FailureContext,
+  reason: "secrets_missing" | "token_query_failed" | "apns_rejected" | "exception",
+  detail: string,
+  apnsStatus?: number,
+): Promise<void> {
+  try {
+    await supabase.from("notification_failures").insert({
+      kind: ctx.kind,
+      reason,
+      detail: detail.slice(0, 1000),
+      apns_status: apnsStatus ?? null,
+      event_id: ctx.eventId ?? null,
+      profile_id: ctx.profileId ?? null,
+    });
+  } catch (_) {
+    // Swallow: never let alerting take down the push path.
+  }
+}
+
 // Resolve every live device token across the given profiles, send one push each,
 // reap 410s. Handles a single recipient (shift/assignment) or a fan-out (go-live).
 async function sendToProfiles(
@@ -62,6 +91,7 @@ async function sendToProfiles(
   profileIds: string[],
   apsPayload: unknown,
   options: { pushType: "alert" | "background"; priority: string },
+  ctx: FailureContext,
 ): Promise<Response> {
   if (profileIds.length === 0) return json({ skipped: "no_recipients" }, 200);
 
@@ -71,7 +101,10 @@ async function sendToProfiles(
     .in("profile_id", profileIds)
     .is("deleted_at", null);
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) {
+    await recordFailure(supabase, ctx, "token_query_failed", error.message);
+    return json({ error: error.message }, 500);
+  }
   if (!tokens || tokens.length === 0) return json({ skipped: "no_devices" }, 200);
 
   // One push per device token → exactly one push per eligible vendor device.
@@ -88,6 +121,19 @@ async function sendToProfiles(
       .in("apns_token", stale);
   }
 
+  // Any other non-200 is a real delivery failure — record it for alerting.
+  // (410 reaping above is routine token lifecycle, not an outage signal.)
+  const rejected = results.filter((r) => r.status !== 200 && r.status !== 410);
+  for (const r of rejected) {
+    await recordFailure(
+      supabase,
+      ctx,
+      "apns_rejected",
+      `${r.reason ?? "apns_error"} token…${r.token.slice(-8)}`,
+      r.status,
+    );
+  }
+
   const sent = results.filter((r) => r.status === 200).length;
   return json({ sent, total: results.length, results }, 200);
 }
@@ -99,8 +145,12 @@ async function handleShift(payload: ShiftPayload): Promise<Response> {
     return json({ skipped: "below_threshold", delta }, 200);
   }
 
+  const ctx: FailureContext = { kind: "shift", eventId: payload.event_id, profileId: payload.profile_id };
   const apns = loadApnsConfig();
-  if (!apns) return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
 
   // Alert push (was content-available): iOS throttles silent pushes hard, which
   // made shift notifications flaky. A visible alert at priority 10 is delivered
@@ -116,15 +166,19 @@ async function handleShift(payload: ShiftPayload): Promise<Response> {
   return await sendToProfiles(makeSupabase(), apns, [payload.profile_id], apsPayload, {
     pushType: "alert",
     priority: "10",
-  });
+  }, ctx);
 }
 
 async function handleAssignment(payload: AssignmentPayload): Promise<Response> {
   // The trigger only forwards claimed vendors; guard defensively anyway.
   if (!payload.profile_id) return json({ skipped: "unclaimed_vendor" }, 200);
 
+  const ctx: FailureContext = { kind: "assignment", eventId: payload.event_id, profileId: payload.profile_id };
   const apns = loadApnsConfig();
-  if (!apns) return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
 
   // Alert push: the server already knows the block title, so iOS can show it
   // directly (reliable when backgrounded/locked). EVENT_ID_KEY lets the tap
@@ -137,12 +191,16 @@ async function handleAssignment(payload: AssignmentPayload): Promise<Response> {
   return await sendToProfiles(makeSupabase(), apns, [payload.profile_id], apsPayload, {
     pushType: "alert",
     priority: "10",
-  });
+  }, ctx);
 }
 
 async function handleGoLive(payload: GoLivePayload): Promise<Response> {
+  const ctx: FailureContext = { kind: "golive", eventId: payload.event_id };
   const apns = loadApnsConfig();
-  if (!apns) return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
 
   const supabase = makeSupabase();
 
@@ -155,7 +213,10 @@ async function handleGoLive(payload: GoLivePayload): Promise<Response> {
     .not("profile_id", "is", null)
     .is("deleted_at", null);
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) {
+    await recordFailure(supabase, ctx, "token_query_failed", error.message);
+    return json({ error: error.message }, 500);
+  }
   const profileIds = [...new Set((vendors ?? []).map((v) => v.profile_id as string))];
   if (profileIds.length === 0) return json({ skipped: "no_vendors" }, 200);
 
@@ -166,17 +227,20 @@ async function handleGoLive(payload: GoLivePayload): Promise<Response> {
   return await sendToProfiles(supabase, apns, profileIds, apsPayload, {
     pushType: "alert",
     priority: "10",
-  });
+  }, ctx);
 }
 
 Deno.serve(async (req) => {
+  let kind = "unknown";
   try {
     const payload = (await req.json()) as { type?: string };
+    kind = payload.type ?? "unknown";
     if (payload.type === "shift") return await handleShift(payload as ShiftPayload);
     if (payload.type === "assignment") return await handleAssignment(payload as AssignmentPayload);
     if (payload.type === "golive") return await handleGoLive(payload as GoLivePayload);
     return json({ skipped: "ignored_type", type: payload.type }, 200);
   } catch (e) {
+    await recordFailure(makeSupabase(), { kind }, "exception", String(e));
     return json({ error: String(e) }, 500);
   }
 });

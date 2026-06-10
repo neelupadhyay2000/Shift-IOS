@@ -24,6 +24,11 @@ final class SyncStatusMonitor {
 
     @ObservationIgnored private var errorState = SyncErrorState()
     @ObservationIgnored private let pendingWriteCount: @MainActor () -> Int
+    /// Fired exactly once per status *change* (`from`, `to`) — never on a
+    /// refresh that lands on the same status. The sync stack wires this to
+    /// telemetry (SHIFT-668) so production sync-health transitions are
+    /// observable without polling.
+    @ObservationIgnored private let onTransition: @MainActor (SyncStatus, SyncStatus) -> Void
 
     /// The current user-facing status.
     var status: SyncStatus { health.status }
@@ -39,9 +44,11 @@ final class SyncStatusMonitor {
 
     init(
         diagnostics: SyncDiagnosticsCenter = .shared,
-        pendingWriteCount: @escaping @MainActor () -> Int = { 0 }
+        pendingWriteCount: @escaping @MainActor () -> Int = { 0 },
+        onTransition: @escaping @MainActor (SyncStatus, SyncStatus) -> Void = { _, _ in }
     ) {
         self.pendingWriteCount = pendingWriteCount
+        self.onTransition = onTransition
         health = SyncHealth(pendingWrites: pendingWriteCount(), hasUnresolvedError: false)
 
         // Observe the funnel. The sink fires on the recording thread, so marshal
@@ -57,9 +64,8 @@ final class SyncStatusMonitor {
 
     /// Recomputes the pending-writes signal — call after an enqueue or a flush.
     func refreshPending() {
-        health = SyncHealth(
-            pendingWrites: pendingWriteCount(),
-            hasUnresolvedError: errorState.hasUnresolvedError
+        updateHealth(
+            SyncHealth(pendingWrites: pendingWriteCount(), hasUnresolvedError: errorState.hasUnresolvedError)
         )
     }
 
@@ -68,9 +74,19 @@ final class SyncStatusMonitor {
     /// depth, so pending is recomputed alongside.
     func ingest(_ event: DiagnosticEvent) {
         errorState.ingest(event)
-        health = SyncHealth(
-            pendingWrites: pendingWriteCount(),
-            hasUnresolvedError: errorState.hasUnresolvedError
+        updateHealth(
+            SyncHealth(pendingWrites: pendingWriteCount(), hasUnresolvedError: errorState.hasUnresolvedError)
         )
+    }
+
+    /// Applies the new health and fires the transition hook iff the derived
+    /// status actually changed.
+    private func updateHealth(_ newHealth: SyncHealth) {
+        let previous = health.status
+        health = newHealth
+        let current = newHealth.status
+        if previous != current {
+            onTransition(previous, current)
+        }
     }
 }

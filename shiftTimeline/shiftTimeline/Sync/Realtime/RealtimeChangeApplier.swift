@@ -133,14 +133,14 @@ struct RealtimeChangeApplier {
 
     private func upsertEvent(_ dto: EventDTO) throws {
         let existing = try existingEvent(id: dto.id)
-        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        if let existing, !lwwGate(table: "events", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) { return }
         let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
     }
 
     private func upsertTrack(_ dto: TrackDTO) throws {
         let existing = try existingTrack(id: dto.id)
-        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        if let existing, !lwwGate(table: "tracks", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) { return }
         let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let event = try existingEvent(id: dto.eventID) {
@@ -150,7 +150,7 @@ struct RealtimeChangeApplier {
 
     private func upsertBlock(_ dto: BlockDTO) throws {
         let existing = try existingBlock(id: dto.id)
-        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        if let existing, !lwwGate(table: "blocks", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) { return }
         let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let track = try existingTrack(id: dto.trackID) {
@@ -164,7 +164,7 @@ struct RealtimeChangeApplier {
         // arriving after the planner's newer reset — is skipped rather than
         // clobbering the current state, so ack and edits never ping-pong.
         let existing = try existingVendor(id: dto.id)
-        if let existing, !shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) { return }
+        if let existing, !lwwGate(table: "event_vendors", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) { return }
         let model = existing ?? insert(dto.makeModel())
         dto.apply(to: model)
         if let event = try existingEvent(id: dto.eventID) {
@@ -197,6 +197,23 @@ struct RealtimeChangeApplier {
         return incoming > current
     }
 
+    /// LWW gate + conflict-funnel instrumentation (SHIFT-668). Same verdict as
+    /// ``shouldApply``, but a *strictly-older* incoming version — a genuine race
+    /// that LWW just resolved in favour of the newer write — is recorded to the
+    /// `.conflict` funnel stage. Equal-version re-deliveries stay silent so the
+    /// stage is high-signal: it lights up only when concurrent edits actually
+    /// raced.
+    private func lwwGate(table: String, id: UUID, incoming: Date?, current: Date?) -> Bool {
+        let applies = shouldApply(incoming: incoming, onto: current)
+        if !applies, let incoming, let current, incoming < current {
+            diagnostics.record(
+                .conflict, "staleVersionSkipped",
+                params: ["table": table, "id": id.uuidString]
+            )
+        }
+        return applies
+    }
+
     // MARK: - Soft-delete (tombstone)
 
     // A soft-delete arrives as an upsert whose DTO carries `deleted_at` (SHIFT-618).
@@ -207,25 +224,25 @@ struct RealtimeChangeApplier {
 
     private func softDeleteEvent(_ dto: EventDTO) throws {
         guard let existing = try existingEvent(id: dto.id),
-              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+              lwwGate(table: "events", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) else { return }
         context.delete(existing)
     }
 
     private func softDeleteTrack(_ dto: TrackDTO) throws {
         guard let existing = try existingTrack(id: dto.id),
-              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+              lwwGate(table: "tracks", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) else { return }
         context.delete(existing)
     }
 
     private func softDeleteBlock(_ dto: BlockDTO) throws {
         guard let existing = try existingBlock(id: dto.id),
-              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+              lwwGate(table: "blocks", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) else { return }
         context.delete(existing)
     }
 
     private func softDeleteVendor(_ dto: EventVendorDTO) throws {
         guard let existing = try existingVendor(id: dto.id),
-              shouldApply(incoming: dto.updatedAt?.value, onto: existing.updatedAt) else { return }
+              lwwGate(table: "event_vendors", id: dto.id, incoming: dto.updatedAt?.value, current: existing.updatedAt) else { return }
         context.delete(existing)
     }
 
