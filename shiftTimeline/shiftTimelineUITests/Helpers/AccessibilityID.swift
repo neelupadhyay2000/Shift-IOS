@@ -13,9 +13,10 @@ enum AccessibilityID {
     // MARK: - Tab bar
 
     enum Tab {
-        static let events    = "tab.events"
-        static let templates = "tab.templates"
-        static let settings  = "tab.settings"
+        static let events      = "tab.events"
+        static let marketplace = "tab.marketplace"
+        static let templates   = "tab.templates"
+        static let settings    = "tab.settings"
     }
 
     // MARK: - Event Roster (EventRosterView)
