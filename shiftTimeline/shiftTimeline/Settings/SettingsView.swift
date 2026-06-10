@@ -1,5 +1,4 @@
 import Services
-import StoreKit
 import Supabase
 import SwiftUI
 import TipKit
@@ -10,22 +9,15 @@ enum SettingsDefaultsKey {
     static let notificationThresholdMinutes = "notificationThresholdMinutes"
 }
 
+/// Main settings page — kept deliberately sparse: one tappable account row
+/// (identity, email, and subscription live in ``AccountView``), notification
+/// preferences, and About. Direction A: the restraint is the style.
 struct SettingsView: View {
     /// Hosted help / support page opened from the About section.
     private static let supportURL = URL(string: "https://support.shifttimeline.app")
 
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.openURL) private var openURL
-    @Environment(\.syncStatusMonitor) private var syncStatusMonitor
-
-    @State private var isRestoring = false
-    @State private var showNoRestoreAlert = false
-    @State private var showRestoreErrorAlert = false
-    @State private var isShowingPaywall = false
-    @State private var isManagingSubscriptions = false
-    @State private var isShowingSignIn = false
-    @State private var isEditingName = false
-    @State private var nameDraft = ""
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
 
@@ -38,10 +30,8 @@ struct SettingsView: View {
     var body: some View {
         Form {
             accountSection
-            subscriptionSection
             notificationsSection
             aboutSection
-            diagnosticsSection
             #if DEBUG
                 debugSection
             #endif
@@ -51,187 +41,64 @@ struct SettingsView: View {
         .tint(ShiftPalette.accent)
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
-        .sheet(isPresented: $isShowingSignIn) {
-            SignInView()
-        }
-        .sheet(isPresented: $isShowingPaywall) {
-            PaywallView(trigger: .settings)
-        }
-        .manageSubscriptionsSheet(isPresented: $isManagingSubscriptions)
-        .alert(String(localized: "No Purchases Found"), isPresented: $showNoRestoreAlert) {
-            Button(String(localized: "OK"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "We couldn't find any active purchases for this Apple ID. If you believe this is an error, contact support."))
-        }
-        .alert(String(localized: "Restore Failed"), isPresented: $showRestoreErrorAlert) {
-            Button(String(localized: "OK"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "Restore failed. Please check your connection and try again."))
-        }
-        .alert(String(localized: "Your Name"), isPresented: $isEditingName) {
-            TextField(String(localized: "Name"), text: $nameDraft)
-                .textInputAutocapitalization(.words)
-            Button(String(localized: "Save")) {
-                Task { await saveName() }
-            }
-            Button(String(localized: "Cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "This is the name vendors and collaborators see."))
-        }
     }
 
-    // MARK: - Account
-
-    private var subscriptionStatusLabel: String {
-        let sm = SubscriptionManager.shared
-        guard sm.isProUser else { return String(localized: "Free Plan") }
-        if sm.isLifetimePro { return String(localized: "SHIFT Pro — Lifetime") }
-        if let renewal = sm.renewalDate {
-            let formatted = renewal.formatted(.dateTime.month(.abbreviated).day().year())
-            return String(localized: "SHIFT Pro — renews \(formatted)")
-        }
-        return String(localized: "SHIFT Pro — Active")
-    }
+    // MARK: - Account (single row → AccountView)
 
     private var accountSection: some View {
-        Section(String(localized: "Account")) {
-            if authService.isAuthenticated {
-                profileHeader
-                Button(String(localized: "Sign Out"), role: .destructive) {
-                    Task { try? await authService.signOut() }
-                }
-            } else {
-                Button(String(localized: "Sign In")) {
-                    isShowingSignIn = true
-                }
-                .foregroundStyle(ShiftPalette.accent)
+        Section {
+            NavigationLink {
+                AccountView()
+            } label: {
+                accountRow
             }
+            .accessibilityLabel(String(localized: "Account, \(accountPrimaryLabel)"))
+            .accessibilityHint(String(localized: "Shows your profile and subscription"))
         }
     }
 
-    /// Identity row: avatar + name with a contact line beneath. Tap to edit the
-    /// display name (the name vendors/collaborators see).
-    private var profileHeader: some View {
-        Button {
-            nameDraft = nonEmpty(authService.currentProfile?.displayName) ?? ""
-            isEditingName = true
-        } label: {
-            HStack(spacing: 14) {
-                avatar
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(accountPrimaryLabel)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text(accountSecondaryLabel)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "pencil")
+    private var accountRow: some View {
+        HStack(spacing: 14) {
+            AccountAvatarView(
+                initials: AccountIdentity.initials(
+                    name: authService.currentProfile?.displayName,
+                    email: authService.currentUser?.email
+                ),
+                size: 44
+            )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(accountPrimaryLabel)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(accountSecondaryLabel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Edit your name"))
-    }
-
-    private var avatar: some View {
-        ZStack {
-            Circle().fill(ShiftPalette.accent.opacity(0.15))
-            if let initials = accountInitials {
-                Text(initials)
-                    .font(.headline)
-                    .foregroundStyle(ShiftPalette.accent)
-            } else {
-                Image(systemName: "person.fill")
-                    .font(.title3)
-                    .foregroundStyle(ShiftPalette.accent)
+                    .lineLimit(1)
             }
         }
-        .frame(width: 46, height: 46)
+        .padding(.vertical, 4)
     }
 
-    private var subscriptionSection: some View {
-        Section(String(localized: "Subscription")) {
-            LabeledContent(String(localized: "Plan")) {
-                Text(subscriptionStatusLabel)
-                    .foregroundStyle(SubscriptionManager.shared.isProUser ? .primary : .secondary)
-            }
-
-            if !SubscriptionManager.shared.isProUser {
-                Button(String(localized: "Upgrade to Pro")) {
-                    isShowingPaywall = true
-                }
-                .foregroundStyle(ShiftPalette.accent)
-            } else if !SubscriptionManager.shared.isLifetimePro {
-                Button(String(localized: "Manage Subscription")) {
-                    isManagingSubscriptions = true
-                }
-                .foregroundStyle(ShiftPalette.accent)
-            }
-
-            Button {
-                Task { await restore() }
-            } label: {
-                if isRestoring {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text(String(localized: "Restoring…"))
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text(String(localized: "Restore Purchases"))
-                }
-            }
-            .disabled(isRestoring)
-        }
-    }
-
-    // MARK: - Account identity helpers
-
-    /// Primary line: display name when known, else the contact used to sign in.
+    /// Primary line: display name when known, else the signed-in contact,
+    /// else a generic "Account".
     private var accountPrimaryLabel: String {
-        nonEmpty(authService.currentProfile?.displayName)
-            ?? nonEmpty(authService.currentUser?.email)
-            ?? nonEmpty(authService.currentUser?.phone)
-            ?? String(localized: "Your Account")
+        AccountIdentity.nonEmpty(authService.currentProfile?.displayName)
+            ?? AccountIdentity.nonEmpty(authService.currentUser?.email)
+            ?? AccountIdentity.nonEmpty(authService.currentUser?.phone)
+            ?? String(localized: "Account")
     }
 
-    /// Secondary line: the contact email/phone when the name is the primary line,
-    /// otherwise a generic provider hint.
+    /// Secondary line: the contact when signed in, else a sign-in hint.
     private var accountSecondaryLabel: String {
-        if nonEmpty(authService.currentProfile?.displayName) != nil {
-            return nonEmpty(authService.currentUser?.email)
-                ?? nonEmpty(authService.currentUser?.phone)
+        guard authService.isAuthenticated else {
+            return String(localized: "Sign in & subscription")
+        }
+        if AccountIdentity.nonEmpty(authService.currentProfile?.displayName) != nil {
+            return AccountIdentity.nonEmpty(authService.currentUser?.email)
+                ?? AccountIdentity.nonEmpty(authService.currentUser?.phone)
                 ?? String(localized: "Signed in")
         }
         return String(localized: "Signed in")
-    }
-
-    /// Up to two uppercase initials from the name, else the first letter of the email.
-    private var accountInitials: String? {
-        if let name = nonEmpty(authService.currentProfile?.displayName) {
-            let initials = name.split(separator: " ").prefix(2)
-                .compactMap(\.first)
-                .map(String.init)
-                .joined()
-            return initials.isEmpty ? nil : initials.uppercased()
-        }
-        if let email = nonEmpty(authService.currentUser?.email), let first = email.first {
-            return String(first).uppercased()
-        }
-        return nil
-    }
-
-    private func nonEmpty(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else {
-            return nil
-        }
-        return trimmed
     }
 
     // MARK: - Notifications
@@ -250,11 +117,10 @@ struct SettingsView: View {
             } maximumValueLabel: {
                 Text("60").font(.caption2)
             }
-            Text(String(localized: "Smaller shifts will sync silently. You'll be notified only when the shift exceeds this threshold."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         } header: {
             Text(String(localized: "Notifications"))
+        } footer: {
+            Text(String(localized: "Smaller shifts will sync silently. You'll be notified only when the shift exceeds this threshold."))
         }
     }
 
@@ -283,40 +149,16 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Diagnostics (Release-visible — used to debug Supabase sync/sharing on TestFlight)
-
-    private var diagnosticsSection: some View {
-        Section {
-            if let monitor = syncStatusMonitor {
-                LabeledContent(String(localized: "Sync Status")) {
-                    SyncStatusIndicator(status: monitor.status)
-                }
-                if let message = monitor.message {
-                    Text(message)
-                        .font(.footnote)
-                        .foregroundStyle(monitor.status == .degraded ? ShiftPalette.warm : Color.secondary)
-                }
-            }
-            NavigationLink {
-                SyncDiagnosticsView()
-            } label: {
-                LabeledContent(String(localized: "Sync Diagnostics")) {
-                    Image(systemName: "stethoscope")
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } header: {
-            Text(String(localized: "Diagnostics"))
-        } footer: {
-            Text(String(localized: "Tools for troubleshooting sync and vendor sharing. Tap Share in the top-right to export the log."))
-        }
-    }
-
     // MARK: - Debug (only in DEBUG builds)
 
     #if DEBUG
         private var debugSection: some View {
             Section(String(localized: "Developer")) {
+                NavigationLink {
+                    SyncDiagnosticsView()
+                } label: {
+                    Label(String(localized: "Sync Diagnostics"), systemImage: "stethoscope")
+                }
                 Button(String(localized: "Reset Tips")) {
                     try? Tips.resetDatastore()
                 }
@@ -324,31 +166,6 @@ struct SettingsView: View {
             }
         }
     #endif
-
-    // MARK: - Actions
-
-    /// Writes the edited display name to `profiles.display_name` and refreshes
-    /// `currentProfile` so the header updates. No-ops on an empty value — the
-    /// nil-omitting DTO encode can't null out an already-stored name anyway.
-    private func saveName() async {
-        guard let user = authService.currentUser else { return }
-        let trimmed = nameDraft.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        await authService.upsertProfile(from: user, displayName: trimmed)
-    }
-
-    private func restore() async {
-        isRestoring = true
-        defer { isRestoring = false }
-        do {
-            try await SubscriptionManager.shared.restore()
-            if !SubscriptionManager.shared.isProUser {
-                showNoRestoreAlert = true
-            }
-        } catch {
-            showRestoreErrorAlert = true
-        }
-    }
 }
 
 // MARK: - Preview
@@ -357,4 +174,5 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
     }
+    .environment(SupabaseAuthService())
 }
