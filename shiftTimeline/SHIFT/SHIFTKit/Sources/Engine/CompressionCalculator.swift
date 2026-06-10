@@ -50,10 +50,16 @@ public struct CompressionCalculator: Sendable {
     /// - Parameters:
     ///   - blocks: All time blocks in the timeline (sorted or unsorted).
     ///   - collision: The collision that triggered compression.
+    ///   - barrierBlockID: Optional lower bound for the trapped-run walk
+    ///     (see the pre-sorted variant).
     /// - Returns: A ``CompressionResult`` with the adjusted blocks and status.
-    public func compress(blocks: [TimeBlockModel], collision: Collision) -> CompressionResult {
+    public func compress(
+        blocks: [TimeBlockModel],
+        collision: Collision,
+        barrierBlockID: UUID? = nil
+    ) -> CompressionResult {
         let sorted = blocks.sorted { $0.scheduledStart < $1.scheduledStart }
-        return compress(sortedBlocks: sorted, collision: collision)
+        return compress(sortedBlocks: sorted, collision: collision, barrierBlockID: barrierBlockID)
     }
 
     /// Pre-sorted variant — avoids an O(n log n) sort on every call.
@@ -61,15 +67,29 @@ public struct CompressionCalculator: Sendable {
     /// Use this overload when the caller has already sorted the blocks array
     /// (e.g., inside a loop that processes multiple collisions from the same
     /// sorted snapshot).
-    public func compress(sortedBlocks sorted: [TimeBlockModel], collision: Collision) -> CompressionResult {
+    ///
+    /// `barrierBlockID` bounds the backward trapped-run walk: the walk stops
+    /// *before* that block, so it is never compressed. Live extensions pass
+    /// the active block here — it is already running, and its just-extended
+    /// duration is ground truth that compression must not shrink. `nil`
+    /// (planning-mode shifts) keeps the historic behaviour where the run
+    /// extends back to the previous pinned block.
+    public func compress(
+        sortedBlocks sorted: [TimeBlockModel],
+        collision: Collision,
+        barrierBlockID: UUID? = nil
+    ) -> CompressionResult {
 
         guard let pinnedIndex = sorted.firstIndex(where: { $0.id == collision.pinnedBlockID }) else {
             return CompressionResult(blocks: sorted, status: .clean)
         }
 
-        // Walk backwards from the pinned block to find consecutive trapped Fluid blocks.
+        // Walk backwards from the pinned block to find consecutive trapped
+        // Fluid blocks, stopping at a pinned block or the barrier.
         var trappedStartIndex = pinnedIndex
-        while trappedStartIndex > 0 && !sorted[trappedStartIndex - 1].isPinned {
+        while trappedStartIndex > 0,
+              !sorted[trappedStartIndex - 1].isPinned,
+              sorted[trappedStartIndex - 1].id != barrierBlockID {
             trappedStartIndex -= 1
         }
 
@@ -78,57 +98,78 @@ public struct CompressionCalculator: Sendable {
             return CompressionResult(blocks: sorted, status: .clean)
         }
 
-        let gapStart = sorted[trappedRange.lowerBound].scheduledStart
-        let availableTime = sorted[pinnedIndex].scheduledStart.timeIntervalSince(gapStart)
+        let status = compress(
+            trapped: Array(sorted[trappedRange]),
+            beforeWallAt: sorted[pinnedIndex].scheduledStart
+        )
+        return CompressionResult(blocks: sorted, status: status)
+    }
+
+    /// Run-explicit variant for live extensions (``RippleEngine/applyExtension``).
+    ///
+    /// The collision-driven variants discover the trapped run by walking the
+    /// post-shift sort order backwards from the pinned block — but a block
+    /// pushed *fully past* the wall sorts after it and escapes both the walk
+    /// and collision detection entirely. The extension pipeline already knows
+    /// the run a priori (the fluid blocks between the active block and the
+    /// wall, in timeline order), so it passes the membership explicitly.
+    ///
+    /// Same case behaviour and mutation semantics as the collision-driven
+    /// variants; `run` must be in timeline order.
+    public func compress(run: [TimeBlockModel], wallStart: Date) -> CompressionResult {
+        CompressionResult(blocks: run, status: compress(trapped: run, beforeWallAt: wallStart))
+    }
+
+    // MARK: - Shared core
+
+    /// Lays out `trapped` (timeline order) to fit before `wallStart`,
+    /// compressing proportionally toward minimum durations when needed.
+    private func compress(trapped: [TimeBlockModel], beforeWallAt wallStart: Date) -> RippleStatus {
+        guard let firstBlock = trapped.first else { return .clean }
+
+        let gapStart = firstBlock.scheduledStart
+        let availableTime = wallStart.timeIntervalSince(gapStart)
 
         // No feasible gap — mark impossible.
         guard availableTime > 0 else {
-            for index in trappedRange {
-                let block = sorted[index]
+            for block in trapped {
                 block.duration = block.minimumDuration
                 block.requiresReview = true
             }
-            return CompressionResult(blocks: sorted, status: .impossible)
+            return .impossible
         }
 
-        let totalDuration = sorted[trappedRange].reduce(0.0) { $0 + $1.duration }
-        guard totalDuration > 0 else {
-            return CompressionResult(blocks: sorted, status: .clean)
-        }
+        let totalDuration = trapped.reduce(0.0) { $0 + $1.duration }
+        guard totalDuration > 0 else { return .clean }
 
-        let totalMinimum = sorted[trappedRange].reduce(0.0) { $0 + $1.minimumDuration }
+        let totalMinimum = trapped.reduce(0.0) { $0 + $1.minimumDuration }
 
         // Impossible: minimums exceed available gap.
         if totalMinimum > availableTime {
             var cursor = gapStart
-            for index in trappedRange {
-                let block = sorted[index]
+            for block in trapped {
                 block.scheduledStart = cursor
                 block.duration = block.minimumDuration
                 block.requiresReview = true
                 cursor = cursor.addingTimeInterval(block.minimumDuration)
             }
-            return CompressionResult(blocks: sorted, status: .impossible)
+            return .impossible
         }
 
         // If blocks already fit, just close gaps — don't expand durations.
         if totalDuration <= availableTime {
             var cursor = gapStart
-            for index in trappedRange {
-                let block = sorted[index]
+            for block in trapped {
                 block.scheduledStart = cursor
                 cursor = cursor.addingTimeInterval(block.duration)
             }
-            return CompressionResult(blocks: sorted, status: .clean)
+            return .clean
         }
 
         // Proportional compression with minimum-duration protection.
-        var newDurations = [TimeInterval](repeating: 0, count: trappedRange.count)
-
+        //
         // Pass 1: proportional scaling.
-        for (i, index) in trappedRange.enumerated() {
-            newDurations[i] = (sorted[index].duration / totalDuration) * availableTime
-        }
+        var newDurations = trapped.map { ($0.duration / totalDuration) * availableTime }
 
         // Pass 2: clamp to minimumDuration, redistribute deficit using
         // excess-over-minimum for more stable convergence.
@@ -139,8 +180,8 @@ public struct CompressionCalculator: Sendable {
             var totalExcess: TimeInterval = 0
 
             // Identify blocks below minimum and compute total excess of flexible blocks.
-            for (i, index) in trappedRange.enumerated() {
-                let minDur = sorted[index].minimumDuration
+            for (i, block) in trapped.enumerated() {
+                let minDur = block.minimumDuration
                 if newDurations[i] < minDur {
                     deficit += minDur - newDurations[i]
                     newDurations[i] = minDur
@@ -152,8 +193,8 @@ public struct CompressionCalculator: Sendable {
 
             // Redistribute deficit proportionally by each block's excess over minimum.
             if changed && totalExcess > 0 {
-                for (i, index) in trappedRange.enumerated() {
-                    let minDur = sorted[index].minimumDuration
+                for (i, block) in trapped.enumerated() {
+                    let minDur = block.minimumDuration
                     let excess = newDurations[i] - minDur
                     if excess > 0 {
                         let share = (excess / totalExcess) * deficit
@@ -165,13 +206,12 @@ public struct CompressionCalculator: Sendable {
 
         // Lay out contiguously.
         var cursor = gapStart
-        for (i, index) in trappedRange.enumerated() {
-            let block = sorted[index]
+        for (i, block) in trapped.enumerated() {
             block.scheduledStart = cursor
             block.duration = newDurations[i]
             cursor = cursor.addingTimeInterval(newDurations[i])
         }
 
-        return CompressionResult(blocks: sorted, status: .clean)
+        return .clean
     }
 }

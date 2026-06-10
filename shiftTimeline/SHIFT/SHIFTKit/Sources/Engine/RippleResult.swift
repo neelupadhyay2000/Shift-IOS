@@ -10,6 +10,12 @@ public enum RippleStatus: String, Sendable {
     case impossible
     case pinnedBlockCannotShift
     case circularDependency
+    /// A live extension (``RippleEngine/applyExtension``) was rejected because
+    /// the first downstream pinned block cannot absorb it: the gap plus the
+    /// trapped fluid run's compressible slack is smaller than the delta.
+    /// Nothing was mutated; query ``RippleEngine/maximumExtension`` for the
+    /// largest delta that would succeed.
+    case exceedsAvailableSlack
 }
 
 // MARK: - RippleResult

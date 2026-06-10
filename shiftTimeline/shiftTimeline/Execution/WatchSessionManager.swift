@@ -286,17 +286,27 @@ public final class WatchSessionManager {
         }
 
         let delta = TimeInterval(deltaMinutes * 60)
-        // Full pipeline (shift → collide → compress) so a Watch shift commits
-        // the same resolved timeline as an in-app shift.
-        let result = engine.applyShift(
+        // Full extension pipeline (extend → ripple → collide → compress) so a
+        // Watch shift commits the same resolved timeline as an in-app shift:
+        // live +x extends the running block's duration, never moves its start.
+        let result = engine.applyExtension(
             blocks: blocks,
-            changedBlockID: activeBlock.id,
+            activeBlockID: activeBlock.id,
             delta: delta
         )
 
         switch result.status {
         case .pinnedBlockCannotShift, .circularDependency:
             replyHandler(["error": result.status.rawValue])
+            return
+        case .exceedsAvailableSlack:
+            // The watch displays this string verbatim — make it actionable.
+            let maximum = engine.maximumExtension(blocks: blocks, activeBlockID: activeBlock.id) ?? 0
+            let maxMinutes = Int(maximum / 60)
+            let message = maxMinutes > 0
+                ? String(localized: "Pinned block ahead — extend by up to \(maxMinutes) min.")
+                : String(localized: "Pinned block ahead — no room to extend.")
+            replyHandler(["error": message])
             return
         case .clean, .hasCollisions, .impossible:
             break

@@ -310,22 +310,28 @@ struct LiveDashboardView: View {
     }
 
     /// Generates a non-mutating preview and stores it for the overlay.
+    ///
+    /// Live `+x` is an **extension**: the active block is already running, so
+    /// its duration grows (the start stays in the past) and downstream blocks
+    /// restructure around the new end — never the planning-mode "move the
+    /// block later" semantics.
     private func showPreview(forMinutes minutes: Int) {
         guard let active = activeBlock else { return }
         let delta = TimeInterval(minutes * 60)
-        let preview = previewGenerator.generatePreview(
+        let preview = previewGenerator.generateExtensionPreview(
             blocks: sortedBlocks,
-            blockID: active.id,
+            activeBlockID: active.id,
             delta: delta
         )
         pendingShiftMinutes = minutes
         pendingShiftPreview = preview
     }
 
-    /// Commits the shift after user confirms the preview.
+    /// Commits the extension after user confirms the preview.
     ///
     /// 1. Captures undo snapshot before mutation
-    /// 2. Calls `RippleEngine.applyShift()` with delta on the active block
+    /// 2. Calls `RippleEngine.applyExtension()` with delta on the active block
+    ///    (extends its duration; downstream fluids ripple, trapped runs squish)
     /// 3. Commits undo snapshot after mutation
     /// 4. Persists to SwiftData
     private func commitShift(byMinutes minutes: Int) {
@@ -336,19 +342,19 @@ struct LiveDashboardView: View {
         // Phase 1: snapshot before-state for undo
         undoManager.recordShift(blocks: blocks)
 
-        // Phase 2: run the full engine pipeline — shift, then collision
-        // detection + compression, so the committed timeline matches the
-        // confirmed preview (a bare recalculate leaves squeezed blocks
-        // overlapping pinned walls). Mutates blocks in place.
-        let result = engine.applyShift(
+        // Phase 2: run the full extension pipeline — extend, ripple, then
+        // collision detection + compression, so the committed timeline matches
+        // the confirmed preview. Mutates blocks in place; rejects atomically
+        // (no mutation) when the next pinned wall can't absorb the delta.
+        let result = engine.applyExtension(
             blocks: blocks,
-            changedBlockID: active.id,
+            activeBlockID: active.id,
             delta: delta
         )
 
         // Phase 3: only commit undo if the engine actually applied a shift
         switch result.status {
-        case .pinnedBlockCannotShift, .circularDependency:
+        case .pinnedBlockCannotShift, .circularDependency, .exceedsAvailableSlack:
             undoManager.cancelShift()
             return
         case .clean, .hasCollisions, .impossible:
