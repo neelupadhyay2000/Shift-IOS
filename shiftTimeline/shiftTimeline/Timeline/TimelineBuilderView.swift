@@ -85,6 +85,12 @@ struct TimelineBuilderView: View {
         EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
     }
 
+    /// The signed-in vendor's profile when viewing a shared event, else `nil`.
+    /// Drives the per-block "Assigned" indicator (owners get `nil` — no badge).
+    private var viewerProfileID: UUID? {
+        isReadOnly ? authService.currentProfileID : nil
+    }
+
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
     private var sheetBinding: Binding<TimeBlockModel?> {
@@ -185,8 +191,15 @@ struct TimelineBuilderView: View {
         }
         // iPhone: sheet presentation
         .sheet(item: sheetBinding, onDismiss: { scanForVenueSwitches() }) { block in
-            BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: isReadOnly)
-                .presentationDetents([.medium, .large])
+            // Vendors get a dedicated, scrollable read-only detail; owners get the
+            // editing inspector. (A disabled editing Form couldn't be scrolled.)
+            if isReadOnly {
+                BlockDetailReadOnlyView(block: block, eventID: eventID)
+                    .presentationDetents([.medium, .large])
+            } else {
+                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: false, isReadOnly: false)
+                    .presentationDetents([.medium, .large])
+            }
         }
         // Voice memo recording sheet
         .sheet(item: $blockForRecording) { block in
@@ -215,8 +228,13 @@ struct TimelineBuilderView: View {
         // iPad: trailing inspector panel
         .inspector(isPresented: $isInspectorOpen) {
             if let block = blockToInspect {
-                BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true, isReadOnly: isReadOnly)
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                if isReadOnly {
+                    BlockDetailReadOnlyView(block: block, eventID: eventID, isInspectorMode: true)
+                        .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                } else {
+                    BlockInspectorView(block: block, eventID: eventID, isInspectorMode: true, isReadOnly: false)
+                        .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
+                }
             }
         }
         .onChange(of: blockToInspect) { _, newValue in
@@ -457,7 +475,7 @@ struct TimelineBuilderView: View {
         }
         .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .accessibilityIdentifier(AccessibilityID.Timeline.blockList)
     }
 
@@ -504,6 +522,7 @@ struct TimelineBuilderView: View {
                                 layout: currentLayout,
                                 isReadOnly: isReadOnly,
                                 isEditing: isEditing,
+                                viewerProfileID: viewerProfileID,
                                 onTapBlock: { block in blockToInspect = block },
                                 onDeleteBlock: { block in
                                     if block.isPinned {
@@ -526,7 +545,7 @@ struct TimelineBuilderView: View {
         }
         .scrollDisabled(isEditing)
         .scrollIndicators(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
     }
 
     // MARK: - Reorder List (iPhone edit mode)
@@ -551,7 +570,7 @@ struct TimelineBuilderView: View {
         .listStyle(.plain)
         .environment(\.editMode, .constant(.active))
         .scrollContentBackground(.hidden)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         // Smooths the reflow when a pinned anchor re-sorts a block after the drop,
         // on top of the List's native drag-and-drop move animation.
         .animation(.snappy(duration: 0.28), value: filteredBlocks.map(\.id))
@@ -569,19 +588,13 @@ struct TimelineBuilderView: View {
             icon: block.icon,
             isCompact: false
         )
-        .padding(.vertical, 8)
-        .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-        )
+        .proSurface()
         .overlay {
-            RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                .strokeBorder(
-                    block.isPinned ? Color.secondary.opacity(0.25) : Color.accentColor.opacity(0.35),
-                    lineWidth: block.isPinned ? 0.5 : 1
-                )
+            if !block.isPinned {
+                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                    .strokeBorder(ShiftPalette.accent.opacity(0.35), lineWidth: 1)
+            }
         }
         .opacity(block.isPinned ? 0.6 : 1)
         .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
@@ -609,6 +622,8 @@ struct TimelineBuilderView: View {
             return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
         }()
 
+        let isAssignedToViewer = block.isAssigned(to: viewerProfileID)
+
         return Button {
             blockToInspect = block
         } label: {
@@ -620,28 +635,21 @@ struct TimelineBuilderView: View {
                     isPinned: block.isPinned,
                     colorTag: block.colorTag,
                     icon: block.icon,
-                    isCompact: useCompact
+                    isCompact: useCompact,
+                    isAssignedToViewer: isAssignedToViewer
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: height)
-            .background(
-                .ultraThinMaterial,
-                in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-            )
+            .proSurface()
+            // Emerald halo so a vendor's own blocks pop out of the timeline at a glance.
             .overlay {
-                RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.4), .white.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
+                if isAssignedToViewer {
+                    RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                        .strokeBorder(ShiftPalette.live.opacity(0.8), lineWidth: 1.5)
+                }
             }
-            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
-            .shadow(color: .black.opacity(0.04), radius: 10, y: 5)
+            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityHint(isReadOnly ? "" : String(localized: "Double-tap to edit. Use context menu to delete."))

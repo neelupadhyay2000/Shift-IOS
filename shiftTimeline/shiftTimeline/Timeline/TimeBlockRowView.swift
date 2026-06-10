@@ -1,12 +1,16 @@
 import SwiftUI
 import Models
 
-/// A single row in the timeline builder list.
-/// Displays color accent, icon, title, start time, duration, and a Fluid/Pinned indicator.
+/// A single row in the timeline builder list — Direction A ("calm pro-tool",
+/// Structured-style).
 ///
-/// When `isCompact` is true, renders a slim single-line variant suitable for short
-/// blocks (e.g. transit blocks) that don't have enough vertical real estate for the
-/// full layout. The compact mode fits cleanly in ~36pt of height.
+/// The block's colour appears in exactly one place: a solid circular icon badge
+/// (the Structured signature). Typography carries the rest — semibold title,
+/// tabular time figures. Only the *exception* is flagged: pinned blocks get a
+/// chip; fluid is the default and shows nothing.
+///
+/// When `isCompact` is true, renders a slim single-line variant suitable for
+/// short blocks (e.g. transit blocks) that fits cleanly in ~32pt of height.
 struct TimeBlockRowView: View {
 
     let title: String
@@ -16,9 +20,12 @@ struct TimeBlockRowView: View {
     let colorTag: String
     let icon: String
     var isCompact: Bool = false
+    /// When `true`, marks this block as assigned to the current (vendor) viewer —
+    /// shows an "Assigned" badge so a vendor can tell which blocks are theirs.
+    var isAssignedToViewer: Bool = false
 
     private var accentColor: Color {
-        isPinned ? Color(.systemRed) : Color(hex: colorTag)
+        Color(hex: colorTag)
     }
 
     var body: some View {
@@ -32,64 +39,43 @@ struct TimeBlockRowView: View {
     // MARK: - Full layout
 
     private var fullBody: some View {
-        HStack(spacing: 0) {
-            // Left accent bar — gradient strip
-            UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 2, topTrailingRadius: 2)
-                .fill(accentColor.gradient)
-                .frame(width: 5)
-                .padding(.vertical, 4)
+        HStack(spacing: 12) {
+            iconBadge(size: 38, glyphSize: 15)
 
-            HStack(spacing: 12) {
-                // Icon circle — larger with gradient fill
-                ZStack {
-                    RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
-                        .fill(Color(hex: colorTag).gradient.opacity(0.15))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: colorTag))
-                        .symbolEffect(.bounce, value: isPinned)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                HStack(spacing: 5) {
+                    Text(scheduledStart, format: .dateTime.hour().minute())
+                        .font(.caption.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    Text(verbatim: "·")
+                        .font(.caption)
+                        .foregroundStyle(.quaternary)
+                    Text(formattedDuration)
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.callout)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                    HStack(spacing: 5) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.tertiary)
-                        Text(scheduledStart, format: .dateTime.hour().minute())
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(.secondary)
-                        Text("·")
-                            .foregroundStyle(.quaternary)
-                        Text(formattedDuration)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer(minLength: 4)
-
-                // Status badge
-                HStack(spacing: 4) {
-                    Image(systemName: isPinned ? "pin.fill" : "arrow.up.arrow.down")
-                        .font(.system(size: 8, weight: .bold))
-                    Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(accentColor.opacity(0.12), in: Capsule())
-                .foregroundStyle(accentColor)
             }
-            .padding(.leading, 10)
-            .padding(.trailing, 12)
+
+            Spacer(minLength: 4)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                // "Assigned to you" badge — only for a vendor's assigned blocks.
+                if isAssignedToViewer {
+                    assignedBadge
+                }
+                // Only the exception is flagged: pinned blocks are anchored.
+                if isPinned {
+                    pinnedChip
+                }
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
     }
@@ -98,39 +84,72 @@ struct TimeBlockRowView: View {
 
     /// Slim single-line row for short blocks. ~32pt tall.
     private var compactBody: some View {
-        HStack(spacing: 0) {
-            // Thinner accent bar
-            UnevenRoundedRectangle(topLeadingRadius: 4, bottomLeadingRadius: 4, bottomTrailingRadius: 2, topTrailingRadius: 2)
-                .fill(accentColor.gradient)
-                .frame(width: 4)
-                .padding(.vertical, 3)
+        HStack(spacing: 8) {
+            iconBadge(size: 22, glyphSize: 10)
 
-            HStack(spacing: 8) {
-                // Smaller icon, no background tile
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: colorTag))
-                    .frame(width: 18, height: 18)
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .lineLimit(1)
 
-                Text(title)
-                    .font(.footnote)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
-
-                Spacer(minLength: 4)
-
-                // Inline time · duration
-                Text(formattedDuration)
-                    .font(.caption2)
-                    .fontWeight(.medium)
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                    .accessibilityHidden(true)
             }
-            .padding(.leading, 8)
-            .padding(.trailing, 10)
+
+            Spacer(minLength: 4)
+
+            if isAssignedToViewer {
+                Image(systemName: "person.fill.checkmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(ShiftPalette.live)
+                    .accessibilityHidden(true)
+            }
+
+            Text(formattedDuration)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
+    }
+
+    // MARK: - Pieces
+
+    /// Solid circular icon badge — the one place the block's colour lives.
+    private func iconBadge(size: CGFloat, glyphSize: CGFloat) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: glyphSize, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(accentColor.gradient, in: Circle())
+            .overlay(Circle().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
+            .symbolEffect(.bounce, value: isPinned)
+            .accessibilityHidden(true)
+    }
+
+    /// Quiet capsule flagging an anchored (pinned) block.
+    private var pinnedChip: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "pin.fill")
+                .font(.system(size: 8, weight: .bold))
+            Text(String(localized: "Pinned"))
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.secondary.opacity(0.12), in: Capsule())
+    }
+
+    /// Green "Assigned" pill shown on a vendor's own blocks. Uses the short label
+    /// to fit the row's trailing column.
+    private var assignedBadge: some View {
+        AssignedToYouBadge(text: String(localized: "Assigned"))
     }
 
     private var formattedDuration: String {
@@ -152,7 +171,8 @@ struct TimeBlockRowView: View {
         }
         let typeStr = isPinned ? String(localized: "Pinned") : String(localized: "Fluid")
         let timeStr = scheduledStart.formatted(.dateTime.hour().minute())
-        return "\(title), \(durationStr), \(typeStr), starts at \(timeStr)"
+        let assignedStr = isAssignedToViewer ? String(localized: ", assigned to you") : ""
+        return "\(title), \(durationStr), \(typeStr), starts at \(timeStr)\(assignedStr)"
     }
 }
 

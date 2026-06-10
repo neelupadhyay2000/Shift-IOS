@@ -317,7 +317,7 @@ private struct ContentPlaceholderView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .navigationTitle(label ?? tab?.rawValue ?? "")
         .navigationBarTitleDisplayMode(.large)
     }

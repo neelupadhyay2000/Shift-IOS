@@ -94,6 +94,7 @@ struct LiveDashboardView: View {
             nextBlock: nextBlock,
             isEventComplete: isEventComplete,
             isOwner: isOwner,
+            viewerProfileID: isOwner ? nil : authService.currentProfileID,
             onAdvance: advanceToNextBlock,
             onExitTapped: { handleExitTapped() },
             onDismiss: { dismiss() }
@@ -515,6 +516,9 @@ private struct _LiveDashboardContent: View {
     /// Planner (owner) shows the full controls; a vendor sees a read-only mirror
     /// — same hero + next-block, no ack grid / slide-to-advance / shift.
     let isOwner: Bool
+    /// The signed-in vendor's profile when viewing (else `nil`); marks the
+    /// active / next block when it's assigned to them.
+    var viewerProfileID: UUID?
     let onAdvance: () -> Void
     let onExitTapped: () -> Void
     let onDismiss: () -> Void
@@ -544,7 +548,7 @@ private struct _LiveDashboardContent: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .environment(\.colorScheme, .dark)
     }
 
@@ -607,7 +611,10 @@ private struct _LiveDashboardContent: View {
 
             // ── Hero (fills available space) ──────────────────────────
             if let activeBlock {
-                ActiveBlockHero(block: activeBlock)
+                ActiveBlockHero(
+                    block: activeBlock,
+                    isAssignedToViewer: activeBlock.isAssigned(to: viewerProfileID)
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .accessibilityIdentifier(AccessibilityID.Live.activeBlockHero)
 
@@ -633,7 +640,10 @@ private struct _LiveDashboardContent: View {
 
             // ── Next block card ───────────────────────────────────────
             if activeBlock != nil {
-                NextBlockCard(nextBlock: nextBlock)
+                NextBlockCard(
+                    nextBlock: nextBlock,
+                    isAssignedToViewer: nextBlock.map { $0.isAssigned(to: viewerProfileID) } ?? false
+                )
 
                 // Siri tip + slide-to-advance are planner-only controls; a vendor
                 // sees a read-only timeline (the planner advances it).

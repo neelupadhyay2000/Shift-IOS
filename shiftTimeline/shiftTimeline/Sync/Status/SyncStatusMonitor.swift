@@ -45,9 +45,13 @@ final class SyncStatusMonitor {
         health = SyncHealth(pendingWrites: pendingWriteCount(), hasUnresolvedError: false)
 
         // Observe the funnel. The sink fires on the recording thread, so marshal
-        // back to the main actor before touching observable state.
+        // back to the main actor before touching observable state. Bind `self`
+        // strongly here (the synchronous sink body) so the hop-to-main `Task`
+        // captures an immutable `let` — referencing the outer `weak var self`
+        // from the Task is a data race under Swift 6.
         diagnostics.addObserver { [weak self] event in
-            Task { @MainActor in self?.ingest(event) }
+            guard let self else { return }
+            Task { @MainActor in self.ingest(event) }
         }
     }
 

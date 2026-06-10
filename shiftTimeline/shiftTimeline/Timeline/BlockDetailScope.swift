@@ -1,4 +1,5 @@
 import Foundation
+import Models
 
 /// Per-block detail scoping for shared (read-only) events (SHIFT-630).
 ///
@@ -24,5 +25,16 @@ nonisolated enum BlockDetailScope {
         guard isReadOnly else { return true }
         guard let currentProfileID else { return false }
         return assignedProfileIDs.contains(currentProfileID)
+    }
+}
+
+extension TimeBlockModel {
+    /// Whether `profileID` (a signed-in vendor) is assigned to this block via
+    /// `block_vendors`. Drives the "assigned to you" indicator a vendor sees in
+    /// the read-only shared timeline so they can tell, at a glance, which blocks
+    /// are theirs. `nil` / unmatched ⇒ `false` (owners pass `nil`).
+    func isAssigned(to profileID: UUID?) -> Bool {
+        guard let profileID else { return false }
+        return (vendors ?? []).contains { $0.profileId == profileID }
     }
 }

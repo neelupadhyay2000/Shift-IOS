@@ -69,7 +69,7 @@ struct EventDetailView: View {
             }
         }
         .navigationTitle(event?.title ?? String(localized: "Event"))
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $paywallTrigger) { trigger in
             PaywallView(trigger: trigger)
         }
@@ -154,20 +154,23 @@ struct EventDetailView: View {
 
     private func eventContent(_ event: EventModel) -> some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 let atRisk = atRiskOutdoorBlocks(for: event)
                 ForEach(Array(atRisk.enumerated()), id: \.offset) { _, item in
                     RainWarningBanner(blockTitle: item.blockTitle, rainProbability: item.probability)
                 }
-                heroHeader(event)
-                quickAccessCards(event)
-                locationSection(event)
-                tracksSummary(event)
+                heroSection(event)
+                primaryAction(event)
+                statsRow(event)
+                detailsCard(event)
+                tracksCard(event)
+                actionsCard(event)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
         }
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .toolbar {
             if isOwner {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -214,231 +217,251 @@ struct EventDetailView: View {
         }
     }
 
-    private func heroHeader(_ event: EventModel) -> some View {
-        VStack(spacing: 12) {
+    // MARK: - Hero (Luma-style: title on the canvas, typography does the work)
+
+    private func heroSection(_ event: EventModel) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Status · countdown micro-line — the "when and what state" at a glance.
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(event.status.tintColor)
+                    .frame(width: 7, height: 7)
+                    .accessibilityHidden(true)
+                Text(event.status.label)
+                    .font(.caption.weight(.semibold))
+                    .textCase(.uppercase)
+                    .kerning(0.8)
+                    .foregroundStyle(event.status.tintColor)
+                Text(verbatim: "·")
+                    .foregroundStyle(.quaternary)
+                Text(EventCountdown.label(for: event.date))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(event.status.label), \(EventCountdown.label(for: event.date))")
+
+            Text(event.title)
+                .font(.largeTitle.weight(.bold))
+                .lineLimit(3)
+                .minimumScaleFactor(0.75)
+
+            VStack(alignment: .leading, spacing: 6) {
+                heroMetaRow(icon: "calendar", text: event.date.formatted(.dateTime.weekday(.wide).month(.wide).day().year()))
+                if !event.venueNames.isEmpty {
+                    heroMetaRow(icon: "mappin.and.ellipse", text: event.venueNames.joined(separator: ", "))
+                }
+            }
+            .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
+    }
+
+    private func heroMetaRow(icon: String, text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.tertiary)
+                .frame(width: 18)
+                .accessibilityHidden(true)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
+    // MARK: - Primary action (Go Live / View Live — the one loud element)
+
+    @ViewBuilder
+    private func primaryAction(_ event: EventModel) -> some View {
+        if isOwner {
+            NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                liveCTALabel(String(localized: "Go Live"))
+            }
+            .simultaneousGesture(TapGesture().onEnded { startLiveMode(for: event) })
+            .buttonStyle(.pressableCard)
+            .accessibilityLabel(String(localized: "Go Live"))
+            .accessibilityHint(String(localized: "Starts live event execution mode"))
+        } else if event.status == .live {
+            // Vendor on a shared event that's currently live → read-only live view.
+            NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
+                liveCTALabel(String(localized: "View Live"))
+            }
+            .buttonStyle(.pressableCard)
+            .accessibilityLabel(String(localized: "View Live"))
+            .accessibilityHint(String(localized: "Opens the live timeline"))
+        }
+    }
+
+    private func liveCTALabel(_ title: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "dot.radiowaves.left.and.right")
+                .font(.system(size: 17, weight: .bold))
+                .symbolEffect(.variableColor.iterative, options: .repeating)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(.headline)
+            Spacer()
+            Image(systemName: "arrow.right")
+                .font(.subheadline.weight(.bold))
+                .opacity(0.9)
+                .accessibilityHidden(true)
+        }
+        .foregroundStyle(.white)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity)
+        .background(ShiftPalette.live, in: RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous))
+        .shadow(color: ShiftPalette.live.opacity(0.35), radius: 12, y: 5)
+    }
+
+    // MARK: - Stat tiles (numbers are the heroes — Flighty data look)
+
+    private func statsRow(_ event: EventModel) -> some View {
+        let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+        let blockCount = allBlocks.count
+        // A vendor sees how many blocks are theirs up front (before opening
+        // the timeline); the owner sees the total block count.
+        let assignedToMe = allBlocks.filter { $0.isAssigned(to: authService.currentProfileID) }.count
+        let vendorCount = (event.vendors ?? []).count
+
+        return HStack(spacing: 12) {
+            NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
+                statTile(
+                    value: isOwner ? "\(blockCount)" : "\(assignedToMe)",
+                    label: isOwner
+                        ? String(localized: "timeline_card_label", defaultValue: "Timeline")
+                        : String(localized: "assigned to you"),
+                    icon: "calendar.day.timeline.leading"
+                )
+            }
+            .buttonStyle(.pressableCard)
+            .accessibilityLabel(
+                isOwner
+                    ? String(localized: "\(blockCount) timeline blocks")
+                    : String(localized: "\(assignedToMe) blocks assigned to you")
+            )
+            .accessibilityHint(String(localized: "Opens timeline builder"))
+
+            NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
+                statTile(value: "\(vendorCount)", label: String(localized: "Vendors"), icon: "person.2")
+            }
+            .buttonStyle(.pressableCard)
+            .disabled(!isOwner)
+            .opacity(isOwner ? 1 : 0.55)
+            .accessibilityLabel(String(localized: "\(vendorCount) vendors assigned"))
+            .accessibilityHint(isOwner ? String(localized: "Opens vendor manager") : String(localized: "Only available to event owner"))
+        }
+    }
+
+    private func statTile(value: String, label: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(event.date, format: .dateTime.weekday(.wide).month(.wide).day().year())
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    if !event.venueNames.isEmpty {
-                        Label(event.venueNames.joined(separator: ", "), systemImage: "mappin.and.ellipse")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Text(value)
+                    .font(.system(size: 32, weight: .bold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
                 Spacer()
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(event.status.tintColor)
-                        .frame(width: 7, height: 7)
-                        .accessibilityHidden(true)
-                    Text(event.status.label)
-                        .font(.caption)
-                        .fontWeight(.bold)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(event.status.tintColor.opacity(0.12), in: Capsule())
-                .foregroundStyle(event.status.tintColor)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel(event.status.label)
+                Image(systemName: icon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(ShiftPalette.accent)
+                    .accessibilityHidden(true)
             }
+            Text(label)
+                .microLabel()
+                .lineLimit(1)
         }
-        .premiumCard()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .proCard()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(value) \(label)")
     }
 
-    private func quickAccessCards(_ event: EventModel) -> some View {
-        VStack(spacing: 12) {
-            if isOwner {
-                NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "dot.radiowaves.left.and.right")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .accessibilityHidden(true)
-                        Text(String(localized: "Go Live"))
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .accessibilityHidden(true)
+    // MARK: - Actions (grouped, monochrome — Luma style)
+
+    @ViewBuilder
+    private func actionsCard(_ event: EventModel) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(String(localized: "Actions")).microLabel()
+
+            VStack(spacing: 0) {
+                NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
+                    actionRow(icon: "doc.richtext", title: String(localized: "Export PDF"))
+                }
+                .buttonStyle(.pressableCard)
+                .accessibilityHint(String(localized: "Generates a PDF timeline document"))
+
+                if event.status == .completed {
+                    rowDivider
+                    NavigationLink(value: EventDestination.postEventReport(eventID: event.id)) {
+                        actionRow(icon: "chart.bar.doc.horizontal", title: String(localized: "Export Report"))
                     }
-                    .premiumCard()
-                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .buttonStyle(.pressableCard)
+                    .accessibilityIdentifier(AccessibilityID.Report.exportButton)
+                    .accessibilityLabel(String(localized: "Export Post-Event Report"))
+                    .accessibilityHint(String(localized: "Generates a post-event summary report"))
                 }
-                .simultaneousGesture(TapGesture().onEnded {
-                    startLiveMode(for: event)
-                })
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Go Live"))
-                .accessibilityHint(String(localized: "Starts live event execution mode"))
-            } else if event.status == .live {
-                // Vendor on a shared event that's currently live → read-only live view.
-                NavigationLink(value: EventDestination.liveDashboard(eventID: event.id)) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "dot.radiowaves.left.and.right")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .accessibilityHidden(true)
-                        Text(String(localized: "View Live"))
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .accessibilityHidden(true)
-                    }
-                    .premiumCard()
-                    .background(Color.red, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "View Live"))
-                .accessibilityHint(String(localized: "Opens the live timeline"))
-            }
 
-            HStack(spacing: 12) {
-                let blockCount = (event.tracks ?? []).flatMap { $0.blocks ?? [] }.count
-                NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
-                    quickCard(
-                        icon: "calendar.day.timeline.leading",
-                        value: "\(blockCount)",
-                        subtitle: String(localized: "timeline_card_label", defaultValue: "Timeline"),
-                        color: .blue
-                    )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "\(blockCount) timeline blocks"))
-                .accessibilityHint(String(localized: "Opens timeline builder"))
-
-                let vendorCount = (event.vendors ?? []).count
-                NavigationLink(value: EventDestination.vendorManager(eventID: event.id)) {
-                    quickCard(
-                        icon: "person.2.fill",
-                        value: "\(vendorCount)",
-                        subtitle: String(localized: "assigned"),
-                        color: .purple
-                    )
-                }
-                .buttonStyle(.plain)
-                .disabled(!isOwner)
-                .opacity(isOwner ? 1 : 0.5)
-                .accessibilityLabel(String(localized: "\(vendorCount) vendors assigned"))
-                .accessibilityHint(isOwner ? String(localized: "Opens vendor manager") : String(localized: "Only available to event owner"))
-            }
-
-            NavigationLink(value: EventDestination.pdfExport(eventID: event.id)) {
-                HStack(spacing: 10) {
-                    Image(systemName: "doc.richtext")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.orange)
-                        .accessibilityHidden(true)
-                    Text(String(localized: "Export PDF"))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .accessibilityHidden(true)
-                }
-                .premiumCard()
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(String(localized: "Generates a PDF timeline document"))
-
-            if event.status == .completed {
-                NavigationLink(value: EventDestination.postEventReport(eventID: event.id)) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "chart.bar.doc.horizontal")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.indigo)
-                            .accessibilityHidden(true)
-                        Text(String(localized: "Export Report"))
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                            .accessibilityHidden(true)
-                    }
-                    .premiumCard()
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(AccessibilityID.Report.exportButton)
-                .accessibilityLabel(String(localized: "Export Post-Event Report"))
-                .accessibilityHint(String(localized: "Generates a post-event summary report"))
-            }
-
-            if isOwner {
-                if FeatureFlags.supabaseSync {
+                if isOwner, FeatureFlags.supabaseSync {
+                    rowDivider
                     if authService.isAuthenticated {
-                        shareWithVendorsButton(event)
+                        Button { presentVendorSharing() } label: {
+                            actionRow(icon: "square.and.arrow.up", title: String(localized: "Share with Vendors"))
+                        }
+                        .buttonStyle(.pressableCard)
                     } else {
-                        signInToShareButton
+                        Button {
+                            pendingShareAfterSignIn = true
+                            isShowingSignIn = true
+                        } label: {
+                            actionRow(
+                                icon: "square.and.arrow.up",
+                                title: String(localized: "Share with Vendors"),
+                                subtitle: String(localized: "Sign in to invite vendors"),
+                                accessory: "lock.fill"
+                            )
+                        }
+                        .buttonStyle(.pressableCard)
+                        .accessibilityLabel(String(localized: "Share with Vendors — sign in required"))
                     }
                 }
             }
+            .proCard(padding: 0)
         }
     }
 
-    /// Shown when sharing is enabled but the user is not signed in.
-    private var signInToShareButton: some View {
-        Button {
-            pendingShareAfterSignIn = true
-            isShowingSignIn = true
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.green)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "Share with Vendors"))
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Text(String(localized: "Sign in to invite vendors"))
+    private var rowDivider: some View {
+        Divider().opacity(0.6).padding(.leading, 52)
+    }
+
+    private func actionRow(icon: String, title: String, subtitle: String? = nil, accessory: String = "chevron.right") -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(ShiftPalette.accent)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                if let subtitle {
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
-                Image(systemName: "lock.fill")
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
             }
-            .premiumCard()
+            Spacer()
+            Image(systemName: accessory)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Share with Vendors — sign in required"))
-    }
-
-    private func shareWithVendorsButton(_: EventModel) -> some View {
-        Button {
-            presentVendorSharing()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.green)
-                    .accessibilityHidden(true)
-                Text(String(localized: "Share with Vendors"))
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
-            .premiumCard()
-        }
-        .buttonStyle(.plain)
+        .padding(.vertical, 13)
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
     }
 
     private func startLiveMode(for event: EventModel) {
@@ -502,130 +525,104 @@ struct EventDetailView: View {
         }
     }
 
+    // MARK: - Details (location + sun times)
+
     @ViewBuilder
-    private func locationSection(_ event: EventModel) -> some View {
+    private func detailsCard(_ event: EventModel) -> some View {
         if event.latitude != 0 || event.longitude != 0 {
             VStack(alignment: .leading, spacing: 10) {
-                Label(String(localized: "Location"), systemImage: "location.fill")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundStyle(.secondary)
+                Text(String(localized: "Details")).microLabel()
 
-                HStack(spacing: 16) {
-                    locationItem(label: String(localized: "Lat"), value: String(format: "%.4f", event.latitude))
-                    locationItem(label: String(localized: "Lon"), value: String(format: "%.4f", event.longitude))
-                }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 24) {
+                        locationItem(label: String(localized: "Lat"), value: String(format: "%.4f", event.latitude))
+                        locationItem(label: String(localized: "Lon"), value: String(format: "%.4f", event.longitude))
+                    }
 
-                if let sunset = event.sunsetTime {
-                    sunsetRow(sunset)
+                    if event.sunsetTime != nil || event.goldenHourStart != nil {
+                        Divider().opacity(0.6)
+                        if let sunset = event.sunsetTime {
+                            sunRow(icon: "sunset.fill", label: String(localized: "Sunset"), time: sunset)
+                        }
+                        if let golden = event.goldenHourStart {
+                            sunRow(icon: "sun.and.horizon.fill", label: String(localized: "Golden Hour"), time: golden)
+                        }
+                    }
                 }
-                if let golden = event.goldenHourStart {
-                    goldenHourRow(golden)
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .proCard()
             }
-            .premiumCard()
         }
     }
 
-    private func sunsetRow(_ time: Date) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sunset.fill")
-                .foregroundStyle(.orange)
+    /// Sun/time-of-day row — the only place the warm accent appears.
+    private func sunRow(icon: String, label: String, time: Date) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(ShiftPalette.warm)
+                .frame(width: 22)
                 .accessibilityHidden(true)
-            Text(String(localized: "Sunset"))
+            Text(label)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(time, format: .dateTime.hour().minute())
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "Sunset at \(time.formatted(.dateTime.hour().minute()))"))
+        .accessibilityLabel("\(label), \(time.formatted(.dateTime.hour().minute()))")
     }
 
-    private func goldenHourRow(_ time: Date) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sun.and.horizon.fill")
-                .foregroundStyle(.yellow)
-                .accessibilityHidden(true)
-            Text(String(localized: "Golden Hour"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(time, format: .dateTime.hour().minute())
-                .font(.subheadline)
-                .fontWeight(.medium)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "Golden hour starts at \(time.formatted(.dateTime.hour().minute()))"))
-    }
+    // MARK: - Tracks
 
-    private func tracksSummary(_ event: EventModel) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(String(localized: "Tracks"), systemImage: "rectangle.stack.fill")
-                .font(.subheadline)
-                .fontWeight(.bold)
-                .foregroundStyle(.secondary)
+    private func tracksCard(_ event: EventModel) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(String(localized: "Tracks")).microLabel()
 
-            ForEach((event.tracks ?? []).sorted(by: { $0.sortOrder < $1.sortOrder }), id: \TimelineTrack.id) { track in
-                trackRow(track)
+            VStack(spacing: 0) {
+                let tracks = (event.tracks ?? []).sorted(by: { $0.sortOrder < $1.sortOrder })
+                ForEach(Array(tracks.enumerated()), id: \.element.id) { index, track in
+                    if index > 0 {
+                        Divider().opacity(0.6).padding(.leading, 16)
+                    }
+                    trackRow(track)
+                }
             }
+            .proCard(padding: 0)
         }
-        .premiumCard()
     }
 
     private func trackRow(_ track: TimelineTrack) -> some View {
-        HStack {
+        HStack(spacing: 10) {
             Text(track.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.subheadline.weight(.medium))
             if track.isDefault {
                 Text(String(localized: "Default"))
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 6)
+                    .font(.caption2.weight(.semibold))
+                    .textCase(.uppercase)
+                    .kerning(0.5)
+                    .padding(.horizontal, 7)
                     .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.12), in: Capsule())
-                    .foregroundStyle(Color.accentColor)
+                    .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
+                    .foregroundStyle(ShiftPalette.accent)
             }
             Spacer()
-            Text("\((track.blocks ?? []).count) blocks")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
+            Text(String(localized: "\((track.blocks ?? []).count) blocks"))
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
         }
-    }
-
-    private func quickCard(icon: String, value: String, subtitle: String, color: Color) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(color)
-                .symbolEffect(.bounce, options: .nonRepeating, value: true)
-                .accessibilityHidden(true)
-
-            Text(value)
-                .font(.title)
-                .fontWeight(.bold)
-
-            Text(subtitle)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity)
-        .premiumCard()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(value) \(subtitle)")
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
     }
 
     private func locationItem(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            Text(label).microLabel()
             Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
         }
     }

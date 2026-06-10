@@ -116,9 +116,9 @@ struct EventRosterView: View {
                             status: event.status,
                             isShared: !isOwner
                         )
-                        .premiumCard()
+                        .proCard(padding: 14)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressableCard)
                     .transition(.scale(scale: 0.9).combined(with: .opacity))
                     .contextMenu {
                         if isOwner {
@@ -141,7 +141,7 @@ struct EventRosterView: View {
             .padding(.vertical, 8)
             .animation(.smooth(duration: 0.3), value: filteredEvents.map(\.id))
         }
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .accessibilityIdentifier(AccessibilityID.Roster.eventList)
     }
 

@@ -14,6 +14,9 @@ import Models
 struct ActiveBlockHero: View {
 
     let block: TimeBlockModel
+    /// When `true`, shows an "Assigned to you" badge so a vendor knows the live
+    /// block is one of theirs.
+    var isAssignedToViewer: Bool = false
 
     /// Tracks whether we have already fired the overtime haptic for this block,
     /// so it only fires once at the transition boundary.
@@ -27,6 +30,10 @@ struct ActiveBlockHero: View {
     var body: some View {
         VStack(spacing: 12) {
             Spacer()
+
+            if isAssignedToViewer {
+                AssignedToYouBadge()
+            }
 
             Text(block.title)
                 .font(.largeTitle.weight(.bold))
@@ -55,6 +62,20 @@ struct ActiveBlockHero: View {
                         .tracking(2)
                         .foregroundStyle(isOvertime ? Color.red : Color.secondary)
                         .animation(.easeInOut(duration: 0.3), value: isOvertime)
+
+                    // Flighty-style elapsed bar — where we are inside this block.
+                    let progress = min(max(1 - remaining / max(block.duration, 1), 0), 1)
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(.white.opacity(0.14))
+                        Capsule()
+                            .fill(isOvertime ? Color.red : ShiftPalette.live)
+                            .frame(width: max(200 * progress, 6))
+                            .animation(.linear(duration: 1), value: progress)
+                    }
+                    .frame(width: 200, height: 5)
+                    .padding(.top, 8)
+                    .accessibilityHidden(true)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(

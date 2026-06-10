@@ -24,13 +24,13 @@ struct SyncStatusIndicator: View {
 }
 
 extension SyncStatus {
-    /// Indicator tint: muted when healthy, blue while syncing, orange when
+    /// Indicator tint: muted when healthy, accent while syncing, warm when
     /// degraded (reserves red for hard failures elsewhere).
     var tint: Color {
         switch self {
         case .healthy: return .secondary
-        case .pending: return .blue
-        case .degraded: return .orange
+        case .pending: return ShiftPalette.accent
+        case .degraded: return ShiftPalette.warm
         }
     }
 }

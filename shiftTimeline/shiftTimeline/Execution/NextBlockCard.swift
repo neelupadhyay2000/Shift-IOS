@@ -8,27 +8,36 @@ import Models
 /// Pass `nil` for `nextBlock` to display the end-of-day state.
 struct NextBlockCard: View {
     let nextBlock: TimeBlockModel?
+    /// When `true`, marks the upcoming block as assigned to the current vendor.
+    var isAssignedToViewer: Bool = false
 
     private var accessibilityLabel: String {
         guard let nextBlock else {
             return String(localized: "Last block of the day")
         }
         let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)")
+        let assigned = isAssignedToViewer ? String(localized: ", assigned to you") : ""
+        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)\(assigned)")
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 5) {
             if let nextBlock {
-                Text(String(localized: "Up Next"))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .tracking(1)
-                let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-                Text(String(localized: "Next: \(nextBlock.title) at \(timeStr)"))
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
+                Text(String(localized: "Up Next")).microLabel()
+                HStack(spacing: 8) {
+                    Text(nextBlock.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(nextBlock.scheduledStart, format: .dateTime.hour().minute())
+                        .font(.subheadline.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+                if isAssignedToViewer {
+                    AssignedToYouBadge()
+                        .padding(.top, 2)
+                }
             } else {
                 Text(String(localized: "Last block of the day"))
                     .font(.subheadline.weight(.medium))
@@ -36,8 +45,9 @@ struct NextBlockCard: View {
             }
         }
         .padding(.vertical, 14)
+        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .proSurface(cornerRadius: 14)
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .animation(.easeInOut(duration: 0.3), value: nextBlock?.id)

@@ -37,13 +37,13 @@ struct TemplateBrowserView: View {
                         NavigationLink(value: TemplateDestination.templatePreview(templateID: template.id)) {
                             TemplateCardView(template: template)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressableCard)
                     }
                 }
                 .padding()
             }
         }
-        .background { WarmBackground() }
+        .background { ProBackground() }
         .accessibilityIdentifier(AccessibilityID.Templates.templateList)
         .navigationTitle(String(localized: "Templates"))
         .navigationBarTitleDisplayMode(.large)
@@ -77,12 +77,15 @@ private struct TemplateCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // The mini-timeline carries the personality; the chrome stays quiet.
+            Text(template.category.displayName).microLabel()
+
             timelineThumbnail
                 .frame(height: 60)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             Text(template.name)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .lineLimit(2)
 
             Text(template.description)
@@ -90,27 +93,18 @@ private struct TemplateCardView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
 
-            HStack {
-                Label("\(template.blocks.count)", systemImage: "rectangle.stack")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                Text(template.category.displayName)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(template.category.tintColor.opacity(0.15))
-                    .foregroundStyle(template.category.tintColor)
-                    .clipShape(Capsule())
+            HStack(spacing: 4) {
+                Image(systemName: "rectangle.stack")
+                    .font(.system(size: 10, weight: .medium))
+                Text("\(template.blocks.count)")
+                    .monospacedDigit()
+                Text(String(localized: "blocks"))
             }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.06), radius: 3, y: 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .proCard(padding: 12)
     }
 
     /// Mini timeline thumbnail showing colored bars for each block.
@@ -149,15 +143,6 @@ extension TemplateCategory {
         case .corporate: String(localized: "Corporate")
         case .social: String(localized: "Social")
         case .photography: String(localized: "Photography")
-        }
-    }
-
-    var tintColor: Color {
-        switch self {
-        case .wedding: .pink
-        case .corporate: .blue
-        case .social: .orange
-        case .photography: .purple
         }
     }
 }

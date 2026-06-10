@@ -120,7 +120,9 @@ final class AudioPlaybackCoordinator: NSObject, AVAudioPlayerDelegate {
 struct VoiceMemoPlaybackRow: View {
 
     let url: URL
-    let onDelete: () -> Void
+    /// Delete handler; when `nil` (e.g. a vendor's read-only view) the trash
+    /// affordance is hidden and the row is playback-only.
+    var onDelete: (() -> Void)? = nil
 
     @State private var playback = AudioPlaybackCoordinator()
 
@@ -169,16 +171,18 @@ struct VoiceMemoPlaybackRow: View {
 
             Spacer(minLength: 4)
 
-            Button(role: .destructive) {
-                playback.stop()
-                onDelete()
-            } label: {
-                Image(systemName: "trash")
-                    .font(.subheadline)
-                    .foregroundStyle(.red)
+            if let onDelete {
+                Button(role: .destructive) {
+                    playback.stop()
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.subheadline)
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Delete voice memo"))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(String(localized: "Delete voice memo"))
         }
         .onAppear {
             playback.load(url: url)
