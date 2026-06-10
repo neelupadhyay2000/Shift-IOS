@@ -178,9 +178,15 @@ public struct ShiftPreviewGenerator: Sendable {
         // Capture original start times before any work so diffs are accurate.
         let originalStarts = Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, $0.scheduledStart) })
 
-        // Copy every live block into a value-type PreviewBlock, sorted once.
+        // Copy every live block into a value-type PreviewBlock, sorted once in
+        // the engine's canonical order (start, fluid-before-pinned, id) so
+        // equal-start blocks order deterministically — identical to recalculate.
         var preview = blocks.map { PreviewBlock(copying: $0) }
-        preview.sort { $0.scheduledStart < $1.scheduledStart }
+        preview.sort {
+            if $0.scheduledStart != $1.scheduledStart { return $0.scheduledStart < $1.scheduledStart }
+            if $0.isPinned != $1.isPinned { return !$0.isPinned }
+            return $0.id.uuidString < $1.id.uuidString
+        }
 
         // Zero diffs: every block present with value 0 (nothing moved).
         let zeroDiffs = Dictionary(uniqueKeysWithValues: preview.map { ($0.id, TimeInterval(0)) })
@@ -217,9 +223,20 @@ public struct ShiftPreviewGenerator: Sendable {
         // changed block are shiftable regardless of whether a pinned block sits
         // between them and the changed block (the preview intentionally shows
         // the unconstrained projection so the user sees the full collision zone).
-        let shiftableIDs = Set(
+        var shiftableIDs = Set(
             preview[(changedIndex + 1)...].filter { !$0.isPinned }.map(\.id)
         )
+        // Same-instant siblings sort before the changed block on an id tie yet
+        // are concurrent, not upstream — they ripple with it (mirrors
+        // RippleEngine.recalculate so the preview matches the commit).
+        let changedStart = preview[changedIndex].scheduledStart
+        var siblingIndex = changedIndex - 1
+        while siblingIndex >= 0, preview[siblingIndex].scheduledStart == changedStart {
+            if !preview[siblingIndex].isPinned {
+                shiftableIDs.insert(preview[siblingIndex].id)
+            }
+            siblingIndex -= 1
+        }
 
         // --- Stage 2: Shift Propagation (on value copies) ---
         if delta > 0 {

@@ -325,7 +325,7 @@ struct LiveDashboardView: View {
     /// Commits the shift after user confirms the preview.
     ///
     /// 1. Captures undo snapshot before mutation
-    /// 2. Calls `RippleEngine.recalculate()` with delta on the active block
+    /// 2. Calls `RippleEngine.applyShift()` with delta on the active block
     /// 3. Commits undo snapshot after mutation
     /// 4. Persists to SwiftData
     private func commitShift(byMinutes minutes: Int) {
@@ -336,8 +336,11 @@ struct LiveDashboardView: View {
         // Phase 1: snapshot before-state for undo
         undoManager.recordShift(blocks: blocks)
 
-        // Phase 2: run the engine — mutates blocks in place
-        let result = engine.recalculate(
+        // Phase 2: run the full engine pipeline — shift, then collision
+        // detection + compression, so the committed timeline matches the
+        // confirmed preview (a bare recalculate leaves squeezed blocks
+        // overlapping pinned walls). Mutates blocks in place.
+        let result = engine.applyShift(
             blocks: blocks,
             changedBlockID: active.id,
             delta: delta

@@ -286,7 +286,9 @@ public final class WatchSessionManager {
         }
 
         let delta = TimeInterval(deltaMinutes * 60)
-        let result = engine.recalculate(
+        // Full pipeline (shift → collide → compress) so a Watch shift commits
+        // the same resolved timeline as an in-app shift.
+        let result = engine.applyShift(
             blocks: blocks,
             changedBlockID: activeBlock.id,
             delta: delta
