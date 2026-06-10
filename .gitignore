@@ -134,3 +134,6 @@ docs/testing/16-Accessibility-Adaptive-UI.md
 docs/testing/17-Edge-Cases-Stress-Regression.md
 docs/testing/build_html.py
 docs/testing/index.html
+docs/LAUNCH_READINESS.md
+docs/RELEASE_NOTES_1.0.md
+docs/SUPABASE_DATA_RESIDENCY_AND_ENCRYPTION.md
