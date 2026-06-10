@@ -69,10 +69,11 @@ struct ShiftTimelineIntent: AppIntent {
             )
         }
 
-        // Run the engine
+        // Run the full engine pipeline (shift → collide → compress) so a Siri
+        // shift commits the same resolved timeline as an in-app shift.
         let delta = TimeInterval(shiftMinutes * 60)
         let engine = RippleEngine()
-        let result = engine.recalculate(
+        let result = engine.applyShift(
             blocks: sortedBlocks,
             changedBlockID: activeBlock.id,
             delta: delta
