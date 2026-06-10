@@ -39,6 +39,13 @@ nonisolated enum AnalyticsService {
         // with `from`/`to` parameters. Filter `to == degraded` for the
         // production alert signal; `to == healthy` marks recovery.
         case syncHealthChanged
+
+        // Marketplace tease funnel (SHIFT-717): measures vendor-vs-planner
+        // demand and category mix ahead of the marketplace launch so the E15
+        // vendor-first rollout can be data-driven. No PII — waitlistJoined
+        // carries only `role` and `category` dimensions (never region text).
+        case marketplaceTeaserViewed = "marketplace.teaserViewed"
+        case marketplaceWaitlistJoined = "marketplace.waitlistJoined"
     }
 
     static func send(_ signal: Signal) {

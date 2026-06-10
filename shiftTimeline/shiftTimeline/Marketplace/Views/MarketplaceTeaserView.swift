@@ -45,6 +45,13 @@ struct MarketplaceTeaserView: View {
         .sheet(isPresented: $isPresentingSignup) {
             WaitlistSignupSheet()
         }
+        .onAppear {
+            // Once per app session, however often the tab is revisited —
+            // measures unique teaser reach, not tab switches.
+            guard !TeaserSignalGuard.hasFiredThisSession else { return }
+            TeaserSignalGuard.hasFiredThisSession = true
+            AnalyticsService.send(.marketplaceTeaserViewed)
+        }
     }
 
     // MARK: Hero
@@ -133,6 +140,13 @@ struct MarketplaceTeaserView: View {
         .accessibilityIdentifier(AccessibilityID.Marketplace.joinedBadge)
     }
 
+}
+
+/// Process-lifetime guard so `marketplace.teaserViewed` fires once per app
+/// session. iPad recreates the detail stack on every tab switch, so view
+/// state alone can't provide "once per session".
+private enum TeaserSignalGuard {
+    static var hasFiredThisSession = false
 }
 
 // MARK: - VendorPreviewCard

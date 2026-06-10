@@ -330,6 +330,12 @@ struct WaitlistSignupSheet: View {
                 category: vendorCategory,
                 region: region.trimmingCharacters(in: .whitespaces)
             )
+            // Demand measurement (SHIFT-717) — aggregate dimensions only, no
+            // PII: the free-text region never leaves the waitlist table.
+            AnalyticsService.send(.marketplaceWaitlistJoined, parameters: [
+                "role": interestRole.rawValue,
+                "category": vendorCategory?.rawValue ?? "none"
+            ])
             hasJoinedWaitlist = true
             isExistingEntry = true
             phase = .confirmed
