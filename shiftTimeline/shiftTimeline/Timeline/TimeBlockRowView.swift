@@ -16,6 +16,9 @@ struct TimeBlockRowView: View {
     let colorTag: String
     let icon: String
     var isCompact: Bool = false
+    /// When `true`, marks this block as assigned to the current (vendor) viewer —
+    /// shows an "Assigned" badge so a vendor can tell which blocks are theirs.
+    var isAssignedToViewer: Bool = false
 
     private var accentColor: Color {
         isPinned ? Color(.systemRed) : Color(hex: colorTag)
@@ -74,18 +77,25 @@ struct TimeBlockRowView: View {
 
                 Spacer(minLength: 4)
 
-                // Status badge
-                HStack(spacing: 4) {
-                    Image(systemName: isPinned ? "pin.fill" : "arrow.up.arrow.down")
-                        .font(.system(size: 8, weight: .bold))
-                    Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
-                        .font(.caption2)
-                        .fontWeight(.bold)
+                VStack(alignment: .trailing, spacing: 4) {
+                    // "Assigned to you" badge — only for a vendor's assigned blocks.
+                    if isAssignedToViewer {
+                        assignedBadge
+                    }
+
+                    // Status badge
+                    HStack(spacing: 4) {
+                        Image(systemName: isPinned ? "pin.fill" : "arrow.up.arrow.down")
+                            .font(.system(size: 8, weight: .bold))
+                        Text(isPinned ? String(localized: "Pinned") : String(localized: "Fluid"))
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(accentColor.opacity(0.12), in: Capsule())
+                    .foregroundStyle(accentColor)
                 }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(accentColor.opacity(0.12), in: Capsule())
-                .foregroundStyle(accentColor)
             }
             .padding(.leading, 10)
             .padding(.trailing, 12)
@@ -119,6 +129,13 @@ struct TimeBlockRowView: View {
 
                 Spacer(minLength: 4)
 
+                if isAssignedToViewer {
+                    Image(systemName: "person.fill.checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.green)
+                        .accessibilityHidden(true)
+                }
+
                 // Inline time · duration
                 Text(formattedDuration)
                     .font(.caption2)
@@ -131,6 +148,12 @@ struct TimeBlockRowView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityDescription)
+    }
+
+    /// Green "Assigned" pill shown on a vendor's own blocks. Uses the short label
+    /// to fit the row's trailing column.
+    private var assignedBadge: some View {
+        AssignedToYouBadge(text: String(localized: "Assigned"))
     }
 
     private var formattedDuration: String {
@@ -152,7 +175,8 @@ struct TimeBlockRowView: View {
         }
         let typeStr = isPinned ? String(localized: "Pinned") : String(localized: "Fluid")
         let timeStr = scheduledStart.formatted(.dateTime.hour().minute())
-        return "\(title), \(durationStr), \(typeStr), starts at \(timeStr)"
+        let assignedStr = isAssignedToViewer ? String(localized: ", assigned to you") : ""
+        return "\(title), \(durationStr), \(typeStr), starts at \(timeStr)\(assignedStr)"
     }
 }
 

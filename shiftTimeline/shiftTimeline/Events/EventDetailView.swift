@@ -303,17 +303,27 @@ struct EventDetailView: View {
             }
 
             HStack(spacing: 12) {
-                let blockCount = (event.tracks ?? []).flatMap { $0.blocks ?? [] }.count
+                let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+                let blockCount = allBlocks.count
+                // A vendor sees how many blocks are theirs up front (before opening
+                // the timeline); the owner sees the total block count.
+                let assignedToMe = allBlocks.filter { $0.isAssigned(to: authService.currentProfileID) }.count
                 NavigationLink(value: EventDestination.timelineBuilder(eventID: event.id)) {
                     quickCard(
                         icon: "calendar.day.timeline.leading",
-                        value: "\(blockCount)",
-                        subtitle: String(localized: "timeline_card_label", defaultValue: "Timeline"),
+                        value: isOwner ? "\(blockCount)" : "\(assignedToMe)",
+                        subtitle: isOwner
+                            ? String(localized: "timeline_card_label", defaultValue: "Timeline")
+                            : String(localized: "assigned to you"),
                         color: .blue
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "\(blockCount) timeline blocks"))
+                .accessibilityLabel(
+                    isOwner
+                        ? String(localized: "\(blockCount) timeline blocks")
+                        : String(localized: "\(assignedToMe) blocks assigned to you")
+                )
                 .accessibilityHint(String(localized: "Opens timeline builder"))
 
                 let vendorCount = (event.vendors ?? []).count

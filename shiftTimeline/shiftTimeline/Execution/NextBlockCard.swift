@@ -8,13 +8,16 @@ import Models
 /// Pass `nil` for `nextBlock` to display the end-of-day state.
 struct NextBlockCard: View {
     let nextBlock: TimeBlockModel?
+    /// When `true`, marks the upcoming block as assigned to the current vendor.
+    var isAssignedToViewer: Bool = false
 
     private var accessibilityLabel: String {
         guard let nextBlock else {
             return String(localized: "Last block of the day")
         }
         let timeStr = nextBlock.scheduledStart.formatted(.dateTime.hour().minute())
-        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)")
+        let assigned = isAssignedToViewer ? String(localized: ", assigned to you") : ""
+        return String(localized: "Up next: \(nextBlock.title) at \(timeStr)\(assigned)")
     }
 
     var body: some View {
@@ -29,6 +32,10 @@ struct NextBlockCard: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
+                if isAssignedToViewer {
+                    AssignedToYouBadge()
+                        .padding(.top, 2)
+                }
             } else {
                 Text(String(localized: "Last block of the day"))
                     .font(.subheadline.weight(.medium))

@@ -85,6 +85,12 @@ struct TimelineBuilderView: View {
         EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
     }
 
+    /// The signed-in vendor's profile when viewing a shared event, else `nil`.
+    /// Drives the per-block "Assigned" indicator (owners get `nil` — no badge).
+    private var viewerProfileID: UUID? {
+        isReadOnly ? authService.currentProfileID : nil
+    }
+
     /// On iPhone (compact), this binding drives the `.sheet(item:)`.
     /// On iPad (regular), it returns `.constant(nil)` so the sheet never fires.
     private var sheetBinding: Binding<TimeBlockModel?> {
@@ -516,6 +522,7 @@ struct TimelineBuilderView: View {
                                 layout: currentLayout,
                                 isReadOnly: isReadOnly,
                                 isEditing: isEditing,
+                                viewerProfileID: viewerProfileID,
                                 onTapBlock: { block in blockToInspect = block },
                                 onDeleteBlock: { block in
                                     if block.isPinned {
@@ -621,6 +628,8 @@ struct TimelineBuilderView: View {
             return gap > 4 ? min(naturalHeight, gap - 2) : naturalHeight
         }()
 
+        let isAssignedToViewer = block.isAssigned(to: viewerProfileID)
+
         return Button {
             blockToInspect = block
         } label: {
@@ -632,7 +641,8 @@ struct TimelineBuilderView: View {
                     isPinned: block.isPinned,
                     colorTag: block.colorTag,
                     icon: block.icon,
-                    isCompact: useCompact
+                    isCompact: useCompact,
+                    isAssignedToViewer: isAssignedToViewer
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -651,6 +661,13 @@ struct TimelineBuilderView: View {
                         ),
                         lineWidth: 0.5
                     )
+            }
+            // Green halo so a vendor's own blocks pop out of the timeline at a glance.
+            .overlay {
+                if isAssignedToViewer {
+                    RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                        .strokeBorder(Color.green.opacity(0.7), lineWidth: 2)
+                }
             }
             .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
             .shadow(color: .black.opacity(0.04), radius: 10, y: 5)

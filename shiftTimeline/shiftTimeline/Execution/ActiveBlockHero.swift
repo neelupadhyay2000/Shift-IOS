@@ -14,6 +14,9 @@ import Models
 struct ActiveBlockHero: View {
 
     let block: TimeBlockModel
+    /// When `true`, shows an "Assigned to you" badge so a vendor knows the live
+    /// block is one of theirs.
+    var isAssignedToViewer: Bool = false
 
     /// Tracks whether we have already fired the overtime haptic for this block,
     /// so it only fires once at the transition boundary.
@@ -27,6 +30,10 @@ struct ActiveBlockHero: View {
     var body: some View {
         VStack(spacing: 12) {
             Spacer()
+
+            if isAssignedToViewer {
+                AssignedToYouBadge()
+            }
 
             Text(block.title)
                 .font(.largeTitle.weight(.bold))

@@ -16,6 +16,9 @@ struct TrackColumnView: View {
     let layout: TimeRulerLayout
     let isReadOnly: Bool
     let isEditing: Bool
+    /// The signed-in vendor's profile when viewing a shared event (else `nil`);
+    /// drives the per-block "Assigned" indicator.
+    var viewerProfileID: UUID?
     let onTapBlock: (TimeBlockModel) -> Void
     let onDeleteBlock: (TimeBlockModel) -> Void
     /// Called when the user drops a block in a new position within this column.
@@ -156,6 +159,7 @@ struct TrackColumnView: View {
         }()
         let isDragging = draggingBlockID == block.id
         let isDraggable = isEditing && !block.isPinned && !isReadOnly
+        let isAssignedToViewer = block.isAssigned(to: viewerProfileID)
 
         return Button {
             guard !isEditing else { return }
@@ -177,7 +181,8 @@ struct TrackColumnView: View {
                     isPinned: block.isPinned,
                     colorTag: block.colorTag,
                     icon: block.icon,
-                    isCompact: useCompact
+                    isCompact: useCompact,
+                    isAssignedToViewer: isAssignedToViewer
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -201,6 +206,11 @@ struct TrackColumnView: View {
                     RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
                         .strokeBorder(Color.accentColor.opacity(isDragging ? 0.7 : 0.4), lineWidth: 1.5)
                         .animation(.easeInOut(duration: 0.2), value: isDragging)
+                }
+                // Green halo so a vendor's own blocks stand out at a glance.
+                if isAssignedToViewer {
+                    RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous)
+                        .strokeBorder(Color.green.opacity(0.7), lineWidth: 2)
                 }
             }
             .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
