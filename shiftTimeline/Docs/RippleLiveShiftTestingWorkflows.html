@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f6f8" media="(prefers-color-scheme: light)">
+<title>SHIFT — Live-Shift Tester Guide</title>
+<style>
+  :root{
+    --bg:#f6f6f8; --card:#ffffff; --card2:#fbfbfd; --ink:#1c1c1e; --muted:#6c6c70;
+    --line:#e3e3e8; --accent:#0a84ff; --pass:#34c759; --fail:#ff3b30; --warn:#ff9f0a;
+    --pin:#ff2d55; --chipbg:#eef0f4; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.05);
+    --radius:16px; --done:#8e8e93;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0a0a0c; --card:#16161a; --card2:#1c1c22; --ink:#f2f2f7; --muted:#9a9aa2;
+      --line:#2a2a31; --accent:#0a84ff; --pass:#30d158; --fail:#ff453a; --warn:#ffd60a;
+      --pin:#ff375f; --chipbg:#26262e; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+      --done:#8e8e93;
+    }
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 48px) env(safe-area-inset-left);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 16px;}
+
+  header.hero{
+    position:sticky; top:0; z-index:30;
+    backdrop-filter:saturate(180%) blur(20px); -webkit-backdrop-filter:saturate(180%) blur(20px);
+    background:color-mix(in srgb, var(--bg) 82%, transparent);
+    border-bottom:1px solid var(--line);
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  }
+  header.hero .wrap{padding:0;}
+  .eyebrow{font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0;}
+  h1{font:700 22px/1.2 -apple-system,sans-serif; margin:2px 0 0;}
+  .sub{color:var(--muted); font-size:13px; margin:6px 0 0;}
+
+  section{margin:24px 0;}
+  h2{font:700 19px/1.25 -apple-system,sans-serif; margin:0 0 6px; letter-spacing:-.01em;}
+  h2 + .lede{color:var(--muted); font-size:14px; margin:0 0 14px;}
+  p{margin:0 0 12px;}
+  a{color:var(--accent); text-decoration:none;}
+
+  .controls{display:flex; gap:8px; margin:14px 0 2px;}
+  .btn{flex:1; text-align:center; padding:11px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); color:var(--ink); font-size:14px; font-weight:600; cursor:pointer;}
+
+  /* collapsible cards */
+  details.card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); margin:0 0 14px; overflow:hidden;
+  }
+  details.card>summary{
+    list-style:none; cursor:pointer; padding:16px; display:flex; align-items:center; gap:12px;
+    font-weight:600; user-select:none;
+  }
+  details.card>summary::-webkit-details-marker{display:none;}
+  .sumtitle{flex:1; min-width:0;}
+  .sumtitle .wf{display:block; font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase;}
+  .sumtitle .nm{display:block; font-size:16px; margin-top:1px;}
+  .chev{width:22px; height:22px; flex:none; color:var(--muted); transition:transform .25s ease;}
+  details[open]>summary .chev{transform:rotate(90deg);}
+  .cardbody{padding:0 16px 18px; border-top:1px solid var(--line); padding-top:14px;}
+
+  .tag{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+    padding:3px 9px; border-radius:999px; letter-spacing:.02em; white-space:nowrap;}
+  .tag.tmpl{background:var(--chipbg); color:var(--ink);}
+  .tag.time{background:color-mix(in srgb,var(--accent) 16%,transparent); color:var(--accent);}
+  .tag.ok{background:color-mix(in srgb,var(--pass) 18%,transparent); color:var(--pass);}
+  .tag.no{background:color-mix(in srgb,var(--pin) 18%,transparent); color:var(--pin);}
+  .meta{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px;}
+
+  /* numbered do-this steps */
+  ol.steps{counter-reset:s; list-style:none; padding:0; margin:14px 0 6px;}
+  ol.steps>li{counter-increment:s; position:relative; padding:4px 0 14px 42px; min-height:30px;}
+  ol.steps>li::before{content:counter(s); position:absolute; left:0; top:0; width:28px; height:28px;
+    border-radius:50%; background:var(--accent); color:#fff; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center;}
+  ol.steps>li:last-child{padding-bottom:0;}
+  .press{display:inline-block; font-weight:700; background:var(--chipbg); border:1px solid var(--line);
+    border-radius:8px; padding:1px 8px; margin:0 1px; white-space:nowrap;}
+  .press.green{background:color-mix(in srgb,var(--accent) 16%,transparent); color:var(--accent); border-color:transparent;}
+
+  /* result table */
+  .tscroll{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:12px -2px; border-radius:12px; border:1px solid var(--line);}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:360px;}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  thead th{font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:var(--card2);}
+  tbody tr:last-child td{border-bottom:none;}
+  td.t{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
+  tr.lock td:first-child{color:var(--pin); font-weight:700;}
+  tr.lock td{background:color-mix(in srgb,var(--pin) 7%,transparent);}
+  tr.moved td.after{font-weight:700; color:var(--accent);}
+  tr.done td{color:var(--done);}
+  .lockpill{display:inline-block; font-size:10px; font-weight:800; color:var(--pin);
+    border:1px solid color-mix(in srgb,var(--pin) 45%,transparent); border-radius:6px; padding:0 5px; margin-left:6px; vertical-align:1px;}
+
+  .verdict{display:flex; gap:10px; padding:11px 13px; border-radius:12px; margin:12px 0; align-items:flex-start; font-size:14.5px;}
+  .verdict .ico{flex:none; font-weight:800; width:20px; text-align:center;}
+  .verdict.pass{background:color-mix(in srgb,var(--pass) 13%,transparent); border:1px solid color-mix(in srgb,var(--pass) 35%,transparent);}
+  .verdict.pass .ico{color:var(--pass);}
+  .verdict.no{background:color-mix(in srgb,var(--fail) 12%,transparent); border:1px solid color-mix(in srgb,var(--fail) 32%,transparent);}
+  .verdict.no .ico{color:var(--fail);}
+  .verdict.warn{background:color-mix(in srgb,var(--warn) 14%,transparent); border:1px solid color-mix(in srgb,var(--warn) 34%,transparent);}
+  .verdict.warn .ico{color:var(--warn);}
+
+  .tryline{display:flex; gap:8px; margin-top:14px;}
+  .tryline .btn{background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--accent); border-color:transparent; font-weight:700;}
+
+  ol.rules{counter-reset:r; list-style:none; padding:0; margin:0;}
+  ol.rules>li{counter-increment:r; position:relative; padding:12px 0 12px 42px; border-bottom:1px solid var(--line);}
+  ol.rules>li:last-child{border-bottom:none;}
+  ol.rules>li::before{content:counter(r); position:absolute; left:0; top:11px; width:28px; height:28px;
+    border-radius:50%; background:var(--accent); color:#fff; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center;}
+
+  /* checklist */
+  .check{list-style:none; padding:0; margin:0;}
+  .check li{display:flex; gap:12px; align-items:flex-start; padding:13px 4px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .check li:last-child{border-bottom:none;}
+  .box{flex:none; width:24px; height:24px; border-radius:7px; border:2px solid var(--muted); margin-top:1px;
+    display:flex; align-items:center; justify-content:center; transition:.15s; font-size:15px; color:#fff;}
+  .check li.dn .box{background:var(--pass); border-color:var(--pass);}
+  .check li.dn .txt{color:var(--muted); text-decoration:line-through;}
+  .txt{flex:1;}
+  .resetbtn{margin-top:12px; font-size:13px; color:var(--accent); background:none; border:none; padding:6px 0; cursor:pointer;}
+
+  .note{font-size:13px; color:var(--muted);}
+  hr.div{border:none; border-top:1px solid var(--line); margin:28px 0;}
+  footer{color:var(--muted); font-size:12px; text-align:center; padding:26px 0 8px;}
+
+  /* ============ SIMULATOR ============ */
+  .sim{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; scroll-margin-top:90px;}
+  .simrow{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;}
+  .simrow label{font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;}
+  select,input[type=time]{
+    font:inherit; font-size:15px; padding:9px 11px; border-radius:11px; border:1px solid var(--line);
+    background:var(--card2); color:var(--ink); -webkit-appearance:none; appearance:none; flex:1; min-width:130px;
+  }
+  .selwrap{position:relative; flex:1; min-width:150px;}
+  .selwrap::after{content:"▾"; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--muted); pointer-events:none; font-size:12px;}
+
+  .tl{margin:6px 0 4px;}
+  .blk{display:flex; align-items:center; gap:11px; padding:10px 11px; border-radius:12px; margin:7px 0;
+    background:var(--card2); border:1px solid var(--line); transition:background .15s,border-color .15s;}
+  .blk .dot{flex:none; width:22px; height:22px; border-radius:50%; border:2px solid var(--muted);
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:#fff;}
+  .blk.active{border-color:var(--accent); background:color-mix(in srgb,var(--accent) 9%,transparent);}
+  .blk.active .dot{border-color:var(--accent); background:var(--accent);}
+  .blk.completed{opacity:.55;}
+  .blk.completed .dot{border-color:var(--pass); background:var(--pass);}
+  .blk.pinned{}
+  .blk .bt{flex:1; min-width:0;}
+  .blk .bt .nm2{font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .blk .bt .tm{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .blk.pinned .bt .nm2{color:var(--pin);}
+  .blk.changed{border-color:var(--accent);}
+  .blk.changed .tm{color:var(--accent); font-weight:700;}
+  .miniLock{font-size:10px; font-weight:800; color:var(--pin); border:1px solid color-mix(in srgb,var(--pin) 45%,transparent); border-radius:6px; padding:0 5px; margin-left:6px;}
+  .badgeActive{font-size:10px; font-weight:800; color:var(--accent); margin-left:6px; text-transform:uppercase; letter-spacing:.03em;}
+
+  .shiftbar{display:flex; gap:8px; margin:14px 0 4px;}
+  .shiftbar button{flex:1; padding:13px 0; border-radius:13px; border:none; font-size:16px; font-weight:700; cursor:pointer;
+    background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent);}
+  .shiftbar button:disabled{opacity:.4; cursor:default;}
+  .advbtn{width:100%; padding:13px; border-radius:13px; border:1px dashed var(--line); background:var(--card2); color:var(--ink);
+    font-size:15px; font-weight:600; cursor:pointer; margin-top:4px;}
+  .advbtn:disabled{opacity:.4;}
+  .simfoot{display:flex; gap:8px; margin-top:12px;}
+  .simfoot button{flex:1; padding:10px; border-radius:11px; border:1px solid var(--line); background:var(--card); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer;}
+
+  .preview{margin-top:14px; border:1px solid var(--accent); border-radius:14px; overflow:hidden;}
+  .preview.bad{border-color:var(--fail);}
+  .preview .phead{padding:11px 13px; font-size:14px; font-weight:700; background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--accent);}
+  .preview.bad .phead{background:color-mix(in srgb,var(--fail) 12%,transparent); color:var(--fail);}
+  .preview .pbody{padding:6px 13px 13px;}
+  .preview .pacts{display:flex; gap:8px; padding:0 13px 13px;}
+  .preview .pacts button{flex:1; padding:11px; border-radius:11px; border:none; font-size:15px; font-weight:700; cursor:pointer;}
+  .pconfirm{background:var(--accent); color:#fff;}
+  .pcancel{background:var(--chipbg); color:var(--ink);}
+  .toast{position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 18px); transform:translateX(-50%);
+    background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:999px; font-size:14px; font-weight:600;
+    box-shadow:var(--shadow); opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:50; max-width:90vw; text-align:center;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">SHIFT · Tester Guide</p>
+    <h1>Live-Shift Testing — Step by Step</h1>
+    <p class="sub">Plain-English scripts for testing what happens to a running event when you add minutes to a block. No code. Just tap, watch the clock, compare.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- HOW IT WORKS -->
+  <section>
+    <h2>What you're testing</h2>
+    <p class="lede">During a live event you can only add time to the <b>block that's running right now</b>. The “Shift Timeline” button gives you <span class="press green">+5</span> <span class="press green">+10</span> <span class="press green">+15</span>. When you add minutes, the current block gets longer and everything after it slides later — unless a <b style="color:var(--pin)">locked</b> block is in the way.</p>
+
+    <details class="card" open>
+      <summary>
+        <div class="sumtitle"><span class="nm">The 6 rules every test checks</span></div>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg>
+      </summary>
+      <div class="cardbody">
+        <ol class="rules">
+          <li><b>Locked blocks never move.</b> A locked (pinned) block is a hard wall. Adding time to another block can never push it, shrink it, or change its time.</li>
+          <li><b>Everything after slides by the same amount.</b> Add 10 minutes and every later block starts 10 minutes later — until it reaches a locked block.</li>
+          <li><b>Things squeeze to fit before a lock.</b> If the slide would push blocks past a locked block, they shrink instead, and the last one ends <i>exactly</i> at the locked block's start time. The lock doesn't budge.</li>
+          <li><b>No room means no change.</b> If there isn't enough space before the next locked block, the app refuses the whole thing — nothing moves — and tells you the most you can add.</li>
+          <li><b>The running block keeps its start.</b> When you add time, only the <i>end</i> of the current block moves later. Its start time stays put.</li>
+          <li><b>Finished blocks stay frozen.</b> Any block you've already marked done never changes.</li>
+        </ol>
+        <p class="note" style="margin-top:14px;">How to get live in the app: pick a template → set the event's start time → open it → tap <b>Go Live</b>. The first block becomes the running block. Use <b>slide to advance</b> to mark the running block done and move to the next one. Tap <b>Shift Timeline</b> (clock icon, top-right) to add minutes to whatever's running.</p>
+      </div>
+    </details>
+  </section>
+
+  <hr class="div">
+
+  <!-- SIMULATOR -->
+  <section>
+    <h2>Try it yourself</h2>
+    <p class="lede">This is a working copy of the app's shift logic. Do the same steps on your phone — the times should match exactly. Pick a template, press the buttons, watch the timeline.</p>
+    <div class="sim" id="sim">
+      <div class="simrow">
+        <div class="selwrap">
+          <select id="tplSel" aria-label="Template"></select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="startInp">Start</label>
+          <input type="time" id="startInp" aria-label="Event start time">
+        </div>
+      </div>
+
+      <div class="tl" id="tl"></div>
+
+      <button class="advbtn" id="advBtn">Slide to advance ▸ (mark running block done)</button>
+
+      <div class="shiftbar">
+        <button data-min="5" class="shiftPreset">+5 min</button>
+        <button data-min="10" class="shiftPreset">+10 min</button>
+        <button data-min="15" class="shiftPreset">+15 min</button>
+      </div>
+
+      <div id="previewSlot"></div>
+
+      <div class="simfoot">
+        <button id="undoBtn">Undo last</button>
+        <button id="resetBtn">Reset event</button>
+      </div>
+    </div>
+  </section>
+
+  <hr class="div">
+
+  <!-- SCENARIOS -->
+  <section>
+    <h2>The test scripts</h2>
+    <p class="lede">Each one tells you exactly what to do, what to press, and the time every block should show afterwards. Tap “Run this in the simulator” to watch it happen above.</p>
+    <div id="scenarios"></div>
+  </section>
+
+  <hr class="div">
+
+  <!-- CHECKLIST -->
+  <section>
+    <h2>Quick pass/fail checklist</h2>
+    <p class="note">Tick these off after a round of testing. Saved on this device.</p>
+    <ul class="check" id="checklist">
+      <li><span class="box">✓</span><span class="txt">A <b style="color:var(--pin)">locked</b> block never changed its time, no matter what I added elsewhere.</span></li>
+      <li><span class="txt">Every block after the one I extended slid later by the same number of minutes (until it hit a lock).</span></li>
+      <li><span class="txt">When blocks squeezed before a lock, the last one ended <b>exactly</b> at the lock's start time.</span></li>
+      <li><span class="txt">When there was no room, the app refused and <b>nothing moved</b>.</span></li>
+      <li><span class="txt">The block I extended kept its start time — only its end moved.</span></li>
+      <li><span class="txt">Blocks I'd already marked done never changed.</span></li>
+    </ul>
+    <button class="resetbtn" id="resetChecks">Reset checklist</button>
+  </section>
+
+  <footer>SHIFT · Live-Shift Tester Guide · the simulator runs the same logic as the app's ripple engine</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   TEMPLATE DATA  (offsets & durations in minutes; from the
+   five bundled templates)
+   ============================================================ */
+const TEMPLATES = {
+  birthday: { name:"🎂 Birthday Party", start:"12:00",
+    blocks:[
+      ["Venue Setup & Decorations",0,45,0],
+      ["Guest Arrival & Welcome",45,30,0],
+      ["Activities & Games",75,45,0],
+      ["Food & Drinks",120,45,0],
+      ["Cake & Candles",165,20,1],
+      ["Gift Opening",185,30,0],
+      ["Free Play & Photos",215,15,0],
+      ["Farewell & Goodie Bags",230,10,0],
+    ]},
+  concert: { name:"🎸 Concert / Festival", start:"17:00",
+    blocks:[
+      ["Stage & Sound Check",0,60,0],
+      ["Gates Open",60,30,1],
+      ["Opening DJ Set",90,45,0],
+      ["MC Welcome & Announcements",135,15,0],
+      ["Opening Act",150,45,0],
+      ["Changeover Break",195,30,0],
+      ["Support Act",225,45,0],
+      ["Stage Reset",270,20,0],
+      ["Headliner Performance",290,55,1],
+      ["Encore",345,15,0],
+    ]},
+  corporate: { name:"🥂 Corporate Gala", start:"18:00",
+    blocks:[
+      ["Venue Final Walk-Through",0,30,0],
+      ["Guest Registration & Welcome Drinks",30,45,0],
+      ["Opening Remarks",75,15,1],
+      ["Keynote Presentation",90,45,1],
+      ["Dinner Service",135,60,0],
+      ["Awards Ceremony",195,45,0],
+      ["Entertainment / Live Band",240,30,0],
+      ["Networking & Open Bar",240,60,0],
+      ["Closing Remarks",270,15,0],
+      ["Guest Departure",285,15,0],
+    ]},
+  indian: { name:"💍 Indian Wedding", start:"09:00",
+    blocks:[
+      ["Venue Setup & Decor Check",0,60,0],
+      ["Bridal Makeup & Draping",60,90,0],
+      ["Groom Getting Ready",90,60,0],
+      ["Bridal Portraits",150,30,0],
+      ["Groom Portraits",150,30,0],
+      ["Baraat Procession",180,45,1],
+      ["Milni Ceremony",225,30,0],
+      ["Groom Welcomed on Stage",255,15,0],
+      ["Bridal Entry (Kanya Aagaman)",270,30,0],
+      ["Jai Mala (Garland Exchange)",300,15,0],
+      ["Kanyadaan",315,30,0],
+      ["Mangal Pheras (Sacred Rounds)",345,45,1],
+      ["Sindoor & Mangalsutra",390,15,0],
+      ["Ceremony Conclusion & Blessings",405,30,0],
+      ["Couple Portraits",435,45,0],
+      ["Family Group Photos",480,30,0],
+      ["Cocktail & Starters",510,60,0],
+    ]},
+  classic: { name:"💐 Traditional Wedding", start:"14:00",
+    blocks:[
+      ["Bridal Suite Prep",0,90,0],
+      ["Groomsmen Prep",30,60,0],
+      ["First Look",90,30,0],
+      ["Wedding Party Portraits",120,45,0],
+      ["Family Portraits",165,30,0],
+      ["Guest Seating",195,30,0],
+      ["Ceremony",225,45,1],
+      ["Cocktail Hour",270,60,0],
+      ["Couple Portraits (Golden Hour)",300,30,0],
+      ["Grand Entrance",330,15,0],
+      ["First Dance",345,15,0],
+      ["Dinner Service",360,60,0],
+      ["Toasts & Speeches",420,30,0],
+      ["Cake Cutting & Open Dancing",450,15,0],
+      ["Sparkler Send-Off",465,15,0],
+    ]},
+};
+
+/* ============================================================
+   ENGINE  (faithful port of RippleEngine.applyExtension +
+   CollisionDetector + CompressionCalculator; minDur = 0)
+   Times are absolute minutes-from-midnight. Durations may be
+   fractional after a squeeze.
+   ============================================================ */
+function hmToMin(hm){ const [h,m]=hm.split(":").map(Number); return h*60+m; }
+
+function buildBlocks(tplKey, startMin){
+  return TEMPLATES[tplKey].blocks.map((b,i)=>({
+    id:i, title:b[0], start:startMin+b[1], duration:b[2], pinned:!!b[3],
+    minDur:0, status: i===0 ? "active":"upcoming"
+  }));
+}
+function cloneBlocks(bs){ return bs.map(b=>({...b})); }
+
+function sortCanon(bs){
+  return bs.slice().sort((a,b)=>{
+    if(a.start!==b.start) return a.start-b.start;
+    if(a.pinned!==b.pinned) return a.pinned?1:-1;   // fluid before pinned
+    return a.id-b.id;
+  });
+}
+
+function maximumExtension(bs, activeId){
+  const s=sortCanon(bs); const ai=s.findIndex(b=>b.id===activeId); if(ai<0) return null;
+  let runStart=null, runMin=0, wall=null;
+  for(let i=ai+1;i<s.length;i++){ const b=s[i];
+    if(b.pinned){ wall=b; break; }
+    if(runStart===null) runStart=b.start;
+    runMin+=b.minDur;
+  }
+  if(!wall) return null; // no lock ahead → unlimited
+  if(runStart!==null) return Math.max(0, wall.start-runStart-runMin);
+  const a=s[ai]; return Math.max(0, wall.start-(a.start+a.duration));
+}
+
+function compressRun(run, wallStart){
+  if(run.length===0) return "clean";
+  const gapStart=run[0].start;
+  const available=wallStart-gapStart;
+  if(available<=0){ run.forEach(b=>{b.duration=b.minDur;}); return "impossible"; }
+  const total=run.reduce((s,b)=>s+b.duration,0);
+  if(total<=0) return "clean";
+  const totalMin=run.reduce((s,b)=>s+b.minDur,0);
+  if(totalMin>available){ let c=gapStart; run.forEach(b=>{b.start=c;b.duration=b.minDur;c+=b.minDur;}); return "impossible"; }
+  if(total<=available){ let c=gapStart; run.forEach(b=>{b.start=c;c+=b.duration;}); return "clean"; }
+  let nd=run.map(b=>(b.duration/total)*available);
+  let changed=true;
+  while(changed){ changed=false; let deficit=0, excess=0;
+    run.forEach((b,i)=>{ if(nd[i]<b.minDur){deficit+=b.minDur-nd[i]; nd[i]=b.minDur; changed=true;} else {excess+=nd[i]-b.minDur;} });
+    if(changed&&excess>0){ run.forEach((b,i)=>{ const e=nd[i]-b.minDur; if(e>0) nd[i]-=(e/excess)*deficit; }); }
+  }
+  let c=gapStart; run.forEach((b,i)=>{b.start=c;b.duration=nd[i];c+=nd[i];}); return "clean";
+}
+
+function detect(s){
+  const cols=[];
+  for(let i=0;i<s.length;i++){ const b=s[i]; if(b.pinned) continue; const end=b.start+b.duration;
+    for(let j=i+1;j<s.length;j++){ const p=s[j]; if(p.start>=end) break; if(!p.pinned) continue; cols.push({pinned:p.id}); } }
+  return cols;
+}
+function resolveCollisions(bs, barrierId){
+  const s=sortCanon(bs); const cols=detect(s);
+  if(cols.length===0) return "clean";
+  let status="hasCollisions";
+  for(const c of cols){ const pi=s.findIndex(b=>b.id===c.pinned); let ti=pi;
+    while(ti>0 && !s[ti-1].pinned && s[ti-1].id!==barrierId) ti--;
+    const run=s.slice(ti,pi); if(run.length===0) continue;
+    if(compressRun(run, s[pi].start)==="impossible") status="impossible";
+  }
+  return status;
+}
+
+/* Returns {status:'clean'|'hasCollisions'|'impossible'|'exceedsAvailableSlack', max?} ;
+   mutates bs unless rejected. */
+function applyExtension(bs, activeId, delta){
+  const s=sortCanon(bs); const ai=s.findIndex(b=>b.id===activeId);
+  if(delta<=0||ai<0) return {status:"clean"};
+  const max=maximumExtension(bs, activeId);
+  if(max!==null && delta>max) return {status:"exceedsAvailableSlack", max};
+  let trapped=[], wall=null;
+  for(let i=ai+1;i<s.length;i++){ if(s[i].pinned){wall=s[i];break;} trapped.push(s[i]); }
+  s[ai].duration+=delta;
+  trapped.forEach(b=>b.start+=delta);
+  let st="clean";
+  if(wall&&trapped.length){ const last=trapped[trapped.length-1];
+    if(last.start+last.duration>wall.start){ const r=compressRun(trapped, wall.start); st=(r==="impossible")?"impossible":"hasCollisions"; } }
+  const r2=resolveCollisions(bs, activeId);
+  if(st==="impossible"||r2==="impossible") st="impossible";
+  else if(st==="hasCollisions"||r2==="hasCollisions") st="hasCollisions";
+  else st=r2;
+  return {status:st, max};
+}
+
+function advanceBlocks(bs){
+  const s=sortCanon(bs);
+  const ai=s.findIndex(b=>b.status==="active");
+  if(ai<0) return false;
+  s[ai].status="completed";
+  for(let i=ai+1;i<s.length;i++){ if(s[i].status!=="completed"){ s[i].status="active"; return true; } }
+  return false; // event complete
+}
+function activeId(bs){ const a=bs.find(b=>b.status==="active"); return a?a.id:null; }
+
+/* ---- time formatting ---- */
+function fmt(min){
+  min=Math.round(min); let mm=((min%1440)+1440)%1440;
+  let h=Math.floor(mm/60), m=mm%60, ap=h<12?"AM":"PM", hh=h%12; if(hh===0) hh=12;
+  return hh+":"+String(m).padStart(2,"0")+" "+ap;
+}
+function rng(b){ return fmt(b.start)+" – "+fmt(b.start+b.duration); }
+
+/* ============================================================
+   SIMULATOR UI
+   ============================================================ */
+const sim = {
+  tpl:"birthday",
+  startMin:hmToMin(TEMPLATES.birthday.start),
+  blocks:[],
+  history:[],
+  pending:null,   // preview clone
+};
+
+const tlEl=document.getElementById("tl");
+const tplSel=document.getElementById("tplSel");
+const startInp=document.getElementById("startInp");
+const previewSlot=document.getElementById("previewSlot");
+const advBtn=document.getElementById("advBtn");
+
+Object.keys(TEMPLATES).forEach(k=>{
+  const o=document.createElement("option"); o.value=k; o.textContent=TEMPLATES[k].name; tplSel.appendChild(o);
+});
+
+function simReset(keepStart){
+  if(!keepStart) sim.startMin=hmToMin(TEMPLATES[sim.tpl].start);
+  sim.blocks=buildBlocks(sim.tpl, sim.startMin);
+  sim.history=[]; sim.pending=null;
+  startInp.value=minToHM(sim.startMin);
+  renderSim();
+}
+function minToHM(min){ let mm=((Math.round(min)%1440)+1440)%1440; return String(Math.floor(mm/60)).padStart(2,"0")+":"+String(mm%60).padStart(2,"0"); }
+
+function renderSim(highlightIds){
+  highlightIds = highlightIds || new Set();
+  const s=sortCanon(sim.blocks);
+  tlEl.innerHTML="";
+  s.forEach(b=>{
+    const div=document.createElement("div");
+    div.className="blk "+(b.status==="active"?"active ":"")+(b.status==="completed"?"completed ":"")+(b.pinned?"pinned ":"")+(highlightIds.has(b.id)?"changed":"");
+    const dot = b.status==="completed" ? "✓" : "";
+    div.innerHTML =
+      '<div class="dot">'+dot+'</div>'+
+      '<div class="bt"><div class="nm2">'+esc(b.title)+
+        (b.pinned?'<span class="miniLock">LOCKED</span>':'')+
+        (b.status==="active"?'<span class="badgeActive">running</span>':'')+
+      '</div><div class="tm">'+rng(b)+'</div></div>';
+    tlEl.appendChild(div);
+  });
+  const aId=activeId(sim.blocks);
+  advBtn.disabled = aId===null;
+  document.querySelectorAll(".shiftPreset").forEach(btn=>{ btn.disabled = aId===null; });
+  if(aId===null){ advBtn.textContent="Event complete 🎉"; }
+  else { advBtn.textContent="Slide to advance ▸ (mark running block done)"; }
+}
+function esc(s){ return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function showPreview(min){
+  const aId=activeId(sim.blocks);
+  if(aId===null) return;
+  const clone=cloneBlocks(sim.blocks);
+  const res=applyExtension(clone, aId, min);
+  const activeBlock=sim.blocks.find(b=>b.id===aId);
+
+  if(res.status==="exceedsAvailableSlack"){
+    const maxTxt = (res.max!==null && res.max!==undefined) ? Math.floor(res.max) : 0;
+    previewSlot.innerHTML =
+      '<div class="preview bad"><div class="phead">✕ Can’t add '+min+' min to “'+esc(activeBlock.title)+'”</div>'+
+      '<div class="pbody"><p class="note" style="margin:6px 0 0">A locked block is too close. The most you can add here is <b>'+maxTxt+' min</b>. Nothing moved.</p></div>'+
+      '<div class="pacts"><button class="pcancel" id="pCancel">OK</button></div></div>';
+    document.getElementById("pCancel").onclick=()=>{ previewSlot.innerHTML=""; };
+    renderSim();
+    return;
+  }
+
+  // which blocks changed vs current
+  const changed=new Set();
+  const byId={}; sim.blocks.forEach(b=>byId[b.id]=b);
+  clone.forEach(b=>{ const o=byId[b.id]; if(Math.round(o.start)!==Math.round(b.start) || Math.round(o.duration)!==Math.round(b.duration)) changed.add(b.id); });
+
+  sim.pending={clone, min, changed};
+
+  let msg;
+  if(res.status==="clean") msg="Adds "+min+" min. Everything after slides later to match.";
+  else if(res.status==="hasCollisions") msg="Adds "+min+" min. Blocks before the next lock squeeze to fit — the lock holds.";
+  else msg="Adds "+min+" min — blocks hit their limit (review needed).";
+
+  // render preview list (the resulting timeline)
+  const s=sortCanon(clone);
+  let rows="";
+  s.forEach(b=>{
+    const hl=changed.has(b.id);
+    rows+='<div class="blk '+(b.status==="completed"?"completed ":"")+(b.pinned?"pinned ":"")+(hl?"changed":"")+'">'+
+      '<div class="dot">'+(b.status==="completed"?"✓":"")+'</div>'+
+      '<div class="bt"><div class="nm2">'+esc(b.title)+(b.pinned?'<span class="miniLock">LOCKED</span>':'')+'</div>'+
+      '<div class="tm">'+rng(b)+'</div></div></div>';
+  });
+  previewSlot.innerHTML =
+    '<div class="preview"><div class="phead">Preview · '+msg+'</div>'+
+    '<div class="pbody">'+rows+'</div>'+
+    '<div class="pacts"><button class="pcancel" id="pCancel">Cancel</button><button class="pconfirm" id="pConfirm">Confirm shift</button></div></div>';
+  document.getElementById("pCancel").onclick=()=>{ sim.pending=null; previewSlot.innerHTML=""; };
+  document.getElementById("pConfirm").onclick=()=>{
+    sim.history.push(cloneBlocks(sim.blocks));
+    sim.blocks=sim.pending.clone;
+    const ch=sim.pending.changed;
+    sim.pending=null; previewSlot.innerHTML="";
+    renderSim(ch);
+    toast("Shift applied");
+  };
+}
+
+let toastT;
+function toast(msg){
+  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1600);
+}
+
+tplSel.onchange=()=>{ sim.tpl=tplSel.value; simReset(false); };
+startInp.onchange=()=>{ const v=startInp.value; if(v){ sim.startMin=hmToMin(v); simReset(true); } };
+advBtn.onclick=()=>{ sim.pending=null; previewSlot.innerHTML=""; advanceBlocks(sim.blocks); renderSim(); };
+document.querySelectorAll(".shiftPreset").forEach(btn=>{ btn.onclick=()=>showPreview(parseInt(btn.dataset.min,10)); });
+document.getElementById("undoBtn").onclick=()=>{
+  if(sim.history.length){ sim.blocks=sim.history.pop(); sim.pending=null; previewSlot.innerHTML=""; renderSim(); toast("Undone"); }
+  else toast("Nothing to undo");
+};
+document.getElementById("resetBtn").onclick=()=>{ simReset(true); toast("Event reset"); };
+
+/* drive the simulator from a scenario */
+function loadScenario(sc){
+  sim.tpl=sc.tpl; tplSel.value=sc.tpl;
+  sim.startMin=hmToMin(sc.start);
+  sim.blocks=buildBlocks(sc.tpl, sim.startMin);
+  startInp.value=minToHM(sim.startMin);
+  sim.history=[]; sim.pending=null; previewSlot.innerHTML="";
+  // advance until target block is running
+  let guard=0;
+  while(guard++<50){ const a=sim.blocks.find(b=>b.status==="active"); if(!a||a.title===sc.target) break; advanceBlocks(sim.blocks); }
+  renderSim();
+  document.getElementById("sim").scrollIntoView({behavior:"smooth", block:"start"});
+  setTimeout(()=>showPreview(sc.delta), 450);
+}
+
+/* ============================================================
+   SCENARIOS  (rendered as plain-language cards + expected
+   full timeline, computed by the engine above so they are
+   always correct)
+   ============================================================ */
+const SCENARIOS=[
+  { key:"A", tpl:"birthday", start:"12:00", target:"Gift Opening", delta:10,
+    title:"Add time with no lock ahead — everything just slides",
+    why:"Gift Opening comes after the only locked block (Cake & Candles), so there's no wall in front of it. Adding minutes slides the rest of the day cleanly.",
+    steps:[
+      'Make a <b>Birthday Party</b> event, start time <b>12:00 PM</b>.',
+      'Open it and tap <b>Go Live</b>.',
+      'Use <b>slide to advance</b> until <b>Gift Opening</b> is the running block.',
+      'Tap <b>Shift Timeline</b>, then <span class="press green">+10</span>, then <b>Confirm</b>.',
+    ],
+    expect:"Gift Opening, Free Play, and Farewell each move 10 minutes later. Cake & Candles and everything before it don't move.",
+    pass:"The three blocks after Cake all slid 10 minutes later; nothing before Cake changed.",
+    fail:"Cake & Candles moved, or any earlier block changed." },
+
+  { key:"B", tpl:"birthday", start:"12:00", target:"Venue Setup & Decorations", delta:15,
+    title:"Add time before a lock — blocks squeeze, the lock holds",
+    why:"The first four blocks run right up against the Cake & Candles lock with no spare time. Stretching the first block forces the ones in between to shrink so Cake stays put.",
+    steps:[
+      'Make a <b>Birthday Party</b> event, start time <b>12:00 PM</b>.',
+      'Open it and tap <b>Go Live</b> (Venue Setup is the running block).',
+      'Tap <b>Shift Timeline</b>, then <span class="press green">+15</span>, then <b>Confirm</b>.',
+    ],
+    expect:"Venue Setup gets 15 minutes longer. Guest Arrival, Activities and Food squeeze up so the last one still ends right when Cake starts. Cake & Candles never moves.",
+    pass:"Cake & Candles still starts at the same time, and Food & Drinks ends exactly when Cake begins.",
+    fail:"Cake moved, or a block runs past the start of Cake." },
+
+  { key:"C", tpl:"concert", start:"17:00", target:"Stage & Sound Check", delta:5,
+    title:"No room before a lock — the app refuses",
+    why:"Gates Open is a locked block that begins the instant Stage & Sound Check ends. There's zero room, so any amount you try to add is rejected.",
+    steps:[
+      'Make a <b>Concert / Festival</b> event, start time <b>5:00 PM</b>.',
+      'Open it and tap <b>Go Live</b> (Stage & Sound Check is running).',
+      'Tap <b>Shift Timeline</b>, then <span class="press green">+5</span>.',
+    ],
+    expect:"The app refuses: it should say you can add at most 0 minutes here. Nothing on the timeline changes.",
+    pass:"You get a “can't add” message and every block keeps its original time.",
+    fail:"Anything moves, or Gates Open shifts." },
+
+  { key:"D", tpl:"corporate", start:"18:00", target:"Venue Final Walk-Through", delta:15,
+    title:"Two locks in a row — both stay put",
+    why:"Opening Remarks and Keynote are back-to-back locks. Stretching the first block squeezes Registration to fit, while both locks — and the gap between them — stay exactly where they are.",
+    steps:[
+      'Make a <b>Corporate Gala</b> event, start time <b>6:00 PM</b>.',
+      'Open it and tap <b>Go Live</b> (Venue Walk-Through is running).',
+      'Tap <b>Shift Timeline</b>, then <span class="press green">+15</span>, then <b>Confirm</b>.',
+    ],
+    expect:"Walk-Through gets 15 minutes longer. Guest Registration shrinks so it still ends right when Opening Remarks starts. Opening Remarks and Keynote don't move at all.",
+    pass:"Both locked blocks keep their times and the gap between them is unchanged.",
+    fail:"Either lock moves, or the time between Opening Remarks and Keynote changes." },
+];
+
+const scWrap=document.getElementById("scenarios");
+SCENARIOS.forEach(sc=>{
+  // compute before/after via the engine
+  const before=buildBlocks(sc.tpl, hmToMin(sc.start));
+  const beforeMap={}; before.forEach(b=>beforeMap[b.id]=({start:b.start,duration:b.duration}));
+  const work=buildBlocks(sc.tpl, hmToMin(sc.start));
+  let guard=0;
+  while(guard++<50){ const a=work.find(b=>b.status==="active"); if(!a||a.title===sc.target) break; advanceBlocks(work); }
+  const aId=work.find(b=>b.title===sc.target).id;
+  const res=applyExtension(work, aId, sc.delta);
+  const refused = res.status==="exceedsAvailableSlack";
+
+  const s=sortCanon(work);
+  let rows="";
+  s.forEach(b=>{
+    const o=beforeMap[b.id];
+    const moved = !refused && (Math.round(o.start)!==Math.round(b.start) || Math.round(o.duration)!==Math.round(b.duration));
+    const cls=(b.pinned?"lock ":"")+(moved?"moved ":"")+(b.status==="completed"?"done ":"");
+    rows+='<tr class="'+cls.trim()+'">'+
+      '<td>'+esc(b.title)+(b.pinned?'<span class="lockpill">LOCK</span>':'')+'</td>'+
+      '<td class="t">'+fmt(o.start)+'–'+fmt(o.start+o.duration)+'</td>'+
+      '<td class="t after">'+fmt(b.start)+'–'+fmt(b.start+b.duration)+'</td>'+
+      '</tr>';
+  });
+
+  const det=document.createElement("details");
+  det.className="card";
+  const tagCls = refused ? "no" : "ok";
+  const tagTxt = refused ? "App refuses" : "Shift applies";
+  det.innerHTML =
+    '<summary><div class="sumtitle"><span class="wf">Test '+sc.key+'</span><span class="nm">'+esc(sc.title)+'</span></div>'+
+      '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></summary>'+
+    '<div class="cardbody">'+
+      '<div class="meta"><span class="tag tmpl">'+esc(TEMPLATES[sc.tpl].name)+'</span><span class="tag time">Start '+to12(sc.start)+'</span><span class="tag '+tagCls+'">'+tagTxt+'</span></div>'+
+      '<p class="note">'+sc.why+'</p>'+
+      '<ol class="steps">'+sc.steps.map(x=>'<li>'+x+'</li>').join("")+'</ol>'+
+      '<p style="margin-top:14px"><b>What should happen:</b> '+sc.expect+'</p>'+
+      '<div class="tscroll"><table><thead><tr><th>Block</th><th>Before</th><th>After</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+      '<div class="verdict pass"><span class="ico">✓</span><div><b>Pass:</b> '+sc.pass+'</div></div>'+
+      '<div class="verdict no"><span class="ico">✕</span><div><b>Fail:</b> '+sc.fail+'</div></div>'+
+      '<div class="tryline"><button class="btn" data-key="'+sc.key+'">Run this in the simulator ↑</button></div>'+
+    '</div>';
+  scWrap.appendChild(det);
+});
+function to12(hm){ return fmt(hmToMin(hm)); }
+scWrap.querySelectorAll("button[data-key]").forEach(btn=>{
+  btn.onclick=()=>{ const sc=SCENARIOS.find(s=>s.key===btn.dataset.key); loadScenario(sc); };
+});
+
+/* ============================================================
+   CHECKLIST (persisted)
+   ============================================================ */
+const KEY="shift-livetest-checks";
+const list=document.getElementById("checklist");
+const items=[...list.querySelectorAll("li")];
+function refreshBox(li){ const box=li.querySelector(".box"); if(box) box.textContent = li.classList.contains("dn") ? "✓" : ""; }
+function persist(){ try{ localStorage.setItem(KEY, JSON.stringify(items.map(li=>li.classList.contains("dn")))); }catch(e){} }
+// 1) ensure every row has a checkbox + a click handler
+items.forEach(li=>{
+  if(!li.querySelector(".box")){ const b=document.createElement("span"); b.className="box"; li.insertBefore(b,li.firstChild); }
+  li.addEventListener("click",()=>{ li.classList.toggle("dn"); refreshBox(li); persist(); });
+});
+// 2) restore saved state, then paint the boxes
+let saved=[]; try{ saved=JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){}
+items.forEach((li,i)=>{ if(saved[i]) li.classList.add("dn"); refreshBox(li); });
+
+/* boot */
+simReset(false);
+</script>
+</body>
+</html>
