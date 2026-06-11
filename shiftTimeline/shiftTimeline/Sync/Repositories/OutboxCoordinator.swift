@@ -12,7 +12,7 @@ enum OutboxOperation: String {
 }
 
 /// Appends an ``OutboxEntry`` to the local write queue for every repository
-/// mutation, so the offline ``SyncEngine`` (SHIFT-603 flush) can replay them to
+/// mutation, so the offline ``SyncEngine`` flush can replay them to
 /// Supabase FIFO once connectivity returns.
 ///
 /// This is the offline analogue of `WriteThroughCoordinator`: where the
@@ -39,7 +39,7 @@ enum OutboxOperation: String {
 /// **Known/accepted:** an explicit `insert` followed by a `save()` in the same
 /// cycle enqueues both an `insert` and an `update` for that row. The flush is an
 /// idempotent upsert, so this is correctness-safe; coalescing is a flush-time
-/// optimization (SHIFT-603+).
+/// optimization.
 @MainActor
 final class OutboxCoordinator {
     private let context: ModelContext

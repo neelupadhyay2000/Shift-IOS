@@ -2,7 +2,7 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-612: a burst of reconnect triggers must be debounced into a single
+/// A burst of reconnect triggers must be debounced into a single
 /// flush, not one per trigger. The debounce window's `sleep` is injected so the
 /// tests are deterministic — the burst is applied synchronously (cancelling the
 /// prior pending flush) before any task body runs.

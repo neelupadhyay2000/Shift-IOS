@@ -5,7 +5,7 @@ import TestSupport
 import Testing
 @testable import shiftTimeline
 
-@Suite("Vendor invite claim — link on sign-in (SHIFT-627)")
+@Suite("Vendor invite claim — link on sign-in")
 @MainActor
 struct VendorInviteClaimServiceTests {
 

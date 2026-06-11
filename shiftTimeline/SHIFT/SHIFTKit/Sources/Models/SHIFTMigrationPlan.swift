@@ -18,18 +18,18 @@ import SwiftData
 /// - V10 → V11: drops CloudKit-only fields — `EventModel.shareURL`,
 ///              `EventModel.ownerRecordName`, `EventModel.lastShiftedAt`,
 ///              `VendorModel.cloudKitRecordName` (all `Optional`; lightweight).
-/// - V11 → V12: adds `OutboxEntry` — the local offline write queue for E-SB5.
+/// - V11 → V12: adds `OutboxEntry` — the local offline write queue.
 /// - V12 → V13: adds `OutboxEntry.sequence` (`Int`, default `0`) — the monotonic
-///              FIFO/causality key for the offline SyncEngine (E13).
+///              FIFO/causality key for the offline SyncEngine.
 /// - V13 → V14: adds `updatedAt` (`Date?`) to `EventModel`, `TimelineTrack`,
 ///              `TimeBlockModel`, `VendorModel` — the server-time basis for
-///              last-write-wins conflict resolution (E13).
+///              last-write-wins conflict resolution.
 /// - V14 → V15: adds `VendorModel.profileId` (`UUID?`) and
 ///              `VendorModel.acceptedAt` (`Date?`) — the claim-on-sign-in state
-///              mirroring `event_vendors.profile_id` / `accepted_at` (E14).
+///              mirroring `event_vendors.profile_id` / `accepted_at`.
 /// - V15 → V16: adds `EventModel.ownerId` (`UUID?`) mirroring `events.owner_id`
 ///              — distinguishes owned events from events shared to the user as a
-///              vendor, so the latter render read-only (E14 / SHIFT-622).
+///              vendor, so the latter render read-only.
 /// - V16 → V17: adds `VendorModel.customRoleLabel` (`String`, default `""`) —
 ///              the user-entered vendor type shown when `role == .custom`.
 ///

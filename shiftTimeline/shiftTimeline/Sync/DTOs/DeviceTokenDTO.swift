@@ -3,7 +3,7 @@ import Foundation
 /// Row in the Supabase `device_tokens` table.
 ///
 /// An APNs token registry keyed per profile, consumed by the Edge Function push
-/// path in SHIFT-E15. It has no SwiftData model counterpart — it is populated
+/// path. It has no SwiftData model counterpart — it is populated
 /// directly from device registration. `environment` is `sandbox` or `prod` and
 /// must match the app's `aps-environment` entitlement.
 nonisolated struct DeviceTokenDTO: Codable, Equatable {

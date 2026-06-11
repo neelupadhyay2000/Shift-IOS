@@ -6,7 +6,7 @@ import SwiftData
 /// SwiftData store and appends an ``OutboxEntry`` for the offline SyncEngine to
 /// replay. This is the offline-first production write path — the successor to
 /// `WriteThroughRepositoryProvider`, which mirrored to Supabase inline (online
-/// only). The remote half now lives in the flush (SHIFT-603), which drains the
+/// only). The remote half now lives in the flush, which drains the
 /// queue FIFO when connectivity returns.
 ///
 /// Compose it from the local provider plus the current-profile resolver used to

@@ -63,7 +63,7 @@ struct BlockInspectorView: View {
     /// Owners see every block's full detail. A vendor viewing a shared event
     /// (`isReadOnly`) sees full detail — notes, voice memo, vendors, dependencies
     /// — only for blocks they're assigned to (via `block_vendors`); unassigned
-    /// blocks show just scheduling context (SHIFT-630).
+    /// blocks show just scheduling context.
     private var canSeeDetails: Bool {
         BlockDetailScope.showsFullDetail(
             isReadOnly: isReadOnly,

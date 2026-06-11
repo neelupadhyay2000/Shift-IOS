@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import shiftTimeline
 
-@Suite("Event access — owner vs shared gating (SHIFT-629)")
+@Suite("Event access — owner vs shared gating")
 struct EventAccessTests {
 
     private let me = UUID()

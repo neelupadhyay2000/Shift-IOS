@@ -9,17 +9,17 @@ nonisolated enum VendorInviteError: Error, Equatable {
     case notInvitable
 }
 
-/// Stamps the invite state onto a vendor's `event_vendors` row (SHIFT-625).
+/// Stamps the invite state onto a vendor's `event_vendors` row.
 ///
 /// Inviting records `invitedAt` and persists the row through the vendor
 /// repository, so the synced `event_vendors` row carries the invite fields —
 /// `invited_phone` / `invited_email`, `role`, `notification_threshold`,
 /// `invited_at` — with `profile_id` left null until the invitee claims the invite
-/// on sign-in (SHIFT-621). The contact, role, and threshold fields are already on
+/// on sign-in. The contact, role, and threshold fields are already on
 /// the model from the vendor form; this only adds the invite timestamp.
 ///
 /// Delivering the invite link (phone-first iMessage / email composer + deep link +
-/// app-store fallback) is layered on top of the returned lookup (SHIFT-626).
+/// app-store fallback) is layered on top of the returned lookup.
 @MainActor
 struct VendorInviteService {
 
@@ -34,7 +34,7 @@ struct VendorInviteService {
     /// Marks `vendor` as invited and persists the change.
     ///
     /// - Returns: the phone-first contact lookup the invite should be delivered
-    ///   to (consumed by SHIFT-626's composer).
+    ///   to (consumed by the invite-message composer).
     /// - Throws: `VendorInviteError.notInvitable` when the vendor is contact-only
     ///   (no phone and no email); the row is left untouched and unsaved.
     @discardableResult

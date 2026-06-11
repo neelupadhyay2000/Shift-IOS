@@ -2,7 +2,7 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-613: the `lastPulledAt` watermark is persisted per scope and advanced
+/// The `lastPulledAt` watermark is persisted per scope and advanced
 /// after each pull.
 @Suite("Last-pulled watermark store")
 struct LastPulledStoreTests {

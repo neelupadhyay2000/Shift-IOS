@@ -3,7 +3,7 @@ import Services
 @testable import shiftTimeline
 import Testing
 
-/// Structural tests proving each Supabase repository satisfies its E9 protocol
+/// Structural tests proving each Supabase repository satisfies its repository protocol
 /// (so the app can swap the local provider for the remote one). The network
 /// round-trip is exercised by the epic's online acceptance, not here — this
 /// mirrors `SupabaseProfileRepositoryTests`, which also tests conformance only.

@@ -7,7 +7,7 @@ extension VendorModel {
     ///
     /// The model's contact `phone`/`email` map to the invite-matching columns
     /// (empty → null). `profile_id` / `accepted_at` are null until the invite is
-    /// claimed on sign-in (SHIFT-621), and carry the claim once stamped.
+    /// claimed on sign-in, and carry the claim once stamped.
     /// - Throws: `ModelMappingError.missingEvent` if the vendor is detached.
     func toDTO() throws -> EventVendorDTO {
         guard let eventID = event?.id else { throw ModelMappingError.missingEvent }

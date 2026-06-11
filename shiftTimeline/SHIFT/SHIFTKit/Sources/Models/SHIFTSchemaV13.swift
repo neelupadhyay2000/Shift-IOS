@@ -5,7 +5,7 @@ import SwiftData
 ///
 /// `sequence` is a monotonic, gap-free, strictly-increasing position assigned
 /// per device at enqueue time. It is the authoritative FIFO key for the offline
-/// SyncEngine (E13): entries flush in ascending `sequence` order so a parent row
+/// SyncEngine: entries flush in ascending `sequence` order so a parent row
 /// enqueued before its child always flushes first (causality preservation). The
 /// prior `createdAt`-only ordering had no deterministic tiebreaker on same-instant
 /// writes, which could flush a child before its parent and trip a Postgres FK.

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Transient top toast shown in place of a system notification when a shift push
-/// arrives while the app is foregrounded (SHIFT-648).
+/// arrives while the app is foregrounded.
 ///
 /// `AppDelegate.willPresent` suppresses the system banner for `shift-`
 /// notifications and publishes an `InAppShiftBanner` to `DeepLinkRouter`;

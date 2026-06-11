@@ -4,8 +4,8 @@ import Supabase
 /// Vends the single configured `SupabaseClient` for the app.
 ///
 /// Credentials are read from Info.plist entries `SUPABASE_URL` and `SUPABASE_ANON_KEY`,
-/// populated by `Secrets.xcconfig` at build time. SHIFT-574 will wire separate
-/// Debug/Release xcconfig files so dev and prod projects are selected automatically.
+/// populated by `Secrets.xcconfig` at build time. The Debug/Release xcconfig split selects
+/// the dev or prod project automatically.
 @MainActor
 final class SupabaseClientProvider {
 

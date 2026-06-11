@@ -2,12 +2,12 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-663 — proves the Realtime connection-budget math the cutover plans
+/// Proves the Realtime connection-budget math the cutover plans
 /// against. The load-bearing assumption is **one connection per active device**
 /// (enforced by `RealtimeLifecycleManager`, which keeps a single multiplexed
 /// channel open only while foregrounded on an event); these tests pin that and
 /// the headroom arithmetic for the plan tiers.
-@Suite("Realtime connection budget (SHIFT-663)")
+@Suite("Realtime connection budget")
 struct RealtimeConnectionBudgetTests {
 
     @Test("the tier presets account one connection per active device")

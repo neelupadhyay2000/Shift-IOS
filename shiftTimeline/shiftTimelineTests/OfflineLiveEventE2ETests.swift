@@ -6,7 +6,7 @@ import SwiftData
 import Supabase
 import Testing
 
-/// SHIFT-619 — the offline epic's exit gate. Two devices build and run a live
+/// The offline sync exit gate. Two devices build and run a live
 /// event **offline** (writes queued in each device's Outbox), then reconnect and
 /// flush + pull through a shared in-memory server. Proves the whole offline
 /// stack — enqueue (608) → flush (611) → delta (614) → apply + LWW (615/616) →

@@ -3,8 +3,8 @@ import SwiftData
 
 /// V5 schema — adds `TimeBlockModel.isTransitBlock: Bool` (default `false`).
 ///
-/// Why this snapshot exists: SHIFT-303 added the `isTransitBlock` stored
-/// property to the live `TimeBlockModel` without a matching `VersionedSchema`,
+/// Why this snapshot exists: the `isTransitBlock` stored
+/// property was once added to the live `TimeBlockModel` without a matching `VersionedSchema`,
 /// leaving `SHIFTMigrationPlan` unable to migrate an existing store across the
 /// change. Every new stored property therefore needs a frozen snapshot here.
 ///

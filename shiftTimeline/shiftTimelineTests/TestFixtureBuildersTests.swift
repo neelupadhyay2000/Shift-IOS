@@ -5,7 +5,7 @@ import Testing
 import Services
 import TestSupport
 
-/// SHIFT-1002.5 — Asserts each `TestFixture` builder seeds the expected
+/// Asserts each `TestFixture` builder seeds the expected
 /// data graph (counts, titles, statuses, weather, sunset markers) into a
 /// fresh in-memory `ModelContainer`.
 ///

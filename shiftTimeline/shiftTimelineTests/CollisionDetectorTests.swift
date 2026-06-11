@@ -103,7 +103,7 @@ struct CollisionDetectorTests {
         _ = collision
     }
 
-    // MARK: - Acceptance Criteria Tests (SHIFT-201)
+    // MARK: - Acceptance Criteria Tests
 
     /// 3 Fluid blocks + 1 Pinned block; last Fluid has been shifted +30 min
     /// so it runs 30 min into the Pinned block → exactly 1 collision, overlapMinutes = 30.

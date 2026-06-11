@@ -23,7 +23,7 @@ public final class VendorModel {
     public var invitedAt: Date?
     /// The Supabase profile (`event_vendors.profile_id` = `auth.uid()`) that
     /// claimed this invite, or `nil` for a contact-only / not-yet-claimed vendor.
-    /// Set on claim-on-sign-in (SHIFT-621); a non-nil value flips the invite
+    /// Set on claim-on-sign-in; a non-nil value flips the invite
     /// status to `accepted`.
     public var profileId: UUID?
     /// When the invite was claimed (`event_vendors.accepted_at`); `nil` until then.

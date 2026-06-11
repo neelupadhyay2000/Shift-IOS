@@ -2,7 +2,7 @@ import Foundation
 import Supabase
 
 /// Periodically hard-deletes old tombstones so the soft-deleted rows can't grow
-/// unbounded (SHIFT-618).
+/// unbounded.
 ///
 /// Soft-delete keeps a deleted row around (with `deleted_at` set) long enough for
 /// every device — including one that was offline — to learn of the deletion via

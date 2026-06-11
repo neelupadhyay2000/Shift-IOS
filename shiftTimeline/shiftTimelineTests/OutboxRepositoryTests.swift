@@ -5,9 +5,9 @@ import Services
 import SwiftData
 import Testing
 
-/// SHIFT-608: every repository write appends an `OutboxEntry`, stamped with a
+/// Every repository write appends an `OutboxEntry`, stamped with a
 /// monotonic `sequence` that preserves causal order (parents before children).
-/// Payload integrity is sampled here and expanded in SHIFT-609.
+/// Payload integrity is sampled here and expanded below.
 @Suite("Outbox enqueue")
 @MainActor
 struct OutboxRepositoryTests {
@@ -86,7 +86,7 @@ struct OutboxRepositoryTests {
         #expect(trackSeq < blockSeq)
     }
 
-    // MARK: - Payload integrity (sampled; expanded in SHIFT-609)
+    // MARK: - Payload integrity (sampled; expanded below.
 
     @Test("insert payloads are the row's DTO snapshot")
     func insertPayloadRoundTripsDTO() async throws {
@@ -189,7 +189,7 @@ struct OutboxRepositoryTests {
         #expect(new.first { $0.tableName == "shift_records" }?.operation == "insert")
     }
 
-    // MARK: - SHIFT-609: payload integrity per aggregate
+    // MARK: - Payload integrity per aggregate
 
     @Test("track and vendor insert payloads round-trip their DTOs")
     func trackAndVendorPayloadsRoundTrip() async throws {
@@ -226,7 +226,7 @@ struct OutboxRepositoryTests {
         #expect(decoded == record.toDTO(eventID: event.id, sourceBlockID: nil))
     }
 
-    // MARK: - SHIFT-609: op correctness — updates snapshot the latest value
+    // MARK: - Op correctness — updates snapshot the latest value
 
     @Test("an edit enqueues an update whose payload snapshots the new value")
     func updatePayloadSnapshotsLatestValue() async throws {
@@ -252,7 +252,7 @@ struct OutboxRepositoryTests {
         #expect(updateEntry.sequence > insertEntry.sequence)
     }
 
-    // MARK: - SHIFT-609: junctions (dependency + deletes carry the composite key)
+    // MARK: - Junctions (dependency + deletes carry the composite key)
 
     @Test("a block dependency enqueues a block_dependencies entry with the composite key")
     func dependencyEnqueuesJunctionWithCompositeKey() async throws {
@@ -316,7 +316,7 @@ struct OutboxRepositoryTests {
         #expect(bdDTO == BlockDependencyDTO(blockID: block.id, dependsOnBlockID: other.id, eventID: event.id))
     }
 
-    // MARK: - SHIFT-609: stable FIFO order
+    // MARK: - Stable FIFO order
 
     @Test("enqueued entries form a stable, gap-free FIFO order")
     func fifoOrderIsStableAndGapFree() async throws {

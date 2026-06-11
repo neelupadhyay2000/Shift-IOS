@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import shiftTimeline
 
-@Suite("Vendor invite claim matcher (SHIFT-627)")
+@Suite("Vendor invite claim matcher")
 struct VendorInviteClaimTests {
 
     // MARK: - Email

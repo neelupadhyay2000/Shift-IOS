@@ -39,7 +39,7 @@ struct VendorMappingTests {
         #expect(dto.hasAcknowledgedLatestShift == true)
         #expect(dto.pendingShiftDelta == 12)
         #expect(dto.invitedAt?.value == fixedTimestamp)
-        // E14-only columns are not invented from the local model.
+        // Sharing-only columns are not invented from the local model.
         #expect(dto.profileID == nil)
         #expect(dto.acceptedAt == nil)
 

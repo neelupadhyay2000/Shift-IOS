@@ -5,7 +5,7 @@ import Services
 import SwiftData
 import Testing
 
-/// SHIFT-614: on foreground, rows changed since the watermark are pulled and
+/// On foreground, rows changed since the watermark are pulled and
 /// merged into SwiftData (reusing the realtime applier), and the watermark
 /// advances. The Supabase delta source hits the network (online acceptance);
 /// the merge + watermark logic is driven here against a canned delta.

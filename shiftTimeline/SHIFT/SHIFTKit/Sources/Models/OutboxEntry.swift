@@ -9,7 +9,6 @@ import SwiftData
 /// is re-queued with an incremented `attempts` count and exponential backoff.
 ///
 /// This model is local-only — it is never mirrored to Supabase.
-/// E-SB5 owns the read/flush/delete lifecycle; this file is the placeholder.
 @Model
 public final class OutboxEntry {
     public var id: UUID = UUID()
@@ -19,14 +18,14 @@ public final class OutboxEntry {
     /// row enqueued before its child) always flush parent-first. `createdAt` is a
     /// human-readable timestamp only — it has no deterministic tiebreaker on ties,
     /// so it must not be relied on for ordering. Assignment lives in the repository
-    /// enqueue path (SHIFT-608); the default `0` is a placeholder for unassigned rows.
+    /// enqueue path; the default `0` is a placeholder for unassigned rows.
     public var sequence: Int = 0
     /// The Supabase table this entry targets: "events", "tracks", "blocks",
     /// "event_vendors", "block_vendors", "shift_records".
     public var tableName: String = ""
     /// The `id` of the affected row in that table.
     public var rowID: UUID = UUID()
-    /// One of "insert", "update", "delete". E-SB5 may promote this to a typed enum.
+    /// One of "insert", "update", "delete".
     public var operation: String = ""
     /// JSON-encoded snapshot or diff. `nil` for delete operations.
     public var payload: Data?

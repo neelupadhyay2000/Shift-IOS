@@ -2,7 +2,7 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-657: the backfill must run exactly once per account, gated by a local
+/// The backfill must run exactly once per account, gated by a local
 /// completion flag keyed by profile id (not a single global boolean). Two
 /// devices on the same account each run once; the duplicate uploads collapse
 /// server-side via the id-keyed upsert, so the flag is intentionally per-device.

@@ -3,10 +3,10 @@ import Services
 import Testing
 @testable import shiftTimeline
 
-/// SHIFT-648: when the app is foregrounded, a shift push is suppressed as a
+/// When the app is foregrounded, a shift push is suppressed as a
 /// system notification and surfaced as an in-app banner instead. These cover the
 /// pure builder that turns a foreground `shift-` notification into the banner model.
-@Suite("Foreground shift banner (SHIFT-648)")
+@Suite("Foreground shift banner")
 struct ForegroundShiftBannerTests {
 
     @Test("a foregrounded shift notification produces an in-app banner")

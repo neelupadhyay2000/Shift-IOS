@@ -5,7 +5,7 @@ import Foundation
 ///
 /// `source_block_id` is null for global shifts not tied to a specific block.
 /// `triggered_by` is coded as plain text (free-text column); the typed
-/// `ShiftSource` conversion happens in the mapping layer (SHIFT-590).
+/// `ShiftSource` conversion happens in the mapping layer.
 ///
 /// The table's `snapshot jsonb` column has no `ShiftRecord` counterpart and is
 /// neither read nor written by the client, so it is intentionally not modeled

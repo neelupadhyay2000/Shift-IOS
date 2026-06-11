@@ -26,7 +26,7 @@ extension TimeBlockModel {
             minimumDuration: minimumDuration,
             isPinned: isPinned,
             notes: notes,
-            // E15 replaces this with a real Storage key; for now the local URL
+            // Until remote voice-memo storage ships, the local URL
             // string round-trips through `voice_memo_path`.
             voiceMemoPath: voiceMemoURL?.absoluteString,
             voiceMemoDuration: voiceMemoDuration,

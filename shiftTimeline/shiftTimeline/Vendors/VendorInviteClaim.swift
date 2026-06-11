@@ -9,7 +9,7 @@ nonisolated struct VendorInviteClaimIdentity: Equatable {
 }
 
 /// Decides whether a signed-in identity may claim a given `event_vendors` invite
-/// (SHIFT-627) — the Supabase analog of the old `cloudKitRecordName` reconciler.
+/// — the Supabase analog of the old `cloudKitRecordName` reconciler.
 ///
 /// An invite is locked to the phone/email the planner addressed it to, so a claim
 /// only matches when the signed-in identity owns that same contact:
@@ -19,7 +19,7 @@ nonisolated struct VendorInviteClaimIdentity: Equatable {
 ///   number the planner typed matches the canonical number Supabase signed in.
 ///
 /// This rule is the client-side spec for the matching the security-definer claim
-/// RPC enforces server-side (SHIFT-628).
+/// RPC enforces server-side.
 nonisolated enum VendorInviteClaim {
 
     /// `true` when `identity` owns the contact this invite is locked to.

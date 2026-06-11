@@ -19,8 +19,8 @@ private actor MockGoldenHourCenter: VendorNotificationScheduling {
     }
 }
 
-/// SHIFT-649: a local golden-hour/sunset reminder scheduled at go-live.
-@Suite("Golden-hour notification scheduling (SHIFT-649)")
+/// A local golden-hour/sunset reminder scheduled at go-live.
+@Suite("Golden-hour notification scheduling")
 struct GoldenHourNotifierTests {
 
     // MARK: - fireDate (pure)

@@ -1,9 +1,9 @@
 import SwiftUI
 import Models
 
-/// A single row in the event roster list — Direction A ("calm pro-tool").
+/// A single row in the event roster list.
 ///
-/// Luma-style anatomy: a leading date tile (the "when" first), a strong title,
+/// Anatomy: a leading date tile (the "when" first), a strong title,
 /// and a quiet uppercase status line. Live events swap the date tile for a
 /// pulsing emerald beacon. No decorative colour — the status hue is the only
 /// accent in the row.

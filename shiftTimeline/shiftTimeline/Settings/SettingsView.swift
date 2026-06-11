@@ -11,7 +11,7 @@ enum SettingsDefaultsKey {
 
 /// Main settings page — kept deliberately sparse: one tappable account row
 /// (identity, email, and subscription live in ``AccountView``), notification
-/// preferences, and About. Direction A: the restraint is the style.
+/// preferences, and About.
 struct SettingsView: View {
     /// Hosted help / support page opened from the About section.
     private static let supportURL = URL(string: "https://support.shifttimeline.app")

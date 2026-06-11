@@ -80,7 +80,7 @@ struct TimelineBuilderView: View {
     private var event: EventModel? { results.first }
 
     /// Vendors viewing an event shared to them get a read-only timeline — no
-    /// add/edit/move/delete affordances (SHIFT-622). The owner edits as before.
+    /// add/edit/move/delete affordances. The owner edits as before.
     private var isReadOnly: Bool {
         EventAccess.isShared(ownerId: event?.ownerId, currentProfileID: authService.currentProfileID)
     }
@@ -968,7 +968,7 @@ struct TimelineBuilderView: View {
     /// Fluid blocks are packed contiguously; pinned blocks keep their fixed clock
     /// time and act as anchors. Crucially, the walk starts from the timeline's
     /// *actual earliest start* — not `event.date`, which carries an arbitrary
-    /// time-of-day (the event picker is date-only) and previously flung the whole
+    /// time-of-day (the event picker is date-only) and would fling the whole
     /// fluid chain away from the pinned anchors, opening a large gap on the
     /// proportional canvas.
     private func applyReorder(_ ordered: [TimeBlockModel]) {

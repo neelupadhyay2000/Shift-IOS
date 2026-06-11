@@ -19,7 +19,7 @@ nonisolated enum SyncScope: Hashable {
 }
 
 /// Persists the `lastPulledAt` watermark per ``SyncScope`` so delta pulls
-/// (SHIFT-614) know where to resume: the next pull fetches rows with
+/// know where to resume: the next pull fetches rows with
 /// `updated_at > lastPulled` (plus tombstones) and, on success, advances the
 /// watermark. Survives relaunch — that's what lets a device that was offline or
 /// backgrounded catch up on next foreground without a manual refresh.
@@ -28,7 +28,7 @@ nonisolated enum SyncScope: Hashable {
 /// no need for a SwiftData table). The recorded value should be a
 /// **server-derived** timestamp (the max `updated_at` seen, or the server's
 /// fetch-time `now()`), never the device clock, so clock skew can't make a pull
-/// skip rows — that choice belongs to the SHIFT-614 fetch.
+/// skip rows — that choice belongs to the delta fetch.
 nonisolated struct LastPulledStore {
     private let defaults: UserDefaults
     private let keyPrefix: String

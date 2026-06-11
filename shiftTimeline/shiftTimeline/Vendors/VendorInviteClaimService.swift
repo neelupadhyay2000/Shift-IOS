@@ -3,12 +3,12 @@ import Models
 import Services
 
 /// Links a signing-in vendor to the `event_vendors` invite(s) addressed to them
-/// (SHIFT-627): for every unclaimed, invited row whose locked phone/email matches
+///: for every unclaimed, invited row whose locked phone/email matches
 /// the signed-in identity, it stamps `profileId` + `acceptedAt` — flipping the
 /// invite status from `invited` to `accepted` — and persists.
 ///
 /// Matching is delegated to `VendorInviteClaim`, the shared rule the
-/// security-definer claim RPC enforces authoritatively server-side (SHIFT-628);
+/// security-definer claim RPC enforces authoritatively server-side;
 /// this client-side pass keeps the local cache convergent with that result.
 @MainActor
 struct VendorInviteClaimService {

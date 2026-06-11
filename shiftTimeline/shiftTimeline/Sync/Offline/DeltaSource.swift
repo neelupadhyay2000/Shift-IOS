@@ -54,7 +54,7 @@ nonisolated struct SupabaseDeltaSource: DeltaSource {
     }
 
     /// Junction tables have no `updated_at` — they're immutable rows that are
-    /// created or (SHIFT-618) soft-deleted. Pull rows whose `created_at` OR
+    /// created or soft-deleted. Pull rows whose `created_at` OR
     /// `deleted_at` is past the watermark: new assignments/dependencies AND
     /// removals (tombstones). The applier turns a `deleted_at` junction into an
     /// unassign/remove-dependency, so offline removals propagate on reconnect.

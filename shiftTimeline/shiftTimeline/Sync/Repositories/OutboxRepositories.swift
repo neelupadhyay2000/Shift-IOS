@@ -6,8 +6,8 @@ import Services
 // (optimistic, local-first) and then appends an `OutboxEntry` via the shared
 // `OutboxCoordinator`. Reads come straight from the local cache (the runtime
 // source of truth that `@Query` observes). Nothing here touches the network —
-// the SyncEngine flush (SHIFT-603) drains the queue to Supabase later. This is
-// the offline replacement for the E12 write-through layer.
+// the SyncEngine flush drains the queue to Supabase later. This is
+// the offline replacement for the write-through layer.
 
 @MainActor
 struct OutboxEventRepository: EventRepositing {

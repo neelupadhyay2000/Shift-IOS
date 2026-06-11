@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A compact sync-health glyph + label (SHIFT-664). Place it anywhere a user
+/// A compact sync-health glyph + label. Place it anywhere a user
 /// should be able to tell, at a glance, whether sync is healthy, pending, or
 /// degraded — e.g. the Settings → Diagnostics row, or a roster toolbar.
 struct SyncStatusIndicator: View {

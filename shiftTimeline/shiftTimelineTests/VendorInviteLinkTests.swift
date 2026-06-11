@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import shiftTimeline
 
-@Suite("Vendor invite link & message (SHIFT-626)")
+@Suite("Vendor invite link & message")
 struct VendorInviteLinkTests {
 
     private let vendorID = UUID(uuidString: "11111111-1111-1111-1111-111111111111") ?? UUID()
@@ -14,7 +14,7 @@ struct VendorInviteLinkTests {
     }
 
     /// The link must round-trip through the same `shift://` parser the router uses
-    /// (host = action, first path component = id) so SHIFT-621 can claim it.
+    /// (host = action, first path component = id) so the claim flow can parse it.
     @Test func deepLinkURLParsesToInviteHostVendorAndEvent() throws {
         let url = try #require(VendorInviteLink.deepLink(vendorID: vendorID, eventID: eventID))
         #expect(url.scheme == "shift")

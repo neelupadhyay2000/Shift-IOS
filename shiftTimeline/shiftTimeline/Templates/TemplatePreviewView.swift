@@ -240,7 +240,7 @@ private struct UseTemplateSheet: View {
     @Environment(\.blockRepository) private var injectedBlockRepo
 
     // Route writes through the injected repositories so a template-created event
-    // enqueues to the Outbox and syncs (SHIFT-658 cutover). Falls back to a local
+    // enqueues to the Outbox and syncs. Falls back to a local
     // SwiftData repo when none is injected (previews / sync disabled).
     private var eventRepo: any EventRepositing {
         injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)

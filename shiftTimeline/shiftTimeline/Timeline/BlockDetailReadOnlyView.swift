@@ -10,7 +10,7 @@ import Services
 /// controls a vendor can't use. This is a clean, scrollable, presentation-only
 /// view: labelled values, playable voice memo, assigned vendors, dependencies.
 ///
-/// Detail is scoped per SHIFT-630 via ``BlockDetailScope``: a vendor sees full
+/// Detail is scoped via ``BlockDetailScope``: a vendor sees full
 /// detail only for blocks they're assigned to; for others they get the
 /// scheduling context (title, time, location) and a short notice.
 ///
@@ -48,7 +48,7 @@ struct BlockDetailReadOnlyView: View {
         !block.venueName.isEmpty || !block.venueAddress.isEmpty
     }
 
-    /// Full detail only for blocks this vendor is assigned to (SHIFT-630).
+    /// Full detail only for blocks this vendor is assigned to.
     private var canSeeDetails: Bool {
         BlockDetailScope.showsFullDetail(
             isReadOnly: true,

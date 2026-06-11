@@ -1,8 +1,7 @@
 import SwiftUI
 import Models
 
-/// A single row in the timeline builder list — Direction A ("calm pro-tool",
-/// Structured-style).
+/// A single row in the timeline builder list.
 ///
 /// The block's colour appears in exactly one place: a solid circular icon badge
 /// (the Structured signature). Typography carries the rest — semibold title,

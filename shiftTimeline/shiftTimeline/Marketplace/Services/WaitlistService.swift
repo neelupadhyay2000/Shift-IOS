@@ -31,7 +31,7 @@ protocol WaitlistServing: Sendable {
 
 // MARK: - Supabase Implementation
 
-/// Supabase-backed ``WaitlistServing`` (SHIFT-717). Stateless — holds only the
+/// Supabase-backed ``WaitlistServing``. Stateless — holds only the
 /// shared client; RLS (`marketplace_waitlist_self_all`) scopes every query to
 /// the caller's own row.
 struct SupabaseWaitlistService: WaitlistServing {

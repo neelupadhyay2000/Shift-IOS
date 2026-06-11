@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Accepts a raw phone number, normalizes it to E.164, and fires an OTP request
 /// via `PhoneAuthService`. On success, calls `onOTPRequested` with the normalized
-/// number so the parent can swap in the OTP verification screen (SHIFT-578).
+/// number so the parent can swap in the OTP verification screen.
 struct PhoneNumberEntryView: View {
 
     private let service: PhoneAuthService

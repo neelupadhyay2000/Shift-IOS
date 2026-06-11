@@ -1,15 +1,15 @@
 import Models
 import SwiftUI
 
-/// Waitlist signup sheet (SHIFT-716), presented from the teaser CTA.
+/// Waitlist signup sheet, presented from the teaser CTA.
 ///
 /// Online-only: loads the user's existing entry on appear so reopening shows
 /// current values and edits idempotently (upsert on `profile_id`), submits via
-/// ``WaitlistServing`` (Supabase implementation lands in SHIFT-717), and
+/// ``WaitlistServing``, and
 /// surfaces loading / error states inline. A successful submit flips
 /// `MarketplaceDefaultsKey.waitlistJoined` so the teaser shows its joined card.
 ///
-/// Direction A styling — ProBackground canvas, selectable icon cards for the
+/// Styling: ProBackground canvas, selectable icon cards for the
 /// interest role (the VendorFormSheet grid pattern), role-coloured capsule
 /// chips for the category, and a proCard region field. No stock Form.
 struct WaitlistSignupSheet: View {
@@ -356,7 +356,7 @@ struct WaitlistSignupSheet: View {
                 customCategoryLabel: customCategory,
                 region: region.trimmingCharacters(in: .whitespaces)
             )
-            // Demand measurement (SHIFT-717) — aggregate dimensions only, no
+            // Demand measurement — aggregate dimensions only, no
             // PII: the free-text region and custom vendor type never leave the
             // waitlist table (analytics always sees the enum raw value).
             AnalyticsService.send(.marketplaceWaitlistJoined, parameters: [
@@ -395,7 +395,7 @@ extension WaitlistInterestRole {
 
 // MARK: - Previews
 
-/// In-memory fake for previews; SHIFT-717 provides the Supabase implementation.
+/// In-memory fake for previews.
 private struct PreviewWaitlistService: WaitlistServing {
     var existingEntry: WaitlistEntryDTO?
     var failsOnSubmit = false

@@ -2,7 +2,7 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-618: the purge cutoff. The actual table-reaping `purge(now:)` hits
+/// The purge cutoff. The actual table-reaping `purge(now:)` hits
 /// Supabase (online acceptance); the retention math is verified here.
 @Suite("Tombstone purger")
 struct TombstonePurgerTests {

@@ -1,6 +1,6 @@
 import XCTest
 
-// MARK: - UITest Quarantine Registry (SHIFT-1005.4)
+// MARK: - UITest Quarantine Registry
 //
 // Centralised list of UI tests that are quarantined (known-flaky).
 //

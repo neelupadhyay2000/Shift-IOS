@@ -24,7 +24,7 @@ private struct ShiftRecordRepositoryKey: EnvironmentKey {
     static let defaultValue: (any ShiftRecordRepositing)? = nil
 }
 
-/// The cutover's shared ``RealtimeEchoSuppressor`` (SHIFT-658). Injected by the
+/// The cutover's shared ``RealtimeEchoSuppressor``. Injected by the
 /// app when `FeatureFlags.supabaseSync` is on so the per-event realtime applier
 /// in `EventDetailView` consults the *same* instance the Outbox flush records
 /// into — that's what lets the planner's own writes be recognized as echoes and
@@ -34,14 +34,14 @@ private struct RealtimeEchoSuppressorKey: EnvironmentKey {
     static let defaultValue: RealtimeEchoSuppressor? = nil
 }
 
-/// The Supabase sync stack (E16 composition root), or `nil` when sync is off.
+/// The Supabase sync stack composition root, or `nil` when sync is off.
 /// Exposed so views can trigger an on-demand pull (flush + full hydrate), e.g.
 /// pull-to-refresh on the event roster.
 private struct SupabaseSyncStackKey: EnvironmentKey {
     static let defaultValue: SupabaseSyncStack? = nil
 }
 
-/// User-facing sync health (SHIFT-664), or `nil` when sync is off. Read by the
+/// User-facing sync health, or `nil` when sync is off. Read by the
 /// `SyncStatusIndicator` so the user can tell whether sync is healthy, pending,
 /// or degraded.
 private struct SyncStatusMonitorKey: EnvironmentKey {
@@ -91,7 +91,7 @@ extension View {
     ///
     /// ```swift
     /// // Production (scene level):
-    /// ContentView()
+    /// RootContainerView()
     ///     .repositories(SwiftDataRepositoryProvider(context: container.mainContext))
     ///
     /// // Tests / previews:

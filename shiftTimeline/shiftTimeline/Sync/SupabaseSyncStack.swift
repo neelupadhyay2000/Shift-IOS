@@ -13,12 +13,12 @@ protocol SessionSyncing {
     func onSessionEstablished() async
 }
 
-/// The E16 cutover composition root (SHIFT-658): the single object that wires the
+/// The sync composition root: the single object that wires the
 /// whole Supabase data layer together and owns its lifecycle. Built by the app
 /// only when `FeatureFlags.supabaseSync` is on; when the flag is off it is never
 /// created and the app runs fully local (the kill-switch).
 ///
-/// It assembles the four halves that were built across E12–E13 but never wired:
+/// It assembles the four halves of the sync engine:
 /// - **Writes** — `repositoryProvider` (Outbox): every timeline mutation writes
 ///   local-first and enqueues an `OutboxEntry`. Injected at the scene root, so
 ///   all existing repository call sites flip onto it.
@@ -39,7 +39,7 @@ final class SupabaseSyncStack: SessionSyncing {
     /// Shared with the realtime applier (via the environment) so self-writes are
     /// recognized as echoes and skipped.
     let echoSuppressor: RealtimeEchoSuppressor
-    /// User-facing sync health (SHIFT-664): drives the `SyncStatusIndicator` and
+    /// User-facing sync health: drives the `SyncStatusIndicator` and
     /// the surfaced error message. Injected into the environment by the app.
     let statusMonitor: SyncStatusMonitor
 
@@ -62,7 +62,7 @@ final class SupabaseSyncStack: SessionSyncing {
         let suppressor = RealtimeEchoSuppressor()
         echoSuppressor = suppressor
 
-        // Centralized backoff/rate-limit tuning (SHIFT-663).
+        // Centralized backoff/rate-limit tuning.
         let tuning = SyncTuning.default
 
         // Push: drain the Outbox to Supabase, recording each write so its realtime
@@ -86,9 +86,9 @@ final class SupabaseSyncStack: SessionSyncing {
         self.scheduler = scheduler
         connectivity = ConnectivityMonitor { scheduler.requestFlush() }
 
-        // User-facing sync status (SHIFT-664): pending depth = the Outbox count;
+        // User-facing sync status: pending depth = the Outbox count;
         // errors fold in from the diagnostics funnel it observes. Status
-        // *transitions* are forwarded to TelemetryDeck (SHIFT-668) so degraded /
+        // *transitions* are forwarded to TelemetryDeck so degraded /
         // recovered sync health is observable in production — filter the
         // `syncHealthChanged` signal on `to == degraded` for alerting.
         let monitor = SyncStatusMonitor(

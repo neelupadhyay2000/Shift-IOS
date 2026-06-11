@@ -5,7 +5,7 @@ import Services
 import SwiftData
 import Testing
 
-/// SHIFT-611: the Outbox flushes FIFO, deletes on success, halts at the first
+/// The Outbox flushes FIFO, deletes on success, halts at the first
 /// failure with exponential backoff, and re-sends idempotently (no duplicate
 /// rows). The real network sender hits Supabase, so the flusher is driven here
 /// against a fake `OutboxSending` that models an idempotent upsert-by-id.
@@ -208,7 +208,7 @@ struct OutboxFlusherTests {
         #expect(OutboxFlusher.backoffSeconds(forAttempt: 3, base: 2, cap: 60) == 8)
     }
 
-    // MARK: - Backoff jitter (SHIFT-663)
+    // MARK: - Backoff jitter
 
     @Test("equal jitter keeps half the backoff and randomizes the other half over [ceiling/2, ceiling]")
     func equalJitterBoundsAndMidpoint() {

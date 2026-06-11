@@ -16,7 +16,7 @@ final class FakeVendorShiftResetWriter: VendorShiftResetWriting {
     }
 }
 
-@Suite("Vendor shift reset push (SHIFT-634)")
+@Suite("Vendor shift reset push")
 @MainActor
 struct VendorShiftResetServiceTests {
 

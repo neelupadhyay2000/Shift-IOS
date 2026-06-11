@@ -6,11 +6,11 @@ import SwiftData
 import Supabase
 import Testing
 
-/// SHIFT-668 — the `.conflict` funnel stage must light up when LWW actually
+/// The `.conflict` funnel stage must light up when LWW actually
 /// resolves a race (a strictly-older remote version is skipped). Routine
 /// re-deliveries (equal version) and normal newer-wins applies stay silent so
 /// the stage is a high-signal indicator, not noise. Closes the one funnel gap
-/// found in the SHIFT-667 audit: conflict previously had zero emitters, so the
+/// found in the pre-launch audit: conflict previously had zero emitters, so the
 /// diagnostics row could never go green and telemetry never saw LWW activity.
 @Suite("Conflict funnel diagnostics")
 @MainActor

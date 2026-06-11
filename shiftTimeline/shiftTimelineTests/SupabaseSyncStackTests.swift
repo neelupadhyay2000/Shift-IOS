@@ -6,7 +6,7 @@ import Supabase
 import SwiftData
 import Testing
 
-/// SHIFT-658: the cutover composition root. The single feature flag, when on,
+/// The sync composition root. The single feature flag, when on,
 /// builds `SupabaseSyncStack`, which routes every timeline write through the
 /// Outbox provider (so writes sync) and shares one `RealtimeEchoSuppressor`
 /// between the push path and the realtime applier (so a device's own writes

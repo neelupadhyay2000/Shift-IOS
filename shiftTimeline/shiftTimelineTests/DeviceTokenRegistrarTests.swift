@@ -15,7 +15,7 @@ final class FakeDeviceTokenWriter: DeviceTokenWriting {
     }
 }
 
-@Suite("Device token registration (SHIFT-642)")
+@Suite("Device token registration")
 @MainActor
 struct DeviceTokenRegistrarTests {
 

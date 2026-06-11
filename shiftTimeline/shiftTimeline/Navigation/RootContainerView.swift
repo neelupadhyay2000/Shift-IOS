@@ -19,7 +19,7 @@ struct RootContainerView: View {
     var body: some View {
         content
             // Foreground shift pushes are suppressed as system notifications and
-            // surfaced here as an in-app banner instead (SHIFT-648).
+            // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }
             .animation(.spring(duration: 0.35), value: deepLinkRouter.foregroundShiftBanner)
             .fullScreenCover(isPresented: $isShowingLaunchPromo) {

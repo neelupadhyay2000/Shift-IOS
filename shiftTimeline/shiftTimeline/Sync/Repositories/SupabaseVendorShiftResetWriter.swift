@@ -1,7 +1,7 @@
 import Foundation
 import Supabase
 
-/// Pushes the planner's post-shift acknowledgment reset to Supabase (SHIFT-634).
+/// Pushes the planner's post-shift acknowledgment reset to Supabase.
 ///
 /// When the planner commits a shift, every affected vendor's acknowledgment is
 /// reset: `has_acknowledged_latest_shift = false` and `pending_shift_delta` is

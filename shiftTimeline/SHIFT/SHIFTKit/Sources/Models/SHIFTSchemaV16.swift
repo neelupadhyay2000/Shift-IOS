@@ -4,7 +4,7 @@ import SwiftData
 /// V16 schema — adds `EventModel.ownerId` (`UUID?`) mirroring `events.owner_id`.
 ///
 /// The owner id distinguishes events the signed-in user owns from events shared
-/// to them as a vendor/collaborator, so the latter render read-only (SHIFT-622).
+/// to them as a vendor/collaborator, so the latter render read-only.
 /// `nil` for local-only events and rows not yet backfilled with an owner — those
 /// are treated as the current user's own. Adding an optional property (default
 /// `nil`) is a lightweight migration. All other models are unchanged from V15.

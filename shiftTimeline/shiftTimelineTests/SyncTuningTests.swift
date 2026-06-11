@@ -2,10 +2,10 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-663 — the tuned backoff/rate-limit policy is centralized in
+/// The tuned backoff/rate-limit policy is centralized in
 /// ``SyncTuning``. These pin the defaults (so a careless edit is caught) and
 /// confirm the flusher's backoff honours the tuned cap.
-@Suite("Sync tuning (SHIFT-663)")
+@Suite("Sync tuning")
 struct SyncTuningTests {
 
     @Test("the tuned defaults match the documented rate-limit policy")

@@ -7,11 +7,11 @@ import SwiftData
 ///
 /// Fetches every accessible row (RLS-scoped), upserts each into SwiftData **by
 /// id** (find-or-create + apply scalars), then wires relationships by id using
-/// the SHIFT-590 mapping. Idempotent: re-running updates existing rows in place
+/// the DTO mapping layer. Idempotent: re-running updates existing rows in place
 /// rather than duplicating, so it's safe to call on every launch.
 ///
 /// Upsert-only — rows deleted on the server (tombstones) and local-only rows are
-/// left untouched here; that reconciliation belongs to the E13 Outbox/delta sync.
+/// left untouched here; that reconciliation belongs to the Outbox/delta sync.
 @MainActor
 struct InitialHydrator {
     private let source: any HydrationSource

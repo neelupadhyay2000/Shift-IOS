@@ -1,7 +1,7 @@
 import Foundation
 import Services
 
-/// The user-facing health of Supabase sync (SHIFT-664). Deliberately three
+/// The user-facing health of Supabase sync. Deliberately three
 /// states — the only distinction a user needs:
 /// - **healthy** — everything is up to date.
 /// - **pending** — local changes are queued, waiting to reach the server.

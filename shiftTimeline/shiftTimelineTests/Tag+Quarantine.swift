@@ -1,6 +1,6 @@
 import Testing
 
-// MARK: - Quarantine Tag (SHIFT-1005.4)
+// MARK: - Quarantine Tag
 //
 // Marks a Swift Testing unit test as quarantined (known-flaky).
 //

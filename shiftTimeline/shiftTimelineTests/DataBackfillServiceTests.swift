@@ -5,9 +5,9 @@ import Services
 import SwiftData
 import Testing
 
-/// SHIFT-656: the one-time post-migration backfill enqueues the entire local
+/// The one-time post-migration backfill enqueues the entire local
 /// event graph into the Outbox as idempotent `insert` upserts, so a CloudKit-era
-/// user's on-device data lands in Supabase the existing flush (SHIFT-603) drains
+/// user's on-device data lands in Supabase the existing flush drains
 /// it FIFO. These tests assert the *enqueue* contract: every owned row produces
 /// exactly one id-keyed insert entry, parents precede children, junctions follow
 /// their endpoints, and the event payload is stamped with the current owner.

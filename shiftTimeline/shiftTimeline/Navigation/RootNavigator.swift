@@ -36,7 +36,7 @@ enum EventDestination: Hashable {
 
 /// Typed push destinations for the Marketplace stack.
 /// Intentionally empty — the teaser tab pushes nothing yet; marketplace
-/// browsing destinations land in E10 (SHIFT-724).
+/// browsing destinations land with the full marketplace.
 enum MarketplaceDestination: Hashable {}
 
 /// Typed push destinations for the Templates stack.
@@ -125,7 +125,7 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
             .tag(Tab.events)
 
-            // Marketplace tab — no push destinations until E10 (SHIFT-724)
+            // Marketplace tab — no push destinations yet
             NavigationStack(path: $marketplacePath) {
                 MarketplaceTeaserView()
             }
@@ -310,11 +310,7 @@ struct RootNavigator: View {
 
 // MARK: - ContentPlaceholderView
 
-/// Placeholder root content for each tab.
-/// Replaced by real views as E2 stories land:
-///   `.events`    → EventRosterView  (done)
-///   `.templates` → TemplateGalleryView
-///   `.settings`  → SettingsView
+/// Placeholder content for destinations that do not have a dedicated view yet.
 private struct ContentPlaceholderView: View {
 
     var tab: Tab?
