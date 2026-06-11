@@ -2,6 +2,7 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+import StoreKit
 import SwiftData
 import AppIntents
 import TipKit
@@ -21,6 +22,7 @@ import Services
 struct LiveDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.requestReview) private var requestReview
     @Environment(\.eventRepository) private var injectedEventRepo
 
     private var eventRepo: any EventRepositing {
@@ -96,6 +98,7 @@ struct LiveDashboardView: View {
             isOwner: isOwner,
             viewerProfileID: isOwner ? nil : authService.currentProfileID,
             onAdvance: advanceToNextBlock,
+            onShiftRequested: { isShowingQuickShift = true },
             onExitTapped: { handleExitTapped() },
             onDismiss: { dismiss() }
         )
@@ -180,6 +183,13 @@ struct LiveDashboardView: View {
             #if canImport(UIKit)
             UIApplication.shared.isIdleTimerDisabled = false
             #endif
+        }
+        // Peak-goodwill review ask: fires only at the moment of completion
+        // (not when re-opening an already-complete event) and at most once
+        // per app version — see ReviewPrompter.
+        .onChange(of: isEventComplete) { _, isComplete in
+            guard isComplete, isOwner else { return }
+            ReviewPrompter.requestIfNeeded { requestReview() }
         }
     }
 
@@ -529,6 +539,8 @@ private struct _LiveDashboardContent: View {
     /// active / next block when it's assigned to them.
     var viewerProfileID: UUID?
     let onAdvance: () -> Void
+    /// Opens the quick-shift sheet (overtime nudge CTA). Planner-only.
+    let onShiftRequested: () -> Void
     let onExitTapped: () -> Void
     let onDismiss: () -> Void
 
@@ -645,6 +657,13 @@ private struct _LiveDashboardContent: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            // ── Overtime nudge (planner only) ─────────────────────────
+            // Surfaces the shift feature at the exact moment it's needed:
+            // the active block has run past its scheduled end.
+            if isOwner, let activeBlock {
+                OvertimeNudgeBanner(block: activeBlock, onShift: onShiftRequested)
             }
 
             // ── Next block card ───────────────────────────────────────

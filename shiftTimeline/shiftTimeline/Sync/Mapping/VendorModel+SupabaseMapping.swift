@@ -16,6 +16,10 @@ extension VendorModel {
 
     /// Projects this vendor using an explicitly supplied `event_id` — used by the
     /// remote repository, which already knows the owning event.
+    ///
+    /// A user-entered custom vendor type rides the free-string `role` column in
+    /// place of the `custom` raw value — no server schema change. Old clients
+    /// map the unknown string back to `.custom` via the decode fallback below.
     func toDTO(eventID: UUID) -> EventVendorDTO {
         EventVendorDTO(
             id: id,
@@ -24,7 +28,7 @@ extension VendorModel {
             invitedPhone: phone.isEmpty ? nil : phone,
             invitedEmail: email.isEmpty ? nil : email,
             displayName: name,
-            role: role.rawValue,
+            role: role == .custom && !customRoleLabel.isEmpty ? customRoleLabel : role.rawValue,
             // Column is integer seconds; the model stores a TimeInterval.
             notificationThreshold: Int(notificationThreshold),
             hasAcknowledgedLatestShift: hasAcknowledgedLatestShift,
@@ -53,7 +57,11 @@ extension EventVendorDTO {
     func apply(to model: VendorModel) {
         model.id = id
         model.name = displayName
-        model.role = VendorRole(rawValue: role) ?? .custom
+        // An unrecognized role string is a user-entered custom vendor type:
+        // store it as the custom label (mirror of the `toDTO` projection).
+        let parsedRole = VendorRole(rawValue: role)
+        model.role = parsedRole ?? .custom
+        model.customRoleLabel = parsedRole == nil ? role : ""
         model.phone = invitedPhone ?? ""
         model.email = invitedEmail ?? ""
         model.notificationThreshold = TimeInterval(notificationThreshold)

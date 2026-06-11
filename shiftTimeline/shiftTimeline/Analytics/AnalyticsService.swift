@@ -46,6 +46,21 @@ nonisolated enum AnalyticsService {
         // carries only `role` and `category` dimensions (never region text).
         case marketplaceTeaserViewed = "marketplace.teaserViewed"
         case marketplaceWaitlistJoined = "marketplace.waitlistJoined"
+
+        // User template lifecycle + community tease funnel: lifecycle signals
+        // carry only counts (never template names — user-entered, may be PII);
+        // the teaser signal measures demand ahead of community templates.
+        case templateSavedFromEvent = "template.savedFromEvent"
+        case templateEdited = "template.edited"
+        case templateDeleted = "template.deleted"
+        case communityTemplatesTeaserViewed = "templates.communityTeaserViewed"
+
+        // 1.0 launch features: first-run demo seeding, reusable vendor teams,
+        // and the launch promo interstitial. Counts only — no names or titles.
+        case demoEventCreated = "demo.eventCreated"
+        case vendorTeamCreated = "vendorTeam.created"
+        case vendorTeamApplied = "vendorTeam.applied"
+        case launchPromoShown = "promo.launchShown"
     }
 
     static func send(_ signal: Signal) {

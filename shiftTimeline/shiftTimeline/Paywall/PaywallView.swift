@@ -15,6 +15,8 @@ enum PaywallTrigger: String, Identifiable, Sendable {
     /// User tapped "Upgrade to Pro" intentionally from Settings — not a feature gate.
     /// Kept distinct so paywall conversion analytics aren't misattributed to in-app gates.
     case settings
+    /// Opened from the launch promo interstitial — also not a feature gate.
+    case launchPromo
 
     var id: String { rawValue }
 
@@ -30,6 +32,7 @@ enum PaywallTrigger: String, Identifiable, Sendable {
         case .templates:     return String(localized: "Unlock every template")
         case .widgets:       return String(localized: "Add widgets to your Home Screen")
         case .settings:      return String(localized: "Unlock everything in SHIFT")
+        case .launchPromo:   return String(localized: "Run every event like a pro")
         }
     }
 
@@ -50,6 +53,8 @@ enum PaywallTrigger: String, Identifiable, Sendable {
         case .widgets:
             return String(localized: "Glance at your active block straight from the Home Screen.")
         case .settings:
+            return String(localized: "Unlock unlimited events, vendor sharing, PDF exports, Live Activities, widgets, and every template.")
+        case .launchPromo:
             return String(localized: "Unlock unlimited events, vendor sharing, PDF exports, Live Activities, widgets, and every template.")
         }
     }

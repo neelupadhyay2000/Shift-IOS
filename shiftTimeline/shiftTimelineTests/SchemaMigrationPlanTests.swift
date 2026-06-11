@@ -55,9 +55,9 @@ struct SchemaMigrationPlanTests {
 
     // MARK: - Latest Schema Matches Live Models
 
-    @Test func latestSchemaVersionIsV16() {
+    @Test func latestSchemaVersionIsV17() {
         let latestMajor = SHIFTMigrationPlan.schemas.last?.versionIdentifier.major
-        #expect(latestMajor == 16, "Latest schema must be V16 — got \(latestMajor ?? -1)")
+        #expect(latestMajor == 17, "Latest schema must be V17 — got \(latestMajor ?? -1)")
     }
 
     @Test func latestSchemaModelCountMatchesLiveSchema() {
@@ -69,23 +69,23 @@ struct SchemaMigrationPlanTests {
         )
     }
 
-    // MARK: - V15 → V16 plan continuity
+    // MARK: - V16 → V17 plan continuity
 
-    @Test func planExposesSixteenSchemasAndFifteenStages() {
+    @Test func planExposesSeventeenSchemasAndSixteenStages() {
         #expect(
-            SHIFTMigrationPlan.schemas.count == 16,
-            "Expected schemas [V1 … V16] — got \(SHIFTMigrationPlan.schemas.count)"
+            SHIFTMigrationPlan.schemas.count == 17,
+            "Expected schemas [V1 … V17] — got \(SHIFTMigrationPlan.schemas.count)"
         )
         #expect(
-            SHIFTMigrationPlan.stages.count == 15,
-            "Expected 15 lightweight stages (V1→V2 … V15→V16) — got \(SHIFTMigrationPlan.stages.count)"
+            SHIFTMigrationPlan.stages.count == 16,
+            "Expected 16 lightweight stages (V1→V2 … V16→V17) — got \(SHIFTMigrationPlan.stages.count)"
         )
     }
 
-    @Test func schemasAreOrderedV1ThroughV16() {
+    @Test func schemasAreOrderedV1ThroughV17() {
         let versions = SHIFTMigrationPlan.schemas.map { $0.versionIdentifier }
         let majors = versions.map { $0.major }
-        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+        #expect(majors == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
     }
 
     /// Lightweight V8 → V9 migration must default `VendorModel.invitedAt` to
@@ -373,6 +373,37 @@ struct SchemaMigrationPlanTests {
 
         let fetched = try #require(try context.fetch(FetchDescriptor<EventModel>()).first)
         #expect(fetched.ownerId == owner)
+    }
+
+    /// Lightweight V16 → V17 migration adds `VendorModel.customRoleLabel`
+    /// (`String`, default `""`). Verify it defaults empty for legacy rows and
+    /// round-trips a user-entered custom vendor type.
+    @Test @MainActor func freshContainerWithV17PlanRoundTripsCustomRoleLabel() throws {
+        let schema = PersistenceController.schema
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: schema,
+            migrationPlan: SHIFTMigrationPlan.self,
+            configurations: [config]
+        )
+        let context = container.mainContext
+
+        let vendor = VendorModel(name: "Lia", role: .custom)
+        context.insert(vendor)
+        try context.save()
+
+        // A row created without a custom type has an empty label.
+        #expect(vendor.customRoleLabel.isEmpty)
+
+        vendor.customRoleLabel = "Videographer"
+        try context.save()
+
+        let fetched = try #require(try context.fetch(FetchDescriptor<VendorModel>()).first)
+        #expect(fetched.customRoleLabel == "Videographer")
     }
 
     /// Lightweight V4 → V5 migration must default `TimeBlockModel.isTransitBlock`

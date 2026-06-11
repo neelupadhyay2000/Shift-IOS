@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 import Models
 import Services
 
@@ -14,12 +15,23 @@ struct EventRosterView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @Environment(\.supabaseSyncStack) private var syncStack
     @Environment(\.eventRepository) private var injectedEventRepo
+    @Environment(\.trackRepository) private var injectedTrackRepo
+    @Environment(\.blockRepository) private var injectedBlockRepo
 
     /// Outbox-backed when sync is on (scene injection); SwiftData fallback otherwise.
     private var eventRepo: any EventRepositing {
         injectedEventRepo ?? SwiftDataEventRepository(context: modelContext)
+    }
+
+    private var trackRepo: any TrackRepositing {
+        injectedTrackRepo ?? SwiftDataTrackRepository(context: modelContext)
+    }
+
+    private var blockRepo: any BlockRepositing {
+        injectedBlockRepo ?? SwiftDataBlockRepository(context: modelContext)
     }
 
     @State private var isShowingCreateSheet = false
@@ -162,6 +174,15 @@ struct EventRosterView: View {
                     isShowingCreateSheet = true
                 }
                 .accessibilityIdentifier(AccessibilityID.Roster.createEventButton)
+
+                // First-run conversion path: seed a ready-to-run sample event so
+                // the user can Go Live and watch the Ripple Engine work without
+                // building a timeline first.
+                Button(String(localized: "Try a Demo Event")) {
+                    seedDemoEvent()
+                }
+                .accessibilityIdentifier(AccessibilityID.Roster.demoEventButton)
+                .accessibilityHint(String(localized: "Creates a sample event with a ready-made timeline"))
             }
             .containerRelativeFrame(.vertical, alignment: .center)
         }
@@ -169,7 +190,22 @@ struct EventRosterView: View {
 
     // MARK: - Actions
 
+    /// Seeds the demo event and pushes straight into its detail view.
+    private func seedDemoEvent() {
+        Task {
+            guard let eventID = await DemoEventSeeder.seed(
+                eventRepo: eventRepo, trackRepo: trackRepo, blockRepo: blockRepo
+            ) else { return }
+            deepLinkRouter.pendingDestination = .event(id: eventID)
+        }
+    }
+
     private func deleteOwnedEvent(_ event: EventModel) {
+        // The event is going away — its pending local reminders must too.
+        DayBeforeBriefingNotifier.cancel(for: event.id)
+        UNUserNotificationCenter.current().removePendingNotificationRequests(
+            withIdentifiers: [GoldenHourNotifier.identifier(for: event.id)]
+        )
         // Route through the repository so the delete reaches Supabase as a
         // soft-delete tombstone and every other device (vendors included)
         // converges via realtime/delta. A bare modelContext.delete stays

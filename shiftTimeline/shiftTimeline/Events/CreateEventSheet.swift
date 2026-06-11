@@ -100,6 +100,9 @@ struct CreateEventSheet: View {
             _ = await service.fetchIfNeeded(for: event)
         }
         try? await eventRepo.save()
+        // Evening-before briefing; re-stamped on every foreground so it picks
+        // up blocks and sunset data added after creation.
+        await DayBeforeBriefingNotifier.schedule(for: event)
         dismiss()
     }
 }

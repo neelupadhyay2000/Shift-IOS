@@ -21,6 +21,7 @@ struct VendorFormSheet: View {
 
     @State private var name = ""
     @State private var role: VendorRole = .photographer
+    @State private var customRole = ""
     @State private var phone = ""
     @State private var email = ""
 
@@ -98,6 +99,14 @@ struct VendorFormSheet: View {
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+
+                    // Free-text vendor type for the Custom role — what shows on
+                    // the vendor's badge instead of the generic "Custom".
+                    if role == .custom {
+                        TextField(String(localized: "Vendor type (e.g. Videographer)"), text: $customRole)
+                            .accessibilityIdentifier(AccessibilityID.Vendors.customRoleField)
+                            .accessibilityLabel(String(localized: "Custom vendor type"))
+                    }
                 }
 
                 Section(String(localized: "Contact")) {
@@ -127,6 +136,7 @@ struct VendorFormSheet: View {
                 if let vendorToEdit {
                     name = vendorToEdit.name
                     role = vendorToEdit.role
+                    customRole = vendorToEdit.customRoleLabel
                     phone = vendorToEdit.phone
                     email = vendorToEdit.email
                 }
@@ -140,16 +150,23 @@ struct VendorFormSheet: View {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let trimmedPhone = phone.trimmingCharacters(in: .whitespaces)
         let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
+        // The label only means something for the Custom role; switching to a
+        // built-in role clears any stale label.
+        let resolvedCustomLabel = role == .custom
+            ? customRole.trimmingCharacters(in: .whitespaces)
+            : ""
 
         if let vendorToEdit {
             vendorToEdit.name = trimmedName
             vendorToEdit.role = role
+            vendorToEdit.customRoleLabel = resolvedCustomLabel
             vendorToEdit.phone = trimmedPhone
             vendorToEdit.email = trimmedEmail
         } else {
             let vendor = VendorModel(
                 name: trimmedName,
                 role: role,
+                customRoleLabel: resolvedCustomLabel,
                 phone: trimmedPhone,
                 email: trimmedEmail
             )

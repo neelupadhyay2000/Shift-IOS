@@ -18,10 +18,13 @@ protocol WaitlistServing: Sendable {
 
     /// Joins the waitlist, or updates the existing entry (upsert on
     /// `profile_id`). `category` is dropped for planner-only signups.
+    /// `customCategoryLabel` is the user-entered vendor type for the `.custom`
+    /// category (ignored for built-in categories).
     @discardableResult
     func upsert(
         role: WaitlistInterestRole,
         category: VendorRole?,
+        customCategoryLabel: String,
         region: String
     ) async throws -> WaitlistEntryDTO
 }
@@ -54,6 +57,7 @@ struct SupabaseWaitlistService: WaitlistServing {
     func upsert(
         role: WaitlistInterestRole,
         category: VendorRole?,
+        customCategoryLabel: String,
         region: String
     ) async throws -> WaitlistEntryDTO {
         let profileID = try await client.auth.session.user.id
@@ -61,6 +65,7 @@ struct SupabaseWaitlistService: WaitlistServing {
             profileID: profileID,
             role: role,
             category: category,
+            customCategoryLabel: customCategoryLabel,
             region: region
         )
         return try await client
@@ -75,16 +80,29 @@ struct SupabaseWaitlistService: WaitlistServing {
     /// Pure payload construction, exposed internally for tests: planner-only
     /// signups never carry a category (the explicit-NULL encode then clears any
     /// stale value server-side), and the region is trimmed.
+    ///
+    /// A user-entered custom vendor type rides the free-text `category` column
+    /// in place of the `custom` raw value (the column has no CHECK constraint),
+    /// mirroring how `event_vendors.role` carries custom labels.
     static func payload(
         profileID: UUID,
         role: WaitlistInterestRole,
         category: VendorRole?,
+        customCategoryLabel: String = "",
         region: String
     ) -> WaitlistEntryDTO {
-        WaitlistEntryDTO(
+        let resolvedCategory: String? = {
+            guard role != .planner, let category else { return nil }
+            let trimmedLabel = customCategoryLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+            if category == .custom && !trimmedLabel.isEmpty {
+                return trimmedLabel
+            }
+            return category.rawValue
+        }()
+        return WaitlistEntryDTO(
             profileID: profileID,
             interestRole: role.rawValue,
-            category: role == .planner ? nil : category?.rawValue,
+            category: resolvedCategory,
             region: region.trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }

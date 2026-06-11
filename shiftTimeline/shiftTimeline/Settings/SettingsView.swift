@@ -30,6 +30,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             accountSection
+            vendorTeamsSection
             notificationsSection
             aboutSection
             #if DEBUG
@@ -99,6 +100,21 @@ struct SettingsView: View {
                 ?? String(localized: "Signed in")
         }
         return String(localized: "Signed in")
+    }
+
+    // MARK: - Vendor Teams
+
+    private var vendorTeamsSection: some View {
+        Section {
+            NavigationLink {
+                VendorTeamsView()
+            } label: {
+                Label(String(localized: "Vendor Teams"), systemImage: "person.3")
+            }
+            .accessibilityHint(String(localized: "Manage reusable groups of vendors"))
+        } footer: {
+            Text(String(localized: "Save the crews you work with regularly, then add them to any event in one tap."))
+        }
     }
 
     // MARK: - Notifications

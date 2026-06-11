@@ -15,6 +15,7 @@ struct VendorManagerView: View {
     @Environment(\.vendorRepository) private var injectedVendorRepo
     @Query private var results: [EventModel]
     @State private var showingAddSheet = false
+    @State private var showingApplyTeamSheet = false
     @State private var vendorToEdit: VendorModel?
     @State private var vendorToDelete: VendorModel?
     @State private var showDeleteConfirmation = false
@@ -43,14 +44,17 @@ struct VendorManagerView: View {
                         LazyVStack(spacing: 12) {
                             ForEach((event.vendors ?? []).sorted(by: { $0.name < $1.name })) { vendor in
                                 let blockCount = assignedBlockCount(for: vendor)
+                                let roleLabel = VendorRoleLabel.display(
+                                    role: vendor.role, customLabel: vendor.customRoleLabel
+                                )
                                 vendorRow(vendor)
                                     .premiumCard(padding: 12)
                                     .contentShape(Rectangle())
                                     .onTapGesture { vendorToEdit = vendor }
                                     .accessibilityLabel(
                                         blockCount > 0
-                                            ? "\(vendor.name), \(vendor.role.displayName), \(blockCount) blocks"
-                                            : "\(vendor.name), \(vendor.role.displayName)"
+                                            ? "\(vendor.name), \(roleLabel), \(blockCount) blocks"
+                                            : "\(vendor.name), \(roleLabel)"
                                     )
                                     .accessibilityHint(String(localized: "Double-tap to edit"))
                                     .accessibilityAddTraits(.isButton)
@@ -88,9 +92,22 @@ struct VendorManagerView: View {
                 .accessibilityLabel(String(localized: "Add Vendor"))
                 .accessibilityIdentifier(AccessibilityID.Vendors.addVendorButton)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingApplyTeamSheet = true
+                } label: {
+                    Image(systemName: "person.3")
+                }
+                .accessibilityLabel(String(localized: "Add Team"))
+                .accessibilityHint(String(localized: "Adds a saved vendor team to this event"))
+                .accessibilityIdentifier(AccessibilityID.VendorTeams.applyTeamButton)
+            }
         }
         .sheet(isPresented: $showingAddSheet) {
             VendorFormSheet(eventID: eventID)
+        }
+        .sheet(isPresented: $showingApplyTeamSheet) {
+            ApplyVendorTeamSheet(eventID: eventID)
         }
         .sheet(item: $vendorToEdit) { vendor in
             VendorFormSheet(eventID: eventID, vendor: vendor)
@@ -140,7 +157,7 @@ struct VendorManagerView: View {
                     .lineLimit(2)
 
                 HStack(spacing: 6) {
-                    Text(vendor.role.displayName)
+                    Text(VendorRoleLabel.display(role: vendor.role, customLabel: vendor.customRoleLabel))
                         .font(.caption)
                         .fontWeight(.semibold)
                         .padding(.horizontal, 8)

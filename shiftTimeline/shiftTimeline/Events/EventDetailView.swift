@@ -30,6 +30,7 @@ struct EventDetailView: View {
 
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
+    @State private var isShowingSaveAsTemplate = false
     @State private var isShowingVendorSharing = false
     @State private var isShowingSignIn = false
     /// Set when sign-in was prompted by a share attempt, so the share flow
@@ -76,6 +77,11 @@ struct EventDetailView: View {
         .sheet(isPresented: $isShowingEditSheet) {
             if let event {
                 EditEventSheet(event: event)
+            }
+        }
+        .sheet(isPresented: $isShowingSaveAsTemplate) {
+            if let event {
+                SaveAsTemplateSheet(event: event)
             }
         }
         .sheet(isPresented: $isShowingSignIn, onDismiss: resumeShareAfterSignIn) {
@@ -392,6 +398,13 @@ struct EventDetailView: View {
                 }
                 .buttonStyle(.pressableCard)
                 .accessibilityHint(String(localized: "Generates a PDF timeline document"))
+
+                rowDivider
+                Button { isShowingSaveAsTemplate = true } label: {
+                    actionRow(icon: "rectangle.stack.badge.plus", title: String(localized: "Save as Template"))
+                }
+                .buttonStyle(.pressableCard)
+                .accessibilityHint(String(localized: "Saves this timeline as a reusable template"))
 
                 if event.status == .completed {
                     rowDivider

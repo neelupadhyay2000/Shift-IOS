@@ -190,6 +190,14 @@ struct shiftTimelineApp: App {
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
+                // Re-stamp evening-before briefings for upcoming events so they
+                // reflect the latest blocks and sunset data (idempotent —
+                // deterministic identifiers replace pending requests).
+                Task { @MainActor in
+                    await DayBeforeBriefingNotifier.scheduleUpcoming(
+                        context: PersistenceController.shared.container.mainContext
+                    )
+                }
                 // Catch up on changes missed while realtime was disconnected, then
                 // drain any writes queued offline (SHIFT-658).
                 if let syncStack {

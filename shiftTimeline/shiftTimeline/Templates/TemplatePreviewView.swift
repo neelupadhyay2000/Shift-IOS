@@ -6,11 +6,15 @@ import Services
 
 /// Full preview of a template showing all blocks in a scrollable list.
 /// The "Use This Template" button creates a new event with pre-populated blocks.
+///
+/// Resolves user-saved templates (`UserTemplateStore`) before bundled starter
+/// templates; user templates additionally get Edit and Delete in the toolbar.
 struct TemplatePreviewView: View {
 
     let templateID: UUID
 
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
     /// Mirrors `EventRosterView`'s query so the free-tier event cap is enforced
@@ -19,6 +23,9 @@ struct TemplatePreviewView: View {
 
     @State private var template: Template?
     @State private var loadError: String?
+    @State private var isUserTemplate = false
+    @State private var isShowingEditor = false
+    @State private var isShowingDeleteConfirmation = false
     @State private var isShowingCreateSheet = false
     @State private var isShowingPaywall = false
     /// Holds the newly created event ID between UseTemplateSheet closing
@@ -44,6 +51,48 @@ struct TemplatePreviewView: View {
         .task {
             await loadTemplate()
         }
+        .toolbar {
+            if isUserTemplate {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button {
+                            isShowingEditor = true
+                        } label: {
+                            Label(String(localized: "Edit"), systemImage: "pencil")
+                        }
+                        Button(role: .destructive) {
+                            isShowingDeleteConfirmation = true
+                        } label: {
+                            Label(String(localized: "Delete"), systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel(String(localized: "Template options"))
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingEditor) {
+            if let template {
+                TemplateEditorSheet(template: template) { updated in
+                    persistEdits(updated)
+                }
+            }
+        }
+        .confirmationDialog(
+            String(localized: "Delete Template?"),
+            isPresented: $isShowingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                deleteTemplate()
+            }
+        } message: {
+            Text(String(localized: """
+            This template will be removed from My Templates. \
+            Events created from it are not affected.
+            """))
+        }
         .sheet(isPresented: $isShowingCreateSheet, onDismiss: {
             // Fire navigation only after the sheet is fully dismissed so
             // the template stack is no longer active when we switch tabs
@@ -54,7 +103,7 @@ struct TemplatePreviewView: View {
             }
         }) {
             if let template {
-                UseTemplateSheet(template: template) { eventID in
+                UseTemplateSheet(template: template, isUserTemplate: isUserTemplate) { eventID in
                     createdEventID = eventID
                 }
             }
@@ -119,6 +168,13 @@ struct TemplatePreviewView: View {
 
     private func loadTemplate() async {
         loadError = nil
+        // User templates shadow bundled ones: check the on-disk store first so
+        // edits and deletes resolve against the user's copy.
+        if let userTemplate = try? UserTemplateStore().load(id: templateID) {
+            template = userTemplate
+            isUserTemplate = true
+            return
+        }
         do {
             let loaded = try await Task(priority: .userInitiated) {
                 try TemplateLoader().loadAll()
@@ -130,6 +186,26 @@ struct TemplatePreviewView: View {
             }
         } catch {
             guard !Task.isCancelled else { return }
+            loadError = error.localizedDescription
+        }
+    }
+
+    private func persistEdits(_ updated: Template) {
+        do {
+            try UserTemplateStore().save(updated)
+            AnalyticsService.send(.templateEdited)
+            template = updated
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    private func deleteTemplate() {
+        do {
+            try UserTemplateStore().delete(id: templateID)
+            AnalyticsService.send(.templateDeleted)
+            dismiss()
+        } catch {
             loadError = error.localizedDescription
         }
     }
@@ -152,6 +228,9 @@ struct TemplatePreviewView: View {
 private struct UseTemplateSheet: View {
 
     let template: Template
+    /// True when applying a user-saved template. User template names are
+    /// user-entered (often client names), so they are never sent to analytics.
+    let isUserTemplate: Bool
     let onEventCreated: (UUID) -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -254,7 +333,11 @@ private struct UseTemplateSheet: View {
             venueNames: venueNames
         )
         try? await eventRepo.insert(event)
-        AnalyticsService.send(.templateUsed, parameters: ["templateName": template.name])
+        if isUserTemplate {
+            AnalyticsService.send(.templateUsed, parameters: ["source": "user"])
+        } else {
+            AnalyticsService.send(.templateUsed, parameters: ["source": "starter", "templateName": template.name])
+        }
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)
         try? await trackRepo.insert(mainTrack, into: event)

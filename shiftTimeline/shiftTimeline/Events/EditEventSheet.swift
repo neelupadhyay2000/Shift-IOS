@@ -119,6 +119,10 @@ struct EditEventSheet: View {
             try? await eventRepo.save()
         }
 
+        // Re-stamp the evening-before briefing — a date change moves its fire
+        // time, and the deterministic identifier replaces the pending one.
+        await DayBeforeBriefingNotifier.schedule(for: event)
+
         dismiss()
     }
 }

@@ -30,6 +30,8 @@ import SwiftData
 /// - V15 → V16: adds `EventModel.ownerId` (`UUID?`) mirroring `events.owner_id`
 ///              — distinguishes owned events from events shared to the user as a
 ///              vendor, so the latter render read-only (E14 / SHIFT-622).
+/// - V16 → V17: adds `VendorModel.customRoleLabel` (`String`, default `""`) —
+///              the user-entered vendor type shown when `role == .custom`.
 ///
 /// All transitions are lightweight (new properties have defaults).
 ///
@@ -44,11 +46,11 @@ import SwiftData
 /// aborts the store load.
 public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     public static var schemas: [any VersionedSchema.Type] {
-        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self, SHIFTSchemaV14.self, SHIFTSchemaV15.self, SHIFTSchemaV16.self]
+        [SHIFTSchemaV1.self, SHIFTSchemaV2.self, SHIFTSchemaV3.self, SHIFTSchemaV4.self, SHIFTSchemaV5.self, SHIFTSchemaV6.self, SHIFTSchemaV7.self, SHIFTSchemaV8.self, SHIFTSchemaV9.self, SHIFTSchemaV10.self, SHIFTSchemaV11.self, SHIFTSchemaV12.self, SHIFTSchemaV13.self, SHIFTSchemaV14.self, SHIFTSchemaV15.self, SHIFTSchemaV16.self, SHIFTSchemaV17.self]
     }
 
     public static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12, migrateV12toV13, migrateV13toV14, migrateV14toV15, migrateV15toV16]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6, migrateV6toV7, migrateV7toV8, migrateV8toV9, migrateV9toV10, migrateV10toV11, migrateV11toV12, migrateV12toV13, migrateV13toV14, migrateV14toV15, migrateV15toV16, migrateV16toV17]
     }
 
     private static let migrateV1toV2 = MigrationStage.lightweight(
@@ -124,5 +126,10 @@ public enum SHIFTMigrationPlan: SchemaMigrationPlan {
     private static let migrateV15toV16 = MigrationStage.lightweight(
         fromVersion: SHIFTSchemaV15.self,
         toVersion: SHIFTSchemaV16.self
+    )
+
+    private static let migrateV16toV17 = MigrationStage.lightweight(
+        fromVersion: SHIFTSchemaV16.self,
+        toVersion: SHIFTSchemaV17.self
     )
 }

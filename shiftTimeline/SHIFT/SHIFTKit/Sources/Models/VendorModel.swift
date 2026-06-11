@@ -6,6 +6,10 @@ public final class VendorModel {
     public var id: UUID = UUID()
     public var name: String = ""
     public var role: VendorRole = VendorRole.custom
+    /// User-entered vendor type shown when `role == .custom` (e.g. "Videographer").
+    /// Empty for built-in roles. Syncs through the `event_vendors.role` string
+    /// column — see `VendorModel+SupabaseMapping`.
+    public var customRoleLabel: String = ""
     public var phone: String = ""
     public var email: String = ""
     public var notificationThreshold: TimeInterval = 600
@@ -37,6 +41,7 @@ public final class VendorModel {
         id: UUID = UUID(),
         name: String,
         role: VendorRole,
+        customRoleLabel: String = "",
         phone: String = "",
         email: String = "",
         notificationThreshold: TimeInterval = 600,
@@ -45,6 +50,7 @@ public final class VendorModel {
         self.id = id
         self.name = name
         self.role = role
+        self.customRoleLabel = customRoleLabel
         self.phone = phone
         self.email = email
         self.notificationThreshold = notificationThreshold
