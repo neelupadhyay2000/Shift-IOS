@@ -6,8 +6,11 @@ import TipKit
 import TelemetryDeck
 import Models
 import Services
-import TestSupport
 import os
+
+#if DEBUG
+import TestSupport
+#endif
 
 /// SHIFT app entry point.
 ///
@@ -43,7 +46,12 @@ struct shiftTimelineApp: App {
 
     /// `true` when the process was launched by the XCUITest runner with `-UITestMode 1`.
     /// Evaluated once at process start; safe to read from any context.
+    /// Always `false` in Release builds — every UI-test hook compiles out.
+    #if DEBUG
     static let isUITestMode = CommandLine.arguments.contains("-UITestMode")
+    #else
+    static let isUITestMode = false
+    #endif
 
     /// `true` when XCTest/Swift Testing is hosting the process.
     /// `XCTestSessionIdentifier` is injected by Xcode into every test run.
@@ -66,16 +74,18 @@ struct shiftTimelineApp: App {
     }()
 
     init() {
+        #if DEBUG
         guard !Self.isUITestMode else {
             Self.resetDataIfRequested()
             Self.seedFixtureIfRequested()
             return
         }
-        SunsetPrefetchTask.register()
-        SunsetPrefetchTask.scheduleNextRefresh()
         if CommandLine.arguments.contains("-ResetTipKit") {
             try? Tips.resetDatastore()
         }
+        #endif
+        SunsetPrefetchTask.register()
+        SunsetPrefetchTask.scheduleNextRefresh()
         try? Tips.configure()
 
         TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))
@@ -87,6 +97,7 @@ struct shiftTimelineApp: App {
         AnalyticsService.send(.appLaunched)
     }
 
+    #if DEBUG
     /// Wipes all persistent state when the test runner passes `-ResetData 1`.
     ///
     /// Called synchronously in `init()` before SwiftUI renders the first scene,
@@ -144,6 +155,7 @@ struct shiftTimelineApp: App {
             logger.error("Failed to seed fixture '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
         }
     }
+    #endif
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
 
