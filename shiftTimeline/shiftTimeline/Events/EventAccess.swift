@@ -1,6 +1,6 @@
 import Foundation
 
-/// Determines a user's relationship to an event for read-only gating (SHIFT-622).
+/// Determines a user's relationship to an event for read-only gating.
 ///
 /// An event is *shared* (read-only for this user) only when the user is signed in
 /// **and** the event has a known owner that isn't them. Everything else is treated

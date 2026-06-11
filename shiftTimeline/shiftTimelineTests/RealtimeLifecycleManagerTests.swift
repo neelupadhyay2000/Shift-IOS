@@ -103,7 +103,7 @@ struct RealtimeLifecycleManagerTests {
         #expect(source.openedEvents == [first, second])
     }
 
-    @Test("holds at most one connection across rapid event switches (budget invariant, SHIFT-663)")
+    @Test("holds at most one connection across rapid event switches (budget invariant)")
     func holdsAtMostOneConnection() {
         let source = FakeStreamSource()
         let manager = makeManager(source)

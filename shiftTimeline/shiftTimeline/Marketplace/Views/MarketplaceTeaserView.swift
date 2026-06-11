@@ -7,7 +7,7 @@ import SwiftUI
 /// keys here so a typo can't silently disconnect the teaser from the signup sheet.
 ///
 /// `waitlistJoined` is a local cache of waitlist membership — flipped by the
-/// signup sheet (SHIFT-716) after a successful `WaitlistService` upsert; the
+/// signup sheet after a successful `WaitlistService` upsert; the
 /// `marketplace_waitlist` row in Supabase remains the source of truth.
 enum MarketplaceDefaultsKey {
     static let waitlistJoined = "marketplaceWaitlistJoined"
@@ -15,13 +15,13 @@ enum MarketplaceDefaultsKey {
 
 // MARK: - MarketplaceTeaserView
 
-/// Root view of the Marketplace tab (SHIFT-715) — teases the upcoming vendor
+/// Root view of the Marketplace tab — teases the upcoming vendor
 /// marketplace and captures waitlist demand ahead of launch.
 ///
-/// Direction A surfaces throughout: ProBackground canvas, proCard previews,
+/// Surfaces: ProBackground canvas, proCard previews,
 /// micro-labels for section headers. The vendor cards are hard-coded examples
 /// of what a Verified-by-Shift profile will look like, labelled as such; real
-/// profiles arrive with marketplace browsing in E10.
+/// profiles arrive when marketplace browsing ships.
 struct MarketplaceTeaserView: View {
 
     @AppStorage(MarketplaceDefaultsKey.waitlistJoined) private var hasJoinedWaitlist = false
@@ -151,7 +151,7 @@ private enum TeaserSignalGuard {
 
 // MARK: - VendorPreviewCard
 
-/// One mocked Verified-by-Shift profile: avatar placeholder, business name,
+/// One sample Verified-by-Shift profile: avatar placeholder, business name,
 /// category chip in the role colour, star rating, and the events-via-Shift
 /// badge that is the marketplace's core differentiator.
 private struct VendorPreviewCard: View {
@@ -212,7 +212,7 @@ private struct VendorPreviewCard: View {
 // MARK: - Mocked preview data
 
 /// Hard-coded example vendors for the teaser cards. Purely illustrative;
-/// replaced by real marketplace profiles in E10.
+/// replaced by real marketplace profiles when browsing ships.
 private struct VendorPreview: Identifiable {
     let id: String
     let businessName: String

@@ -7,8 +7,8 @@ import Supabase
 /// `AsyncStream` of ``RealtimeChange``.
 ///
 /// A device subscribes only to the event it is viewing, so it receives just
-/// that event's changes. Applying changes to SwiftData is SHIFT-597; echo
-/// suppression SHIFT-598; foreground/background lifecycle SHIFT-599.
+/// that event's changes. Applying changes to SwiftData belongs to ``RealtimeChangeApplier``; echo
+/// suppression and foreground/background lifecycle are layered on separately.
 nonisolated struct RealtimeSyncService {
 
     /// One Realtime postgres-changes subscription per table, filtered on the

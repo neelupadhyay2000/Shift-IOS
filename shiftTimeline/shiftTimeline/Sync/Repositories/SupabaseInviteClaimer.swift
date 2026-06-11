@@ -1,7 +1,7 @@
 import Foundation
 import Supabase
 
-/// Runs the authoritative server-side invite claim (SHIFT-628).
+/// Runs the authoritative server-side invite claim.
 ///
 /// The match runs entirely in the `claim_invite` Postgres function against the
 /// caller's **verified** `auth.users` identity, so a client cannot claim an

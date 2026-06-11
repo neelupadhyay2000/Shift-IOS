@@ -1,7 +1,7 @@
 import Foundation
 import Models
 
-/// Per-block detail scoping for shared (read-only) events (SHIFT-630).
+/// Per-block detail scoping for shared (read-only) events.
 ///
 /// A vendor viewing an event shared to them sees a block's full, potentially
 /// private detail — notes, voice memo, the vendor roster, dependencies — only for

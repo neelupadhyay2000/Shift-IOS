@@ -5,7 +5,7 @@ import Services
 import SwiftData
 import Testing
 
-/// SHIFT-657: `DataBackfillRunner` gates the one-time backfill (SHIFT-656) so it
+/// `DataBackfillRunner` gates the one-time backfill so it
 /// enqueues the local graph at most once per account per device, and proves the
 /// two-device case converges via id dedupe rather than a shared flag.
 @Suite("Backfill runner (run-once gate)")

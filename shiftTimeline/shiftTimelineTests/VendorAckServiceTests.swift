@@ -16,7 +16,7 @@ final class FakeVendorAckWriter: VendorAckWriting {
     }
 }
 
-@Suite("Vendor ack write (SHIFT-632)")
+@Suite("Vendor ack write")
 @MainActor
 struct VendorAckServiceTests {
 

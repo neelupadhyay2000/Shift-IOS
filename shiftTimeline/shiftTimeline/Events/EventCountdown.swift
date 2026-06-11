@@ -2,7 +2,7 @@ import Foundation
 
 /// Human-friendly relative date label for an event ("Today", "In 3 days",
 /// "2 days ago") — gives the roster and event hero instant temporal context,
-/// the way Luma/Flighty surface "when" before any other detail.
+/// surfacing "when" before any other detail.
 enum EventCountdown {
     static func label(for date: Date, now: Date = .now, calendar: Calendar = .current) -> String {
         let today = calendar.startOfDay(for: now)

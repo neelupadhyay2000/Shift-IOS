@@ -7,7 +7,7 @@ import SwiftData
 ///   * `voiceMemoCreatedAt: Date?` — wall-clock date the memo was recorded.
 ///     `nil` when no memo is present.
 ///
-/// Why this snapshot exists: per the SHIFT-303 post-mortem, every new stored
+/// Why this snapshot exists: every new stored
 /// property on a live `@Model` requires a frozen `VersionedSchema` snapshot, or
 /// the migration plan can't carry an existing store forward across versions.
 ///

@@ -6,8 +6,11 @@ import TipKit
 import TelemetryDeck
 import Models
 import Services
-import TestSupport
 import os
+
+#if DEBUG
+import TestSupport
+#endif
 
 /// SHIFT app entry point.
 ///
@@ -29,11 +32,11 @@ struct shiftTimelineApp: App {
     @State private var authService = SupabaseAuthService()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
-    /// The E16 cutover composition root (SHIFT-658). Built once in `bootstrap()`
+    /// The sync composition root. Built once in `bootstrap()`
     /// when `FeatureFlags.supabaseSync` is on; `nil` keeps the app fully local.
     @State private var syncStack: SupabaseSyncStack?
 
-    /// Online-only marketplace waitlist writer (SHIFT-717) — deliberately not
+    /// Online-only marketplace waitlist writer — deliberately not
     /// part of the sync stack. Built in `bootstrap()` because touching
     /// `SupabaseClientProvider.shared` is unsafe in test modes.
     @State private var waitlistService: SupabaseWaitlistService?
@@ -43,7 +46,12 @@ struct shiftTimelineApp: App {
 
     /// `true` when the process was launched by the XCUITest runner with `-UITestMode 1`.
     /// Evaluated once at process start; safe to read from any context.
+    /// Always `false` in Release builds — every UI-test hook compiles out.
+    #if DEBUG
     static let isUITestMode = CommandLine.arguments.contains("-UITestMode")
+    #else
+    static let isUITestMode = false
+    #endif
 
     /// `true` when XCTest/Swift Testing is hosting the process.
     /// `XCTestSessionIdentifier` is injected by Xcode into every test run.
@@ -66,16 +74,18 @@ struct shiftTimelineApp: App {
     }()
 
     init() {
+        #if DEBUG
         guard !Self.isUITestMode else {
             Self.resetDataIfRequested()
             Self.seedFixtureIfRequested()
             return
         }
-        SunsetPrefetchTask.register()
-        SunsetPrefetchTask.scheduleNextRefresh()
         if CommandLine.arguments.contains("-ResetTipKit") {
             try? Tips.resetDatastore()
         }
+        #endif
+        SunsetPrefetchTask.register()
+        SunsetPrefetchTask.scheduleNextRefresh()
         try? Tips.configure()
 
         TelemetryDeck.initialize(config: .init(appID: AnalyticsConstants.telemetryDeckAppID))
@@ -87,6 +97,7 @@ struct shiftTimelineApp: App {
         AnalyticsService.send(.appLaunched)
     }
 
+    #if DEBUG
     /// Wipes all persistent state when the test runner passes `-ResetData 1`.
     ///
     /// Called synchronously in `init()` before SwiftUI renders the first scene,
@@ -144,6 +155,7 @@ struct shiftTimelineApp: App {
             logger.error("Failed to seed fixture '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
         }
     }
+    #endif
 
     private static let logger = Logger(subsystem: "com.shift.app", category: "Lifecycle")
 
@@ -190,8 +202,16 @@ struct shiftTimelineApp: App {
             }
             if newPhase == .active {
                 refreshWidgetNextEventDate()
+                // Re-stamp evening-before briefings for upcoming events so they
+                // reflect the latest blocks and sunset data (idempotent —
+                // deterministic identifiers replace pending requests).
+                Task { @MainActor in
+                    await DayBeforeBriefingNotifier.scheduleUpcoming(
+                        context: PersistenceController.shared.container.mainContext
+                    )
+                }
                 // Catch up on changes missed while realtime was disconnected, then
-                // drain any writes queued offline (SHIFT-658).
+                // drain any writes queued offline.
                 if let syncStack {
                     Task { await syncStack.reconcileOnForeground() }
                 }
@@ -232,7 +252,7 @@ struct shiftTimelineApp: App {
             let client = SupabaseClientProvider.shared.client
             let context = PersistenceController.shared.container.mainContext
 
-            // E16 cutover (SHIFT-658): build the sync stack and route writes
+            // Build the sync stack and route writes
             // through its Outbox provider when the master flag is on. Backfill and
             // hydration run as post-session side effects inside the auth service.
             var sessionSync: (any SessionSyncing)?
@@ -251,13 +271,13 @@ struct shiftTimelineApp: App {
                 backfiller = DataBackfillRunner(context: context)
             }
 
-            // Marketplace waitlist (SHIFT-717): direct-to-Supabase, online-only.
+            // Marketplace waitlist: direct-to-Supabase, online-only.
             if waitlistService == nil {
                 waitlistService = SupabaseWaitlistService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session
-            // immediately registers the device token (SHIFT-642).
+            // immediately registers the device token.
             await DeviceTokenRegistrar.shared.configure(
                 writer: SupabaseDeviceTokenWriter(client: client)
             )
@@ -313,12 +333,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         UNUserNotificationCenter.current().delegate = self
         Task { await VendorShiftLocalNotifier.requestAuthorization() }
         // Register with APNs every launch so we always have the current token
-        // (Apple delivers it via didRegisterForRemoteNotifications). SHIFT-642.
+        // (Apple delivers it via didRegisterForRemoteNotifications).
         application.registerForRemoteNotifications()
         return true
     }
 
-    // MARK: - APNs registration (SHIFT-642)
+    // MARK: - APNs registration
 
     /// APNs delivered a device token — hand it to the registrar, which upserts it
     /// into `device_tokens` once a profile is signed in.
@@ -343,7 +363,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     /// Background (content-available) shift push from the shift-notify Edge
-    /// Function (SHIFT-646): wake → post the rich local notification via the
+    /// Function: wake → post the rich local notification via the
     /// existing notifier. Non-shift pushes are ignored.
     func application(
         _ application: UIApplication,
@@ -383,7 +403,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
-        // Vendor shift notification — deep-link to event detail (SHIFT-647).
+        // Vendor shift notification — deep-link to event detail.
         // Parse off the MainActor (Sendable payload), then route on it.
         if let payload = RemoteShiftPushHandler.parse(userInfo) {
             Task { @MainActor in
@@ -397,7 +417,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     }
 
     /// Show notifications even when the app is in the foreground — except for
-    /// vendor shift notifications (SHIFT-648). Those are suppressed as a system
+    /// vendor shift notifications. Those are suppressed as a system
     /// banner and surfaced as an in-app banner instead, so the user isn't
     /// double-notified for a shift they're already looking at.
     func userNotificationCenter(

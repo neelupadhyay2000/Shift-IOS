@@ -7,7 +7,7 @@ public final class EventModel {
     /// The Supabase profile that owns this event (`events.owner_id`). `nil` for a
     /// local-only event or one not yet stamped/backfilled with an owner. Drives
     /// owner-vs-shared gating: an event owned by a *different* signed-in profile
-    /// is shown read-only (vendor/collaborator view, SHIFT-622).
+    /// is shown read-only (vendor/collaborator view).
     public var ownerId: UUID?
     public var title: String = ""
     public var date: Date = Date.distantPast

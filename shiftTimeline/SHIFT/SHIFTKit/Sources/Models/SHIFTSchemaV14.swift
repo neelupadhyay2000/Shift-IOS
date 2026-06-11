@@ -5,7 +5,7 @@ import SwiftData
 /// `TimeBlockModel`, and `VendorModel`.
 ///
 /// `updatedAt` stores the server `updated_at` of the last remote version applied
-/// to a row — the basis for last-write-wins conflict resolution (SHIFT-605):
+/// to a row — the basis for last-write-wins conflict resolution:
 /// the apply layer skips a remote change whose `updated_at` is older than the
 /// local row's, so concurrent edits converge on the newest server write. Append-
 /// only `ShiftRecord` and the local-only `OutboxEntry` don't take part and are

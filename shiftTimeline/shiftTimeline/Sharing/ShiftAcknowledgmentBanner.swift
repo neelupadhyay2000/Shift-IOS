@@ -9,7 +9,7 @@ import Models
 /// Tapping sets `hasAcknowledgedLatestShift = true` and clears
 /// `pendingShiftDelta` locally, then writes only `has_acknowledged_latest_shift`
 /// to Supabase (the one column the vendor's RLS policy permits) so the planner's
-/// acknowledgment grid updates (SHIFT-632).
+/// acknowledgment grid updates.
 struct ShiftAcknowledgmentBanner: View {
 
     @Environment(\.modelContext) private var modelContext

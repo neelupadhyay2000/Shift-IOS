@@ -10,7 +10,7 @@ import Models
 /// `status` is coded as plain text — the column is free-text `text`, so the
 /// DTO stays faithful to whatever Postgres holds; conversion to the typed
 /// `EventStatus` (with a fallback for unknown values) happens in the mapping
-/// layer (SHIFT-590).
+/// layer.
 ///
 /// Optional fields encode with `encodeIfPresent` (synthesized), so a `nil`
 /// is **omitted** rather than sent as `null`. That keeps server-managed

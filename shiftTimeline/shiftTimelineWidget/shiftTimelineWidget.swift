@@ -1,10 +1,3 @@
-//
-//  shiftTimelineWidget.swift
-//  shiftTimelineWidget
-//
-//  Created by Neel Upadhyay on 2026-04-07.
-//
-
 import WidgetKit
 import SwiftUI
 import Models

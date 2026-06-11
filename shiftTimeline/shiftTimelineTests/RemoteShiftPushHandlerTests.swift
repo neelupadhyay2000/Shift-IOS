@@ -22,7 +22,7 @@ private actor MockNotificationCenter: VendorNotificationScheduling {
     }
 }
 
-@Suite("Remote shift push handling (SHIFT-646)")
+@Suite("Remote shift push handling")
 struct RemoteShiftPushHandlerTests {
 
     private func makeContainer() throws -> ModelContainer {

@@ -5,7 +5,7 @@ import Services
 import SwiftData
 import Testing
 
-@Suite("Block detail scoping (SHIFT-630)")
+@Suite("Block detail scoping")
 struct BlockDetailScopeTests {
 
     private let me = UUID()

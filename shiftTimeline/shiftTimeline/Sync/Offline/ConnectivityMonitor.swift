@@ -9,7 +9,7 @@ import Network
 /// transition** — never while merely staying online, and never on going offline.
 /// That keeps the flush tied to the one moment it matters (the queue can finally
 /// drain) and avoids redundant flushes. Launch-time draining is the flush
-/// engine's own concern (SHIFT-611), so a first "online" sample at startup is a
+/// engine's own concern, so a first "online" sample at startup is a
 /// no-op here.
 ///
 /// Wiring (the cutover, not this subtask):

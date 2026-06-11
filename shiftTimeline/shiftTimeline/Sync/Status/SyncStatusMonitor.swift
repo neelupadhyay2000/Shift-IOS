@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import Services
 
-/// Live, observable bridge from the sync engine to the UI (SHIFT-664). Drives the
+/// Live, observable bridge from the sync engine to the UI. Drives the
 /// ``SyncStatusIndicator`` and the surfaced error message.
 ///
 /// It folds two signals into ``SyncHealth``:
@@ -26,7 +26,7 @@ final class SyncStatusMonitor {
     @ObservationIgnored private let pendingWriteCount: @MainActor () -> Int
     /// Fired exactly once per status *change* (`from`, `to`) — never on a
     /// refresh that lands on the same status. The sync stack wires this to
-    /// telemetry (SHIFT-668) so production sync-health transitions are
+    /// telemetry so production sync-health transitions are
     /// observable without polling.
     @ObservationIgnored private let onTransition: @MainActor (SyncStatus, SyncStatus) -> Void
 

@@ -4,7 +4,7 @@ import Services
 import SwiftData
 
 /// A foreground shift notification rendered as an in-app banner instead of a
-/// system notification (SHIFT-648). The app-root view observes the most recent
+/// system notification. The app-root view observes the most recent
 /// one on `DeepLinkRouter` and surfaces it as a transient top toast that
 /// deep-links to its event on tap.
 ///
@@ -17,9 +17,9 @@ struct InAppShiftBanner: Identifiable, Equatable, Sendable {
     let eventID: UUID
 }
 
-/// Handles an incoming APNs shift push on the client (SHIFT-646).
+/// Handles an incoming APNs shift push on the client.
 ///
-/// The `shift-notify` Edge Function (SHIFT-644) sends a **background**
+/// The `shift-notify` Edge Function sends a **background**
 /// (content-available) push so iOS wakes the app; this turns that wake into a
 /// **rich local notification** by reusing `VendorShiftLocalNotifier` /
 /// `VendorShiftNotificationContent` — the exact same formatter the in-app path
@@ -36,7 +36,7 @@ enum RemoteShiftPushHandler {
         let delta: TimeInterval?
     }
 
-    /// Payload keys — must match the Edge Function's body (SHIFT-644).
+    /// Payload keys — must match the Edge Function's body.
     /// `nonisolated` so the nonisolated `parse` can read them.
     private nonisolated static let eventVendorIDKey = "event_vendor_id"
     private nonisolated static let deltaKey = "pending_shift_delta"
@@ -53,7 +53,7 @@ enum RemoteShiftPushHandler {
         return ShiftPushPayload(eventID: eventID, eventVendorID: eventVendorID, delta: delta)
     }
 
-    /// Builds the in-app banner for a foreground shift notification (SHIFT-648).
+    /// Builds the in-app banner for a foreground shift notification.
     ///
     /// `AppDelegate`'s `willPresent` suppresses the system banner for any
     /// `shift-`prefixed notification while the app is visible; this turns the
@@ -76,7 +76,7 @@ enum RemoteShiftPushHandler {
     }
 
     /// Routes a tapped shift notification to its event via `DeepLinkRouter`
-    /// (SHIFT-647). `RootNavigator` observes `pendingDestination` and pushes
+    ///. `RootNavigator` observes `pendingDestination` and pushes
     /// `EventDetailView` for the event. Returns the routed event id.
     @MainActor
     @discardableResult

@@ -72,7 +72,7 @@ extension EventDTO {
         model.wentLiveAt = wentLiveAt?.value
         model.completedAt = completedAt?.value
         model.postEventReport = postEventReport
-        // Server time of this version — the LWW basis (SHIFT-605).
+        // Server time of this version — the LWW basis.
         model.updatedAt = updatedAt?.value
     }
 }

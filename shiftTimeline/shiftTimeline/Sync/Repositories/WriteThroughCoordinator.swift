@@ -16,7 +16,7 @@ import SwiftData
 /// failure is recorded to `SyncDiagnosticsCenter` (visible in the in-app
 /// diagnostics screen and the unified log) rather than rethrown — it must not
 /// fail the user's action, and must not be silently dropped. Ordered retry and
-/// offline queueing arrive with the E13 Outbox.
+/// offline queueing arrive with the Outbox.
 @MainActor
 final class WriteThroughCoordinator {
     private let context: ModelContext

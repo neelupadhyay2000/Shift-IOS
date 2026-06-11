@@ -7,8 +7,8 @@ import Supabase
 ///
 /// Mutations upsert the event row by `id` (`owner_id` resolved from the current
 /// session); reads materialize detached `EventModel` snapshots from the fetched
-/// rows. This is the remote half — local write-through is layered on in
-/// SHIFT-592, so `save()` is a no-op here (each mutation flushes immediately).
+/// rows. This is the remote half — local write-through is layered on
+/// separately, so `save()` is a no-op here (each mutation flushes immediately).
 @MainActor
 struct SupabaseEventRepository: EventRepositing {
     private let client: SupabaseClient
@@ -54,7 +54,7 @@ struct SupabaseEventRepository: EventRepositing {
             .execute()
     }
 
-    /// No-op: remote writes flush per mutating call. SHIFT-592's write-through
+    /// No-op: remote writes flush per mutating call. The write-through
     /// repository drives change-tracked syncing on `save()`.
     func save() async throws {}
 }

@@ -51,7 +51,7 @@ struct SupabaseOutboxSender: OutboxSending {
         }
     }
 
-    /// A delete is a **soft-delete** (SHIFT-618): set `deleted_at` rather than
+    /// A delete is a **soft-delete**: set `deleted_at` rather than
     /// removing the row, so the tombstone survives in the table and a device that
     /// was offline still learns of the deletion via the delta (`deleted_at`/
     /// `updated_at > since`). The `updated_at` trigger bumps on this update, so the

@@ -8,7 +8,7 @@ import Foundation
 /// `block_vendors` / `block_dependencies` junction tables.
 ///
 /// `status` is coded as plain text (free-text column); the typed `BlockStatus`
-/// conversion happens in the mapping layer (SHIFT-590). `voice_memo_path` is a
+/// conversion happens in the mapping layer. `voice_memo_path` is a
 /// Supabase Storage key, not a local file URL.
 nonisolated struct BlockDTO: Codable, Equatable {
     let id: UUID

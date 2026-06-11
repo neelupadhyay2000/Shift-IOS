@@ -1,3 +1,4 @@
+import Services
 import SwiftUI
 
 /// Auth gate for the whole app.
@@ -13,12 +14,17 @@ struct RootContainerView: View {
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
+    @State private var isShowingLaunchPromo = false
+
     var body: some View {
         content
             // Foreground shift pushes are suppressed as system notifications and
-            // surfaced here as an in-app banner instead (SHIFT-648).
+            // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }
             .animation(.spring(duration: 0.35), value: deepLinkRouter.foregroundShiftBanner)
+            .fullScreenCover(isPresented: $isShowingLaunchPromo) {
+                LaunchPromoView()
+            }
     }
 
     @ViewBuilder
@@ -29,9 +35,30 @@ struct RootContainerView: View {
             loadingView
         } else if authService.isAuthenticated {
             RootNavigator()
+                .task { await maybeShowLaunchPromo() }
         } else {
             SignInView(isDismissible: false)
         }
+    }
+
+    /// Shows the launch promo at most once per calendar day for free users
+    /// (the last-shown stamp persists across launches — see LaunchPromoSchedule).
+    ///
+    /// Waits briefly so the StoreKit entitlement check can resolve (a Pro user
+    /// must never see it), and stands down when the launch is already routed
+    /// somewhere intentional — a notification tap or an invite link mid-claim.
+    private func maybeShowLaunchPromo() async {
+        let defaults = UserDefaults.standard
+        let lastShown = defaults.object(forKey: LaunchPromoSchedule.defaultsKey) as? Date
+        guard LaunchPromoSchedule.shouldShow(lastShown: lastShown, now: .now) else { return }
+        try? await Task.sleep(for: .seconds(1.5))
+        guard !Task.isCancelled,
+              !SubscriptionManager.shared.isProUser,
+              deepLinkRouter.pendingDestination == nil,
+              deepLinkRouter.pendingInviteVendorID == nil
+        else { return }
+        defaults.set(Date.now, forKey: LaunchPromoSchedule.defaultsKey)
+        isShowingLaunchPromo = true
     }
 
     @ViewBuilder

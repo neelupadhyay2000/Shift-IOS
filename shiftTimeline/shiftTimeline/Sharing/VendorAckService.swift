@@ -1,14 +1,14 @@
 import Foundation
 import Models
 
-/// Acknowledges the latest shift for a vendor (SHIFT-632).
+/// Acknowledges the latest shift for a vendor.
 ///
 /// Split into an optimistic local update and the remote write so the UI can
 /// animate the banner dismissal on the synchronous local step, then push to
 /// Supabase. Only `has_acknowledged_latest_shift` is sent — the single column the
 /// vendor's RLS policy permits; `pendingShiftDelta` is cleared locally for an
 /// immediate banner dismissal but is never written (the vendor can't, and it's
-/// reset server-side by the planner on the next shift, SHIFT-634).
+/// reset server-side by the planner on the next shift).
 @MainActor
 struct VendorAckService {
 

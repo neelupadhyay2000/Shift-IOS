@@ -141,7 +141,7 @@ struct RealtimeChangeApplierTests {
         #expect(block.vendors?.isEmpty ?? true)
     }
 
-    /// SHIFT-633: a vendor's ack arrives as an `event_vendors` UPDATE; applying it
+    /// A vendor's ack arrives as an `event_vendors` UPDATE; applying it
     /// flips `has_acknowledged_latest_shift` on the planner's local row (upsert by
     /// id, no duplicate), which is what drives the planner's ack grid live.
     @Test("event_vendors UPDATE flips has_acknowledged_latest_shift locally")

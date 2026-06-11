@@ -1,15 +1,15 @@
 import Models
 import SwiftUI
 
-/// Waitlist signup sheet (SHIFT-716), presented from the teaser CTA.
+/// Waitlist signup sheet, presented from the teaser CTA.
 ///
 /// Online-only: loads the user's existing entry on appear so reopening shows
 /// current values and edits idempotently (upsert on `profile_id`), submits via
-/// ``WaitlistServing`` (Supabase implementation lands in SHIFT-717), and
+/// ``WaitlistServing``, and
 /// surfaces loading / error states inline. A successful submit flips
 /// `MarketplaceDefaultsKey.waitlistJoined` so the teaser shows its joined card.
 ///
-/// Direction A styling — ProBackground canvas, selectable icon cards for the
+/// Styling: ProBackground canvas, selectable icon cards for the
 /// interest role (the VendorFormSheet grid pattern), role-coloured capsule
 /// chips for the category, and a proCard region field. No stock Form.
 struct WaitlistSignupSheet: View {
@@ -28,6 +28,7 @@ struct WaitlistSignupSheet: View {
     @State private var phase: Phase = .loading
     @State private var interestRole: WaitlistInterestRole = .vendor
     @State private var category: VendorRole = .photographer
+    @State private var customCategory = ""
     @State private var region = ""
     @State private var isExistingEntry = false
     @State private var errorMessage: String?
@@ -83,8 +84,25 @@ struct WaitlistSignupSheet: View {
                         Text(String(localized: "Category"))
                             .microLabel()
                         categoryChips
+
+                        // Free-text vendor type for the Custom category — what
+                        // we'll match on when the marketplace opens.
+                        if category == .custom {
+                            TextField(
+                                String(localized: "Vendor type"),
+                                text: $customCategory,
+                                prompt: Text(String(localized: "e.g. Videographer"))
+                            )
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .proCard(padding: 14)
+                            .accessibilityLabel(String(localized: "Custom vendor type"))
+                            .accessibilityIdentifier(AccessibilityID.Waitlist.customCategoryField)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                     }
                     .transition(.opacity.combined(with: .move(edge: .top)))
+                    .animation(.easeInOut(duration: 0.2), value: category)
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -297,9 +315,16 @@ struct WaitlistSignupSheet: View {
         do {
             if let entry = try await waitlistService.currentEntry() {
                 interestRole = WaitlistInterestRole(rawValue: entry.interestRole) ?? .vendor
-                if let storedCategory = entry.category,
-                   let vendorRole = VendorRole(rawValue: storedCategory) {
-                    category = vendorRole
+                // An unrecognized category string is a user-entered custom
+                // vendor type (mirror of the upsert payload projection).
+                if let storedCategory = entry.category {
+                    if let vendorRole = VendorRole(rawValue: storedCategory) {
+                        category = vendorRole
+                        customCategory = ""
+                    } else {
+                        category = .custom
+                        customCategory = storedCategory
+                    }
                 }
                 region = entry.region
                 isExistingEntry = true
@@ -328,10 +353,12 @@ struct WaitlistSignupSheet: View {
             try await waitlistService.upsert(
                 role: interestRole,
                 category: vendorCategory,
+                customCategoryLabel: customCategory,
                 region: region.trimmingCharacters(in: .whitespaces)
             )
-            // Demand measurement (SHIFT-717) — aggregate dimensions only, no
-            // PII: the free-text region never leaves the waitlist table.
+            // Demand measurement — aggregate dimensions only, no
+            // PII: the free-text region and custom vendor type never leave the
+            // waitlist table (analytics always sees the enum raw value).
             AnalyticsService.send(.marketplaceWaitlistJoined, parameters: [
                 "role": interestRole.rawValue,
                 "category": vendorCategory?.rawValue ?? "none"
@@ -368,7 +395,7 @@ extension WaitlistInterestRole {
 
 // MARK: - Previews
 
-/// In-memory fake for previews; SHIFT-717 provides the Supabase implementation.
+/// In-memory fake for previews.
 private struct PreviewWaitlistService: WaitlistServing {
     var existingEntry: WaitlistEntryDTO?
     var failsOnSubmit = false
@@ -379,6 +406,7 @@ private struct PreviewWaitlistService: WaitlistServing {
     func upsert(
         role: WaitlistInterestRole,
         category: VendorRole?,
+        customCategoryLabel: String,
         region: String
     ) async throws -> WaitlistEntryDTO {
         if failsOnSubmit { throw URLError(.notConnectedToInternet) }

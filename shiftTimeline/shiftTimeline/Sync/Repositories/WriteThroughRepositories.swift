@@ -9,7 +9,7 @@ import Services
 // failures to diagnostics instead of rethrowing — so a remote error never fails
 // the user's local-first action and is never silently dropped. `save()` defers
 // to the coordinator, which flushes the context and mirrors edits /
-// bypass-inserts. Offline queueing is E13.
+// bypass-inserts. Offline queueing is layered on by the Outbox.
 
 @MainActor
 struct WriteThroughEventRepository: EventRepositing {

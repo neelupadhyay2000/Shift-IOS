@@ -6,9 +6,9 @@ import SwiftData
 import Supabase
 import Testing
 
-/// SHIFT-662 — the hardening epic's stress gate. Drives the offline sync stack
-/// (enqueue → flush → delta → apply/LWW → tombstone) under the three loads E16
-/// calls out: a **reconnect storm** (a flurry of flush triggers), a
+/// The sync engine's stress gate. Drives the offline sync stack
+/// (enqueue → flush → delta → apply/LWW → tombstone) under three loads:
+/// a **reconnect storm** (a flurry of flush triggers), a
 /// **large timeline** (200+ blocks), and **concurrent events** (many events
 /// syncing at once). Each proves the acceptance criteria: **no data loss, no
 /// duplication, and convergence** across two devices.

@@ -5,8 +5,8 @@ import SwiftData
 import Testing
 @testable import shiftTimeline
 
-/// Verifies `PersistenceController`'s local-only configuration introduced in
-/// SHIFT-529. All CloudKit mirror-state assertions have been removed; the suite
+/// Verifies `PersistenceController`'s local-only configuration.
+/// All CloudKit mirror-state assertions have been removed; the suite
 /// now asserts that:
 ///   - `forTesting()` produces an in-memory container with no CloudKit database.
 ///   - The schema registers all five model types.

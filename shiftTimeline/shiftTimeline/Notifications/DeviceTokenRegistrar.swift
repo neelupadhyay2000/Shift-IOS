@@ -22,7 +22,7 @@ enum APNsEnvironment {
     }
 }
 
-/// Coordinates APNs token registration into `device_tokens` (SHIFT-642).
+/// Coordinates APNs token registration into `device_tokens`.
 ///
 /// The two inputs arrive independently and in either order: the APNs token from
 /// `AppDelegate`'s `didRegisterForRemoteNotifications`, and the signed-in profile

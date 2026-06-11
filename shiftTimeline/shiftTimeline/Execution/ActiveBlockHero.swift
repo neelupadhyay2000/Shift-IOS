@@ -63,7 +63,7 @@ struct ActiveBlockHero: View {
                         .foregroundStyle(isOvertime ? Color.red : Color.secondary)
                         .animation(.easeInOut(duration: 0.3), value: isOvertime)
 
-                    // Flighty-style elapsed bar — where we are inside this block.
+                    // Elapsed bar — where we are inside this block.
                     let progress = min(max(1 - remaining / max(block.duration, 1), 0), 1)
                     ZStack(alignment: .leading) {
                         Capsule()

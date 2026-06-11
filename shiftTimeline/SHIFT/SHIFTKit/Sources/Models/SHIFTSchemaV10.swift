@@ -7,7 +7,7 @@ import SwiftData
 ///     change alongside the shifted child blocks, firing the vendor's shared-zone
 ///     subscription promptly.
 ///
-/// Why this snapshot exists: per the SHIFT-303 post-mortem, every new stored
+/// Why this snapshot exists: every new stored
 /// property on a live `@Model` requires a frozen `VersionedSchema` snapshot, or
 /// the migration plan can't carry an existing store forward across versions.
 ///

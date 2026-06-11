@@ -261,7 +261,7 @@ struct SupabaseAuthServiceCacheClearingTests {
     }
 }
 
-// MARK: - claimPendingInvites (SHIFT-628)
+// MARK: - claimPendingInvites
 
 @Suite("SupabaseAuthService — claimPendingInvites")
 @MainActor

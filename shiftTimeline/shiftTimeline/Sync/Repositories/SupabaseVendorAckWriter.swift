@@ -1,7 +1,7 @@
 import Foundation
 import Supabase
 
-/// Writes a vendor's shift acknowledgment to Supabase (SHIFT-632).
+/// Writes a vendor's shift acknowledgment to Supabase.
 ///
 /// A vendor may write **only** `has_acknowledged_latest_shift` on their own
 /// `event_vendors` row — enforced server-side by the column-restricted RLS policy

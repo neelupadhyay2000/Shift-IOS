@@ -126,7 +126,7 @@ final class SupabaseAuthService {
         await performProfileUpsert(user: user, displayName: displayName)
     }
 
-    // MARK: - Invite claim (SHIFT-628)
+    // MARK: - Invite claim
 
     /// Runs the authoritative server-side invite claim (`claim_invite` RPC) and
     /// returns the `event_vendors` rows the server linked to this identity.
@@ -251,10 +251,10 @@ final class SupabaseAuthService {
     }
 
     /// Post-sign-in side effects, idempotent so they can re-run on a restored or
-    /// refreshed session: upsert the profile, claim pending invites (SHIFT-628),
-    /// register this device's APNs token (SHIFT-642), run the one-time data
-    /// backfill (SHIFT-657 — enqueues local rows, gated once per account), then
-    /// hydrate the cache from Supabase and drain the Outbox (SHIFT-658).
+    /// refreshed session: upsert the profile, claim pending invites,
+    /// register this device's APNs token, run the one-time data
+    /// backfill (enqueues local rows, gated once per account), then
+    /// hydrate the cache from Supabase and drain the Outbox.
     ///
     /// Order matters: backfill *enqueues* local rows before the sync stack
     /// hydrates (pull) and flushes (push) — so a freshly-migrated user's graph is
@@ -283,7 +283,7 @@ final class SupabaseAuthService {
             // sign-in) is shown on every launch, not just the first.
             currentProfile = try await repo.upsert(dto)
         } catch {
-            // Non-fatal — SyncDiagnosticsCenter surfaces this in SHIFT-1305
+            // Non-fatal — SyncDiagnosticsCenter surfaces this.
         }
     }
 }

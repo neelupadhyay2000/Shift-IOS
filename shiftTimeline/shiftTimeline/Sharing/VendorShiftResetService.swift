@@ -8,7 +8,7 @@ struct VendorAckReset: Sendable, Equatable {
     let pendingShiftDelta: Double
 }
 
-/// Propagates the planner's post-shift acknowledgment reset to Supabase (SHIFT-634).
+/// Propagates the planner's post-shift acknowledgment reset to Supabase.
 ///
 /// `VendorShiftNotifier.applyThresholdNotifications` already resets the local
 /// vendor models (`hasAcknowledgedLatestShift = false` + `pendingShiftDelta`). This

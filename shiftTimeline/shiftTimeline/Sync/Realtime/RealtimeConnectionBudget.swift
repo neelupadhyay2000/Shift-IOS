@@ -1,7 +1,7 @@
 import Foundation
 
 /// Models the Supabase Realtime concurrent-connection budget so the cutover can
-/// be reasoned about against the plan tier (SHIFT-663).
+/// be reasoned about against the plan tier.
 ///
 /// **Why one connection per device is the unit of accounting.** A device opens
 /// **at most one** Realtime connection: `RealtimeLifecycleManager` keeps a single

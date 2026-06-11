@@ -52,7 +52,7 @@ enum FlushOutcome: Equatable {
 /// schedules a single deferred retry after an exponential backoff
 /// (`base · 2^(attempts-1)`, capped). Successful entries ahead of the failure
 /// have already been removed, so the retry resumes cleanly. Reconnect (and
-/// SHIFT-612's debounce) also call ``flush()``; the single-flight guard collapses
+/// the ``FlushScheduler`` debounce) also call ``flush()``; the single-flight guard collapses
 /// overlapping triggers.
 @MainActor
 final class OutboxFlusher {

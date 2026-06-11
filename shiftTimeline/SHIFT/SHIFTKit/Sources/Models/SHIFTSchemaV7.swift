@@ -8,7 +8,7 @@ import SwiftData
 ///     marked `.completed`, paired with `wentLiveAt` for the `sessionCompleted`
 ///     analytics signal.
 ///
-/// Why this snapshot exists: per the SHIFT-303 post-mortem, every new
+/// Why this snapshot exists: every new
 /// stored property on a live `@Model` requires a frozen `VersionedSchema`
 /// snapshot, or the migration plan can't carry an existing store forward.
 ///

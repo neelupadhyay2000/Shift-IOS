@@ -3,10 +3,10 @@ import Services
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-664 — the user-facing sync status. Pure derivation (`SyncHealth`,
+/// The user-facing sync status. Pure derivation (`SyncHealth`,
 /// `SyncErrorState`, message mapping) plus the observable `SyncStatusMonitor`
 /// driven through the diagnostics funnel.
-@Suite("Sync status (SHIFT-664)")
+@Suite("Sync status")
 struct SyncStatusTests {
 
     // MARK: - SyncHealth precedence
@@ -126,7 +126,7 @@ struct SyncStatusTests {
         }
     }
 
-    // MARK: - Transition telemetry (SHIFT-668)
+    // MARK: - Transition telemetry
 
     @MainActor
     @Test("status transitions fire the hook exactly once per change, with from/to")

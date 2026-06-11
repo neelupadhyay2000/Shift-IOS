@@ -4,10 +4,10 @@ import Foundation
 /// per-event vendor relationship plus invite/claim state.
 ///
 /// `profile_id` is null for contact-only and not-yet-claimed vendors; it is set
-/// on claim-on-sign-in (SHIFT-E14). `notification_threshold` is stored as an
+/// on claim-on-sign-in. `notification_threshold` is stored as an
 /// integer number of **seconds** (the model holds a `TimeInterval`, narrowed in
 /// the mapping layer). `role` is coded as plain text (free-text column); the
-/// typed `VendorRole` conversion happens in the mapping layer (SHIFT-590).
+/// typed `VendorRole` conversion happens in the mapping layer.
 nonisolated struct EventVendorDTO: Codable, Equatable {
     let id: UUID
     let eventID: UUID

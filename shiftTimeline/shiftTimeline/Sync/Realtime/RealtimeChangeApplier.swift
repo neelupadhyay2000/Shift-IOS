@@ -160,7 +160,7 @@ struct RealtimeChangeApplier {
 
     private func upsertVendor(_ dto: EventVendorDTO) throws {
         // Vendor ack (and the rest of the row) is last-write-wins by server
-        // `updated_at` (SHIFT-616): a stale version — e.g. a vendor's own ack
+        // `updated_at`: a stale version — e.g. a vendor's own ack
         // arriving after the planner's newer reset — is skipped rather than
         // clobbering the current state, so ack and edits never ping-pong.
         let existing = try existingVendor(id: dto.id)
@@ -184,7 +184,7 @@ struct RealtimeChangeApplier {
         dto.linkRelationships(model, events: events, blocks: blocks)
     }
 
-    /// Last-write-wins (SHIFT-605): apply a remote row only when it isn't older
+    /// Last-write-wins: apply a remote row only when it isn't older
     /// than the local version. `incoming`/`current` are server `updated_at`s; a
     /// `nil` on either side (no known server time) applies — there's no basis to
     /// call it stale. Equal versions are skipped so a re-delivery or self-echo
@@ -197,7 +197,7 @@ struct RealtimeChangeApplier {
         return incoming > current
     }
 
-    /// LWW gate + conflict-funnel instrumentation (SHIFT-668). Same verdict as
+    /// LWW gate + conflict-funnel instrumentation. Same verdict as
     /// ``shouldApply``, but a *strictly-older* incoming version — a genuine race
     /// that LWW just resolved in favour of the newer write — is recorded to the
     /// `.conflict` funnel stage. Equal-version re-deliveries stay silent so the
@@ -216,7 +216,7 @@ struct RealtimeChangeApplier {
 
     // MARK: - Soft-delete (tombstone)
 
-    // A soft-delete arrives as an upsert whose DTO carries `deleted_at` (SHIFT-618).
+    // A soft-delete arrives as an upsert whose DTO carries `deleted_at`.
     // The local row is removed, but only under the same LWW rule as an edit: a
     // tombstone older than the local version is skipped, so a stale delete can't
     // wipe a newer edit. The row stays a tombstone on the server until purged, so

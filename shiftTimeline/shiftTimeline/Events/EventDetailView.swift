@@ -14,7 +14,7 @@ struct EventDetailView: View {
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.scenePhase) private var scenePhase
-    /// The cutover's shared echo suppressor (SHIFT-658) — non-nil only when the
+    /// The cutover's shared echo suppressor — non-nil only when the
     /// sync stack is live. Handed to the realtime applier so the planner's own
     /// writes (now flushed to Supabase) aren't re-applied as echoes.
     @Environment(\.realtimeEchoSuppressor) private var echoSuppressor
@@ -30,14 +30,15 @@ struct EventDetailView: View {
 
     @State private var paywallTrigger: PaywallTrigger?
     @State private var isShowingEditSheet = false
+    @State private var isShowingSaveAsTemplate = false
     @State private var isShowingVendorSharing = false
     @State private var isShowingSignIn = false
     /// Set when sign-in was prompted by a share attempt, so the share flow
     /// resumes automatically once the sign-in sheet dismisses.
     @State private var pendingShareAfterSignIn = false
     /// Drives the per-event Supabase Realtime channel while signed in and viewing
-    /// an event — a vendor's shared timeline (SHIFT-631) or the planner watching
-    /// vendor acknowledgments land in the ack grid (SHIFT-633). Lazily created.
+    /// an event — a vendor's shared timeline or the planner watching
+    /// vendor acknowledgments land in the ack grid. Lazily created.
     @State private var realtime: RealtimeLifecycleManager?
 
     private let eventID: UUID
@@ -76,6 +77,11 @@ struct EventDetailView: View {
         .sheet(isPresented: $isShowingEditSheet) {
             if let event {
                 EditEventSheet(event: event)
+            }
+        }
+        .sheet(isPresented: $isShowingSaveAsTemplate) {
+            if let event {
+                SaveAsTemplateSheet(event: event)
             }
         }
         .sheet(isPresented: $isShowingSignIn, onDismiss: resumeShareAfterSignIn) {
@@ -124,16 +130,16 @@ struct EventDetailView: View {
         presentVendorSharing()
     }
 
-    // MARK: - Realtime (SHIFT-631)
+    // MARK: - Realtime
 
     /// Subscribes to the event's Supabase Realtime channel while signed in and
     /// viewing the event, so remote changes appear live without a manual refresh
     /// (the `RealtimeChangeApplier` writes into the shared `modelContext`, which
     /// `@Query` reflects). Serves both a vendor watching a shared timeline
-    /// (SHIFT-631) and the planner watching vendor acknowledgments land in the ack
-    /// grid (SHIFT-633). Signed-out / local-only use is not streamed.
+    /// and the planner watching vendor acknowledgments land in the ack
+    /// grid. Signed-out / local-only use is not streamed.
     ///
-    /// The shared `RealtimeEchoSuppressor` (SHIFT-658) is injected from the
+    /// The shared `RealtimeEchoSuppressor` is injected from the
     /// environment and passed to the applier, so the planner's own writes — now
     /// flushed to Supabase via the Outbox — aren't re-applied here as echoes.
     private func configureRealtime() {
@@ -217,7 +223,7 @@ struct EventDetailView: View {
         }
     }
 
-    // MARK: - Hero (Luma-style: title on the canvas, typography does the work)
+    // MARK: - Hero (title on the canvas, typography does the work)
 
     private func heroSection(_ event: EventModel) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -317,7 +323,7 @@ struct EventDetailView: View {
         .shadow(color: ShiftPalette.live.opacity(0.35), radius: 12, y: 5)
     }
 
-    // MARK: - Stat tiles (numbers are the heroes — Flighty data look)
+    // MARK: - Stat tiles (numbers are the heroes)
 
     private func statsRow(_ event: EventModel) -> some View {
         let allBlocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
@@ -379,7 +385,7 @@ struct EventDetailView: View {
         .accessibilityLabel("\(value) \(label)")
     }
 
-    // MARK: - Actions (grouped, monochrome — Luma style)
+    // MARK: - Actions (grouped, monochrome)
 
     @ViewBuilder
     private func actionsCard(_ event: EventModel) -> some View {
@@ -392,6 +398,13 @@ struct EventDetailView: View {
                 }
                 .buttonStyle(.pressableCard)
                 .accessibilityHint(String(localized: "Generates a PDF timeline document"))
+
+                rowDivider
+                Button { isShowingSaveAsTemplate = true } label: {
+                    actionRow(icon: "rectangle.stack.badge.plus", title: String(localized: "Save as Template"))
+                }
+                .buttonStyle(.pressableCard)
+                .accessibilityHint(String(localized: "Saves this timeline as a reusable template"))
 
                 if event.status == .completed {
                     rowDivider
@@ -482,7 +495,7 @@ struct EventDetailView: View {
         }
 
         // Schedule the local golden-hour/sunset reminder from the cached sun
-        // times (SHIFT-649). Local-only, all tiers; no-ops if the times are unknown
+        // times. Local-only, all tiers; no-ops if the times are unknown
         // or already within the 30-min lead window. The Task inherits this view's
         // MainActor context, so reading `event` stays isolation-safe.
         Task { await GoldenHourNotifier.schedule(for: event) }

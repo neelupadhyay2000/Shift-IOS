@@ -6,7 +6,7 @@ import Supabase
 /// INSERT and UPDATE both become `upsert` (apply the new `record`); DELETE
 /// carries the `oldRecord` (its primary-key columns). Carrying the raw
 /// `JSONObject` — rather than the SDK's `AnyAction` — keeps the apply layer
-/// (SHIFT-597) decode-driven and unit-testable. The `record` is decoded into a
+/// decode-driven and unit-testable. The `record` is decoded into a
 /// DTO and applied to SwiftData on the main actor.
 nonisolated enum RealtimeChange {
     case upsert(table: String, record: JSONObject)

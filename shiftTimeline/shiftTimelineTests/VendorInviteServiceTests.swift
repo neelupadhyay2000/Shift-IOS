@@ -5,7 +5,7 @@ import TestSupport
 import Testing
 @testable import shiftTimeline
 
-@Suite("Vendor invite — create event_vendors row (SHIFT-625)")
+@Suite("Vendor invite — create event_vendors row")
 @MainActor
 struct VendorInviteServiceTests {
 

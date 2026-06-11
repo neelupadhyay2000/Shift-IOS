@@ -36,19 +36,13 @@ enum EventDestination: Hashable {
 
 /// Typed push destinations for the Marketplace stack.
 /// Intentionally empty — the teaser tab pushes nothing yet; marketplace
-/// browsing destinations land in E10 (SHIFT-724).
+/// browsing destinations land with the full marketplace.
 enum MarketplaceDestination: Hashable {}
 
 /// Typed push destinations for the Templates stack.
 enum TemplateDestination: Hashable {
     case templatePreview(templateID: UUID)
     case timelineBuilder(eventID: UUID)
-}
-
-/// Typed push destinations for the Settings stack.
-enum SettingsDestination: Hashable {
-    case licences
-    case about
 }
 
 // MARK: - RootNavigator
@@ -83,7 +77,6 @@ struct RootNavigator: View {
     @State private var eventPath: [EventDestination] = []
     @State private var marketplacePath: [MarketplaceDestination] = []
     @State private var templatePath: [TemplateDestination] = []
-    @State private var settingsPath: [SettingsDestination] = []
 
     // iPad detail stack path — driven by whichever sidebar tab is active.
     @State private var detailPath: [EventDestination] = []
@@ -125,7 +118,7 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
             .tag(Tab.events)
 
-            // Marketplace tab — no push destinations until E10 (SHIFT-724)
+            // Marketplace tab — no push destinations yet
             NavigationStack(path: $marketplacePath) {
                 MarketplaceTeaserView()
             }
@@ -143,11 +136,8 @@ struct RootNavigator: View {
             .tag(Tab.templates)
 
             // Settings tab
-            NavigationStack(path: $settingsPath) {
+            NavigationStack {
                 SettingsView()
-                    .navigationDestination(for: SettingsDestination.self) { destination in
-                        settingsDestinationView(for: destination)
-                    }
             }
             .tabItem { Label(Tab.settings.rawValue, systemImage: Tab.settings.systemImage) }
             .tag(Tab.settings)
@@ -232,11 +222,8 @@ struct RootNavigator: View {
                     }
             }
         case .settings:
-            NavigationStack(path: $settingsPath) {
+            NavigationStack {
                 SettingsView()
-                    .navigationDestination(for: SettingsDestination.self) { destination in
-                        settingsDestinationView(for: destination)
-                    }
             }
         }
     }
@@ -295,50 +282,6 @@ struct RootNavigator: View {
         case .timelineBuilder(let eventID):
             TimelineBuilderView(eventID: eventID)
         }
-    }
-
-    @ViewBuilder
-    private func settingsDestinationView(for destination: SettingsDestination) -> some View {
-        switch destination {
-        case .licences:
-            ContentPlaceholderView(label: "Licences")
-        case .about:
-            ContentPlaceholderView(label: "About SHIFT")
-        }
-    }
-}
-
-// MARK: - ContentPlaceholderView
-
-/// Placeholder root content for each tab.
-/// Replaced by real views as E2 stories land:
-///   `.events`    → EventRosterView  (done)
-///   `.templates` → TemplateGalleryView
-///   `.settings`  → SettingsView
-private struct ContentPlaceholderView: View {
-
-    var tab: Tab?
-    var label: String?
-
-    init(tab: Tab) { self.tab = tab }
-    init(label: String) { self.label = label }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: tab?.systemImage ?? "rectangle.dashed")
-                .font(.system(size: 48))
-                .foregroundStyle(.secondary)
-            Text(label ?? tab?.rawValue ?? "")
-                .font(.title2)
-                .fontWeight(.medium)
-            Text(String(localized: "Coming soon"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { ProBackground() }
-        .navigationTitle(label ?? tab?.rawValue ?? "")
-        .navigationBarTitleDisplayMode(.large)
     }
 }
 

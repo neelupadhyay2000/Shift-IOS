@@ -4,11 +4,11 @@ import Services
 import SwiftData
 
 /// One-time, post-migration upload of a CloudKit-era user's on-device data to
-/// Supabase (SHIFT-656).
+/// Supabase.
 ///
 /// Walks the local SwiftData graph and enqueues an `insert` ``OutboxEntry`` for
 /// every owned row, then saves. It does **not** touch the network: the existing
-/// offline flush (``OutboxFlusher``, SHIFT-603) drains the queue FIFO when
+/// offline flush (``OutboxFlusher``) drains the queue FIFO when
 /// connectivity returns. Enqueue is delegated to ``OutboxCoordinator`` so the
 /// payloads, owner stamping, FK-ordered `sequence`, and junction encoding are
 /// byte-for-byte identical to a normal repository write.
@@ -17,7 +17,7 @@ import SwiftData
 /// flush upserts by id. Re-running the backfill (or a second device that shares
 /// the same CloudKit-era ids) therefore converges on the same rows rather than
 /// duplicating them. The run-once completion flag that makes this fire exactly
-/// once per upgrade is SHIFT-657.
+/// once per upgrade lives in ``BackfillCompletionStore``.
 ///
 /// **Ownership.** Only events the signed-in user owns are uploaded: rows with no
 /// owner yet (`ownerId == nil` — the CloudKit-era default) are claimed for the

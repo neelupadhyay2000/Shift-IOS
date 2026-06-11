@@ -316,7 +316,7 @@ public final class WatchSessionManager {
             event: event,
             blocks: result.blocks
         )
-        // SHIFT-634: propagate the ack reset to Supabase (vendors re-acknowledge).
+        // Propagate the ack reset to Supabase (vendors re-acknowledge).
         let vendorResets = VendorShiftResetService.resets(for: event)
         Task { await VendorShiftResetService.live.pushReset(vendorResets) }
 

@@ -37,7 +37,7 @@ final class DeepLinkRouter {
     var pendingInviteVendorID: UUID?
 
     /// The most recent foreground shift push, surfaced as an in-app banner
-    /// instead of a system notification (SHIFT-648). `RootContainerView` observes
+    /// instead of a system notification. `RootContainerView` observes
     /// this, shows a transient top toast, and clears it on tap or timeout.
     /// `AppDelegate.willPresent` sets it when it suppresses a foreground `shift-`
     /// notification.

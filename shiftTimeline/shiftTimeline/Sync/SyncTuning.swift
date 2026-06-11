@@ -1,6 +1,6 @@
 import Foundation
 
-/// Centralized sync tuning knobs (SHIFT-663) — the single place backoff, retry,
+/// Centralized sync tuning knobs — the single place backoff, retry,
 /// and debounce are set, so the rate-limit behavior is reasoned about as a whole
 /// rather than as magic numbers scattered across `OutboxFlusher` and
 /// `FlushScheduler`. `SupabaseSyncStack` constructs both from `SyncTuning.default`.

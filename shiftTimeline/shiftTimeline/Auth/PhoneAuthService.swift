@@ -26,7 +26,7 @@ enum PhoneAuthError: LocalizedError, Sendable {
 
 /// Manages the Supabase phone-OTP authentication flow.
 ///
-/// Call `requestOTP(phone:)` to send a code, then (in SHIFT-578) call
+/// Call `requestOTP(phone:)` to send a code, then call
 /// `verifyOTP(phone:token:)` to exchange the code for a session.
 @MainActor
 final class PhoneAuthService {

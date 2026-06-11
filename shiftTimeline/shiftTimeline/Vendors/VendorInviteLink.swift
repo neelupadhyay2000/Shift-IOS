@@ -1,12 +1,12 @@
 import Foundation
 
-/// Builds the vendor invite a planner delivers over iMessage / email (SHIFT-626):
+/// Builds the vendor invite a planner delivers over iMessage / email:
 /// a `shift://invite/...` deep link plus the pre-filled composer message that
 /// carries it and an App Store fallback for recipients who don't have SHIFT yet.
 ///
 /// The link is intentionally shaped to round-trip through the same `shift://`
 /// parser `DeepLinkRouter` uses — `host` = action, first path component = id —
-/// so SHIFT-621's claim flow reads it back with a plain parse:
+/// so the claim flow reads it back with a plain parse:
 /// `host == VendorInviteLink.host`, `pathComponents[1]` = the `event_vendors` row
 /// id, and `?event=` = the event id.
 nonisolated enum VendorInviteLink {

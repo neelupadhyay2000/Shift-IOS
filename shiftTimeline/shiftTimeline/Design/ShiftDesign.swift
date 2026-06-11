@@ -1,12 +1,11 @@
 import SwiftUI
 import Models
 
-// MARK: - Direction A · "Calm pro-tool" colour scheme
+// MARK: - "Calm pro-tool" colour scheme
 //
-// Reference targets: Luma (event pages — flat, dark-leaning, hairline borders,
-// typography does the work), Flighty (live data — tabular numerals, information
-// hierarchy under pressure), Structured (timeline — colour as a precise accent,
-// never decoration). One restrained accent; emerald is reserved for "go/live";
+// Flat, dark-leaning surfaces with hairline borders — typography does the
+// work. Tabular numerals for live data; colour is a precise accent, never
+// decoration. One restrained accent; emerald is reserved for "go/live";
 // amber only for time-of-day (sun) data; everything else is neutral.
 
 enum ShiftPalette {
@@ -53,7 +52,7 @@ struct ProBackground: View {
 
 // MARK: - Pro Card
 
-/// Direction A card surface: flat fill + hairline border, no glassmorphism.
+/// Card surface: flat fill + hairline border, no glassmorphism.
 /// Dark: a slightly lifted ink panel with a white hairline. Light: white with a
 /// faint cool border and one soft shadow. The restraint is the style.
 struct ProCardModifier: ViewModifier {
@@ -107,18 +106,18 @@ struct ProSurfaceModifier: ViewModifier {
 }
 
 extension View {
-    /// Flat, hairline-bordered card — the Direction A surface.
+    /// Flat, hairline-bordered card — the standard card surface.
     func proCard(padding: CGFloat = 16) -> some View {
         modifier(ProCardModifier(padding: padding))
     }
 
-    /// Padding-free Direction A surface for caller-sized cards (timeline blocks).
+    /// Padding-free card surface for caller-sized cards (timeline blocks).
     func proSurface(cornerRadius: CGFloat = ShiftDesign.cardRadius) -> some View {
         modifier(ProSurfaceModifier(cornerRadius: cornerRadius))
     }
 
     /// Micro-label: the small uppercase tracked caption used for section
-    /// headers and data labels (the Luma/Flighty signature).
+    /// headers and data labels.
     func microLabel() -> some View {
         font(.caption2.weight(.semibold))
             .textCase(.uppercase)

@@ -3,7 +3,7 @@ import XCTest
 /// Smoke test that validates the app boots cleanly under UI test conditions and
 /// presents the Event Roster within an acceptable time budget.
 ///
-/// This is the canary test for SHIFT-1001: if it goes red, the test infrastructure
+/// The canary test: if it goes red, the test infrastructure
 /// itself is broken and no other UI test result can be trusted.
 final class AppLaunchSmokeTests: SHIFTUITestCase {
 

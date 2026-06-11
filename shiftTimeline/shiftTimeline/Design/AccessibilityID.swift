@@ -28,6 +28,7 @@ enum AccessibilityID {
         static let statusFilter      = "roster.status_filter"
         static let eventList         = "roster.event_list"
         static let createEventButton = "roster.create_event_button"
+        static let demoEventButton   = "roster.demo_event_button"
     }
 
     // MARK: - Event Creation (CreateEventSheet)
@@ -73,6 +74,8 @@ enum AccessibilityID {
         static let slideToAdvance      = "live.slide_to_advance"
         static let exitLiveButton      = "live.exit_live_button"
         static let shiftTimelineButton = "live.shift_timeline_button"
+        static let overtimeNudge       = "live.overtime_nudge"
+        static let overtimeShiftButton = "live.overtime_shift_button"
     }
 
     // MARK: - Quick Shift sheet (QuickShiftSheet)
@@ -89,12 +92,39 @@ enum AccessibilityID {
     enum Vendors {
         static let addVendorButton = "vendors.add_vendor_button"
         static let vendorList      = "vendors.vendor_list"
+        static let customRoleField = "vendors.custom_role_field"
     }
 
     // MARK: - Templates (TemplateBrowserView)
 
     enum Templates {
-        static let templateList = "templates.template_list"
+        static let templateList         = "templates.template_list"
+        static let sectionPicker        = "templates.section_picker"
+        static let myTemplatesGrid      = "templates.my_templates_grid"
+        static let starterTemplatesGrid = "templates.starter_templates_grid"
+        static let communityTeaser      = "templates.community_teaser"
+        static let saveTemplateButton   = "templates.save_template_button"
+        static let saveTemplateNameField = "templates.save_template_name_field"
+        static let editorSaveButton     = "templates.editor_save_button"
+        static let editorNameField      = "templates.editor_name_field"
+    }
+
+    // MARK: - Vendor Teams (VendorTeamsView / ApplyVendorTeamSheet)
+
+    enum VendorTeams {
+        static let teamList         = "vendor_teams.team_list"
+        static let addTeamButton    = "vendor_teams.add_team_button"
+        static let teamNameField    = "vendor_teams.team_name_field"
+        static let editorSaveButton = "vendor_teams.editor_save_button"
+        static let applyTeamButton  = "vendor_teams.apply_team_button"
+        static let memberCustomRoleField = "vendor_teams.member_custom_role_field"
+    }
+
+    // MARK: - Launch Promo (LaunchPromoView)
+
+    enum LaunchPromo {
+        static let closeButton   = "launch_promo.close_button"
+        static let upgradeButton = "launch_promo.upgrade_button"
     }
 
     // MARK: - Marketplace (MarketplaceTeaserView)
@@ -110,9 +140,10 @@ enum AccessibilityID {
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
 
     enum Waitlist {
-        static let rolePicker     = "waitlist.role_picker"
-        static let categoryPicker = "waitlist.category_picker"
-        static let regionField    = "waitlist.region_field"
+        static let rolePicker          = "waitlist.role_picker"
+        static let categoryPicker      = "waitlist.category_picker"
+        static let customCategoryField = "waitlist.custom_category_field"
+        static let regionField         = "waitlist.region_field"
         static let submitButton   = "waitlist.submit_button"
         static let cancelButton   = "waitlist.cancel_button"
         static let confirmedState = "waitlist.confirmed_state"

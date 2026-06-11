@@ -6,14 +6,14 @@ import SwiftData
 import Supabase
 import Testing
 
-/// SHIFT-605 conflict resolution. Timeline rows are planner-authoritative (only
+/// Last-write-wins conflict resolution. Timeline rows are planner-authoritative (only
 /// the owner can write them — enforced server-side by RLS); between the owner's
 /// own devices, the apply layer resolves last-write-wins by server `updated_at`,
 /// so a stale remote change never clobbers a newer local version regardless of
-/// arrival order (SHIFT-615). Vendor acknowledgment is the same row-level LWW,
+/// arrival order. Vendor acknowledgment is the same row-level LWW,
 /// with echo/origin handling so a vendor ack and a planner edit never ping-pong
-/// (SHIFT-616). The convergence suite proves concurrent edits land on identical
-/// state across devices under every apply order (SHIFT-617).
+///. The convergence suite proves concurrent edits land on identical
+/// state across devices under every apply order.
 @Suite("Conflict resolution — LWW & convergence")
 @MainActor
 struct ConflictResolutionTests {
@@ -182,7 +182,7 @@ struct ConflictResolutionTests {
         #expect(block.updatedAt == t2)
     }
 
-    // MARK: - Vendor acknowledgment LWW (SHIFT-616)
+    // MARK: - Vendor acknowledgment LWW
 
     @Test("a vendor's newer ack wins over an older version")
     func vendorNewerAckWins() throws {
@@ -210,7 +210,7 @@ struct ConflictResolutionTests {
         #expect(vendor.updatedAt == t2)
     }
 
-    // MARK: - Echo / origin handling (SHIFT-616)
+    // MARK: - Echo / origin handling
 
     @Test("a vendor's own write echo is suppressed even if newer (origin handling)")
     func vendorSelfEchoSuppressed() throws {
@@ -243,7 +243,7 @@ struct ConflictResolutionTests {
         #expect(try vendor(stack.context)?.hasAcknowledgedLatestShift == false)
     }
 
-    // MARK: - Multi-device convergence (SHIFT-617)
+    // MARK: - Multi-device convergence
 
     @Test("concurrent edits to the same event converge regardless of apply order")
     func concurrentEventEditsConverge() throws {
@@ -311,7 +311,7 @@ struct ConflictResolutionTests {
         #expect(forward == scrambled)
     }
 
-    // MARK: - Soft-delete / tombstones (SHIFT-618)
+    // MARK: - Soft-delete / tombstones
 
     @Test("a tombstone deletes the local row")
     func tombstoneDeletesLocalRow() throws {

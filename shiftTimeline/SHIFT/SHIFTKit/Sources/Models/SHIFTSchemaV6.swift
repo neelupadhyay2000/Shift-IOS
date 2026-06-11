@@ -7,7 +7,7 @@ import SwiftData
 ///   * `EventModel.postEventReportData: Data?` — JSON-encoded
 ///     `PostEventReport` produced when the event transitions to `.completed`.
 ///
-/// Why this snapshot exists: per the SHIFT-303 post-mortem, every new
+/// Why this snapshot exists: every new
 /// stored property on a live `@Model` requires a frozen `VersionedSchema`
 /// snapshot, or the migration plan can't carry an existing store forward.
 ///
@@ -24,7 +24,7 @@ public enum SHIFTSchemaV6: VersionedSchema {
         // unqualified `EventModel.self` here would silently rebind to a
         // live type if anyone ever added `import Models` or a typealias,
         // collapsing the V5/V6 schema checksums and triggering the exact
-        // SHIFT-303 sync regression this file exists to prevent.
+        // sync regression this file exists to prevent.
         [
             SHIFTSchemaV6.EventModel.self,
             SHIFTSchemaV6.TimeBlockModel.self,

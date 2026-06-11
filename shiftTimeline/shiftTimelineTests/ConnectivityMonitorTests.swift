@@ -2,7 +2,7 @@ import Foundation
 @testable import shiftTimeline
 import Testing
 
-/// SHIFT-610: connectivity is observed and a return to online drives the flush.
+/// Connectivity is observed and a return to online drives the flush.
 /// The `NWPathMonitor` plumbing is thin glue exercised at runtime; the
 /// transition logic — which is what the acceptance criteria turns on — is driven
 /// here through the `pathDidUpdate(isOnline:)` seam.

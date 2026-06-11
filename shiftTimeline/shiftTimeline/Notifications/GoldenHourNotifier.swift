@@ -5,7 +5,7 @@ import UserNotifications
 import os
 
 /// Schedules a single local reminder that fires ~30 minutes before an event's
-/// golden hour / sunset, hooked to go-live (SHIFT-649).
+/// golden hour / sunset, hooked to go-live.
 ///
 /// Local-only — no server involvement. Anchored on the cached
 /// `EventModel.goldenHourStart` (the onset of the prime shooting window), falling
@@ -93,7 +93,7 @@ enum GoldenHourNotifier {
                      comment: "Sunset reminder body; first arg is the event title, second is minutes of lead time")
         content.sound = .default
         // Reuse the shared event-id key so a tap deep-links to the event via the
-        // existing RemoteShiftPushHandler tap path (SHIFT-647).
+        // existing RemoteShiftPushHandler tap path.
         content.userInfo = [VendorShiftNotificationContent.eventIDKey: eventID.uuidString]
 
         // Minute-granularity calendar trigger (seconds are intentionally dropped).

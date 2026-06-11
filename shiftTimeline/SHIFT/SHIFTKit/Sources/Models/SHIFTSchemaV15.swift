@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 /// V15 schema — adds `profileId` (`UUID?`) and `acceptedAt` (`Date?`) to
-/// `VendorModel` for claim-on-sign-in (SHIFT-621 / E14).
+/// `VendorModel` for claim-on-sign-in.
 ///
 /// These mirror `event_vendors.profile_id` / `accepted_at`: when an invited
 /// person signs in and claims their invite, the matching row is linked to their

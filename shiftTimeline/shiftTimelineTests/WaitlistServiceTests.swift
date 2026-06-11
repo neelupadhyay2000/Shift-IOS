@@ -68,6 +68,54 @@ struct WaitlistServiceTests {
         #expect(payload.region == "Toronto, ON")
     }
 
+    @Test("custom category with a label sends the label as the category string")
+    func customCategoryWithLabel() {
+        let payload = SupabaseWaitlistService.payload(
+            profileID: profileID,
+            role: .vendor,
+            category: .custom,
+            customCategoryLabel: "  Videographer \n",
+            region: ""
+        )
+        #expect(payload.category == "Videographer")
+    }
+
+    @Test("custom category without a label falls back to the custom raw value")
+    func customCategoryWithoutLabel() {
+        let payload = SupabaseWaitlistService.payload(
+            profileID: profileID,
+            role: .vendor,
+            category: .custom,
+            customCategoryLabel: "   ",
+            region: ""
+        )
+        #expect(payload.category == VendorRole.custom.rawValue)
+    }
+
+    @Test("built-in category ignores a stray custom label")
+    func builtInCategoryIgnoresLabel() {
+        let payload = SupabaseWaitlistService.payload(
+            profileID: profileID,
+            role: .both,
+            category: .dj,
+            customCategoryLabel: "Videographer",
+            region: ""
+        )
+        #expect(payload.category == VendorRole.dj.rawValue)
+    }
+
+    @Test("planner signup drops the custom label along with the category")
+    func plannerDropsCustomLabel() {
+        let payload = SupabaseWaitlistService.payload(
+            profileID: profileID,
+            role: .planner,
+            category: .custom,
+            customCategoryLabel: "Videographer",
+            region: ""
+        )
+        #expect(payload.category == nil)
+    }
+
     @Test("interest role raw values match the DB check constraint")
     func rawValuesMatchCheckConstraint() {
         #expect(WaitlistInterestRole.vendor.rawValue == "vendor")

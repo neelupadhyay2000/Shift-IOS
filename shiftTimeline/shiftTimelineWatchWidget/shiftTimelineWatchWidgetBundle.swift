@@ -1,10 +1,3 @@
-//
-//  shiftTimelineWatchWidgetBundle.swift
-//  shiftTimelineWatchWidget
-//
-//  Created by Neel Upadhyay on 2026-04-15.
-//
-
 import WidgetKit
 import SwiftUI
 
