@@ -184,7 +184,13 @@ async function handleAssignment(payload: AssignmentPayload): Promise<Response> {
   // directly (reliable when backgrounded/locked). EVENT_ID_KEY lets the tap
   // deep-link to the event via the existing RemoteShiftPushHandler.
   const apsPayload = {
-    aps: { alert: { title: "New assignment", body: assignmentBody(payload.block_title) }, sound: "default" },
+    aps: {
+      alert: {
+        title: "New assignment",
+        body: assignmentBody(payload.block_title, payload.block_count ?? 1),
+      },
+      sound: "default",
+    },
     [EVENT_ID_KEY]: payload.event_id,
     event_vendor_id: payload.event_vendor_id,
   };

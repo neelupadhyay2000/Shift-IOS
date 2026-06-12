@@ -15,6 +15,9 @@ struct RootContainerView: View {
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     @State private var isShowingLaunchPromo = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    private let appLock = AppLock.shared
 
     @AppStorage(AppearancePreference.defaultsKey)
     private var appearanceRawValue = AppearancePreference.system.rawValue
@@ -28,6 +31,19 @@ struct RootContainerView: View {
             .preferredColorScheme(
                 AppearancePreference(rawValue: appearanceRawValue)?.colorScheme
             )
+            // Biometric privacy lock: covers everything (including any open
+            // sheets) on cold launch and after backgrounding; dismisses only
+            // by Face ID / passcode via AppLock.unlock().
+            .fullScreenCover(isPresented: .init(
+                get: { appLock.isLocked },
+                set: { _ in }
+            )) {
+                AppLockScreen { await appLock.unlock() }
+                    .interactiveDismissDisabled()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { appLock.lockIfEnabled() }
+            }
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }

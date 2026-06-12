@@ -21,6 +21,7 @@ struct SettingsView: View {
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
     @AppStorage(AppearancePreference.defaultsKey) private var appearanceRawValue = AppearancePreference.system.rawValue
+    @AppStorage(AppLock.enabledKey) private var appLockEnabled = false
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -33,6 +34,7 @@ struct SettingsView: View {
             accountSection
             vendorTeamsSection
             appearanceSection
+            privacySection
             notificationsSection
             aboutSection
             #if DEBUG
@@ -133,6 +135,21 @@ struct SettingsView: View {
             Text(String(localized: "Appearance"))
         } footer: {
             Text(String(localized: "System follows your device setting."))
+        }
+    }
+
+    // MARK: - Privacy & Security
+
+    private var privacySection: some View {
+        Section {
+            Toggle(isOn: $appLockEnabled) {
+                Label(String(localized: "Require Face ID"), systemImage: "faceid")
+            }
+            .disabled(!AppLock.isAvailable)
+        } header: {
+            Text(String(localized: "Privacy & Security"))
+        } footer: {
+            Text(String(localized: "Locks SHIFT when you leave the app. Unlock with Face ID or your device passcode — you stay signed in."))
         }
     }
 
