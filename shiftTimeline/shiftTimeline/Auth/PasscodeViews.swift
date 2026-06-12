@@ -42,6 +42,8 @@ struct AppLockScreen: View {
     /// Signs out to re-authenticate via OTP (the forgot-passcode escape hatch).
     let onForgotPasscode: () -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var code = ""
     @State private var showKeypad = false
     @State private var wrongCode = false
@@ -93,7 +95,18 @@ struct AppLockScreen: View {
                 .padding(.bottom, 32)
             }
         }
-        .task { await attemptBiometrics() }
+        // Biometrics can only run while the app is ACTIVE. The cover presents
+        // at backgrounding time, when an immediate attempt would fail straight
+        // into the keypad — so attempt on appear only if already active (cold
+        // launch) and re-attempt whenever the scene becomes active again
+        // (returning from the app switcher / home screen).
+        .task {
+            if scenePhase == .active { await attemptBiometrics() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active, !showKeypad else { return }
+            Task { await attemptBiometrics() }
+        }
         .confirmationDialog(
             String(localized: "Reset passcode?"),
             isPresented: $showForgotConfirm,

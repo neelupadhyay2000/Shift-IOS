@@ -17,6 +17,9 @@ struct AccountView: View {
     @State private var isShowingSignIn = false
     @State private var isEditingName = false
     @State private var nameDraft = ""
+    @State private var isChangingPasscode = false
+
+    @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = false
     @State private var isConfirmingDeleteAccount = false
     @State private var isDeletingAccount = false
     @State private var showDeleteAccountErrorAlert = false
@@ -25,6 +28,9 @@ struct AccountView: View {
         Form {
             identitySection
             subscriptionSection
+            if authService.isAuthenticated {
+                privacySection
+            }
             if authService.isAuthenticated {
                 signOutSection
                 deleteAccountSection
@@ -37,6 +43,9 @@ struct AccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingSignIn) {
             SignInView()
+        }
+        .sheet(isPresented: $isChangingPasscode) {
+            ChangePasscodeSheet()
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
@@ -191,6 +200,27 @@ struct AccountView: View {
                 }
             }
             .disabled(isRestoring)
+        }
+    }
+
+    // MARK: - Privacy & Security
+
+    private var privacySection: some View {
+        Section {
+            Toggle(isOn: $faceIDEnabled) {
+                Label(String(localized: "Unlock with Face ID"), systemImage: "faceid")
+            }
+            .disabled(!AppLock.isBiometricsAvailable)
+            Button {
+                isChangingPasscode = true
+            } label: {
+                Label(String(localized: "Change Passcode"), systemImage: "lock.rotation")
+            }
+            .foregroundStyle(ShiftPalette.accent)
+        } header: {
+            Text(String(localized: "Privacy & Security"))
+        } footer: {
+            Text(String(localized: "SHIFT locks every time you leave the app. Unlock with Face ID or your passcode — you stay signed in."))
         }
     }
 

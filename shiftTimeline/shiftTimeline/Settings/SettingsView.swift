@@ -21,8 +21,6 @@ struct SettingsView: View {
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
     @AppStorage(AppearancePreference.defaultsKey) private var appearanceRawValue = AppearancePreference.system.rawValue
-    @AppStorage(AppLock.faceIDEnabledKey) private var appLockEnabled = false
-    @State private var isChangingPasscode = false
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -35,7 +33,6 @@ struct SettingsView: View {
             accountSection
             vendorTeamsSection
             appearanceSection
-            privacySection
             notificationsSection
             aboutSection
             #if DEBUG
@@ -47,9 +44,6 @@ struct SettingsView: View {
         .tint(ShiftPalette.accent)
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
-        .sheet(isPresented: $isChangingPasscode) {
-            ChangePasscodeSheet()
-        }
     }
 
     // MARK: - Account (single row → AccountView)
@@ -139,27 +133,6 @@ struct SettingsView: View {
             Text(String(localized: "Appearance"))
         } footer: {
             Text(String(localized: "System follows your device setting."))
-        }
-    }
-
-    // MARK: - Privacy & Security
-
-    private var privacySection: some View {
-        Section {
-            Toggle(isOn: $appLockEnabled) {
-                Label(String(localized: "Unlock with Face ID"), systemImage: "faceid")
-            }
-            .disabled(!AppLock.isBiometricsAvailable)
-            Button {
-                isChangingPasscode = true
-            } label: {
-                Label(String(localized: "Change Passcode"), systemImage: "lock.rotation")
-            }
-            .foregroundStyle(ShiftPalette.accent)
-        } header: {
-            Text(String(localized: "Privacy & Security"))
-        } footer: {
-            Text(String(localized: "SHIFT locks every time you leave the app. Unlock with Face ID or your passcode — you stay signed in."))
         }
     }
 
