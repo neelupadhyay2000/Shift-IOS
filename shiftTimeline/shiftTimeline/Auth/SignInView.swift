@@ -95,10 +95,14 @@ struct SignInView: View {
 
     // MARK: - Buttons
 
+    /// Both paths run the same email-OTP flow — the account layer. What
+    /// differs is what happens after: a successful session with no device
+    /// passcode lands on `PasscodeSetupView` (see `RootContainerView`), and
+    /// from then on entry is passcode / Face ID, never OTP.
     private var signInButtons: some View {
         VStack(spacing: 12) {
-            // Email OTP is the primary sign-in (Apple removed) — always available.
-            emailButton
+            signUpButton
+            logInButton
             // Phone OTP is gated off until an SMS provider is configured
             // (FeatureFlags.phoneSignIn) — see PhoneAuthService / Supabase Auth.
             if FeatureFlags.phoneSignIn {
@@ -107,35 +111,42 @@ struct SignInView: View {
         }
     }
 
-    private var emailButton: some View {
+    private var signUpButton: some View {
         Button {
             isShowingEmailSignIn = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "envelope.fill")
-                Text(String(localized: "Sign in with Email"))
-            }
+            Text(String(localized: "Create Account"))
         }
         .buttonStyle(SignInPrimaryButtonStyle())
-        .accessibilityLabel(String(localized: "Sign in with Email"))
+        .accessibilityLabel(String(localized: "Create Account"))
+    }
+
+    private var logInButton: some View {
+        Button {
+            isShowingEmailSignIn = true
+        } label: {
+            Text(String(localized: "Log In"))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(
+                    .white.opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Log In"))
     }
 
     private var phoneButton: some View {
         Button {
             isShowingPhoneSignIn = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "phone.fill")
-                Text(String(localized: "Sign in with Phone"))
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(
-                .white.opacity(0.14),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
+            Text(String(localized: "Sign in with Phone"))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.8))
+                .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "Sign in with Phone"))

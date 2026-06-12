@@ -31,18 +31,21 @@ struct RootContainerView: View {
             .preferredColorScheme(
                 AppearancePreference(rawValue: appearanceRawValue)?.colorScheme
             )
-            // Biometric privacy lock: covers everything (including any open
-            // sheets) on cold launch and after backgrounding; dismisses only
-            // by Face ID / passcode via AppLock.unlock().
+            // Access layer: covers everything (including any open sheets) on
+            // cold launch and after backgrounding while a passcode exists.
+            // Unlocks only via Face ID or the app passcode; "Forgot passcode?"
+            // signs out so identity is re-proven with email OTP.
             .fullScreenCover(isPresented: .init(
                 get: { appLock.isLocked },
                 set: { _ in }
             )) {
-                AppLockScreen { await appLock.unlock() }
-                    .interactiveDismissDisabled()
+                AppLockScreen(appLock: appLock) {
+                    Task { try? await authService.signOut() }
+                }
+                .interactiveDismissDisabled()
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background { appLock.lockIfEnabled() }
+                if phase == .background { appLock.lockOnBackground() }
             }
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
@@ -60,8 +63,14 @@ struct RootContainerView: View {
         } else if !authService.hasResolvedInitialSession {
             loadingView
         } else if authService.isAuthenticated {
-            RootNavigator()
-                .task { await maybeShowLaunchPromo() }
+            if appLock.hasPasscode {
+                RootNavigator()
+                    .task { await maybeShowLaunchPromo() }
+            } else {
+                // First sign-in on this device (or an upgrade from a
+                // pre-passcode build): the passcode is created before entry.
+                PasscodeSetupView()
+            }
         } else {
             SignInView(isDismissible: false)
         }

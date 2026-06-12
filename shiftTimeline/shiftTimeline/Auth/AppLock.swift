@@ -1,98 +1,103 @@
 import LocalAuthentication
 import SwiftUI
 
-/// Optional biometric privacy lock (Settings → Privacy & Security).
+/// Device access layer over the app: a mandatory six-digit passcode (created
+/// on first sign-in via ``PasscodeSetupView``) required on every app open,
+/// with optional Face ID / Touch ID as the fast path.
 ///
-/// When enabled, the app locks on cold launch and whenever it leaves the
-/// foreground; unlocking uses `.deviceOwnerAuthentication` — Face ID / Touch ID
-/// with the system passcode as fallback, so a failed scan never strands the
-/// user. This is purely a privacy shield over the UI: the Supabase session in
-/// the Keychain is untouched, so unlocking never re-runs the OTP flow.
+/// This is separate from the account layer: email OTP proves identity once
+/// per device and the Supabase session lives on in the Keychain; the passcode
+/// then guards entry without ever re-running OTP. Face ID uses the
+/// biometrics-only policy — the app passcode (not the device passcode) is the
+/// fallback. Sign-out wipes the passcode so a new sign-in re-creates it.
 @Observable
 @MainActor
 final class AppLock {
 
     static let shared = AppLock()
 
-    /// UserDefaults key for the user preference (Settings toggle).
-    static let enabledKey = "appLock.enabled"
+    /// Face ID preference. (Key name predates the passcode system.)
+    static let faceIDEnabledKey = "appLock.enabled"
 
-    /// Locked from process start when the preference is on, so the content
-    /// behind the lock is never visible on cold launch. UI test runs skip the
-    /// lock — they can't answer a biometric prompt.
-    private(set) var isLocked: Bool
-
+    private let store = PasscodeStore()
     private var isAuthenticating = false
 
+    /// Locked from process start whenever a passcode exists, so content is
+    /// never visible on cold launch. UI test runs skip the lock entirely.
+    private(set) var isLocked: Bool
+
+    /// Mirrors the Keychain so the root gate can observe the transition
+    /// out of `PasscodeSetupView` after the first sign-in.
+    private(set) var hasPasscode: Bool
+
     private init() {
-        isLocked = UserDefaults.standard.bool(forKey: Self.enabledKey)
-            && !shiftTimelineApp.isUITestMode
+        let hasCode = PasscodeStore().hasPasscode
+        hasPasscode = hasCode
+        isLocked = hasCode && !shiftTimelineApp.isUITestMode
     }
 
-    /// `true` when the device can evaluate biometrics or a passcode —
-    /// the Settings toggle is disabled when this is false.
-    nonisolated static var isAvailable: Bool {
+    var isFaceIDEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.faceIDEnabledKey)
+    }
+
+    /// `true` when the device offers Face ID / Touch ID (the Settings toggle
+    /// and the post-setup offer are hidden otherwise).
+    nonisolated static var isBiometricsAvailable: Bool {
         var error: NSError?
-        return LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
     }
 
-    /// Re-locks when the app leaves the foreground (scene → background).
-    func lockIfEnabled() {
-        guard UserDefaults.standard.bool(forKey: Self.enabledKey) else { return }
+    // MARK: - Setup / teardown
+
+    /// Stores the passcode created in ``PasscodeSetupView`` and admits the user.
+    func setPasscode(_ passcode: String) {
+        store.set(passcode)
+        hasPasscode = true
+        isLocked = false
+    }
+
+    /// Sign-out and account deletion wipe the device passcode and Face ID
+    /// preference: the next sign-in (any account) re-authenticates with OTP
+    /// and creates a fresh passcode.
+    func resetForSignOut() {
+        store.clear()
+        UserDefaults.standard.removeObject(forKey: Self.faceIDEnabledKey)
+        hasPasscode = false
+        isLocked = false
+    }
+
+    // MARK: - Lock / unlock
+
+    /// Re-locks when the app leaves the foreground.
+    func lockOnBackground() {
+        guard hasPasscode, !shiftTimelineApp.isUITestMode else { return }
         isLocked = true
     }
 
-    /// Prompts Face ID / Touch ID (passcode fallback). Safe to call repeatedly;
-    /// concurrent calls coalesce. Stays locked on failure or cancel — the lock
-    /// screen's button retries.
-    func unlock() async {
-        guard isLocked, !isAuthenticating else { return }
+    /// Keypad path. Returns `false` (and stays locked) on a wrong code.
+    func unlock(with passcode: String) -> Bool {
+        guard store.validate(passcode) else { return false }
+        isLocked = false
+        return true
+    }
+
+    /// Face ID fast path — biometrics only; a cancelled or failed scan falls
+    /// back to the keypad, never to the device passcode. Concurrent calls
+    /// coalesce.
+    func unlockWithBiometrics() async {
+        guard isLocked, isFaceIDEnabled, !isAuthenticating else { return }
         isAuthenticating = true
         defer { isAuthenticating = false }
 
         let context = LAContext()
         do {
             let success = try await context.evaluatePolicy(
-                .deviceOwnerAuthentication,
+                .deviceOwnerAuthenticationWithBiometrics,
                 localizedReason: String(localized: "Unlock SHIFT")
             )
             if success { isLocked = false }
         } catch {
-            // User cancelled or biometry unavailable — remain locked.
+            // Cancelled or unavailable — the keypad remains.
         }
-    }
-}
-
-// MARK: - Lock screen
-
-/// Full-screen cover shown while `AppLock.isLocked` — the same brand wash as
-/// sign-in so launch always opens on a SHIFT-branded surface.
-struct AppLockScreen: View {
-    let unlock: () async -> Void
-
-    var body: some View {
-        ZStack {
-            SignInBrandBackground()
-            VStack(spacing: 32) {
-                Spacer()
-                SignInStepBadge(systemImage: "lock.fill")
-                Text(String(localized: "SHIFT is locked"))
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-                Spacer()
-                Button {
-                    Task { await unlock() }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "faceid")
-                        Text(String(localized: "Unlock"))
-                    }
-                }
-                .buttonStyle(SignInPrimaryButtonStyle())
-                .padding(.horizontal, 28)
-                .padding(.bottom, 40)
-            }
-        }
-        .task { await unlock() }
     }
 }

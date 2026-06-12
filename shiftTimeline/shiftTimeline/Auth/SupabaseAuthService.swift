@@ -328,6 +328,10 @@ final class SupabaseAuthService {
                     }
                 case .signedOut:
                     self.currentProfile = nil
+                    // The device passcode belongs to the signed-in identity:
+                    // wipe it so the next sign-in re-creates one (also the
+                    // forgot-passcode path, which signs out to re-prove via OTP).
+                    AppLock.shared.resetForSignOut()
                     await self.deviceTokenRegistrar?.updateProfile(nil)
                 default:
                     break
