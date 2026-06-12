@@ -19,7 +19,12 @@ final class SupabaseAuthService {
     // MARK: - Observable state
 
     private(set) var session: Session?
-    private(set) var currentProfile: ProfileDTO?
+    /// The signed-in user's `profiles` row. Setting it forwards the
+    /// server-granted comp window to `SubscriptionManager`, so sign-in
+    /// applies a grant and sign-out / account deletion revokes it.
+    private(set) var currentProfile: ProfileDTO? {
+        didSet { SubscriptionManager.shared.compedUntil = currentProfile?.compedUntil?.value }
+    }
 
     /// `true` once the SDK has emitted its initial (stored) session on launch.
     /// The auth gate shows a loading state until this flips, so a returning user
@@ -197,6 +202,29 @@ final class SupabaseAuthService {
         // authStateChanges fires .signedOut → clears session + currentProfile
     }
 
+    // MARK: - Account deletion
+
+    /// Permanently deletes the signed-in user's account and all server-side
+    /// data (App Store Guideline 5.1.1(v)).
+    ///
+    /// The `delete-account` Edge Function removes the caller's voice-memo
+    /// objects via the Storage API (hosted Supabase forbids SQL deletes on
+    /// storage tables), then deletes the auth user; Postgres cascades take
+    /// the profile, owned events, timeline rows, acknowledgments, and device
+    /// tokens with it. Vendor links on other planners' events are unlinked,
+    /// never deleted.
+    ///
+    /// Local-only data is preserved, mirroring ``signOut()`` — the on-device
+    /// copy still belongs to the user and remains usable offline.
+    func deleteAccount() async throws {
+        guard let client else { return }
+        try await client.functions.invoke("delete-account")
+        // The server account is gone, so the remote sign-out call may fail;
+        // it still clears the Keychain session and fires .signedOut locally.
+        try? await client.auth.signOut()
+        clearSyncedCaches()
+    }
+
     // MARK: - Cache clearing
 
     /// Deletes all Supabase-synced local caches without touching the user's
@@ -214,6 +242,64 @@ final class SupabaseAuthService {
         }
     }
 
+    // MARK: - Account-switch purge
+
+    /// UserDefaults key holding the last account that established a session
+    /// on this device.
+    private static let lastAccountKey = "auth.lastEstablishedAccountID"
+
+    /// Purges the previous account's events when a different account signs in.
+    ///
+    /// Local visibility is deliberately unscoped — the roster, widgets, and
+    /// watch read the whole store — so rows synced by a previous account would
+    /// otherwise leak to the new one. Runs before the backfill and hydration so
+    /// the incoming account starts from a correctly-scoped store.
+    private func purgeOtherAccountDataIfSwitched(to userID: UUID) {
+        let defaults = UserDefaults.standard
+        let last = defaults.string(forKey: Self.lastAccountKey).flatMap(UUID.init)
+        defaults.set(userID.uuidString, forKey: Self.lastAccountKey)
+        guard last != userID else { return }
+        purgeEvents(notOwnedBy: userID)
+    }
+
+    /// Deletes every event owned by an account other than `userID` —
+    /// cascading tracks, blocks, vendors, and shift records — and clears the
+    /// Outbox so no pending writes reference the deleted rows.
+    ///
+    /// What survives, and why:
+    /// - `ownerId == nil` events are device-local data that never synced; the
+    ///   backfill claims them for the incoming account, mirroring first sign-in.
+    /// - Nothing is lost server-side: the previous owner's copy re-hydrates on
+    ///   their next sign-in (itself a switch, purging in the other direction).
+    ///
+    /// Events shared *to* the incoming account are deleted here (their owner is
+    /// the sharing planner) and re-pulled by the hydration that immediately
+    /// follows — server truth, not the device, decides what the account can see.
+    ///
+    /// Deletes row-by-row rather than via batch delete so SwiftData honors the
+    /// cascade rules.
+    func purgeEvents(notOwnedBy userID: UUID) {
+        guard let context = modelContext else { return }
+        do {
+            let stale = try context.fetch(
+                FetchDescriptor<EventModel>(
+                    predicate: #Predicate { event in
+                        event.ownerId != nil && event.ownerId != userID
+                    }
+                )
+            )
+            guard !stale.isEmpty else { return }
+            for event in stale {
+                context.delete(event)
+            }
+            try context.save()
+            clearSyncedCaches()
+        } catch {
+            // Non-fatal — a failed purge leaves the pre-switch rows in place,
+            // exactly as before this guard existed; hydration still proceeds.
+        }
+    }
+
     // MARK: - Private
 
     private func beginListening(using client: SupabaseClient) {
@@ -227,6 +313,10 @@ final class SupabaseAuthService {
                 switch event {
                 case .signedIn:
                     if let user = session?.user {
+                        // Synchronously, before the first await: the gate must
+                        // see "restore pending" in the same render pass that
+                        // sees the session, or the setup UI flashes.
+                        AppLock.shared.beginAccountRestore()
                         await self.establishSession(for: user)
                     }
                 case .initialSession, .tokenRefreshed:
@@ -238,10 +328,15 @@ final class SupabaseAuthService {
                     if let user = session?.user,
                        session?.isExpired == false,
                        self.currentProfile == nil {
+                        AppLock.shared.beginAccountRestore()
                         await self.establishSession(for: user)
                     }
                 case .signedOut:
                     self.currentProfile = nil
+                    // The device passcode belongs to the signed-in identity:
+                    // wipe it so the next sign-in re-creates one (also the
+                    // forgot-passcode path, which signs out to re-prove via OTP).
+                    AppLock.shared.resetForSignOut()
                     await self.deviceTokenRegistrar?.updateProfile(nil)
                 default:
                     break
@@ -263,11 +358,35 @@ final class SupabaseAuthService {
         SyncDiagnosticsCenter.shared.record(
             .auth, "sessionEstablished", params: ["profile": user.id.uuidString]
         )
+        purgeOtherAccountDataIfSwitched(to: user.id)
         await performProfileUpsert(user: user, displayName: nil)
+        await restorePasscode(for: user)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)
         await dataBackfiller?.runIfNeeded(profileID: user.id)
         await sessionSync?.onSessionEstablished()
+    }
+
+    /// Syncs the account-level passcode record (see `PasscodeSyncService`).
+    ///
+    /// Remote wins: installing the server record after every sign-in both
+    /// restores the passcode after a sign-out (no re-creation) and propagates
+    /// a change made on another device. A local record uploads only when the
+    /// server has none — e.g. it was created offline — healing on the next
+    /// establishment. Best-effort: failure just means the setup screen shows.
+    private func restorePasscode(for user: User) async {
+        defer { AppLock.shared.finishAccountRestore() }
+        guard let client else { return }
+        let sync = PasscodeSyncService(client: client)
+        do {
+            if let remote = try await sync.fetchRecord() {
+                AppLock.shared.installRestoredRecord(remote)
+            } else if let local = AppLock.shared.currentRecord() {
+                try await sync.upload(record: local, profileID: user.id)
+            }
+        } catch {
+            // Offline or transient — non-fatal by design.
+        }
     }
 
     private func performProfileUpsert(user: User, displayName: String?) async {

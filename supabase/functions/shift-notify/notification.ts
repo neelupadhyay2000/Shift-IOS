@@ -53,10 +53,13 @@ export interface AssignmentPayload {
   event_id: string;
   profile_id: string;
   block_title: string;
+  /** > 1 for the claim-time catch-up that summarizes pre-claim assignments. */
+  block_count?: number;
 }
 
-/** Alert body for a vendor newly assigned to a block. */
-export function assignmentBody(blockTitle: string): string {
+/** Alert body for a vendor newly assigned to one or more blocks. */
+export function assignmentBody(blockTitle: string, blockCount = 1): string {
+  if (blockCount > 1) return `You've been added to ${blockCount} blocks.`;
   const title = (blockTitle ?? "").trim() || "a block";
   return `You've been added to "${title}".`;
 }

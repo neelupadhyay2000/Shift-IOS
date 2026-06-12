@@ -23,6 +23,27 @@ struct SubscriptionManagerTests {
         #expect(SubscriptionManager.shared.isProUser == false)
     }
 
+    // MARK: - Complimentary access
+
+    @Test("no comp window grants nothing")
+    func nilCompGrantsNothing() {
+        #expect(SubscriptionManager.isCompActive(nil) == false)
+    }
+
+    @Test("a future expiry grants comp")
+    func futureCompIsActive() {
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        let until = now.addingTimeInterval(60)
+        #expect(SubscriptionManager.isCompActive(until, now: now) == true)
+    }
+
+    @Test("comp lapses at the expiry instant")
+    func compLapsesAtExpiry() {
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        #expect(SubscriptionManager.isCompActive(now, now: now) == false)
+        #expect(SubscriptionManager.isCompActive(now.addingTimeInterval(-1), now: now) == false)
+    }
+
     // MARK: - Product IDs
 
     @Test("exposes exactly three canonical product IDs")

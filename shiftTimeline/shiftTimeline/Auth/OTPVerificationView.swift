@@ -67,27 +67,32 @@ struct OTPVerificationView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.bottom, 32)
+            ZStack {
+                SignInBrandBackground()
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
 
-                codeField
-                    .padding(.bottom, 20)
+                    codeField
+                        .padding(.bottom, 20)
 
-                verifyButton
-                    .padding(.bottom, 32)
+                    verifyButton
+                        .padding(.bottom, 32)
 
-                resendSection
+                    resendSection
 
-                Spacer()
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
             }
-            .padding(.horizontal, 24)
             .navigationTitle(String(localized: "Enter Code"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) { dismiss() }
+                        .tint(.white.opacity(0.8))
                 }
             }
             .onAppear {
@@ -107,22 +112,27 @@ struct OTPVerificationView: View {
                 Text(errorMessage)
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Subviews
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(headline)
-                .font(.title2.bold())
-            Text(
-                String(
-                    localized: "Enter the 6-digit code sent to \(destination).",
-                    comment: "Subtitle on OTP entry screen. %@ is the phone number or email."
+        VStack(alignment: .leading, spacing: 16) {
+            SignInStepBadge(systemImage: "key.fill")
+            VStack(alignment: .leading, spacing: 6) {
+                Text(headline)
+                    .font(.title.bold())
+                    .foregroundStyle(.white)
+                Text(
+                    String(
+                        localized: "Enter the 6-digit code sent to \(destination).",
+                        comment: "Subtitle on OTP entry screen. %@ is the phone number or email."
+                    )
                 )
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.75))
+            }
         }
     }
 
@@ -132,30 +142,29 @@ struct OTPVerificationView: View {
             .textContentType(.oneTimeCode)
             .multilineTextAlignment(.center)
             .font(.system(size: 36, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white)
+            .tint(SignInPalette.cta)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .signInFieldBackground()
     }
 
     private var verifyButton: some View {
         Button {
             Task { await verify() }
         } label: {
-            Group {
-                if isVerifying {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text(String(localized: "Verifying…"))
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text(String(localized: "Verify Code"))
+            if isVerifying {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(SignInPalette.ink)
+                    Text(String(localized: "Verifying…"))
                 }
+            } else {
+                Text(String(localized: "Verify Code"))
             }
-            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(SignInPrimaryButtonStyle())
         .disabled(!canVerify)
     }
 
@@ -170,21 +179,24 @@ struct OTPVerificationView: View {
                     )
                 )
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
             } else {
                 Button {
                     Task { await resend() }
                 } label: {
                     if isResending {
                         HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(SignInPalette.cta)
                             Text(String(localized: "Sending…"))
                         }
                     } else {
                         Text(String(localized: "Resend Code"))
                     }
                 }
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
+                .tint(SignInPalette.cta)
                 .disabled(!canResend)
             }
             Spacer()

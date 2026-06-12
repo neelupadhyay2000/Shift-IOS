@@ -20,6 +20,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
 
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
+    @AppStorage(AppearancePreference.defaultsKey) private var appearanceRawValue = AppearancePreference.system.rawValue
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -31,6 +32,7 @@ struct SettingsView: View {
         Form {
             accountSection
             vendorTeamsSection
+            appearanceSection
             notificationsSection
             aboutSection
             #if DEBUG
@@ -114,6 +116,23 @@ struct SettingsView: View {
             .accessibilityHint(String(localized: "Manage reusable groups of vendors"))
         } footer: {
             Text(String(localized: "Save the crews you work with regularly, then add them to any event in one tap."))
+        }
+    }
+
+    // MARK: - Appearance
+
+    private var appearanceSection: some View {
+        Section {
+            Picker(String(localized: "Appearance"), selection: $appearanceRawValue) {
+                ForEach(AppearancePreference.allCases) { preference in
+                    Text(preference.label).tag(preference.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+        } header: {
+            Text(String(localized: "Appearance"))
+        } footer: {
+            Text(String(localized: "System follows your device setting."))
         }
     }
 

@@ -17,13 +17,23 @@ struct AccountView: View {
     @State private var isShowingSignIn = false
     @State private var isEditingName = false
     @State private var nameDraft = ""
+    @State private var isChangingPasscode = false
+
+    @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = true
+    @State private var isConfirmingDeleteAccount = false
+    @State private var isDeletingAccount = false
+    @State private var showDeleteAccountErrorAlert = false
 
     var body: some View {
         Form {
             identitySection
             subscriptionSection
             if authService.isAuthenticated {
+                privacySection
+            }
+            if authService.isAuthenticated {
                 signOutSection
+                deleteAccountSection
             }
         }
         .scrollContentBackground(.hidden)
@@ -33,6 +43,9 @@ struct AccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isShowingSignIn) {
             SignInView()
+        }
+        .sheet(isPresented: $isChangingPasscode) {
+            ChangePasscodeSheet()
         }
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView(trigger: .settings)
@@ -57,6 +70,23 @@ struct AccountView: View {
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "This is the name vendors and collaborators see."))
+        }
+        .confirmationDialog(
+            String(localized: "Delete your account?"),
+            isPresented: $isConfirmingDeleteAccount,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete Account"), role: .destructive) {
+                Task { await deleteAccount() }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "This permanently deletes your account and all synced data from SHIFT's servers. It cannot be undone. Events stored on this device are kept."))
+        }
+        .alert(String(localized: "Couldn't Delete Account"), isPresented: $showDeleteAccountErrorAlert) {
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Account deletion failed. Please check your connection and try again."))
         }
     }
 
@@ -131,6 +161,7 @@ struct AccountView: View {
             let formatted = renewal.formatted(.dateTime.month(.abbreviated).day().year())
             return String(localized: "SHIFT Pro — renews \(formatted)")
         }
+        if manager.isComped { return String(localized: "SHIFT Pro — Complimentary") }
         return String(localized: "SHIFT Pro — Active")
     }
 
@@ -146,7 +177,9 @@ struct AccountView: View {
                     isShowingPaywall = true
                 }
                 .foregroundStyle(ShiftPalette.accent)
-            } else if !SubscriptionManager.shared.isLifetimePro {
+            } else if SubscriptionManager.shared.renewalDate != nil {
+                // Only auto-renewing subscribers have anything to manage —
+                // lifetime owners and comped accounts do not.
                 Button(String(localized: "Manage Subscription")) {
                     isManagingSubscriptions = true
                 }
@@ -170,6 +203,27 @@ struct AccountView: View {
         }
     }
 
+    // MARK: - Privacy & Security
+
+    private var privacySection: some View {
+        Section {
+            Toggle(isOn: $faceIDEnabled) {
+                Label(String(localized: "Unlock with Face ID"), systemImage: "faceid")
+            }
+            .disabled(!AppLock.isBiometricsAvailable)
+            Button {
+                isChangingPasscode = true
+            } label: {
+                Label(String(localized: "Change Passcode"), systemImage: "lock.rotation")
+            }
+            .foregroundStyle(ShiftPalette.accent)
+        } header: {
+            Text(String(localized: "Privacy & Security"))
+        } footer: {
+            Text(String(localized: "SHIFT locks every time you leave the app. Unlock with Face ID or your passcode — you stay signed in."))
+        }
+    }
+
     // MARK: - Sign out
 
     private var signOutSection: some View {
@@ -177,6 +231,41 @@ struct AccountView: View {
             Button(String(localized: "Sign Out"), role: .destructive) {
                 Task { try? await authService.signOut() }
             }
+        }
+    }
+
+    // MARK: - Delete account
+
+    private var deleteAccountSection: some View {
+        Section {
+            Button(role: .destructive) {
+                isConfirmingDeleteAccount = true
+            } label: {
+                if isDeletingAccount {
+                    HStack {
+                        Text(String(localized: "Deleting Account…"))
+                        Spacer()
+                        ProgressView()
+                    }
+                } else {
+                    Text(String(localized: "Delete Account"))
+                }
+            }
+            .disabled(isDeletingAccount)
+        } footer: {
+            Text(String(localized: "Permanently removes your account and all synced data. Events stored on this device are kept."))
+        }
+    }
+
+    private func deleteAccount() async {
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        do {
+            try await authService.deleteAccount()
+            // .signedOut fires through authStateChanges; the root container
+            // swaps to the sign-in screen on its own.
+        } catch {
+            showDeleteAccountErrorAlert = true
         }
     }
 

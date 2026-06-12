@@ -190,7 +190,7 @@ struct BlockDetailReadOnlyView: View {
             ForEach(dependencies) { dependency in
                 HStack(spacing: 10) {
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(dependency.isPinned ? Color.red : Color.blue)
+                        .fill(dependency.isPinned ? Color.red : ShiftPalette.accent)
                         .frame(width: 4, height: 24)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {

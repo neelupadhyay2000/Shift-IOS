@@ -18,12 +18,32 @@ struct ProfileDTO: Sendable {
     let displayName: String?
     let phone: String?
     let email: String?
+    /// Complimentary Pro expiry (`profiles.comped_until`) — server-managed.
+    /// Read-only on the client: the column is excluded from the authenticated
+    /// role's insert/update grants, and it is deliberately never encoded so a
+    /// returning user's upsert can never clear an existing grant.
+    let compedUntil: PostgresTimestamp?
+
+    init(
+        id: UUID,
+        displayName: String?,
+        phone: String?,
+        email: String?,
+        compedUntil: PostgresTimestamp? = nil
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.phone = phone
+        self.email = email
+        self.compedUntil = compedUntil
+    }
 
     private enum CodingKeys: String, CodingKey {
         case id
         case displayName = "display_name"
         case phone
         case email
+        case compedUntil = "comped_until"
     }
 }
 
@@ -36,6 +56,7 @@ extension ProfileDTO: Encodable {
         if let displayName { try container.encode(displayName, forKey: .displayName) }
         if let phone { try container.encode(phone, forKey: .phone) }
         if let email { try container.encode(email, forKey: .email) }
+        // compedUntil is intentionally not encoded — see the property doc.
     }
 }
 
@@ -48,6 +69,7 @@ extension ProfileDTO: Decodable {
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
         phone = try container.decodeIfPresent(String.self, forKey: .phone)
         email = try container.decodeIfPresent(String.self, forKey: .email)
+        compedUntil = try container.decodeIfPresent(PostgresTimestamp.self, forKey: .compedUntil)
     }
 }
 
@@ -60,6 +82,7 @@ extension ProfileDTO: Equatable {
             && lhs.displayName == rhs.displayName
             && lhs.phone == rhs.phone
             && lhs.email == rhs.email
+            && lhs.compedUntil == rhs.compedUntil
     }
 }
 // swiftformat:enable all

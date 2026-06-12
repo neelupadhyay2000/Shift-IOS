@@ -15,9 +15,49 @@ struct RootContainerView: View {
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     @State private var isShowingLaunchPromo = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    private let appLock = AppLock.shared
+
+    @AppStorage(AppearancePreference.defaultsKey)
+    private var appearanceRawValue = AppearancePreference.system.rawValue
 
     var body: some View {
         content
+            // One brand accent everywhere: tab selection, links, toggles, and
+            // controls all inherit the icon's indigo from this single tint.
+            .tint(ShiftPalette.accent)
+            // User-chosen appearance (Settings → Appearance); nil = system.
+            .preferredColorScheme(
+                AppearancePreference(rawValue: appearanceRawValue)?.colorScheme
+            )
+            // Access layer: covers everything (including any open sheets) on
+            // cold launch and after backgrounding while a passcode exists.
+            // Unlocks only via Face ID or the app passcode; "Forgot passcode?"
+            // signs out so identity is re-proven with email OTP.
+            .fullScreenCover(isPresented: .init(
+                get: { appLock.isLocked },
+                set: { _ in }
+            )) {
+                AppLockScreen(appLock: appLock) {
+                    Task {
+                        // Delete the account's passcode record first — the
+                        // session is still valid (only the UI is locked) —
+                        // so the post-OTP restore can't reinstall the
+                        // forgotten passcode. Then sign out to re-prove
+                        // identity by email.
+                        if let profileID = authService.currentProfileID {
+                            let sync = PasscodeSyncService(client: SupabaseClientProvider.shared.client)
+                            try? await sync.deleteRecord(profileID: profileID)
+                        }
+                        try? await authService.signOut()
+                    }
+                }
+                .interactiveDismissDisabled()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .background { appLock.lockOnBackground() }
+            }
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }
@@ -34,8 +74,19 @@ struct RootContainerView: View {
         } else if !authService.hasResolvedInitialSession {
             loadingView
         } else if authService.isAuthenticated {
-            RootNavigator()
-                .task { await maybeShowLaunchPromo() }
+            if appLock.hasPasscode {
+                RootNavigator()
+                    .task { await maybeShowLaunchPromo() }
+            } else if appLock.isRestoringRecord {
+                // The account's passcode record is being fetched — hold the
+                // loading view rather than flash the setup UI at a user whose
+                // passcode is about to be restored.
+                loadingView
+            } else {
+                // Genuinely no passcode for this account: first sign-up, or
+                // an upgrade from a pre-passcode build.
+                PasscodeSetupView()
+            }
         } else {
             SignInView(isDismissible: false)
         }
@@ -84,14 +135,17 @@ struct RootContainerView: View {
     }
 
     private var loadingView: some View {
+        // Matches the sign-in brand wash so launch → loading → gate (or app)
+        // reads as one continuous surface instead of a system-background flash.
         VStack(spacing: 16) {
             Image(systemName: "person.badge.shield.checkmark.fill")
                 .font(.system(size: 56))
-                .foregroundStyle(.tint)
+                .foregroundStyle(.white.opacity(0.9))
                 .symbolRenderingMode(.hierarchical)
             ProgressView()
+                .tint(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemBackground))
+        .background { SignInBrandBackground() }
     }
 }

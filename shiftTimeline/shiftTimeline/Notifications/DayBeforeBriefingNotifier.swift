@@ -73,21 +73,36 @@ enum DayBeforeBriefingNotifier {
 
     // MARK: - Schedule
 
+    /// Value snapshot of everything a briefing needs, captured synchronously so
+    /// no `EventModel` is touched across a suspension point. Concurrent
+    /// deletions (e.g. the account-switch purge in `SupabaseAuthService`) can
+    /// interleave at any `await`, and reading a deleted model's properties
+    /// faults fatally ("backing data was detached from a context").
+    private struct BriefingSnapshot: Sendable {
+        let eventID: UUID
+        let eventTitle: String
+        let eventStart: Date
+        let firstBlockStart: Date?
+        let sunsetTime: Date?
+
+        @MainActor
+        init(_ event: EventModel) {
+            let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
+            let firstBlockStart = blocks.map(\.scheduledStart).min()
+            eventID = event.id
+            eventTitle = event.title
+            eventStart = firstBlockStart ?? event.date
+            self.firstBlockStart = firstBlockStart
+            sunsetTime = event.sunsetTime
+        }
+    }
+
     /// Schedules (or replaces) the briefing for one event. Call after event
     /// creation and after edits that can move the date.
     @MainActor
     static func schedule(for event: EventModel, now: Date = .now) async {
-        let blocks = (event.tracks ?? []).flatMap { $0.blocks ?? [] }
-        let firstBlockStart = blocks.map(\.scheduledStart).min()
-        await schedule(
-            eventID: event.id,
-            eventTitle: event.title,
-            eventStart: firstBlockStart ?? event.date,
-            firstBlockStart: firstBlockStart,
-            sunsetTime: event.sunsetTime,
-            now: now,
-            center: UNUserNotificationCenter.current()
-        )
+        let snapshot = BriefingSnapshot(event)
+        await schedule(snapshot, now: now)
     }
 
     /// Re-stamps briefings for every planning-stage event inside the scheduling
@@ -100,9 +115,26 @@ enum DayBeforeBriefingNotifier {
             sortBy: [SortDescriptor(\.date)]
         )
         let upcoming = (try? context.fetch(descriptor)) ?? []
-        for event in upcoming where event.status == .planning {
-            await schedule(for: event, now: now)
+        // Snapshot synchronously — models must not be read after the first await.
+        let briefings = upcoming
+            .filter { $0.status == .planning }
+            .map(BriefingSnapshot.init)
+        for briefing in briefings {
+            await schedule(briefing, now: now)
         }
+    }
+
+    @MainActor
+    private static func schedule(_ snapshot: BriefingSnapshot, now: Date) async {
+        await schedule(
+            eventID: snapshot.eventID,
+            eventTitle: snapshot.eventTitle,
+            eventStart: snapshot.eventStart,
+            firstBlockStart: snapshot.firstBlockStart,
+            sunsetTime: snapshot.sunsetTime,
+            now: now,
+            center: UNUserNotificationCenter.current()
+        )
     }
 
     /// Testable overload — injected scheduler + clock, primitives only.

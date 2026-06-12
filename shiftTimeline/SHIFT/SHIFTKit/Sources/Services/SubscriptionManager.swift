@@ -49,12 +49,37 @@ public final class SubscriptionManager {
     /// `true` when the active Pro entitlement is a lifetime (non-consumable) purchase.
     public private(set) var isLifetimePro: Bool = false
 
-    /// Returns true only when entitlement is *confirmed* pro.
+    /// Server-granted complimentary Pro expiry (early field testers, press).
+    ///
+    /// Set by the app layer from the signed-in profile's `comped_until` and
+    /// persisted to `UserDefaults` so the grant keeps working offline until
+    /// the next profile refresh. `nil` or a past instant grants nothing.
+    public var compedUntil: Date? {
+        didSet {
+            if let compedUntil {
+                UserDefaults.standard.set(compedUntil, forKey: Self.compedUntilKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.compedUntilKey)
+            }
+        }
+    }
+
+    /// `true` while a server-granted complimentary window is active.
+    public var isComped: Bool { Self.isCompActive(compedUntil) }
+
+    /// Pure comp-window check; exposed for testing.
+    public nonisolated static func isCompActive(_ compedUntil: Date?, now: Date = .now) -> Bool {
+        guard let compedUntil else { return false }
+        return compedUntil > now
+    }
+
+    /// Returns true when entitlement is *confirmed* pro (StoreKit) or a
+    /// server-granted complimentary window is active.
     /// For *feature-execution* gates, await `waitUntilEntitlementResolved()` first to avoid
     /// the cold-launch race where this would briefly read false for a real Pro user.
-    public var isProUser: Bool { entitlementState == .pro }
+    public var isProUser: Bool { entitlementState == .pro || isComped }
 
-    public var currentEntitlement: Entitlement { entitlementState == .pro ? .pro : .free }
+    public var currentEntitlement: Entitlement { isProUser ? .pro : .free }
 
     // Convenience accessors for PaywallView
     public var monthlyProduct: Product? { availableProducts.first { $0.id == "shift.pro.sub.monthly" } }
@@ -66,8 +91,10 @@ public final class SubscriptionManager {
     nonisolated(unsafe) private var updateListenerTask: Task<Void, Never>?
     private var entitlementResolutionContinuations: [CheckedContinuation<EntitlementState, Never>] = []
     private static let logger = Logger(subsystem: "com.shift.store", category: "SubscriptionManager")
+    private static let compedUntilKey = "subscription.compedUntil"
 
     private init() {
+        compedUntil = UserDefaults.standard.object(forKey: Self.compedUntilKey) as? Date
         // Transaction listener must be started before any purchase call to avoid missing updates.
         updateListenerTask = Task { [weak self] in
             for await result in Transaction.updates {

@@ -38,24 +38,29 @@ struct EmailEntryView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.top, 8)
-                    .padding(.bottom, 32)
+            ZStack {
+                SignInBrandBackground()
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .padding(.top, 24)
+                        .padding(.bottom, 32)
 
-                emailField
-                    .padding(.bottom, 12)
+                    emailField
+                        .padding(.bottom, 16)
 
-                sendButton
+                    sendButton
 
-                Spacer()
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
             }
-            .padding(.horizontal, 24)
             .navigationTitle(String(localized: "Sign In"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "Cancel")) { dismiss() }
+                        .tint(.white.opacity(0.8))
                 }
             }
             .alert(String(localized: "Sign In Error"), isPresented: $showErrorAlert) {
@@ -64,17 +69,22 @@ struct EmailEntryView: View {
                 Text(errorMessage)
             }
         }
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Subviews
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(String(localized: "Enter your email"))
-                .font(.title2.bold())
-            Text(String(localized: "We'll send a one-time code to verify your identity."))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            SignInStepBadge(systemImage: "envelope.fill")
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(localized: "Enter your email"))
+                    .font(.title.bold())
+                    .foregroundStyle(.white)
+                Text(String(localized: "We'll send a one-time code to verify your identity."))
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.75))
+            }
         }
     }
 
@@ -84,29 +94,28 @@ struct EmailEntryView: View {
             .textContentType(.emailAddress)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
+            .foregroundStyle(.white)
+            .tint(SignInPalette.cta)
             .padding()
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .signInFieldBackground()
     }
 
     private var sendButton: some View {
         Button {
             Task { await sendOTP() }
         } label: {
-            Group {
-                if isSendingOTP {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text(String(localized: "Sending…"))
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Text(String(localized: "Send Code"))
+            if isSendingOTP {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(SignInPalette.ink)
+                    Text(String(localized: "Sending…"))
                 }
+            } else {
+                Text(String(localized: "Send Code"))
             }
-            .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(SignInPrimaryButtonStyle())
         .disabled(!canSend)
     }
 

@@ -374,7 +374,7 @@ struct BlockInspectorView: View {
                             Spacer()
                             if isSelected {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(ShiftPalette.accent)
                                     .accessibilityHidden(true)
                             }
                         }
@@ -406,7 +406,7 @@ struct BlockInspectorView: View {
                     } label: {
                         HStack {
                             RoundedRectangle(cornerRadius: 2)
-                                .fill(sibling.isPinned ? Color.red : Color.blue)
+                                .fill(sibling.isPinned ? Color.red : ShiftPalette.accent)
                                 .frame(width: 4, height: 24)
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading) {
@@ -418,7 +418,7 @@ struct BlockInspectorView: View {
                             Spacer()
                             if isSelected {
                                 Image(systemName: "checkmark")
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(ShiftPalette.accent)
                                     .accessibilityHidden(true)
                             }
                         }
