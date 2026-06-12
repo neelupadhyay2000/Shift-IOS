@@ -1,4 +1,5 @@
 import CommonCrypto
+import CryptoKit
 import Foundation
 import Security
 
@@ -15,6 +16,9 @@ struct PasscodeStore {
 
     static let requiredLength = 6
     static let kdfIterations = 150_000
+    /// First byte of every new record, so future KDF changes can coexist
+    /// with stored records instead of silently invalidating passcodes.
+    static let recordVersion: UInt8 = 2
 
     private static let service = "com.neelsoftwaresolutions.shiftTimeline.applock"
     private static let account = "passcode"
@@ -23,8 +27,34 @@ struct PasscodeStore {
 
     // MARK: - Record format (pure, testable)
 
-    /// `salt ‖ PBKDF2-HMAC-SHA256(passcode, salt, 150k)`.
+    /// `version ‖ salt ‖ PBKDF2-HMAC-SHA256(passcode, salt, 150k)`.
     static func record(for passcode: String, salt: Data) -> Data {
+        let digest = pbkdf2Digest(for: passcode, salt: salt)
+        guard !digest.isEmpty else { return Data() }
+        return Data([recordVersion]) + salt + digest
+    }
+
+    /// Verifies `passcode` against a stored record; tolerant of garbage data.
+    ///
+    /// Unversioned 48-byte records from pre-release dev builds are still
+    /// honored (PBKDF2 first, then the original one-shot SHA-256) so a record
+    /// minted before versioning keeps validating its passcode.
+    static func matches(_ passcode: String, record: Data) -> Bool {
+        if record.count == 1 + saltLength + digestLength, record.first == recordVersion {
+            let salt = record.subdata(in: 1 ..< 1 + saltLength)
+            return self.record(for: passcode, salt: salt) == record
+        }
+
+        guard record.count == saltLength + digestLength else { return false }
+        let salt = Data(record.prefix(saltLength))
+        if salt + pbkdf2Digest(for: passcode, salt: salt) == record { return true }
+        var material = salt
+        material.append(Data(passcode.utf8))
+        return salt + Data(SHA256.hash(data: material)) == record
+    }
+
+    /// PBKDF2-HMAC-SHA256 digest; internal so tests can compose legacy records.
+    static func pbkdf2Digest(for passcode: String, salt: Data) -> Data {
         var digest = Data(repeating: 0, count: digestLength)
         let status = digest.withUnsafeMutableBytes { digestBytes in
             salt.withUnsafeBytes { saltBytes in
@@ -42,14 +72,7 @@ struct PasscodeStore {
             }
         }
         guard status == kCCSuccess else { return Data() }
-        return salt + digest
-    }
-
-    /// Verifies `passcode` against a stored record; tolerant of garbage data.
-    static func matches(_ passcode: String, record: Data) -> Bool {
-        guard record.count > saltLength else { return false }
-        let salt = Data(record.prefix(saltLength))
-        return self.record(for: passcode, salt: salt) == record
+        return digest
     }
 
     // MARK: - Keychain

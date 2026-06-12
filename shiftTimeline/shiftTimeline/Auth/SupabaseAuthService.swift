@@ -313,6 +313,10 @@ final class SupabaseAuthService {
                 switch event {
                 case .signedIn:
                     if let user = session?.user {
+                        // Synchronously, before the first await: the gate must
+                        // see "restore pending" in the same render pass that
+                        // sees the session, or the setup UI flashes.
+                        AppLock.shared.beginAccountRestore()
                         await self.establishSession(for: user)
                     }
                 case .initialSession, .tokenRefreshed:
@@ -324,6 +328,7 @@ final class SupabaseAuthService {
                     if let user = session?.user,
                        session?.isExpired == false,
                        self.currentProfile == nil {
+                        AppLock.shared.beginAccountRestore()
                         await self.establishSession(for: user)
                     }
                 case .signedOut:
@@ -370,6 +375,7 @@ final class SupabaseAuthService {
     /// server has none — e.g. it was created offline — healing on the next
     /// establishment. Best-effort: failure just means the setup screen shows.
     private func restorePasscode(for user: User) async {
+        defer { AppLock.shared.finishAccountRestore() }
         guard let client else { return }
         let sync = PasscodeSyncService(client: client)
         do {

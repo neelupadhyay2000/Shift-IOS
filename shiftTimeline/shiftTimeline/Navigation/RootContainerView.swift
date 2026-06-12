@@ -77,9 +77,14 @@ struct RootContainerView: View {
             if appLock.hasPasscode {
                 RootNavigator()
                     .task { await maybeShowLaunchPromo() }
+            } else if appLock.isRestoringRecord {
+                // The account's passcode record is being fetched — hold the
+                // loading view rather than flash the setup UI at a user whose
+                // passcode is about to be restored.
+                loadingView
             } else {
-                // First sign-in on this device (or an upgrade from a
-                // pre-passcode build): the passcode is created before entry.
+                // Genuinely no passcode for this account: first sign-up, or
+                // an upgrade from a pre-passcode build.
                 PasscodeSetupView()
             }
         } else {

@@ -30,6 +30,12 @@ final class AppLock {
     /// out of `PasscodeSetupView` after the first sign-in.
     private(set) var hasPasscode: Bool
 
+    /// `true` from the moment a sign-in is observed until the account's
+    /// passcode record has been fetched (or the fetch failed). The root gate
+    /// holds its loading view during this window instead of flashing the
+    /// passcode-setup UI at a user whose passcode is about to be restored.
+    private(set) var isRestoringRecord = false
+
     private init() {
         let hasCode = PasscodeStore().hasPasscode
         hasPasscode = hasCode
@@ -67,6 +73,18 @@ final class AppLock {
     func installRestoredRecord(_ record: Data) {
         store.setRecord(record)
         hasPasscode = true
+    }
+
+    /// Called synchronously when a sign-in event is observed, before the
+    /// first suspension point, so the gate never renders the setup screen
+    /// ahead of the restore attempt.
+    func beginAccountRestore() {
+        guard !hasPasscode else { return }
+        isRestoringRecord = true
+    }
+
+    func finishAccountRestore() {
+        isRestoringRecord = false
     }
 
     /// Sign-out and account deletion wipe the device passcode and Face ID

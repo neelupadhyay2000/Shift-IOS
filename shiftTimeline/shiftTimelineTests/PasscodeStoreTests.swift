@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 @testable import shiftTimeline
 import Testing
@@ -14,11 +15,12 @@ struct PasscodeStoreRecordTests {
         #expect(a == b)
     }
 
-    @Test("record embeds the salt and a 32-byte digest")
+    @Test("record is version-prefixed and embeds the salt and a 32-byte digest")
     func recordShape() {
         let record = PasscodeStore.record(for: "123456", salt: salt)
-        #expect(record.count == 16 + 32)
-        #expect(record.prefix(16) == salt)
+        #expect(record.count == 1 + 16 + 32)
+        #expect(record.first == PasscodeStore.recordVersion)
+        #expect(record.subdata(in: 1 ..< 17) == salt)
     }
 
     @Test("different salts produce different records for the same passcode")
@@ -41,5 +43,23 @@ struct PasscodeStoreRecordTests {
     func matchesRejectsGarbage() {
         #expect(!PasscodeStore.matches("123456", record: Data()))
         #expect(!PasscodeStore.matches("123456", record: Data([0x01, 0x02])))
+    }
+
+    // MARK: - Legacy records (pre-versioning dev builds)
+
+    @Test("legacy unversioned PBKDF2 records still validate")
+    func legacyPBKDF2RecordsValidate() {
+        let legacy = salt + PasscodeStore.pbkdf2Digest(for: "123456", salt: salt)
+        #expect(PasscodeStore.matches("123456", record: legacy))
+        #expect(!PasscodeStore.matches("654321", record: legacy))
+    }
+
+    @Test("legacy one-shot SHA-256 records still validate")
+    func legacySHA256RecordsValidate() {
+        var material = salt
+        material.append(Data("123456".utf8))
+        let legacy = salt + Data(SHA256.hash(data: material))
+        #expect(PasscodeStore.matches("123456", record: legacy))
+        #expect(!PasscodeStore.matches("654321", record: legacy))
     }
 }
