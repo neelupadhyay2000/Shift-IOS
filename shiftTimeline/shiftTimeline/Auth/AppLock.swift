@@ -56,6 +56,19 @@ final class AppLock {
         isLocked = false
     }
 
+    /// The opaque Keychain record, for mirroring to `app_passcodes`.
+    func currentRecord() -> Data? {
+        store.currentRecord()
+    }
+
+    /// Installs a server-restored record after OTP sign-in: the user's
+    /// previous passcode works immediately and the setup screen is skipped.
+    /// Leaves `isLocked` untouched — the user just authenticated via OTP.
+    func installRestoredRecord(_ record: Data) {
+        store.setRecord(record)
+        hasPasscode = true
+    }
+
     /// Sign-out and account deletion wipe the device passcode and Face ID
     /// preference: the next sign-in (any account) re-authenticates with OTP
     /// and creates a fresh passcode.

@@ -40,7 +40,18 @@ struct RootContainerView: View {
                 set: { _ in }
             )) {
                 AppLockScreen(appLock: appLock) {
-                    Task { try? await authService.signOut() }
+                    Task {
+                        // Delete the account's passcode record first — the
+                        // session is still valid (only the UI is locked) —
+                        // so the post-OTP restore can't reinstall the
+                        // forgotten passcode. Then sign out to re-prove
+                        // identity by email.
+                        if let profileID = authService.currentProfileID {
+                            let sync = PasscodeSyncService(client: SupabaseClientProvider.shared.client)
+                            try? await sync.deleteRecord(profileID: profileID)
+                        }
+                        try? await authService.signOut()
+                    }
                 }
                 .interactiveDismissDisabled()
             }

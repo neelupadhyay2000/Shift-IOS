@@ -1,29 +1,48 @@
-import CryptoKit
+import CommonCrypto
 import Foundation
 import Security
 
 /// Keychain-backed six-digit app passcode, created on the first sign-in on
 /// this device and required on every app open thereafter.
 ///
-/// Only a salted SHA-256 record (16-byte salt ‖ 32-byte digest) is stored,
-/// as a this-device-only Keychain item: the passcode never leaves the device,
-/// never restores onto another one, and is wiped on sign-out — a new device
-/// (or a fresh sign-in) always re-authenticates with email OTP first.
+/// Only a salted record (16-byte salt ‖ 32-byte PBKDF2-HMAC-SHA256 digest)
+/// is stored — in a this-device-only Keychain item, and mirrored as an opaque
+/// blob to the `app_passcodes` table so the passcode follows the account
+/// across sign-outs and devices (see `PasscodeSyncService`). PBKDF2 at
+/// 150k iterations because the record leaves the device: a 6-digit space
+/// must cost an attacker real work per guess if the table ever leaked.
 struct PasscodeStore {
 
     static let requiredLength = 6
+    static let kdfIterations = 150_000
 
     private static let service = "com.neelsoftwaresolutions.shiftTimeline.applock"
     private static let account = "passcode"
     private static let saltLength = 16
+    private static let digestLength = 32
 
     // MARK: - Record format (pure, testable)
 
-    /// `salt ‖ SHA256(salt ‖ utf8(passcode))`.
+    /// `salt ‖ PBKDF2-HMAC-SHA256(passcode, salt, 150k)`.
     static func record(for passcode: String, salt: Data) -> Data {
-        var material = salt
-        material.append(Data(passcode.utf8))
-        return salt + Data(SHA256.hash(data: material))
+        var digest = Data(repeating: 0, count: digestLength)
+        let status = digest.withUnsafeMutableBytes { digestBytes in
+            salt.withUnsafeBytes { saltBytes in
+                CCKeyDerivationPBKDF(
+                    CCPBKDFAlgorithm(kCCPBKDF2),
+                    passcode,
+                    passcode.utf8.count,
+                    saltBytes.bindMemory(to: UInt8.self).baseAddress,
+                    salt.count,
+                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                    UInt32(kdfIterations),
+                    digestBytes.bindMemory(to: UInt8.self).baseAddress,
+                    digestLength
+                )
+            }
+        }
+        guard status == kCCSuccess else { return Data() }
+        return salt + digest
     }
 
     /// Verifies `passcode` against a stored record; tolerant of garbage data.
@@ -35,13 +54,18 @@ struct PasscodeStore {
 
     // MARK: - Keychain
 
-    var hasPasscode: Bool { readRecord() != nil }
+    var hasPasscode: Bool { currentRecord() != nil }
 
     func set(_ passcode: String) {
         var saltBytes = [UInt8](repeating: 0, count: Self.saltLength)
         guard SecRandomCopyBytes(kSecRandomDefault, saltBytes.count, &saltBytes) == errSecSuccess else { return }
         let record = Self.record(for: passcode, salt: Data(saltBytes))
+        guard !record.isEmpty else { return }
+        setRecord(record)
+    }
 
+    /// Installs an opaque record (a server-restored passcode) verbatim.
+    func setRecord(_ record: Data) {
         clear()
         let attributes: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -54,7 +78,7 @@ struct PasscodeStore {
     }
 
     func validate(_ passcode: String) -> Bool {
-        guard let record = readRecord() else { return false }
+        guard let record = currentRecord() else { return false }
         return Self.matches(passcode, record: record)
     }
 
@@ -67,7 +91,7 @@ struct PasscodeStore {
         SecItemDelete(query as CFDictionary)
     }
 
-    private func readRecord() -> Data? {
+    func currentRecord() -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,

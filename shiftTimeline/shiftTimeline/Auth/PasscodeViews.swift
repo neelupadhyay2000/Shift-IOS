@@ -133,6 +133,8 @@ struct PasscodeSetupView: View {
 
     private let appLock = AppLock.shared
 
+    @Environment(SupabaseAuthService.self) private var authService
+
     @State private var step: Step = .enter
     @State private var firstEntry = ""
     @State private var code = ""
@@ -253,9 +255,22 @@ struct PasscodeSetupView: View {
     }
 
     /// Storing the passcode flips `appLock.hasPasscode`; the root gate
-    /// observes that and swaps this view for the app.
+    /// observes that and swaps this view for the app. The record also mirrors
+    /// to `app_passcodes` (best-effort — heals at next sign-in if offline) so
+    /// the passcode survives sign-outs and follows the account.
     private func finish() {
         appLock.setPasscode(firstEntry)
+        uploadRecord(appLock, profileID: authService.currentProfileID)
+    }
+}
+
+/// Best-effort mirror of the current passcode record to the account row.
+@MainActor
+private func uploadRecord(_ appLock: AppLock, profileID: UUID?) {
+    guard let profileID, let record = appLock.currentRecord() else { return }
+    Task {
+        let sync = PasscodeSyncService(client: SupabaseClientProvider.shared.client)
+        try? await sync.upload(record: record, profileID: profileID)
     }
 }
 
@@ -272,6 +287,7 @@ struct ChangePasscodeSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(SupabaseAuthService.self) private var authService
 
     private let store = PasscodeStore()
 
@@ -363,6 +379,7 @@ struct ChangePasscodeSheet: View {
                 return
             }
             store.set(entered)
+            uploadRecord(AppLock.shared, profileID: authService.currentProfileID)
             dismiss()
         }
     }

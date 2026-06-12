@@ -355,10 +355,32 @@ final class SupabaseAuthService {
         )
         purgeOtherAccountDataIfSwitched(to: user.id)
         await performProfileUpsert(user: user, displayName: nil)
+        await restorePasscode(for: user)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)
         await dataBackfiller?.runIfNeeded(profileID: user.id)
         await sessionSync?.onSessionEstablished()
+    }
+
+    /// Syncs the account-level passcode record (see `PasscodeSyncService`).
+    ///
+    /// Remote wins: installing the server record after every sign-in both
+    /// restores the passcode after a sign-out (no re-creation) and propagates
+    /// a change made on another device. A local record uploads only when the
+    /// server has none — e.g. it was created offline — healing on the next
+    /// establishment. Best-effort: failure just means the setup screen shows.
+    private func restorePasscode(for user: User) async {
+        guard let client else { return }
+        let sync = PasscodeSyncService(client: client)
+        do {
+            if let remote = try await sync.fetchRecord() {
+                AppLock.shared.installRestoredRecord(remote)
+            } else if let local = AppLock.shared.currentRecord() {
+                try await sync.upload(record: local, profileID: user.id)
+            }
+        } catch {
+            // Offline or transient — non-fatal by design.
+        }
     }
 
     private func performProfileUpsert(user: User, displayName: String?) async {
