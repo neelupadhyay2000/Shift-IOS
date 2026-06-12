@@ -42,8 +42,11 @@ final class AppLock {
         isLocked = hasCode && !shiftTimelineApp.isUITestMode
     }
 
+    /// Defaults to ON (unset = enabled) — Face ID is the intended fast path;
+    /// the Account screen toggle opts out. The first scan triggers the
+    /// system's own Face ID permission prompt.
     var isFaceIDEnabled: Bool {
-        UserDefaults.standard.bool(forKey: Self.faceIDEnabledKey)
+        UserDefaults.standard.object(forKey: Self.faceIDEnabledKey) as? Bool ?? true
     }
 
     /// `true` when the device offers Face ID / Touch ID (the Settings toggle

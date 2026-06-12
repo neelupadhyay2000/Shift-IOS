@@ -122,7 +122,7 @@ struct AppLockScreen: View {
     }
 
     private func attemptBiometrics() async {
-        guard appLock.isFaceIDEnabled else {
+        guard appLock.isFaceIDEnabled, AppLock.isBiometricsAvailable else {
             showKeypad = true
             return
         }
@@ -155,7 +155,6 @@ struct PasscodeSetupView: View {
     private enum Step {
         case enter
         case confirm
-        case faceIDOffer
     }
 
     private let appLock = AppLock.shared
@@ -175,20 +174,15 @@ struct PasscodeSetupView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 32)
 
-                switch step {
-                case .enter, .confirm:
-                    PasscodeField(code: $code) { entered in
-                        advance(with: entered)
-                    }
-                    .id(step == .confirm)
-                    if mismatch {
-                        Text(String(localized: "Those didn't match — start over."))
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.85))
-                            .padding(.top, 12)
-                    }
-                case .faceIDOffer:
-                    faceIDOffer
+                PasscodeField(code: $code) { entered in
+                    advance(with: entered)
+                }
+                .id(step == .confirm)
+                if mismatch {
+                    Text(String(localized: "Those didn't match — start over."))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.top, 12)
                 }
 
                 Spacer()
@@ -200,59 +194,19 @@ struct PasscodeSetupView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SignInStepBadge(systemImage: step == .faceIDOffer ? "faceid" : "lock.fill")
+            SignInStepBadge(systemImage: "lock.fill")
             VStack(alignment: .leading, spacing: 6) {
-                Text(headline)
-                    .font(.title.bold())
-                    .foregroundStyle(.white)
-                Text(subtitle)
+                Text(
+                    step == .enter
+                        ? String(localized: "Create a passcode")
+                        : String(localized: "Confirm your passcode")
+                )
+                .font(.title.bold())
+                .foregroundStyle(.white)
+                Text(String(localized: "You'll use this 6-digit passcode to open SHIFT — no more email codes on this device."))
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.75))
             }
-        }
-    }
-
-    private var headline: String {
-        switch step {
-        case .enter: String(localized: "Create a passcode")
-        case .confirm: String(localized: "Confirm your passcode")
-        case .faceIDOffer: String(localized: "Unlock with Face ID?")
-        }
-    }
-
-    private var subtitle: String {
-        switch step {
-        case .enter, .confirm:
-            String(localized: "You'll use this 6-digit passcode to open SHIFT — no more email codes on this device.")
-        case .faceIDOffer:
-            String(localized: "Open SHIFT with a glance. Your passcode still works any time.")
-        }
-    }
-
-    private var faceIDOffer: some View {
-        VStack(spacing: 12) {
-            Button {
-                UserDefaults.standard.set(true, forKey: AppLock.faceIDEnabledKey)
-                finish()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "faceid")
-                    Text(String(localized: "Enable Face ID"))
-                }
-            }
-            .buttonStyle(SignInPrimaryButtonStyle())
-
-            Button(String(localized: "Not Now")) {
-                finish()
-            }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(
-                .white.opacity(0.14),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
         }
     }
 
@@ -271,13 +225,9 @@ struct PasscodeSetupView: View {
                 step = .enter
                 return
             }
-            if AppLock.isBiometricsAvailable {
-                step = .faceIDOffer
-            } else {
-                finish()
-            }
-        case .faceIDOffer:
-            break
+            // Face ID is on by default — the first lock screen prompts the
+            // system permission; no opt-in step needed here.
+            finish()
         }
     }
 

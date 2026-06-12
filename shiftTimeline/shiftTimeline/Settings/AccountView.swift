@@ -19,7 +19,7 @@ struct AccountView: View {
     @State private var nameDraft = ""
     @State private var isChangingPasscode = false
 
-    @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = false
+    @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = true
     @State private var isConfirmingDeleteAccount = false
     @State private var isDeletingAccount = false
     @State private var showDeleteAccountErrorAlert = false
