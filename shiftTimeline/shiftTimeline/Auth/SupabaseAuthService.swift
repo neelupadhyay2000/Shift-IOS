@@ -242,6 +242,64 @@ final class SupabaseAuthService {
         }
     }
 
+    // MARK: - Account-switch purge
+
+    /// UserDefaults key holding the last account that established a session
+    /// on this device.
+    private static let lastAccountKey = "auth.lastEstablishedAccountID"
+
+    /// Purges the previous account's events when a different account signs in.
+    ///
+    /// Local visibility is deliberately unscoped — the roster, widgets, and
+    /// watch read the whole store — so rows synced by a previous account would
+    /// otherwise leak to the new one. Runs before the backfill and hydration so
+    /// the incoming account starts from a correctly-scoped store.
+    private func purgeOtherAccountDataIfSwitched(to userID: UUID) {
+        let defaults = UserDefaults.standard
+        let last = defaults.string(forKey: Self.lastAccountKey).flatMap(UUID.init)
+        defaults.set(userID.uuidString, forKey: Self.lastAccountKey)
+        guard last != userID else { return }
+        purgeEvents(notOwnedBy: userID)
+    }
+
+    /// Deletes every event owned by an account other than `userID` —
+    /// cascading tracks, blocks, vendors, and shift records — and clears the
+    /// Outbox so no pending writes reference the deleted rows.
+    ///
+    /// What survives, and why:
+    /// - `ownerId == nil` events are device-local data that never synced; the
+    ///   backfill claims them for the incoming account, mirroring first sign-in.
+    /// - Nothing is lost server-side: the previous owner's copy re-hydrates on
+    ///   their next sign-in (itself a switch, purging in the other direction).
+    ///
+    /// Events shared *to* the incoming account are deleted here (their owner is
+    /// the sharing planner) and re-pulled by the hydration that immediately
+    /// follows — server truth, not the device, decides what the account can see.
+    ///
+    /// Deletes row-by-row rather than via batch delete so SwiftData honors the
+    /// cascade rules.
+    func purgeEvents(notOwnedBy userID: UUID) {
+        guard let context = modelContext else { return }
+        do {
+            let stale = try context.fetch(
+                FetchDescriptor<EventModel>(
+                    predicate: #Predicate { event in
+                        event.ownerId != nil && event.ownerId != userID
+                    }
+                )
+            )
+            guard !stale.isEmpty else { return }
+            for event in stale {
+                context.delete(event)
+            }
+            try context.save()
+            clearSyncedCaches()
+        } catch {
+            // Non-fatal — a failed purge leaves the pre-switch rows in place,
+            // exactly as before this guard existed; hydration still proceeds.
+        }
+    }
+
     // MARK: - Private
 
     private func beginListening(using client: SupabaseClient) {
@@ -291,6 +349,7 @@ final class SupabaseAuthService {
         SyncDiagnosticsCenter.shared.record(
             .auth, "sessionEstablished", params: ["profile": user.id.uuidString]
         )
+        purgeOtherAccountDataIfSwitched(to: user.id)
         await performProfileUpsert(user: user, displayName: nil)
         await claimPendingInvites()
         await deviceTokenRegistrar?.updateProfile(user.id)

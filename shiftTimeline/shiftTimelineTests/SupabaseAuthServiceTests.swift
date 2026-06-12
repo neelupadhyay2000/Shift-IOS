@@ -219,6 +219,107 @@ struct SupabaseAuthServiceAccountDeletionTests {
     }
 }
 
+// MARK: - Account-switch purge
+
+@Suite("SupabaseAuthService — account-switch purge")
+@MainActor
+struct SupabaseAuthServicePurgeTests {
+
+    private func makeService(context: ModelContext) throws -> SupabaseAuthService {
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        return SupabaseAuthService(
+            client: provider.client,
+            profileRepository: FakeProfileRepository(),
+            modelContext: context
+        )
+    }
+
+    @Test("deletes events owned by another account, cascading the timeline graph")
+    func deletesOtherOwnedEventsWithCascade() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let stale = EventModel(title: "Previous owner's gala", date: .now, latitude: 0, longitude: 0)
+        stale.ownerId = UUID()
+        context.insert(stale)
+        let track = TimelineTrack(name: "Main", sortOrder: 0, event: stale)
+        context.insert(track)
+        let block = TimeBlockModel(title: "Setup", scheduledStart: .now, duration: 1800)
+        block.track = track
+        context.insert(block)
+        try context.save()
+
+        let svc = try makeService(context: context)
+        svc.purgeEvents(notOwnedBy: UUID())
+
+        #expect(try context.fetchCount(FetchDescriptor<EventModel>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<TimelineTrack>()) == 0)
+        #expect(try context.fetchCount(FetchDescriptor<TimeBlockModel>()) == 0)
+    }
+
+    @Test("keeps local-only events and the incoming account's own events")
+    func keepsLocalOnlyAndOwnEvents() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        let incoming = UUID()
+
+        let localOnly = EventModel(title: "Never synced", date: .now, latitude: 0, longitude: 0)
+        let mine = EventModel(title: "Mine", date: .now, latitude: 0, longitude: 0)
+        mine.ownerId = incoming
+        let theirs = EventModel(title: "Theirs", date: .now, latitude: 0, longitude: 0)
+        theirs.ownerId = UUID()
+        context.insert(localOnly)
+        context.insert(mine)
+        context.insert(theirs)
+        try context.save()
+
+        let svc = try makeService(context: context)
+        svc.purgeEvents(notOwnedBy: incoming)
+
+        let survivors = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(survivors.count == 2)
+        #expect(survivors.allSatisfy { $0.ownerId == nil || $0.ownerId == incoming })
+    }
+
+    @Test("a purge that deletes rows also clears the Outbox")
+    func purgeClearsOutbox() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+
+        let theirs = EventModel(title: "Theirs", date: .now, latitude: 0, longitude: 0)
+        theirs.ownerId = UUID()
+        context.insert(theirs)
+        context.insert(OutboxEntry(tableName: "events", rowID: theirs.id, operation: "update"))
+        try context.save()
+
+        let svc = try makeService(context: context)
+        svc.purgeEvents(notOwnedBy: UUID())
+
+        #expect(try context.fetchCount(FetchDescriptor<OutboxEntry>()) == 0)
+    }
+
+    @Test("no-ops on a store with nothing foreign — fresh device or same account returning")
+    func noOpsWhenNothingForeign() throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        let incoming = UUID()
+
+        let mine = EventModel(title: "Mine", date: .now, latitude: 0, longitude: 0)
+        mine.ownerId = incoming
+        context.insert(mine)
+        // An untouched Outbox entry proves the early-return path skips cache clearing.
+        context.insert(OutboxEntry(tableName: "events", rowID: mine.id, operation: "update"))
+        try context.save()
+
+        let svc = try makeService(context: context)
+        svc.purgeEvents(notOwnedBy: incoming)
+
+        #expect(try context.fetchCount(FetchDescriptor<EventModel>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<OutboxEntry>()) == 1)
+    }
+}
+
 // MARK: - Sign-out cache clearing
 
 @Suite("SupabaseAuthService — cache clearing")
