@@ -5,13 +5,15 @@ import Models
 //
 // Flat, dark-leaning surfaces with hairline borders — typography does the
 // work. Tabular numerals for live data; colour is a precise accent, never
-// decoration. One restrained accent; emerald is reserved for "go/live";
-// amber only for time-of-day (sun) data; everything else is neutral.
+// decoration. One restrained accent drawn from the app icon's indigo;
+// emerald is reserved for "go/live"; amber only for time-of-day (sun)
+// data; everything else is neutral.
 
 enum ShiftPalette {
-    /// Interactive/brand accent — calm azure. Used sparingly: key icons, links,
-    /// the planning status. Never as a decorative wash.
-    static let accent = Color(red: 0.25, green: 0.51, blue: 0.95)
+    /// Interactive/brand accent — calm indigo from the app icon. Used
+    /// sparingly: key icons, links, the planning status, the global tint.
+    /// Never as a decorative wash.
+    static let accent = Color(red: 0.46, green: 0.44, blue: 0.90)
     /// "Go" semantic — live status, the Go Live action, success.
     static let live = Color(red: 0.16, green: 0.74, blue: 0.52)
     /// Time-of-day data only (sunset / golden hour).
@@ -26,8 +28,9 @@ enum ShiftPalette {
 // MARK: - Pro Background
 
 /// The calm, cool canvas behind the event surfaces. Dark mode is the signature
-/// look — a deep ink, nearly flat; light mode is a cool paper white. Replaces
-/// the warm lavender gradient on the event/timeline/live screens.
+/// look — a deep indigo ink, nearly flat, echoing the app icon; light mode is
+/// a faintly lavender paper white. Kept quiet on purpose: the brand hue lives
+/// in the cast of the canvas, not in saturated washes.
 struct ProBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
@@ -36,14 +39,14 @@ struct ProBackground: View {
             if colorScheme == .dark {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.067, green: 0.075, blue: 0.094),
-                        Color(red: 0.043, green: 0.051, blue: 0.067),
+                        Color(red: 0.082, green: 0.074, blue: 0.132),
+                        Color(red: 0.052, green: 0.046, blue: 0.092),
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             } else {
-                Color(red: 0.965, green: 0.969, blue: 0.976)
+                Color(red: 0.965, green: 0.962, blue: 0.984)
             }
         }
         .ignoresSafeArea()
@@ -210,37 +213,6 @@ struct PremiumCardModifier: ViewModifier {
 extension View {
     func premiumCard(padding: CGFloat = 14) -> some View {
         modifier(PremiumCardModifier(padding: padding))
-    }
-}
-
-// MARK: - Warm Background
-
-struct WarmBackground: View {
-    @Environment(\.colorScheme) private var colorScheme
-
-    var body: some View {
-        if colorScheme == .dark {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.09, green: 0.09, blue: 0.12),
-                    Color(red: 0.07, green: 0.07, blue: 0.10)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        } else {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.96, green: 0.95, blue: 0.98),
-                    Color(red: 0.94, green: 0.94, blue: 0.97),
-                    Color(red: 0.92, green: 0.93, blue: 0.96)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        }
     }
 }
 

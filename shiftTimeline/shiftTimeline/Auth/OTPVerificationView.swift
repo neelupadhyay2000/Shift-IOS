@@ -143,7 +143,7 @@ struct OTPVerificationView: View {
             .multilineTextAlignment(.center)
             .font(.system(size: 36, weight: .semibold, design: .monospaced))
             .foregroundStyle(.white)
-            .tint(SignInPalette.mint)
+            .tint(SignInPalette.cta)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity)
             .signInFieldBackground()
@@ -188,7 +188,7 @@ struct OTPVerificationView: View {
                         HStack(spacing: 6) {
                             ProgressView()
                                 .controlSize(.small)
-                                .tint(SignInPalette.mint)
+                                .tint(SignInPalette.cta)
                             Text(String(localized: "Sending…"))
                         }
                     } else {
@@ -196,7 +196,7 @@ struct OTPVerificationView: View {
                     }
                 }
                 .font(.subheadline.weight(.medium))
-                .tint(SignInPalette.mint)
+                .tint(SignInPalette.cta)
                 .disabled(!canResend)
             }
             Spacer()

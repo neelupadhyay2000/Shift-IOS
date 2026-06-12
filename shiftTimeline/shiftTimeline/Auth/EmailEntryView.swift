@@ -95,7 +95,7 @@ struct EmailEntryView: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .foregroundStyle(.white)
-            .tint(SignInPalette.mint)
+            .tint(SignInPalette.cta)
             .padding()
             .signInFieldBackground()
     }

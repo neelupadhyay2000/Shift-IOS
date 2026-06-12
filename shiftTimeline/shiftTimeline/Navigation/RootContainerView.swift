@@ -18,6 +18,9 @@ struct RootContainerView: View {
 
     var body: some View {
         content
+            // One brand accent everywhere: tab selection, links, toggles, and
+            // controls all inherit the icon's indigo from this single tint.
+            .tint(ShiftPalette.accent)
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }
@@ -84,14 +87,17 @@ struct RootContainerView: View {
     }
 
     private var loadingView: some View {
+        // Matches the sign-in brand wash so launch → loading → gate (or app)
+        // reads as one continuous surface instead of a system-background flash.
         VStack(spacing: 16) {
             Image(systemName: "person.badge.shield.checkmark.fill")
                 .font(.system(size: 56))
-                .foregroundStyle(.tint)
+                .foregroundStyle(.white.opacity(0.9))
                 .symbolRenderingMode(.hierarchical)
             ProgressView()
+                .tint(.white.opacity(0.8))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemBackground))
+        .background { SignInBrandBackground() }
     }
 }

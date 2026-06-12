@@ -9,7 +9,10 @@ import SwiftUI
 enum SignInPalette {
     static let indigoTop = Color(red: 0.33, green: 0.27, blue: 0.72)
     static let indigoBottom = Color(red: 0.13, green: 0.10, blue: 0.32)
-    static let mint = Color(red: 0.24, green: 0.87, blue: 0.73)
+    /// Primary-action fill — a soft lavender in the icon's indigo family,
+    /// deliberately quieter than the icon's mint banner so CTAs sit calmly
+    /// on the wash instead of shouting against it.
+    static let cta = Color(red: 0.65, green: 0.63, blue: 0.97)
     static let ink = Color(red: 0.06, green: 0.09, blue: 0.13)
     /// The icon's timeline-block colors, left to right.
     static let blocks: [Color] = [
@@ -46,7 +49,7 @@ struct SignInBrandBackground: View {
 
 // MARK: - Step badge
 
-/// Mint circular glyph marking each step of the flow (envelope → key).
+/// Lavender circular glyph marking each step of the flow (envelope → key).
 /// Purely decorative — hidden from accessibility.
 struct SignInStepBadge: View {
     let systemImage: String
@@ -56,15 +59,15 @@ struct SignInStepBadge: View {
             .font(.system(size: 25, weight: .semibold))
             .foregroundStyle(SignInPalette.ink)
             .frame(width: 62, height: 62)
-            .background(SignInPalette.mint, in: Circle())
-            .shadow(color: SignInPalette.mint.opacity(0.45), radius: 14, y: 4)
+            .background(SignInPalette.cta, in: Circle())
+            .shadow(color: SignInPalette.cta.opacity(0.40), radius: 14, y: 4)
             .accessibilityHidden(true)
     }
 }
 
 // MARK: - Primary CTA style
 
-/// Mint-on-ink primary action used across the sign-in flow.
+/// Lavender-on-ink primary action used across the sign-in flow.
 struct SignInPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
@@ -75,7 +78,7 @@ struct SignInPrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 15)
             .background(
-                SignInPalette.mint.opacity(isEnabled ? 1 : 0.35),
+                SignInPalette.cta.opacity(isEnabled ? 1 : 0.35),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .opacity(configuration.isPressed ? 0.85 : 1)
