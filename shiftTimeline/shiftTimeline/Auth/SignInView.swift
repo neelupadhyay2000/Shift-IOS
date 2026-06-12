@@ -1,26 +1,6 @@
 import Supabase
 import SwiftUI
 
-// MARK: - Brand palette
-
-/// Brand-splash colors sampled from the app icon — scoped to sign-in, the one
-/// fixed-dark "brand moment" in the app. Deliberately not in `ShiftPalette`,
-/// whose accent rules forbid decorative washes on the working surfaces.
-private enum SignInPalette {
-    static let indigoTop = Color(red: 0.33, green: 0.27, blue: 0.72)
-    static let indigoBottom = Color(red: 0.13, green: 0.10, blue: 0.32)
-    static let mint = Color(red: 0.24, green: 0.87, blue: 0.73)
-    static let ink = Color(red: 0.06, green: 0.09, blue: 0.13)
-    /// The icon's timeline-block colors, left to right.
-    static let blocks: [Color] = [
-        Color(red: 0.96, green: 0.47, blue: 0.20),
-        Color(red: 0.22, green: 0.73, blue: 0.86),
-        Color(red: 0.78, green: 0.27, blue: 0.86),
-        Color(red: 0.97, green: 0.70, blue: 0.21),
-        Color(red: 0.36, green: 0.83, blue: 0.44),
-    ]
-}
-
 /// Unified sign-in sheet presenting Email OTP (primary) and Phone OTP (gated).
 ///
 /// Present this modally whenever a sharing or sync feature requires auth.
@@ -44,7 +24,7 @@ struct SignInView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                brandBackground
+                SignInBrandBackground()
                 VStack(spacing: 40) {
                     Spacer()
                     header
@@ -95,26 +75,6 @@ struct SignInView: View {
         }
     }
 
-    // MARK: - Background
-
-    /// Deep indigo wash from the icon, with a soft glow rising behind the motif.
-    private var brandBackground: some View {
-        LinearGradient(
-            colors: [SignInPalette.indigoTop, SignInPalette.indigoBottom],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .overlay {
-            RadialGradient(
-                colors: [.white.opacity(0.10), .clear],
-                center: .center,
-                startRadius: 0,
-                endRadius: 340
-            )
-        }
-        .ignoresSafeArea()
-    }
-
     // MARK: - Header
 
     private var header: some View {
@@ -155,16 +115,8 @@ struct SignInView: View {
                 Image(systemName: "envelope.fill")
                 Text(String(localized: "Sign in with Email"))
             }
-            .font(.body.weight(.semibold))
-            .foregroundStyle(SignInPalette.ink)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(
-                SignInPalette.mint,
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-            )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SignInPrimaryButtonStyle())
         .accessibilityLabel(String(localized: "Sign in with Email"))
     }
 
