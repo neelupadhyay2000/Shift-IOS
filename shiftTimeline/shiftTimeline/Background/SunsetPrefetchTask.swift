@@ -108,6 +108,9 @@ enum SunsetPrefetchTask {
 
         for event in events {
             guard !Task.isCancelled else { break }
+            // A deletion (account-switch purge, user delete) can interleave at
+            // the awaits below; touching a detached model faults fatally.
+            guard event.modelContext != nil, !event.isDeleted else { continue }
 
             if let _ = await sunsetService.fetchIfNeeded(for: event) {
                 sunsetFetchCount += 1
