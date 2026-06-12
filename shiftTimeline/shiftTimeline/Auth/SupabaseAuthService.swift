@@ -197,6 +197,28 @@ final class SupabaseAuthService {
         // authStateChanges fires .signedOut → clears session + currentProfile
     }
 
+    // MARK: - Account deletion
+
+    /// Permanently deletes the signed-in user's account and all server-side
+    /// data (App Store Guideline 5.1.1(v)).
+    ///
+    /// The `delete_account` RPC removes the caller's `auth.users` row;
+    /// Postgres cascades take the profile, owned events, timeline rows,
+    /// acknowledgments, device tokens, and voice-memo storage objects with
+    /// it. Vendor links on other planners' events are unlinked, never
+    /// deleted.
+    ///
+    /// Local-only data is preserved, mirroring ``signOut()`` — the on-device
+    /// copy still belongs to the user and remains usable offline.
+    func deleteAccount() async throws {
+        guard let client else { return }
+        try await client.rpc("delete_account").execute()
+        // The server account is gone, so the remote sign-out call may fail;
+        // it still clears the Keychain session and fires .signedOut locally.
+        try? await client.auth.signOut()
+        clearSyncedCaches()
+    }
+
     // MARK: - Cache clearing
 
     /// Deletes all Supabase-synced local caches without touching the user's

@@ -17,6 +17,9 @@ struct AccountView: View {
     @State private var isShowingSignIn = false
     @State private var isEditingName = false
     @State private var nameDraft = ""
+    @State private var isConfirmingDeleteAccount = false
+    @State private var isDeletingAccount = false
+    @State private var showDeleteAccountErrorAlert = false
 
     var body: some View {
         Form {
@@ -24,6 +27,7 @@ struct AccountView: View {
             subscriptionSection
             if authService.isAuthenticated {
                 signOutSection
+                deleteAccountSection
             }
         }
         .scrollContentBackground(.hidden)
@@ -57,6 +61,23 @@ struct AccountView: View {
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
             Text(String(localized: "This is the name vendors and collaborators see."))
+        }
+        .confirmationDialog(
+            String(localized: "Delete your account?"),
+            isPresented: $isConfirmingDeleteAccount,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete Account"), role: .destructive) {
+                Task { await deleteAccount() }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "This permanently deletes your account and all synced data from SHIFT's servers. It cannot be undone. Events stored on this device are kept."))
+        }
+        .alert(String(localized: "Couldn't Delete Account"), isPresented: $showDeleteAccountErrorAlert) {
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "Account deletion failed. Please check your connection and try again."))
         }
     }
 
@@ -177,6 +198,41 @@ struct AccountView: View {
             Button(String(localized: "Sign Out"), role: .destructive) {
                 Task { try? await authService.signOut() }
             }
+        }
+    }
+
+    // MARK: - Delete account
+
+    private var deleteAccountSection: some View {
+        Section {
+            Button(role: .destructive) {
+                isConfirmingDeleteAccount = true
+            } label: {
+                if isDeletingAccount {
+                    HStack {
+                        Text(String(localized: "Deleting Account…"))
+                        Spacer()
+                        ProgressView()
+                    }
+                } else {
+                    Text(String(localized: "Delete Account"))
+                }
+            }
+            .disabled(isDeletingAccount)
+        } footer: {
+            Text(String(localized: "Permanently removes your account and all synced data. Events stored on this device are kept."))
+        }
+    }
+
+    private func deleteAccount() async {
+        isDeletingAccount = true
+        defer { isDeletingAccount = false }
+        do {
+            try await authService.deleteAccount()
+            // .signedOut fires through authStateChanges; the root container
+            // swaps to the sign-in screen on its own.
+        } catch {
+            showDeleteAccountErrorAlert = true
         }
     }
 

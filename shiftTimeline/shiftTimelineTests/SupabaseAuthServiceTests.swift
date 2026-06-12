@@ -206,6 +206,19 @@ struct SupabaseAuthServiceSignOutTests {
     }
 }
 
+// MARK: - Account deletion
+
+@Suite("SupabaseAuthService — account deletion")
+@MainActor
+struct SupabaseAuthServiceAccountDeletionTests {
+    @Test("deleteAccount is a no-op when startListening was never called")
+    func deleteAccountWithNoClientIsNoOp() async throws {
+        let svc = SupabaseAuthService()
+        // guard let client else { return } path — must not crash
+        try await svc.deleteAccount()
+    }
+}
+
 // MARK: - Sign-out cache clearing
 
 @Suite("SupabaseAuthService — cache clearing")
