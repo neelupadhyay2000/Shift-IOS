@@ -58,6 +58,39 @@ struct ProfileDTOEncodingTests {
         #expect(json["email"] == nil)
     }
 
+    @Test("never encodes comped_until, even when set — an upsert must not clear a server grant")
+    func neverEncodesCompedUntil() throws {
+        let dto = ProfileDTO(
+            id: UUID(),
+            displayName: "Ada Lovelace",
+            phone: nil,
+            email: nil,
+            compedUntil: PostgresTimestamp(Date(timeIntervalSince1970: 1_790_000_000))
+        )
+        let json = try encodeToJSON(dto)
+        #expect(json["comped_until"] == nil)
+        #expect(json["compedUntil"] == nil)
+    }
+
+    @Test("decodes comped_until from a profiles row")
+    func decodesCompedUntil() throws {
+        let data = Data("""
+        {"id":"\(UUID().uuidString)","display_name":"Ada","comped_until":"2026-09-01T17:00:00Z"}
+        """.utf8)
+        let dto = try JSONDecoder().decode(ProfileDTO.self, from: data)
+        let expected = try #require(SupabaseTimestamp.date(from: "2026-09-01T17:00:00Z"))
+        #expect(dto.compedUntil?.value == expected)
+    }
+
+    @Test("decodes a missing comped_until as nil")
+    func decodesMissingCompedUntilAsNil() throws {
+        let data = Data("""
+        {"id":"\(UUID().uuidString)","display_name":"Ada"}
+        """.utf8)
+        let dto = try JSONDecoder().decode(ProfileDTO.self, from: data)
+        #expect(dto.compedUntil == nil)
+    }
+
     @Test("encodes only id when all optionals are nil — minimal upsert payload")
     func encodesOnlyIDWhenAllNil() throws {
         let dto = ProfileDTO(id: UUID(), displayName: nil, phone: nil, email: nil)

@@ -152,6 +152,7 @@ struct AccountView: View {
             let formatted = renewal.formatted(.dateTime.month(.abbreviated).day().year())
             return String(localized: "SHIFT Pro — renews \(formatted)")
         }
+        if manager.isComped { return String(localized: "SHIFT Pro — Complimentary") }
         return String(localized: "SHIFT Pro — Active")
     }
 
@@ -167,7 +168,9 @@ struct AccountView: View {
                     isShowingPaywall = true
                 }
                 .foregroundStyle(ShiftPalette.accent)
-            } else if !SubscriptionManager.shared.isLifetimePro {
+            } else if SubscriptionManager.shared.renewalDate != nil {
+                // Only auto-renewing subscribers have anything to manage —
+                // lifetime owners and comped accounts do not.
                 Button(String(localized: "Manage Subscription")) {
                     isManagingSubscriptions = true
                 }

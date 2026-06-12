@@ -19,7 +19,12 @@ final class SupabaseAuthService {
     // MARK: - Observable state
 
     private(set) var session: Session?
-    private(set) var currentProfile: ProfileDTO?
+    /// The signed-in user's `profiles` row. Setting it forwards the
+    /// server-granted comp window to `SubscriptionManager`, so sign-in
+    /// applies a grant and sign-out / account deletion revokes it.
+    private(set) var currentProfile: ProfileDTO? {
+        didSet { SubscriptionManager.shared.compedUntil = currentProfile?.compedUntil?.value }
+    }
 
     /// `true` once the SDK has emitted its initial (stored) session on launch.
     /// The auth gate shows a loading state until this flips, so a returning user
