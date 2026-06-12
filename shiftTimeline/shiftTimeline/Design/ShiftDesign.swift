@@ -46,7 +46,14 @@ struct ProBackground: View {
                     endPoint: .bottom
                 )
             } else {
-                Color(red: 0.965, green: 0.962, blue: 0.984)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.962, green: 0.955, blue: 0.992),
+                        Color(red: 0.928, green: 0.918, blue: 0.978),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
         }
         .ignoresSafeArea()

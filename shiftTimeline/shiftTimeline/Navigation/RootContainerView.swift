@@ -16,11 +16,18 @@ struct RootContainerView: View {
 
     @State private var isShowingLaunchPromo = false
 
+    @AppStorage(AppearancePreference.defaultsKey)
+    private var appearanceRawValue = AppearancePreference.system.rawValue
+
     var body: some View {
         content
             // One brand accent everywhere: tab selection, links, toggles, and
             // controls all inherit the icon's indigo from this single tint.
             .tint(ShiftPalette.accent)
+            // User-chosen appearance (Settings → Appearance); nil = system.
+            .preferredColorScheme(
+                AppearancePreference(rawValue: appearanceRawValue)?.colorScheme
+            )
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
             .overlay(alignment: .top) { foregroundBanner }
