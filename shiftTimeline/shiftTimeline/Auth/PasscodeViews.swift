@@ -126,8 +126,22 @@ struct AppLockScreen: View {
             showKeypad = true
             return
         }
-        await appLock.unlockWithBiometrics()
-        if appLock.isLocked { showKeypad = true }
+        // Let the cover's presentation transition settle: an evaluate that
+        // collides with an in-flight presentation is instantly
+        // system-cancelled before the user ever sees the prompt.
+        try? await Task.sleep(for: .milliseconds(400))
+        guard scenePhase == .active, appLock.isLocked else { return }
+
+        var outcome = await appLock.unlockWithBiometrics()
+        if outcome == .interrupted {
+            // The system killed the prompt (still mid-transition) — one
+            // quiet retry after a beat before surfacing the keypad.
+            try? await Task.sleep(for: .milliseconds(500))
+            if scenePhase == .active, appLock.isLocked {
+                outcome = await appLock.unlockWithBiometrics()
+            }
+        }
+        if appLock.isLocked, outcome != .unlocked { showKeypad = true }
     }
 }
 

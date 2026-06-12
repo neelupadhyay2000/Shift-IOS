@@ -112,11 +112,24 @@ final class AppLock {
         return true
     }
 
-    /// Face ID fast path — biometrics only; a cancelled or failed scan falls
-    /// back to the keypad, never to the device passcode. Concurrent calls
-    /// coalesce.
-    func unlockWithBiometrics() async {
-        guard isLocked, isFaceIDEnabled, !isAuthenticating else { return }
+    /// How a biometric attempt ended, so the lock screen can distinguish
+    /// "the system killed the prompt mid-transition" (retry silently) from
+    /// "the user declined or failed" (fall back to the keypad).
+    enum BiometricOutcome {
+        case unlocked
+        /// The prompt never reached the user — system/app cancellation,
+        /// typically because a presentation transition was still in flight.
+        case interrupted
+        /// The user cancelled, failed, or biometrics are unusable.
+        case declined
+    }
+
+    /// Face ID fast path — biometrics only; the app passcode (not the device
+    /// passcode) is the fallback. Concurrent calls coalesce.
+    @discardableResult
+    func unlockWithBiometrics() async -> BiometricOutcome {
+        guard isLocked else { return .unlocked }
+        guard isFaceIDEnabled, !isAuthenticating else { return .declined }
         isAuthenticating = true
         defer { isAuthenticating = false }
 
@@ -126,9 +139,18 @@ final class AppLock {
                 .deviceOwnerAuthenticationWithBiometrics,
                 localizedReason: String(localized: "Unlock SHIFT")
             )
-            if success { isLocked = false }
+            guard success else { return .declined }
+            isLocked = false
+            return .unlocked
+        } catch let error as LAError {
+            switch error.code {
+            case .systemCancel, .appCancel, .notInteractive:
+                return .interrupted
+            default:
+                return .declined
+            }
         } catch {
-            // Cancelled or unavailable — the keypad remains.
+            return .declined
         }
     }
 }
