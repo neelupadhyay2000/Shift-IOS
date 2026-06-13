@@ -29,14 +29,14 @@
 <body>
   <main>
     <h1>Privacy Policy</h1>
-    <p class="effective">Effective Date: June 9, 2026</p>
+    <p class="effective">Effective Date: June 12, 2026</p>
 
     <div class="summary">
-      <p>This Privacy Policy describes how Neel Software Solutions handles information in connection with the SHIFT application and the related cloud services we operate. Please read it carefully to understand our practices.</p>
+      <p>This Privacy Policy describes how Neel Software Solutions Inc. handles information in connection with the SHIFT application and the related cloud services we operate. Please read it carefully to understand our practices.</p>
     </div>
 
     <h2>Introduction and Scope</h2>
-    <p>This Privacy Policy (the <strong>&ldquo;Policy&rdquo;</strong>) applies to the SHIFT mobile application for iOS and watchOS (the <strong>&ldquo;App&rdquo;</strong>) provided by Neel Software Solutions (<strong>&ldquo;we,&rdquo; &ldquo;us,&rdquo;</strong> or <strong>&ldquo;our&rdquo;</strong>), together with the cloud services we operate to enable account sign-in, synchronization, and sharing (the <strong>&ldquo;Services&rdquo;</strong>). It explains what information we process, how it is used, and the rights available to you. It does not apply to third-party services that maintain their own privacy policies, as described in the &ldquo;Third-Party Services&rdquo; section below.</p>
+    <p>This Privacy Policy (the <strong>&ldquo;Policy&rdquo;</strong>) applies to the SHIFT mobile application for iOS and watchOS (the <strong>&ldquo;App&rdquo;</strong>) provided by Neel Software Solutions Inc. (<strong>&ldquo;we,&rdquo; &ldquo;us,&rdquo;</strong> or <strong>&ldquo;our&rdquo;</strong>), together with the cloud services we operate to enable account sign-in, synchronization, and sharing (the <strong>&ldquo;Services&rdquo;</strong>). It explains what information we process, how it is used, and the rights available to you. It does not apply to third-party services that maintain their own privacy policies, as described in the &ldquo;Third-Party Services&rdquo; section below.</p>
     <p>In this Policy, <strong>&ldquo;Personal Information&rdquo;</strong> means information that identifies, relates to, or could reasonably be linked to an identifiable individual. By using the App, you acknowledge that you have read and understood this Policy.</p>
 
     <h2>Information You Provide</h2>
@@ -46,12 +46,17 @@
       <li>Event details, such as titles, dates, venue names, and notes;</li>
       <li>Timeline data, such as blocks, durations, dependencies, and shift history;</li>
       <li>Vendor contact details that you enter, such as names, roles, telephone numbers, and email addresses;</li>
-      <li>Venue selections that you search for and choose; and</li>
-      <li>Voice recordings that you optionally create and attach to a block.</li>
+      <li>Venue selections that you search for and choose;</li>
+      <li>Voice recordings that you optionally create and attach to a block; and</li>
+      <li>If you choose to join a waitlist for an upcoming feature, the email address you submit.</li>
     </ul>
 
     <h2>Account and Authentication</h2>
-    <p>To sign in, the App uses Supabase Auth. You authenticate with a one-time passcode (OTP) sent to your email address; where this option is enabled, you may instead sign in with a one-time passcode sent by SMS to your phone number. We process your email address (and, if used, your phone number) to verify your identity, and we create a profile that stores your account identifier, the email or phone you signed in with, and your optional display name. We do not use passwords and do not store any.</p>
+    <p>An account is required to use the App. To sign in, the App uses Supabase Auth, with one-time passcode emails delivered through Resend. You authenticate with a one-time passcode (OTP) sent to your email address; where this option is enabled, you may instead sign in with a one-time passcode sent by SMS to your phone number. We process your email address (and, if used, your phone number) to verify your identity, and we create a profile that stores your account identifier, the email or phone you signed in with, and your optional display name. We do not use passwords and do not store any.</p>
+
+    <h2>App Passcode and Biometric Unlock</h2>
+    <p>After your first sign-in, you create a numeric passcode used to unlock the App. We never store your passcode itself. Instead, the App stores only a salted, one-way cryptographic representation (a hash) of it, both in your device&rsquo;s Keychain and, so that your passcode is available when you sign in again, as an opaque record on our backend associated with your account. This representation cannot be used to recover your passcode.</p>
+    <p>You may also enable biometric unlock using Face ID or Touch ID. Biometric authentication is performed entirely by your device&rsquo;s operating system; we do not receive, access, or store your biometric data, and your biometric information never leaves your device.</p>
 
     <h2>Synchronization, Sharing, and Our Backend</h2>
     <p>When you are signed in, the content described above &mdash; your events, timelines, vendor details, sharing and acknowledgment state, and your profile &mdash; is synchronized to and stored on our backend, which is provided by Supabase, Inc. and hosted on cloud infrastructure operated by Amazon Web Services. This allows your data to be available across your devices and to be shared with collaborators you invite. Unlike earlier versions of the App, your event content is processed and stored on servers we operate through Supabase, and is no longer confined to your device.</p>
@@ -88,19 +93,20 @@
     </ul>
 
     <h2>Data Storage</h2>
-    <p>Your data is stored locally on your device using Apple SwiftData, so the App remains fully functional offline. When you sign in, your data is also synchronized to and stored on our backend (Supabase, hosted on Amazon Web Services) to enable synchronization and sharing. Voice recordings are stored locally on your device and are not uploaded to our backend.</p>
+    <p>Your data is stored locally on your device using Apple SwiftData, so the App remains fully functional offline once you are signed in. Your data is also synchronized to and stored on our backend (Supabase, hosted on Amazon Web Services) to enable synchronization and sharing. Voice recordings you attach to a block are uploaded to and stored in our backend so they sync across your devices and are available to collaborators with whom you share the timeline.</p>
 
     <h2>Location and Venue Information</h2>
     <p>The App does not access your device&rsquo;s GPS location and does not perform background location tracking. When you search for a venue, Apple MapKit returns location results from which you select the coordinates associated with your event.</p>
     <p>The selected coordinates, together with the relevant event date, are transmitted to Apple WeatherKit to obtain a weather forecast and to sunrise-sunset.org to calculate sunset and golden-hour times. Only coordinates and a date are transmitted; no Personal Information is included in these requests.</p>
 
     <h2>Voice Recordings</h2>
-    <p>If you choose to attach a voice memo to a timeline block, the App will request access to your device&rsquo;s microphone. Recordings are stored locally on your device and are not transmitted to us or to any third party. You may delete recordings at any time and may revoke microphone access through your device settings.</p>
+    <p>If you choose to attach a voice memo to a timeline block, the App will request access to your device&rsquo;s microphone. Recordings are stored on your device and uploaded to our backend (Supabase storage) so that they synchronize across your devices and are available to collaborators with whom you share the relevant timeline. Access is restricted to you and the collaborators you have granted access to that event. You may delete a recording at any time, and deleting it or the associated event or account removes it from our backend; you may revoke microphone access through your device settings.</p>
 
     <h2>Third-Party Services</h2>
     <p>The App relies on the following third-party services, each of which processes information solely for the purpose indicated and in accordance with its own terms and privacy policy:</p>
     <ul>
-      <li>Supabase, Inc. &mdash; our cloud backend for account authentication, database storage, real-time synchronization, server functions, and the delivery of push notifications, hosted on Amazon Web Services;</li>
+      <li>Supabase, Inc. &mdash; our cloud backend for account authentication, database and file storage, real-time synchronization, server functions, and the delivery of push notifications, hosted on Amazon Web Services;</li>
+      <li>Resend &mdash; delivery of one-time passcode and account-related emails;</li>
       <li>Apple Push Notification service (APNs) &mdash; delivery of push notifications to your device;</li>
       <li>Apple WeatherKit &mdash; weather forecasts for selected venues;</li>
       <li>Apple MapKit &mdash; venue search and location results;</li>
@@ -111,14 +117,14 @@
     <p>We are not responsible for the privacy practices of these third parties and encourage you to review their respective policies.</p>
 
     <h2>Disclosure of Information</h2>
-    <p>We do not sell, rent, or trade Personal Information. We may disclose information only: (a) with your consent or at your direction, such as when you invite a collaborator to a timeline; (b) to service providers, such as Supabase, that process information on our behalf and under our instructions to provide the Services; (c) to comply with applicable law, legal process, or a governmental request; or (d) to protect the rights, property, or safety of Neel Software Solutions, our users, or the public, as permitted by law.</p>
+    <p>We do not sell, rent, or trade Personal Information. We may disclose information only: (a) with your consent or at your direction, such as when you invite a collaborator to a timeline; (b) to service providers, such as Supabase, that process information on our behalf and under our instructions to provide the Services; (c) to comply with applicable law, legal process, or a governmental request; or (d) to protect the rights, property, or safety of Neel Software Solutions Inc., our users, or the public, as permitted by law.</p>
 
     <h2>Data Retention</h2>
-    <p>Content you store on our backend is retained until you delete it &mdash; for example, by deleting an event, removing a vendor, or requesting deletion of your account by contacting us. Deleting the App removes its locally stored data from that device. Aggregate, anonymous analytics cannot be associated with you and are retained only in de-identified form.</p>
+    <p>Content you store on our backend is retained until you delete it &mdash; for example, by deleting an event, removing a vendor, or deleting your account. You can permanently delete your account and its associated server-side data, including events, timelines, vendor details, voice recordings, and your profile, directly within the App, under Settings &rarr; Account &rarr; Delete Account. Deleting the App removes its locally stored data from that device. Aggregate, anonymous analytics cannot be associated with you and are retained only in de-identified form.</p>
 
     <h2>Your Privacy Rights</h2>
     <p>Depending on your jurisdiction, you may have rights under data-protection laws such as the EU and UK General Data Protection Regulation (<strong>&ldquo;GDPR&rdquo;</strong>) and the California Consumer Privacy Act (<strong>&ldquo;CCPA&rdquo;</strong>), including the rights to access, correct, delete, and port your Personal Information, and to object to or restrict certain processing.</p>
-    <p>Because your Personal Information is stored on our backend, you may exercise these rights by contacting us using the details in the &ldquo;Contact Us&rdquo; section below, and we will respond as required by applicable law. We do not sell Personal Information, and therefore no opt-out of sale is required.</p>
+    <p>Because your Personal Information is stored on our backend, you may exercise these rights by contacting us using the details in the &ldquo;Contact Us&rdquo; section below, and we will respond as required by applicable law. You may also delete your account and its associated server-side data yourself at any time, directly within the App, under Settings &rarr; Account &rarr; Delete Account. We do not sell Personal Information, and therefore no opt-out of sale is required.</p>
 
     <h2>International Transfers and Security</h2>
     <p>Our backend provider (Supabase) and the other third-party services described above may process information in the United States and other countries, which may have data-protection laws different from those of your own country. Those providers maintain their own safeguards for international data transfers.</p>
@@ -131,10 +137,10 @@
     <p>We may update this Policy from time to time. When we do, we will revise the Effective Date shown above and, where the changes are material, provide notice within the App. Your continued use of the App after an update takes effect constitutes your acceptance of the revised Policy.</p>
 
     <h2>Contact Us</h2>
-    <p>If you have questions or requests regarding this Policy, you may contact Neel Software Solutions at <a href="mailto:privacy@shift.app">privacy@shift.app</a>.</p>
+    <p>If you have questions or requests regarding this Policy, you may contact Neel Software Solutions Inc. at <a href="mailto:privacy@shift.app">privacy@shift.app</a>.</p>
 
     <footer>
-      SHIFT &middot; Neel Software Solutions &middot; Effective Date: June 9, 2026
+      SHIFT &middot; Neel Software Solutions Inc. &middot; Effective Date: June 12, 2026
     </footer>
   </main>
 </body>

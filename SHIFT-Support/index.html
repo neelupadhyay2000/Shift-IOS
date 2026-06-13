@@ -168,6 +168,7 @@
 
     <section id="start">
       <h2><span class="kicker">Getting started</span>Build your first timeline</h2>
+      <p>First, create your account: enter your email, type in the one-time code we send, and set a passcode to unlock the app. Then you&rsquo;re ready to build.</p>
       <div class="steps">
         <div class="step"><div class="num">1</div><div><h3>Create an event</h3><p>Tap <strong>+</strong> on the Events screen and add a title, date, and venue. Pick a venue and SHIFT automatically pulls in sunset, golden-hour, and weather for that day.</p></div></div>
         <div class="step"><div class="num">2</div><div><h3>Add timeline blocks</h3><p>Add blocks for each moment &mdash; ceremony, cocktails, golden-hour photos, dinner. Set a start time and duration, and add notes, a color, an icon, or a voice memo.</p></div></div>
@@ -210,7 +211,7 @@
         <div class="feature"><div class="emoji">⌚</div><h3>Apple Watch</h3><p>Glance at what&rsquo;s next and shift the timeline right from your wrist.</p></div>
         <div class="feature"><div class="emoji">📄</div><h3>Templates &amp; export</h3><p>Reuse timelines as templates and export a post-event report.</p></div>
         <div class="feature"><div class="emoji">📴</div><h3>Works offline</h3><p>Everything runs with zero signal &mdash; the venue&rsquo;s dead zone won&rsquo;t stop you.</p></div>
-        <div class="feature"><div class="emoji">🎙️</div><h3>Voice memos</h3><p>Attach a quick voice note to any block; recordings stay on your device.</p></div>
+        <div class="feature"><div class="emoji">🎙️</div><h3>Voice memos</h3><p>Attach a quick voice note to any block; it syncs across your devices and to vendors you&rsquo;ve shared with.</p></div>
       </div>
     </section>
 
@@ -230,19 +231,21 @@
         <input id="faqSearch" type="search" placeholder="Search help&hellip;" autocomplete="off" aria-label="Search FAQ">
       </div>
       <div class="faq" id="faqList">
-        <div class="qa"><button class="q" type="button">Do I need an account to use SHIFT?<span class="caret">&rsaquo;</span></button><div class="a"><p>No. You can build, run, and complete timelines completely offline with no account. You only sign in when you want to sync across your devices or share a timeline with vendors.</p></div></div>
-        <div class="qa"><button class="q" type="button">How do I sign in?<span class="caret">&rsaquo;</span></button><div class="a"><p>SHIFT sends a one-time code to your email address &mdash; enter it and you&rsquo;re in. There&rsquo;s no password to remember.</p></div></div>
+        <div class="qa"><button class="q" type="button">Do I need an account to use SHIFT?<span class="caret">&rsaquo;</span></button><div class="a"><p>Yes. SHIFT sends a one-time code to your email to sign you in, then you set a 6-digit passcode to unlock the app. Once you&rsquo;re signed in, everything works fully offline &mdash; your account keeps timelines synced across your devices and lets you share with vendors.</p></div></div>
+        <div class="qa"><button class="q" type="button">How do I sign in?<span class="caret">&rsaquo;</span></button><div class="a"><p>Tap <strong>Create Account</strong> (or <strong>Log In</strong>) and enter your email. SHIFT sends a one-time code &mdash; type it in and you&rsquo;re in. There&rsquo;s no password to remember. The first time, you&rsquo;ll then create a passcode to unlock the app.</p></div></div>
+        <div class="qa"><button class="q" type="button">What&rsquo;s the passcode and Face ID for?<span class="caret">&rsaquo;</span></button><div class="a"><p>After your first sign-in you set a 6-digit passcode that unlocks SHIFT each time you open it, so your events stay private on a shared device. You can also turn on Face ID or Touch ID for one-glance unlock &mdash; your biometric data never leaves your device. Manage both under <strong>Settings &rarr; Account &rarr; Privacy &amp; Security</strong>.</p></div></div>
+        <div class="qa"><button class="q" type="button">I forgot my passcode &mdash; what do I do?<span class="caret">&rsaquo;</span></button><div class="a"><p>On the lock screen, tap <strong>Forgot passcode?</strong>. SHIFT signs you out and you sign back in with a one-time email code, then create a new passcode. Your events are kept &mdash; you won&rsquo;t lose anything.</p></div></div>
         <div class="qa"><button class="q" type="button">A shared event isn&rsquo;t showing up &mdash; what do I do?<span class="caret">&rsaquo;</span></button><div class="a"><p>First make sure you&rsquo;re signed in with the same phone or email the invite was sent to. Then, on the Events list, <strong>pull down to refresh</strong> &mdash; that fetches the latest shared events and changes from the server. Check your connection if it still doesn&rsquo;t appear.</p></div></div>
         <div class="qa"><button class="q" type="button">What does &ldquo;pinning&rdquo; a block do?<span class="caret">&rsaquo;</span></button><div class="a"><p>A pinned block is anchored to its time and won&rsquo;t move when you shift. Use it for moments tied to the real world &mdash; sunset photos, a ceremony start, a venue curfew. The engine compresses flexible blocks around it to keep it on schedule.</p></div></div>
         <div class="qa"><button class="q" type="button">What is a flexible block / minimum duration?<span class="caret">&rsaquo;</span></button><div class="a"><p>A flexible block can shrink to absorb time when you&rsquo;re running late. Setting a <strong>minimum duration</strong> tells the engine how far it&rsquo;s allowed to compress before it warns you that the schedule no longer fits.</p></div></div>
-        <div class="qa"><button class="q" type="button">How do shift notifications work?<span class="caret">&rsaquo;</span></button><div class="a"><p>Each vendor has a notification threshold. When a shift moves their relevant blocks by more than that threshold, they get a push alert &mdash; even if the app is in their pocket &mdash; and the change is waiting for them to acknowledge.</p></div></div>
+        <div class="qa"><button class="q" type="button">How do shift notifications work?<span class="caret">&rsaquo;</span></button><div class="a"><p>Each vendor has a notification threshold. When a shift moves their relevant blocks by more than that threshold, they get a push alert &mdash; even if the app is in their pocket &mdash; and the change is waiting for them to acknowledge. Vendors are also notified when you assign them to a block and when an event goes live.</p></div></div>
         <div class="qa"><button class="q" type="button">Can vendors edit my timeline?<span class="caret">&rsaquo;</span></button><div class="a"><p>No. Vendors get <strong>read-only</strong> access. They can view the timeline and acknowledge changes, but only you (the owner) can edit it. Vendors also see full notes only for the blocks they&rsquo;re assigned to.</p></div></div>
         <div class="qa"><button class="q" type="button">How do I run a live event?<span class="caret">&rsaquo;</span></button><div class="a"><p>Open the event and tap into the Live Dashboard. Mark blocks complete as they finish, and if you&rsquo;re behind, apply a shift in minutes &mdash; the rest of the day recalculates and everyone sharing the timeline is updated.</p></div></div>
         <div class="qa"><button class="q" type="button">Where are sunset and weather times from?<span class="caret">&rsaquo;</span></button><div class="a"><p>When you choose a venue, SHIFT sends only the coordinates and the event date to Apple WeatherKit (forecast) and sunrise-sunset.org (sunset / golden hour). No personal information is sent.</p></div></div>
         <div class="qa"><button class="q" type="button">What&rsquo;s in the free version vs. Pro?<span class="caret">&rsaquo;</span></button><div class="a"><p>The free tier covers a limited number of active events and blocks. <strong>SHIFT Pro</strong> removes those limits and unlocks vendor sharing, the Apple Watch app, widgets and Live Activities, templates, and document export.</p></div></div>
         <div class="qa"><button class="q" type="button">How do I restore a purchase?<span class="caret">&rsaquo;</span></button><div class="a"><p>Go to Settings inside the app and tap <strong>Restore Purchases</strong>, signed in with the same Apple ID you bought with. Subscriptions are managed in your App Store account settings.</p></div></div>
-        <div class="qa"><button class="q" type="button">Where is my data stored?<span class="caret">&rsaquo;</span></button><div class="a"><p>Your timelines live on your device so the app works offline. When you sign in, they also sync securely to our backend so you can use multiple devices and share. Voice memos stay on your device. See the Privacy Policy for details.</p></div></div>
-        <div class="qa"><button class="q" type="button">How do I delete my account or data?<span class="caret">&rsaquo;</span></button><div class="a"><p>Deleting an event removes it everywhere it&rsquo;s synced; deleting the app clears its local data from that device. To delete your account and associated data entirely, email us and we&rsquo;ll take care of it.</p></div></div>
+        <div class="qa"><button class="q" type="button">Where is my data stored?<span class="caret">&rsaquo;</span></button><div class="a"><p>Your timelines live on your device so the app works offline, and they also sync securely to our backend so you can use multiple devices and share. Voice memos sync too, so collaborators you share with can hear them. See the Privacy Policy for details.</p></div></div>
+        <div class="qa"><button class="q" type="button">How do I delete my account or data?<span class="caret">&rsaquo;</span></button><div class="a"><p>Deleting an event removes it everywhere it&rsquo;s synced; deleting the app clears its local data from that device. To permanently delete your account and all associated data, go to <strong>Settings &rarr; Account &rarr; Delete Account</strong> right inside the app.</p></div></div>
       </div>
       <div class="no-results" id="noResults">No results &mdash; try a different word, or <a href="#contact">contact us</a>.</div>
     </section>
@@ -258,7 +261,7 @@
         <a href="https://legal.shifttimeline.app/TOS.html">Terms of Service</a>
         <a href="mailto:support@shifttimeline.app">Email Support</a>
       </div>
-      SHIFT &middot; Neel Software Solutions
+      SHIFT &middot; Neel Software Solutions Inc.
     </footer>
   </main>
 
