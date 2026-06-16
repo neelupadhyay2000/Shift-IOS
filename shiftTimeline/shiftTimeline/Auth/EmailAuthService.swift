@@ -9,6 +9,10 @@ enum EmailAuthError: LocalizedError, Sendable {
     /// `AuthResponse` came back without a session — defensive; email OTP
     /// verification yields a session on success.
     case sessionMissing
+    /// The code request did not complete within the timeout. Surfaced so the
+    /// Send button never appears frozen on "Sending…" when the server-side
+    /// email send stalls (App Review 2.1(a) — unresponsive button).
+    case requestTimedOut
 
     var errorDescription: String? {
         switch self {
@@ -18,6 +22,8 @@ enum EmailAuthError: LocalizedError, Sendable {
             String(localized: "Please enter the 6-digit code.")
         case .sessionMissing:
             String(localized: "Sign-in failed. Please try again.")
+        case .requestTimedOut:
+            String(localized: "Couldn't reach the server. Check your connection and try again.")
         }
     }
 }
@@ -54,7 +60,32 @@ final class EmailAuthService {
         guard Self.isValidEmail(normalized) else {
             throw EmailAuthError.invalidEmail
         }
-        try await client.auth.signInWithOTP(email: normalized)
+        // GoTrue sends the OTP email synchronously within this call, so a slow
+        // or throttled mail provider would otherwise hang here up to the 60s
+        // URL timeout — leaving the Send button stuck on "Sending…". Race it
+        // against a shorter wall-clock timeout that fails fast with a clear,
+        // retryable error instead.
+        let auth = client.auth
+        try await Self.withTimeout(seconds: 25) {
+            try await auth.signInWithOTP(email: normalized)
+        }
+    }
+
+    /// Runs `operation`, throwing ``EmailAuthError/requestTimedOut`` if it does
+    /// not finish within `seconds`. The losing task is cancelled.
+    nonisolated private static func withTimeout(
+        seconds: UInt64,
+        _ operation: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: seconds * 1_000_000_000)
+                throw EmailAuthError.requestTimedOut
+            }
+            defer { group.cancelAll() }
+            try await group.next()
+        }
     }
 
     // MARK: - OTP Verification
