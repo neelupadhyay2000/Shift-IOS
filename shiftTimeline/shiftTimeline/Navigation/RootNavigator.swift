@@ -52,7 +52,8 @@ enum TemplateDestination: Hashable {
 /// - **Compact (iPhone):** `TabView` where every tab owns a `NavigationStack`
 ///   backed by its own `@State` path array.
 /// - **Regular (iPad):** `NavigationSplitView` with a sidebar tab list and a
-///   detail `NavigationStack` driven by `detailPath`.
+///   detail `NavigationStack` swapped per selected tab, each backed by the
+///   same per-tab `@State` path arrays as the compact layout.
 ///
 /// Layout is chosen via `@Environment(\.horizontalSizeClass)` — never a
 /// device-model check — so the same binary handles iPhone, iPad, slide-over,
@@ -77,9 +78,6 @@ struct RootNavigator: View {
     @State private var eventPath: [EventDestination] = []
     @State private var marketplacePath: [MarketplaceDestination] = []
     @State private var templatePath: [TemplateDestination] = []
-
-    // iPad detail stack path — driven by whichever sidebar tab is active.
-    @State private var detailPath: [EventDestination] = []
 
     /// Pending event ID set by .newEventTimeline routing.
     /// Applied in EventRosterView.onAppear so the push happens after the
@@ -159,20 +157,23 @@ struct RootNavigator: View {
                 }
             }
             .navigationTitle(String(localized: "SHIFT"))
-            // CR2: keep sidebarSelection aligned when selectedTab changes externally
-            // (e.g. size class flips from compact → regular while a tab is selected on iPhone)
+            // Keep sidebarSelection aligned when selectedTab changes externally
+            // (e.g. size class flips from compact → regular while a tab is selected on iPhone).
             .onChange(of: selectedTab) { _, newTab in
                 sidebarSelection = newTab
-                detailPath = []
             }
             .onChange(of: sidebarSelection) { _, newValue in
-                if let tab = newValue {
+                guard let tab = newValue, tab != selectedTab else { return }
+                // Pop the OUTGOING tab's stack to root before swapping the detail
+                // NavigationStack. Tearing a deep stack (event detail / timeline /
+                // live) down mid-swap inside NavigationSplitView crashes on iPad, so
+                // defer the tab switch one runloop to let the pop fully apply first.
+                // Guarded on `tab != selectedTab` so programmatic deep-link routing
+                // (which sets selectedTab first) is never reset out from under itself.
+                resetNavigationPath(for: selectedTab)
+                DispatchQueue.main.async {
                     selectedTab = tab
-                    detailPath = []
-                    // Auto-collapse sidebar after selection for cleaner UX
-                    withAnimation {
-                        columnVisibility = .detailOnly
-                    }
+                    withAnimation { columnVisibility = .detailOnly }
                 }
             }
         } detail: {
@@ -225,6 +226,18 @@ struct RootNavigator: View {
             NavigationStack {
                 SettingsView()
             }
+        }
+    }
+
+    /// Pops the given tab's detail `NavigationStack` to its root. Called before
+    /// an iPad tab swap so the outgoing stack is shallow when SwiftUI tears it
+    /// down — a deep stack removed mid-swap crashes inside `NavigationSplitView`.
+    private func resetNavigationPath(for tab: Tab) {
+        switch tab {
+        case .events: eventPath.removeAll()
+        case .marketplace: marketplacePath.removeAll()
+        case .templates: templatePath.removeAll()
+        case .settings: break
         }
     }
 
