@@ -152,6 +152,12 @@ struct EventDetailView: View {
                 quickAccessCards(event)
                 locationSection(event)
                 tracksSummary(event)
+
+                // WeatherKit attribution (App Store Guideline 5.2.5): shown
+                // whenever WeatherKit-derived data is present for this event.
+                if event.weatherSnapshot != nil {
+                    WeatherAttributionView()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
