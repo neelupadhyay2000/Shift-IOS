@@ -26,7 +26,7 @@ struct PostEventReportPreviewView: View {
     @State private var isGenerating = true
     @State private var shareError: String?
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     init(eventID: UUID) {
         self.eventID = eventID

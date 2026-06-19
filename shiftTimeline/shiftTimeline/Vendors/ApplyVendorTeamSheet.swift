@@ -20,7 +20,7 @@ struct ApplyVendorTeamSheet: View {
     @State private var teams: [VendorTeam] = []
     @State private var isApplying = false
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     private var vendorRepo: any VendorRepositing {
         injectedVendorRepo ?? SwiftDataVendorRepository(context: modelContext)

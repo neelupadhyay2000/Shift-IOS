@@ -43,6 +43,12 @@ struct EventRosterView: View {
     private var filteredEvents: [EventModel] {
         let dismissed = SharedEventDismissalStore.dismissedIDs()
         return events.filter { event in
+            // Skip models a deletion (e.g. the account-switch purge during
+            // sign-in, or delta reconciliation) detached from the context.
+            // Reading any persisted attribute on detached backing data is a
+            // fatal SwiftData fault, so this guard must precede every other
+            // property access below (including event.id).
+            guard event.modelContext != nil, !event.isDeleted else { return false }
             guard !dismissed.contains(event.id) else { return false }
             let matchesSearch = searchText.isEmpty || event.title.localizedCaseInsensitiveContains(searchText)
             let matchesStatus: Bool = if let requiredStatus = statusFilter.eventStatus {

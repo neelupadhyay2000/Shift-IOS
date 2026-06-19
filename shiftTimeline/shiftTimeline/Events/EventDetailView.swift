@@ -51,7 +51,9 @@ struct EventDetailView: View {
     }
 
     private var event: EventModel? {
-        results.first
+        // Skip a model a concurrent delete (sync / account-switch purge) detached
+        // from the context — reading its attributes is a fatal SwiftData fault.
+        results.first { $0.modelContext != nil && !$0.isDeleted }
     }
 
     private var isOwner: Bool {

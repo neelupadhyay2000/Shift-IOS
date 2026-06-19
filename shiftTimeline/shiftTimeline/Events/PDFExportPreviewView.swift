@@ -18,7 +18,7 @@ struct PDFExportPreviewView: View {
     @State private var pdfFileURL: URL?
     @State private var isGenerating = true
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     init(eventID: UUID) {
         self.eventID = eventID

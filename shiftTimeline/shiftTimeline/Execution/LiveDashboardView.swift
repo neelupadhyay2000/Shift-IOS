@@ -56,7 +56,7 @@ struct LiveDashboardView: View {
 
     // MARK: Derived state
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     /// The planner owns the event → full controls. A vendor (shared event owned
     /// by someone else) gets a read-only mirror: no shift, advance, ack grid, or

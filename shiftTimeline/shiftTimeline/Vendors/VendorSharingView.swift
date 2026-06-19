@@ -21,7 +21,7 @@ struct VendorSharingView: View {
     @State private var pendingInvite: PendingInvite?
     @State private var infoMessage: String?
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     /// Repository used to stamp invite state. Falls back to a SwiftData-backed
     /// instance when no provider is injected (matches the other write sites).

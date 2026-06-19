@@ -77,7 +77,7 @@ struct TimelineBuilderView: View {
     @State private var transitCheckTask: Task<Void, Never>?
     @State private var travelTimeService = TravelTimeService()
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     /// Vendors viewing an event shared to them get a read-only timeline — no
     /// add/edit/move/delete affordances. The owner edits as before.
@@ -523,7 +523,15 @@ struct TimelineBuilderView: View {
                                 isReadOnly: isReadOnly,
                                 isEditing: isEditing,
                                 viewerProfileID: viewerProfileID,
-                                onTapBlock: { block in blockToInspect = block },
+                                onTapBlock: { block in
+                                    // Tapping the block that's already open in the
+                                    // inspector closes it (toggle); otherwise open it.
+                                    if isInspectorOpen, blockToInspect === block {
+                                        blockToInspect = nil
+                                    } else {
+                                        blockToInspect = block
+                                    }
+                                },
                                 onDeleteBlock: { block in
                                     if block.isPinned {
                                         blockPendingDeletion = block

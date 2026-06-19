@@ -25,7 +25,7 @@ struct VendorFormSheet: View {
     @State private var phone = ""
     @State private var email = ""
 
-    private var event: EventModel? { results.first }
+    private var event: EventModel? { results.first { $0.modelContext != nil && !$0.isDeleted } }
 
     private var isEditing: Bool { vendorToEdit != nil }
 

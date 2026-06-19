@@ -20,6 +20,9 @@ struct SubscriptionManagerTests {
     @Test("defaults to non-pro until entitlement resolves")
     @MainActor
     func defaultsToNonPro() {
+        // persisted in UserDefaults — clear any left over from running the app
+        // with a comped account so this asserts the pure no-purchase default.
+        SubscriptionManager.shared.compedUntil = nil
         #expect(SubscriptionManager.shared.isProUser == false)
     }
 
@@ -81,6 +84,9 @@ struct SubscriptionManagerTests {
     @Test("isProUser is true only for .pro state")
     @MainActor
     func isProUserDerivation() async {
+        // Clear any persisted complimentary grant so the free/unknown cases
+        // below assert on the StoreKit entitlement alone.
+        SubscriptionManager.shared.compedUntil = nil
         await SubscriptionManager.shared.checkCurrentEntitlement()
         let manager = SubscriptionManager.shared
         switch manager.entitlementState {
