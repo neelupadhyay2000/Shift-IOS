@@ -58,6 +58,14 @@ struct MarketplaceTeaserView: View {
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // Clear "this isn't live yet" signal so the teaser isn't read as an
+            // incomplete/placeholder feature (App Review Guideline 2.1 / 4.2).
+            Text(String(localized: "PREVIEW · COMING SOON"))
+                .font(.caption.weight(.bold))
+                .foregroundStyle(ShiftPalette.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
             Text(String(localized: "Find verified vendors. Get found for your work."))
                 .font(.title.weight(.bold))
                 .fixedSize(horizontal: false, vertical: true)

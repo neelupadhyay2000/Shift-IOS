@@ -2,7 +2,7 @@ import Models
 import SwiftUI
 
 /// Displays a yellow rain-warning banner for a single outdoor block that has
-/// a rain probability above the threshold (> 50%).
+/// a rain probability above the threshold (> 30%).
 ///
 /// Rendered once per at-risk block by `EventDetailView`. The copy is fixed:
 /// "Rain likely during [Block Name] (XX% chance). Consider indoor backup."

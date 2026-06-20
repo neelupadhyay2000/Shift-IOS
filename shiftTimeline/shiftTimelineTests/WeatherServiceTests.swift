@@ -113,10 +113,10 @@ struct WeatherServiceTests {
     @Test func atRiskEntriesExcludesBlocksBelowThreshold() {
         let blockId = UUID()
         let snapshot = WeatherSnapshot(
-            entries: [BlockRainEntry(blockId: blockId, rainProbability: 0.5)],
+            entries: [BlockRainEntry(blockId: blockId, rainProbability: 0.3)],
             fetchedAt: Date()
         )
-        // 0.5 is NOT > 0.5, so excluded
+        // 0.3 is NOT > 0.3 (the threshold), so excluded
         let atRisk = snapshot.atRiskEntries(for: [(id: blockId, isOutdoor: true)])
         #expect(atRisk.isEmpty)
     }

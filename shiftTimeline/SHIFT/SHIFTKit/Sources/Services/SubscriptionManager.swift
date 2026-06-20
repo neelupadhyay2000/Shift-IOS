@@ -67,6 +67,13 @@ public final class SubscriptionManager {
     /// `true` while a server-granted complimentary window is active.
     public var isComped: Bool { Self.isCompActive(compedUntil) }
 
+    /// In-memory App Review demo override: when `true` (demo mode), the user is
+    /// treated as Pro so every gated feature is exercisable without a purchase
+    /// or account. Deliberately **not** persisted — it resets on relaunch,
+    /// exactly like demo mode itself, so it can never leak Pro into a normal
+    /// session or hide the paywall outside demo.
+    public var isDemoPro: Bool = false
+
     /// Pure comp-window check; exposed for testing.
     public nonisolated static func isCompActive(_ compedUntil: Date?, now: Date = .now) -> Bool {
         guard let compedUntil else { return false }
@@ -77,7 +84,7 @@ public final class SubscriptionManager {
     /// server-granted complimentary window is active.
     /// For *feature-execution* gates, await `waitUntilEntitlementResolved()` first to avoid
     /// the cold-launch race where this would briefly read false for a real Pro user.
-    public var isProUser: Bool { entitlementState == .pro || isComped }
+    public var isProUser: Bool { entitlementState == .pro || isComped || isDemoPro }
 
     public var currentEntitlement: Entitlement { isProUser ? .pro : .free }
 

@@ -13,6 +13,7 @@ struct EmailEntryView: View {
     let onOTPRequested: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(DemoSession.self) private var demoSession
 
     @State private var rawEmail = ""
     @State private var isSendingOTP = false
@@ -122,6 +123,13 @@ struct EmailEntryView: View {
     // MARK: - Actions
 
     private func sendOTP() async {
+        // App Review demo account: skip the real OTP dispatch (no network, no
+        // email rate-limit) and go straight to the code screen, where the
+        // "Log in as Reviewer" button enters the local demo sandbox.
+        if demoSession.isReviewer(email: normalizedEmail) {
+            onOTPRequested(normalizedEmail)
+            return
+        }
         isSendingOTP = true
         defer { isSendingOTP = false }
         do {
@@ -148,4 +156,5 @@ struct EmailEntryView: View {
             print("OTP requested for \(email)")
         }
     )
+    .environment(DemoSession())
 }

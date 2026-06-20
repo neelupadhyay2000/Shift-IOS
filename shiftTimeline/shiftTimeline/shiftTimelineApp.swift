@@ -30,6 +30,9 @@ struct shiftTimelineApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var authService = SupabaseAuthService()
+    /// App Review "Demo Mode" — a local, pre-seeded sandbox the reviewer enters
+    /// from the sign-in code screen. Never touches the backend. See `DemoSession`.
+    @State private var demoSession = DemoSession()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
     /// The sync composition root. Built once in `bootstrap()`
@@ -164,6 +167,7 @@ struct shiftTimelineApp: App {
             RootContainerView()
                 .repositories(effectiveProvider)
                 .environment(authService)
+                .environment(demoSession)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
@@ -206,9 +210,12 @@ struct shiftTimelineApp: App {
                 // reflect the latest blocks and sunset data (idempotent —
                 // deterministic identifiers replace pending requests).
                 Task { @MainActor in
-                    await DayBeforeBriefingNotifier.scheduleUpcoming(
-                        context: PersistenceController.shared.container.mainContext
-                    )
+                    let context = PersistenceController.shared.container.mainContext
+                    await DayBeforeBriefingNotifier.scheduleUpcoming(context: context)
+                    // Arm golden-hour/sunset reminders for upcoming events too,
+                    // fetching sun times first so the reminder fires during
+                    // planning — not only after go-live.
+                    await GoldenHourNotifier.scheduleUpcoming(context: context)
                 }
                 // Catch up on changes missed while realtime was disconnected, then
                 // drain any writes queued offline.

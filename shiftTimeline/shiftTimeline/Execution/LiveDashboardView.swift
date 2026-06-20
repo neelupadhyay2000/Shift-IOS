@@ -624,6 +624,8 @@ private struct _LiveDashboardContent: View {
             }
 
             // ── Sunset / Golden Hour banner ───────────────────────────
+            // NOTE: sunset/golden-hour comes from sunrise-sunset.org, NOT
+            // WeatherKit — so no Apple Weather attribution belongs here.
             if let sunset = event.sunsetTime,
                let golden = event.goldenHourStart {
                 SunsetBanner(sunsetTime: sunset, goldenHourStart: golden)

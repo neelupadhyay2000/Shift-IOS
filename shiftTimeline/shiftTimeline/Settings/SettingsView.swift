@@ -22,6 +22,8 @@ struct SettingsView: View {
     @AppStorage(SettingsDefaultsKey.notificationThresholdMinutes) private var thresholdMinutes: Double = 10
     @AppStorage(AppearancePreference.defaultsKey) private var appearanceRawValue = AppearancePreference.system.rawValue
 
+    @State private var isShowingReport = false
+
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
@@ -44,6 +46,9 @@ struct SettingsView: View {
         .tint(ShiftPalette.accent)
         .navigationTitle(String(localized: "Settings"))
         .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $isShowingReport) {
+            ReportConcernSheet()
+        }
     }
 
     // MARK: - Account (single row → AccountView)
@@ -179,6 +184,12 @@ struct SettingsView: View {
             .foregroundStyle(ShiftPalette.accent)
             Button(String(localized: "Terms of Service")) {
                 if let url = LegalContent.termsOfServiceURL { openURL(url) }
+            }
+            .foregroundStyle(ShiftPalette.accent)
+            Button {
+                isShowingReport = true
+            } label: {
+                Label(String(localized: "Report a Concern"), systemImage: "exclamationmark.bubble")
             }
             .foregroundStyle(ShiftPalette.accent)
         }

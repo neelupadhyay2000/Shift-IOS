@@ -33,7 +33,9 @@ public struct WeatherSnapshot: Codable, Sendable, Equatable {
     }
 
     /// Returns the subset of block IDs that are outdoor-tagged and have
-    /// a `rainProbability > 0.5` in this snapshot.
+    /// a `rainProbability > 0.3` in this snapshot. (WeatherKit's hourly
+    /// precipitation chance rarely exceeds ~45% even in heavy-rain regions, so
+    /// 30% is the practical "rain likely" line for an outdoor-event warning.)
     ///
     /// - Parameter blocks: Tuples of `(id: UUID, isOutdoor: Bool)` — pass
     ///   all blocks belonging to the event.
@@ -42,7 +44,7 @@ public struct WeatherSnapshot: Codable, Sendable, Equatable {
         blocks
             .filter(\.isOutdoor)
             .compactMap { block in
-                entries.first { $0.blockId == block.id && $0.rainProbability > 0.5 }
+                entries.first { $0.blockId == block.id && $0.rainProbability > 0.3 }
             }
     }
 }
