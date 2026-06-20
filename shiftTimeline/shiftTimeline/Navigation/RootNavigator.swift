@@ -34,10 +34,14 @@ enum EventDestination: Hashable {
     case liveDashboard(eventID: UUID)
 }
 
-/// Typed push destinations for the Marketplace stack.
-/// Intentionally empty — the teaser tab pushes nothing yet; marketplace
-/// browsing destinations land with the full marketplace.
-enum MarketplaceDestination: Hashable {}
+/// Typed push destinations for the Marketplace stack. Replaces the E9
+/// teaser-only routing now that the directory is being built.
+enum MarketplaceDestination: Hashable {
+    case vendorProfile(profileID: UUID)
+    case searchResults
+    case myVendorProfile
+    case portfolioEditor
+}
 
 /// Typed push destinations for the Templates stack.
 enum TemplateDestination: Hashable {
@@ -118,9 +122,12 @@ struct RootNavigator: View {
             .tabItem { Label(Tab.events.rawValue, systemImage: Tab.events.systemImage) }
             .tag(Tab.events)
 
-            // Marketplace tab — no push destinations yet
+            // Marketplace tab
             NavigationStack(path: $marketplacePath) {
                 MarketplaceTeaserView()
+                    .navigationDestination(for: MarketplaceDestination.self) { destination in
+                        marketplaceDestinationView(for: destination)
+                    }
             }
             .tabItem { Label(Tab.marketplace.rawValue, systemImage: Tab.marketplace.systemImage) }
             .tag(Tab.marketplace)
@@ -189,7 +196,7 @@ struct RootNavigator: View {
         }
         .onChange(of: deepLinkRouter.pendingDestination) { _, destination in
             guard let destination else { return }
-            sidebarSelection = .events
+            // routeToDestination sets the tab/sidebar per destination.
             routeToDestination(destination)
         }
     }
@@ -213,6 +220,9 @@ struct RootNavigator: View {
         case .marketplace:
             NavigationStack(path: $marketplacePath) {
                 MarketplaceTeaserView()
+                    .navigationDestination(for: MarketplaceDestination.self) { destination in
+                        marketplaceDestinationView(for: destination)
+                    }
             }
         case .templates:
             NavigationStack(path: $templatePath) {
@@ -231,13 +241,15 @@ struct RootNavigator: View {
     // MARK: - Deep-Link Routing
 
     private func routeToDestination(_ destination: DeepLinkDestination) {
-        selectedTab = .events
         switch destination {
         case .event(let id):
+            selectTab(.events)
             eventPath = [.eventDetail(id: id)]
         case .live(let id):
+            selectTab(.events)
             eventPath = [.eventDetail(id: id), .liveDashboard(eventID: id)]
         case .roster:
+            selectTab(.events)
             eventPath = []
         case .newEventTimeline(let id):
             // Reset the template stack so the user returns cleanly to the
@@ -249,9 +261,19 @@ struct RootNavigator: View {
             // (On iPhone the TabView keeps all stacks live, so onAppear fires
             // on the next tab-switch cycle — same reliable timing.)
             pendingEventID = id
-            selectedTab = .events
+            selectTab(.events)
+        case .vendorProfile(let id):
+            // shift://vendor/{id} → Marketplace tab, push the public profile.
+            selectTab(.marketplace)
+            marketplacePath = [.vendorProfile(profileID: id)]
         }
         deepLinkRouter.pendingDestination = nil
+    }
+
+    /// Switches the active tab and keeps the iPad sidebar selection aligned.
+    private func selectTab(_ tab: Tab) {
+        selectedTab = tab
+        sidebarSelection = tab
     }
 
     // MARK: - Destination routing
@@ -271,6 +293,20 @@ struct RootNavigator: View {
             PostEventReportPreviewView(eventID: eventID)
         case .liveDashboard(let eventID):
             LiveDashboardView(eventID: eventID)
+        }
+    }
+
+    @ViewBuilder
+    private func marketplaceDestinationView(for destination: MarketplaceDestination) -> some View {
+        switch destination {
+        case .vendorProfile(let profileID):
+            VendorPublicProfileView(profileID: profileID)
+        case .searchResults:
+            VendorSearchResultsView()
+        case .myVendorProfile:
+            MyVendorProfileView()
+        case .portfolioEditor:
+            PortfolioEditorView()
         }
     }
 

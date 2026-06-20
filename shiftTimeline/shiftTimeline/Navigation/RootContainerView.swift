@@ -90,6 +90,7 @@ struct RootContainerView: View {
                 .environment(\.realtimeEchoSuppressor, nil)
                 .environment(\.waitlistService, nil)
                 .environment(\.contentReportService, nil)
+                .environment(\.marketplaceService, nil)
                 .transition(.opacity)
         } else if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()

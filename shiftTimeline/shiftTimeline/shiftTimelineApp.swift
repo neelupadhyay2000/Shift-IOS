@@ -48,6 +48,11 @@ struct shiftTimelineApp: App {
     /// Like the waitlist service, deliberately outside the sync stack and built
     /// in `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
     @State private var contentReportService: SupabaseContentReportService?
+
+    /// Online-only vendor marketplace reads/writes (directory, profile, portfolio).
+    /// Like the other marketplace services, outside the sync stack and built in
+    /// `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
+    @State private var marketplaceService: SupabaseMarketplaceService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -181,6 +186,7 @@ struct shiftTimelineApp: App {
                 .environment(\.syncStatusMonitor, syncStack?.statusMonitor)
                 .environment(\.waitlistService, waitlistService)
                 .environment(\.contentReportService, contentReportService)
+                .environment(\.marketplaceService, marketplaceService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -292,6 +298,11 @@ struct shiftTimelineApp: App {
             // Marketplace UGC safety (report + block): direct-to-Supabase, online-only.
             if contentReportService == nil {
                 contentReportService = SupabaseContentReportService(client: client)
+            }
+
+            // Vendor marketplace (directory/profile/portfolio): direct-to-Supabase, online-only.
+            if marketplaceService == nil {
+                marketplaceService = SupabaseMarketplaceService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session
