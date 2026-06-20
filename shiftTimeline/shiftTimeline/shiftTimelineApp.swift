@@ -43,6 +43,11 @@ struct shiftTimelineApp: App {
     /// part of the sync stack. Built in `bootstrap()` because touching
     /// `SupabaseClientProvider.shared` is unsafe in test modes.
     @State private var waitlistService: SupabaseWaitlistService?
+
+    /// Online-only UGC-safety writer (report + block, Apple Guideline 1.2).
+    /// Like the waitlist service, deliberately outside the sync stack and built
+    /// in `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
+    @State private var contentReportService: SupabaseContentReportService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -175,6 +180,7 @@ struct shiftTimelineApp: App {
                 .environment(\.supabaseSyncStack, syncStack)
                 .environment(\.syncStatusMonitor, syncStack?.statusMonitor)
                 .environment(\.waitlistService, waitlistService)
+                .environment(\.contentReportService, contentReportService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -281,6 +287,11 @@ struct shiftTimelineApp: App {
             // Marketplace waitlist: direct-to-Supabase, online-only.
             if waitlistService == nil {
                 waitlistService = SupabaseWaitlistService(client: client)
+            }
+
+            // Marketplace UGC safety (report + block): direct-to-Supabase, online-only.
+            if contentReportService == nil {
+                contentReportService = SupabaseContentReportService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session

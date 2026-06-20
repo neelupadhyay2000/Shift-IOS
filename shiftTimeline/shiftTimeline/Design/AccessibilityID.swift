@@ -149,6 +149,16 @@ enum AccessibilityID {
         static let confirmedState = "waitlist.confirmed_state"
     }
 
+    // MARK: - Marketplace UGC safety (VendorSafetyMenu / ReportReasonSheet)
+
+    enum Safety {
+        static let menu               = "safety.menu"
+        static let reportButton       = "safety.report_button"
+        static let blockButton        = "safety.block_button"
+        static let reportSheet        = "safety.report_sheet"
+        static let reportCancelButton = "safety.report_cancel_button"
+    }
+
     // MARK: - Post-Event Report (PostEventReportPreviewView)
 
     enum Report {
