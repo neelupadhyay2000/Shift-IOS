@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Services
+import Models
 
 // MARK: - Tab
 
@@ -38,7 +39,7 @@ enum EventDestination: Hashable {
 /// teaser-only routing now that the directory is being built.
 enum MarketplaceDestination: Hashable {
     case vendorProfile(profileID: UUID)
-    case searchResults
+    case searchResults(query: String, category: VendorRole?)
     case myVendorProfile
     case portfolioEditor
 }
@@ -124,7 +125,7 @@ struct RootNavigator: View {
 
             // Marketplace tab
             NavigationStack(path: $marketplacePath) {
-                MarketplaceTeaserView()
+                MarketplaceHomeView(path: $marketplacePath)
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -219,7 +220,7 @@ struct RootNavigator: View {
             }
         case .marketplace:
             NavigationStack(path: $marketplacePath) {
-                MarketplaceTeaserView()
+                MarketplaceHomeView(path: $marketplacePath)
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -301,8 +302,8 @@ struct RootNavigator: View {
         switch destination {
         case .vendorProfile(let profileID):
             VendorPublicProfileView(profileID: profileID)
-        case .searchResults:
-            VendorSearchResultsView()
+        case .searchResults(let query, let category):
+            VendorSearchResultsView(initialQuery: query, initialCategory: category)
         case .myVendorProfile:
             MyVendorProfileView()
         case .portfolioEditor:

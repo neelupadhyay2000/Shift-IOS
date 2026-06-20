@@ -135,6 +135,16 @@ enum AccessibilityID {
         static let joinWaitlistButton    = "marketplace.join_waitlist_button"
         static let joinedBadge           = "marketplace.joined_badge"
         static let updateInterestsButton = "marketplace.update_interests_button"
+        // Directory (MarketplaceHomeView / VendorSearchResultsView / VendorPublicProfileView)
+        static let searchField        = "marketplace.search_field"
+        static let categoryChips      = "marketplace.category_chips"
+        static let becomeVendorButton = "marketplace.become_vendor_button"
+        static let requestsInbox      = "marketplace.requests_inbox"
+        static let featuredList       = "marketplace.featured_list"
+        static let vendorCard         = "marketplace.vendor_card"
+        static let searchResultsList  = "marketplace.search_results_list"
+        static let profileHeader      = "marketplace.profile_header"
+        static let requestButton      = "marketplace.request_button"
     }
 
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)

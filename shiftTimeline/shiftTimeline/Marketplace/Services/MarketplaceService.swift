@@ -131,6 +131,9 @@ protocol MarketplaceProviding: Sendable {
     /// Uploads the avatar to `vendor-portfolio/{uid}/avatar.jpg` (overwriting) and
     /// returns its public URL (written to `profiles.avatar_url` via the editor).
     func uploadAvatar(data: Data) async throws -> URL
+
+    /// Public CDN URL for a portfolio object path (the bucket is public).
+    func portfolioImageURL(forPath path: String) -> URL?
 }
 
 // MARK: - Supabase implementation
@@ -302,6 +305,10 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             .from(bucket)
             .upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: true))
         return try client.storage.from(bucket).getPublicURL(path: path)
+    }
+
+    func portfolioImageURL(forPath path: String) -> URL? {
+        try? client.storage.from(bucket).getPublicURL(path: path)
     }
 
     // MARK: - Pure builders (unit-tested)
