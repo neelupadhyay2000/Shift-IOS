@@ -23,19 +23,30 @@ struct ProfileDTO: Sendable {
     /// role's insert/update grants, and it is deliberately never encoded so a
     /// returning user's upsert can never clear an existing grant.
     let compedUntil: PostgresTimestamp?
+    /// E19 onboarding gate. Read-only on the client here (decoded, never encoded
+    /// by the generic upsert so a session-restore upsert can't reset it); the
+    /// onboarding flow flips it via its own dedicated write.
+    let onboarded: Bool?
+    /// E21 exclusive persona: "planner" or "vendor". Decoded only; written by the
+    /// onboarding / account-switch flows, never by the generic upsert.
+    let accountType: String?
 
     init(
         id: UUID,
         displayName: String?,
         phone: String?,
         email: String?,
-        compedUntil: PostgresTimestamp? = nil
+        compedUntil: PostgresTimestamp? = nil,
+        onboarded: Bool? = nil,
+        accountType: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
         self.phone = phone
         self.email = email
         self.compedUntil = compedUntil
+        self.onboarded = onboarded
+        self.accountType = accountType
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -44,6 +55,8 @@ struct ProfileDTO: Sendable {
         case phone
         case email
         case compedUntil = "comped_until"
+        case onboarded
+        case accountType = "account_type"
     }
 }
 
@@ -70,6 +83,8 @@ extension ProfileDTO: Decodable {
         phone = try container.decodeIfPresent(String.self, forKey: .phone)
         email = try container.decodeIfPresent(String.self, forKey: .email)
         compedUntil = try container.decodeIfPresent(PostgresTimestamp.self, forKey: .compedUntil)
+        onboarded = try container.decodeIfPresent(Bool.self, forKey: .onboarded)
+        accountType = try container.decodeIfPresent(String.self, forKey: .accountType)
     }
 }
 
@@ -83,6 +98,8 @@ extension ProfileDTO: Equatable {
             && lhs.phone == rhs.phone
             && lhs.email == rhs.email
             && lhs.compedUntil == rhs.compedUntil
+            && lhs.onboarded == rhs.onboarded
+            && lhs.accountType == rhs.accountType
     }
 }
 // swiftformat:enable all
@@ -101,6 +118,10 @@ protocol ProfileRepositing: Sendable {
     /// carries them back, so the UI can show the name on every launch.
     @discardableResult
     func upsert(_ profile: ProfileDTO) async throws -> ProfileDTO
+
+    /// Reads the caller's own profile row (or nil if none yet). Used to refresh the
+    /// cached profile after onboarding so the gate (`onboarded`) re-evaluates.
+    func fetch(profileID: UUID) async throws -> ProfileDTO?
 }
 
 // MARK: - Supabase Implementation
@@ -122,5 +143,15 @@ struct SupabaseProfileRepository: ProfileRepositing {
             .single()
             .execute()
             .value
+    }
+
+    func fetch(profileID: UUID) async throws -> ProfileDTO? {
+        let rows: [ProfileDTO] = try await client
+            .from("profiles")
+            .select()
+            .eq("id", value: profileID.uuidString)
+            .execute()
+            .value
+        return rows.first
     }
 }

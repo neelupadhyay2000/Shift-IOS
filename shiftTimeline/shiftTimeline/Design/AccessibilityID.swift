@@ -140,6 +140,11 @@ enum AccessibilityID {
         static let categoryChips      = "marketplace.category_chips"
         static let becomeVendorButton = "marketplace.become_vendor_button"
         static let requestsInbox      = "marketplace.requests_inbox"
+        static let inbox              = "marketplace.inbox"
+        static let listingStatusCard  = "marketplace.listing_status_card"
+        static let saveVendorButton   = "marketplace.save_vendor_button"
+        static let savedVendorsList    = "marketplace.saved_vendors_list"
+        static let filtersButton       = "marketplace.filters_button"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"
@@ -151,6 +156,10 @@ enum AccessibilityID {
         static let reviewSubmitButton = "marketplace.review_submit_button"
         static let reviewsList        = "marketplace.reviews_list"
         static let reviewVendorsList  = "marketplace.review_vendors_list"
+        // Availability (E18): calendar editor + search date filter.
+        static let manageAvailabilityButton = "marketplace.manage_availability_button"
+        static let availabilityGrid         = "marketplace.availability_grid"
+        static let searchDateChip           = "marketplace.search_date_chip"
     }
 
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
@@ -179,5 +188,25 @@ enum AccessibilityID {
 
     enum Report {
         static let exportButton = "report.export_button"
+    }
+
+    // MARK: - Vendor & marketplace settings (VendorSettingsView)
+
+    enum Settings {
+        static let vendorMarketplaceRow      = "settings.vendor_marketplace_row"
+        static let marketplaceListingToggle  = "settings.marketplace_listing_toggle"
+        static let setupVendorProfileButton  = "settings.setup_vendor_profile_button"
+        static let switchAccountButton       = "settings.switch_account_button"
+    }
+
+    // MARK: - Forced onboarding (ProfileSetupView)
+
+    enum Onboarding {
+        static let root              = "onboarding.root"
+        static let plannerCard       = "onboarding.planner_card"
+        static let vendorCard        = "onboarding.vendor_card"
+        static let plannerNameField  = "onboarding.planner_name_field"
+        static let vendorNameField   = "onboarding.vendor_name_field"
+        static let submitButton      = "onboarding.submit_button"
     }
 }

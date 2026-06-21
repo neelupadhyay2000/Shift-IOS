@@ -11,8 +11,8 @@ struct VendorPublicProfileView: View {
 
     @Environment(\.marketplaceService) private var service
     @Environment(\.vendorReviewService) private var reviewService
+    @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var profile: MarketplaceVendorProfile?
     @State private var portfolio: [PortfolioItemDTO] = []
@@ -23,8 +23,13 @@ struct VendorPublicProfileView: View {
     @State private var isLoadingMoreReviews = false
     @State private var isLoading = true
     @State private var isPresentingComposer = false
+    @State private var isSaved = false
+    @State private var selectedMedia: PortfolioMedia?
 
     private let reviewPageSize = 20
+
+    /// Planners can save vendors; vendors and self-views can't.
+    private var canSave: Bool { !authService.isVendorAccount && profileID != authService.currentProfileID }
 
     private var title: String {
         if let name = profile?.identity.businessName, !name.isEmpty { return name }
@@ -51,6 +56,16 @@ struct VendorPublicProfileView: View {
         .navigationTitle(String(localized: "Vendor"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if canSave {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { toggleSave() } label: {
+                        Image(systemName: isSaved ? "heart.fill" : "heart")
+                            .foregroundStyle(isSaved ? ShiftPalette.accent : .primary)
+                    }
+                    .accessibilityLabel(isSaved ? String(localized: "Unsave vendor") : String(localized: "Save vendor"))
+                    .accessibilityIdentifier(AccessibilityID.Marketplace.saveVendorButton)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 VendorSafetyMenu(
                     subjectProfileID: profileID,
@@ -64,6 +79,9 @@ struct VendorPublicProfileView: View {
         .sheet(isPresented: $isPresentingComposer) {
             RequestComposerView(vendorProfileID: profileID, vendorName: title)
         }
+        .fullScreenCover(item: $selectedMedia) { media in
+            MediaGalleryView(items: mediaItems, initial: media)
+        }
     }
 
     // MARK: Content
@@ -71,7 +89,7 @@ struct VendorPublicProfileView: View {
     private func content(_ profile: MarketplaceVendorProfile) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             header(profile)
-            requestButton
+            primaryAction
             statsRow(profile.vendor)
             if !profile.identity.bio.isNilOrEmpty { bioSection(profile.identity.bio ?? "") }
             portfolioSection
@@ -190,7 +208,27 @@ struct VendorPublicProfileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: Request CTA (stub until E11)
+    // MARK: Primary action (account-type aware)
+
+    private var isSelf: Bool { profileID == authService.currentProfileID }
+
+    /// Planners get the request CTA. Vendors browse but can't request (a planner
+    /// action), and on their own profile see an edit hint instead.
+    @ViewBuilder
+    private var primaryAction: some View {
+        if isSelf {
+            Label(String(localized: "This is your public profile — edit it in Settings."), systemImage: "person.crop.circle.badge.checkmark")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if authService.isVendorAccount {
+            // Intentionally no request CTA for vendor accounts (requesting is a
+            // planner-only action under the exclusive account model).
+            EmptyView()
+        } else {
+            requestButton
+        }
+    }
 
     private var requestButton: some View {
         Button {
@@ -207,24 +245,32 @@ struct VendorPublicProfileView: View {
         .accessibilityIdentifier(AccessibilityID.Marketplace.requestButton)
     }
 
-    // MARK: Portfolio
+    // MARK: Portfolio — Instagram-style square media grid
 
-    private var portfolioColumns: [GridItem] {
-        let minimum: CGFloat = sizeClass == .regular ? 150 : 110
-        return [GridItem(.adaptive(minimum: minimum), spacing: 10)]
+    private let portfolioColumns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 3)
+
+    /// Viewable media (photos + videos, in grid order) for the swipeable gallery.
+    private var mediaItems: [PortfolioMedia] {
+        portfolio.compactMap { item in
+            guard item.kind == "photo" || item.kind == "video",
+                  let path = item.storagePath,
+                  let url = service?.portfolioImageURL(forPath: path) else { return nil }
+            return PortfolioMedia(id: item.id, url: url, isVideo: item.kind == "video")
+        }
     }
 
     @ViewBuilder
     private var portfolioSection: some View {
         if !portfolio.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(String(localized: "Portfolio")).microLabel()
-                LazyVGrid(columns: portfolioColumns, spacing: 10) {
+                LazyVGrid(columns: portfolioColumns, spacing: 2) {
                     ForEach(portfolio) { item in
                         portfolioTile(item)
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -233,35 +279,49 @@ struct VendorPublicProfileView: View {
         if item.kind == "shift_event" {
             verifiedEventTile(item)
         } else if let path = item.storagePath, let url = service?.portfolioImageURL(forPath: path) {
-            AsyncImage(url: url) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                ProgressView()
+            Button {
+                selectedMedia = PortfolioMedia(id: item.id, url: url, isVideo: item.kind == "video")
+            } label: {
+                Color.clear
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        if item.kind == "video" {
+                            VideoThumbnailView(url: url, playGlyphSize: .title2)
+                        } else {
+                            AsyncImage(url: url) { image in
+                                image.resizable().scaledToFill()
+                            } placeholder: {
+                                Rectangle().fill(ShiftPalette.soft(ShiftPalette.neutral))
+                            }
+                        }
+                    }
+                    .clipped()
+                    .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fill)
-            .clipShape(RoundedRectangle(cornerRadius: ShiftDesign.cardRadius, style: .continuous))
+            .buttonStyle(.plain)
         }
     }
 
     private func verifiedEventTile(_ item: PortfolioItemDTO) -> some View {
         let summary = item.eventID.flatMap { eventSummaries[$0] }
-        return VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: "checkmark.seal.fill")
-                .foregroundStyle(ShiftPalette.accent)
-            Text(summary?.title ?? item.caption ?? String(localized: "Event"))
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(2)
-            if let date = summary?.eventDate.value {
-                Text(date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        return Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                VStack(alignment: .leading, spacing: 5) {
+                    Image(systemName: "checkmark.seal.fill").foregroundStyle(ShiftPalette.accent)
+                    Text(summary?.title ?? item.caption ?? String(localized: "Event"))
+                        .font(.caption.weight(.semibold)).lineLimit(3)
+                    if let date = summary?.eventDate.value {
+                        Text(date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .aspectRatio(1, contentMode: .fill)
-        .proCard(padding: 12)
+            .background(ShiftPalette.soft(ShiftPalette.accent))
+            .clipped()
     }
 
     // MARK: Reviews
@@ -352,6 +412,7 @@ struct VendorPublicProfileView: View {
         guard let service else { isLoading = false; return }
         isLoading = true
         defer { isLoading = false }
+        if canSave { isSaved = ((try? await service.savedVendorIDs()) ?? []).contains(profileID) }
         profile = try? await service.fetchVendorProfile(profileID: profileID)
         guard profile != nil else { return }
         portfolio = (try? await service.portfolioItems(profileID: profileID)) ?? []
@@ -365,6 +426,21 @@ struct VendorPublicProfileView: View {
         reviews = []
         canLoadMoreReviews = true
         await loadMoreReviews()
+    }
+
+    private func toggleSave() {
+        guard let service else { return }
+        let wasSaved = isSaved
+        isSaved.toggle()
+        Haptics.tap()
+        Task {
+            do {
+                if wasSaved { try await service.unsaveVendor(profileID: profileID) }
+                else { try await service.saveVendor(profileID: profileID) }
+            } catch {
+                isSaved = wasSaved
+            }
+        }
     }
 
     private func loadMoreReviews() async {

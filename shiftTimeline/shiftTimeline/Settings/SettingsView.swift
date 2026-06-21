@@ -32,6 +32,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             accountSection
+            marketplaceSection
             vendorTeamsSection
             appearanceSection
             notificationsSection
@@ -65,25 +66,41 @@ struct SettingsView: View {
     }
 
     private var accountRow: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 16) {
             AccountAvatarView(
                 initials: AccountIdentity.initials(
                     name: authService.currentProfile?.displayName,
                     email: authService.currentUser?.email
                 ),
-                size: 44
+                size: 60
             )
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(accountPrimaryLabel)
-                    .font(.headline)
+                    .font(.title3.weight(.semibold))
                     .lineLimit(1)
                 Text(accountSecondaryLabel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if authService.isAuthenticated {
+                    accountTypeChip
+                }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+    }
+
+    /// Small persona badge (Facebook/LinkedIn-style) under the name.
+    private var accountTypeChip: some View {
+        let isVendor = authService.isVendorAccount
+        return Label(
+            isVendor ? String(localized: "Vendor") : String(localized: "Planner"),
+            systemImage: isVendor ? "storefront.fill" : "calendar"
+        )
+        .font(.caption2.weight(.semibold))
+        .padding(.horizontal, 8).padding(.vertical, 3)
+        .foregroundStyle(ShiftPalette.accent)
+        .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
     }
 
     /// Primary line: display name when known, else the signed-in contact,
@@ -106,6 +123,22 @@ struct SettingsView: View {
                 ?? String(localized: "Signed in")
         }
         return String(localized: "Signed in")
+    }
+
+    // MARK: - Vendor & Marketplace
+
+    private var marketplaceSection: some View {
+        Section {
+            NavigationLink {
+                VendorSettingsView()
+            } label: {
+                Label(String(localized: "Account & Marketplace"), systemImage: "storefront")
+            }
+            .accessibilityIdentifier(AccessibilityID.Settings.vendorMarketplaceRow)
+            .accessibilityHint(String(localized: "Your account type and marketplace listing"))
+        } footer: {
+            Text(String(localized: "Choose whether you're a planner or a vendor, and manage your marketplace listing."))
+        }
     }
 
     // MARK: - Vendor Teams

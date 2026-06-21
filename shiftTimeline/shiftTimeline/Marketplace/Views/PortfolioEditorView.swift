@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Portfolio manager for the signed-in vendor: multi-upload photos to the
 /// vendor-portfolio bucket, add server-verified Shift events (only completed
@@ -13,6 +14,7 @@ struct PortfolioEditorView: View {
     @State private var items: [PortfolioItemDTO] = []
     @State private var claimable: [PortfolioEventSummaryDTO] = []
     @State private var photoSelection: [PhotosPickerItem] = []
+    @State private var isPhotoPickerPresented = false
     @State private var isLoading = true
     @State private var isUploading = false
     @State private var isPresentingEventPicker = false
@@ -33,6 +35,9 @@ struct PortfolioEditorView: View {
         .navigationTitle(String(localized: "Portfolio"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbarContent }
+        // A PhotosPicker nested inside a Menu doesn't present (SwiftUI bug); drive
+        // it from this modifier via a plain menu Button instead.
+        .photosPicker(isPresented: $isPhotoPickerPresented, selection: $photoSelection, maxSelectionCount: 10, matching: .any(of: [.images, .videos]))
         .task { await load() }
         .onChange(of: photoSelection) { _, newItems in
             guard !newItems.isEmpty else { return }
@@ -55,7 +60,9 @@ struct PortfolioEditorView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                PhotosPicker(selection: $photoSelection, maxSelectionCount: 10, matching: .images) {
+                Button {
+                    isPhotoPickerPresented = true
+                } label: {
                     Label(String(localized: "Add photos"), systemImage: "photo")
                 }
                 Button {
@@ -116,6 +123,10 @@ struct PortfolioEditorView: View {
                 .foregroundStyle(ShiftPalette.accent)
                 .frame(width: 48, height: 48)
                 .background(ShiftPalette.soft(ShiftPalette.accent), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } else if item.kind == "video", let path = item.storagePath, let url = service?.portfolioImageURL(forPath: path) {
+            VideoThumbnailView(url: url, playGlyphSize: .caption)
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         } else if let path = item.storagePath, let url = service?.portfolioImageURL(forPath: path) {
             AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { ProgressView() }
                 .frame(width: 48, height: 48)
@@ -191,11 +202,18 @@ struct PortfolioEditorView: View {
         isUploading = true
         defer { isUploading = false; photoSelection = [] }
         for pick in selection {
+            // Detect video vs image so we upload the right extension/MIME and tag
+            // the row kind. Images stay jpg (matches the avatar path); videos use
+            // their real extension (mov/mp4) so they play back.
+            let videoType = pick.supportedContentTypes.first { $0.conforms(to: .movie) }
+            let isVideo = videoType != nil
+            let ext = isVideo ? (videoType?.preferredFilenameExtension ?? "mp4") : "jpg"
             guard let data = try? await pick.loadTransferable(type: Data.self),
-                  let path = try? await service.uploadPortfolioImage(data: data, fileExtension: "jpg")
+                  let path = try? await service.uploadPortfolioImage(data: data, fileExtension: ext)
             else { continue }
             let item = PortfolioItemDTO(
-                profileID: profileID, kind: "photo", storagePath: path, sortOrder: items.count
+                profileID: profileID, kind: isVideo ? "video" : "photo",
+                storagePath: path, sortOrder: items.count
             )
             if let saved = try? await service.addPortfolioItem(item) {
                 items.append(saved)

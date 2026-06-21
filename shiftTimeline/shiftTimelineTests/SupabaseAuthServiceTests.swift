@@ -20,6 +20,11 @@ final class FakeProfileRepository: ProfileRepositing {
         upsertedProfiles.append(profile)
         return profile
     }
+
+    func fetch(profileID: UUID) async throws -> ProfileDTO? {
+        if shouldThrow { throw URLError(.badServerResponse) }
+        return upsertedProfiles.last { $0.id == profileID }
+    }
 }
 
 /// In-process fake `InviteClaiming`. @MainActor + final gives implicit Sendable

@@ -149,6 +149,7 @@ struct ReviewComposerView: View {
                 )
             }
             AnalyticsService.send(.marketplaceReviewSubmitted, parameters: ["rating": String(rating)])
+            Haptics.success()
             onComplete?()
             dismiss()
         } catch {

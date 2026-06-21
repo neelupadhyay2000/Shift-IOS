@@ -29,6 +29,8 @@ struct RootContainerView: View {
             // Cross-fade the sign-in screen into the seeded app when the
             // reviewer enters demo mode, so the hand-off is smooth (not a cut).
             .animation(.easeInOut(duration: 0.4), value: demoSession.isActive)
+            // Cross-fade profile-setup → app when onboarding completes.
+            .animation(.easeInOut(duration: 0.3), value: authService.needsOnboarding)
             // One brand accent everywhere: tab selection, links, toggles, and
             // controls all inherit the icon's indigo from this single tint.
             .tint(ShiftPalette.accent)
@@ -94,6 +96,8 @@ struct RootContainerView: View {
                 .environment(\.serviceRequestService, nil)
                 .environment(\.requestMessagingService, nil)
                 .environment(\.vendorReviewService, nil)
+                .environment(\.availabilityService, nil)
+                .environment(\.onboardingService, nil)
                 .transition(.opacity)
         } else if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()
@@ -101,8 +105,17 @@ struct RootContainerView: View {
             loadingView
         } else if authService.isAuthenticated {
             if appLock.hasPasscode {
-                RootNavigator()
-                    .task { await maybeShowLaunchPromo() }
+                // E19: a new account must create a profile (planner or vendor)
+                // before reaching the app. The passcode step above naturally
+                // covers the brief profile-load latency, so this never flashes for
+                // a returning (already-onboarded) user.
+                if authService.needsOnboarding {
+                    ProfileSetupView()
+                        .transition(.opacity)
+                } else {
+                    RootNavigator()
+                        .task { await maybeShowLaunchPromo() }
+                }
             } else if appLock.isRestoringRecord {
                 // The account's passcode record is being fetched — hold the
                 // loading view rather than flash the setup UI at a user whose

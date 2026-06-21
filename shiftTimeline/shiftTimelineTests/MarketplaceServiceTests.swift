@@ -54,6 +54,38 @@ struct MarketplaceServiceTests {
         #expect(json["p_limit"] as? Int == 10)
     }
 
+    @Test("searchParams maps sort to p_sort; nil omits it")
+    func searchParamsSort() throws {
+        let withSort = SupabaseMarketplaceService.searchParams(
+            query: nil, category: nil, latitude: nil, longitude: nil,
+            radiusKm: nil, limit: 20, offset: 0, onDate: nil, sort: .booked
+        )
+        #expect(withSort.pSort == "booked")
+        #expect(try jsonObject(from: withSort)["p_sort"] as? String == "booked")
+
+        let noSort = SupabaseMarketplaceService.searchParams(
+            query: nil, category: nil, latitude: nil, longitude: nil,
+            radiusKm: nil, limit: 20, offset: 0, onDate: nil, sort: nil
+        )
+        #expect(noSort.pSort == nil)
+        #expect(try jsonObject(from: noSort)["p_sort"] == nil)
+    }
+
+    @Test("SavedVendorRowDTO encodes the insert keys; decodes a select projection")
+    func savedVendorRowCoding() throws {
+        let planner = UUID(); let vendor = UUID()
+        let insert = SavedVendorRowDTO(plannerID: planner, vendorProfileID: vendor)
+        let json = try jsonObject(from: insert)
+        #expect(json["planner_id"] as? String == planner.uuidString)
+        #expect(json["vendor_profile_id"] as? String == vendor.uuidString)
+
+        let decoded = try decodeDTO(SavedVendorRowDTO.self, from: """
+        { "vendor_profile_id": "\(vendor.uuidString)" }
+        """)
+        #expect(decoded.vendorProfileID == vendor)
+        #expect(decoded.plannerID == nil)
+    }
+
     // MARK: search_name
 
     @Test("search_name lowercases and trims; empty becomes nil")

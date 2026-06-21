@@ -56,6 +56,13 @@ nonisolated enum AnalyticsService {
         // Carries only the `rating` dimension — never the free-text body.
         case marketplaceReviewSubmitted = "marketplace.reviewSubmitted"
 
+        // Forced onboarding (E19): a new account finished profile creation.
+        // Carries only `type` (planner|vendor) — never name/business text.
+        case onboardingCompleted = "onboarding.completed"
+
+        // Account separation (E21): user switched persona. Carries only `to`.
+        case accountTypeSwitched = "account.typeSwitched"
+
         // User template lifecycle + community tease funnel: lifecycle signals
         // carry only counts (never template names — user-entered, may be PII);
         // the teaser signal measures demand ahead of community templates.
