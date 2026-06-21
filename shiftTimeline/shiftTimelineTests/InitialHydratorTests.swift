@@ -5,14 +5,9 @@ import Services
 import SwiftData
 import Testing
 
-@Suite("InitialHydrator — fetch + upsert into SwiftData")
+@Suite("SnapshotMerger — upsert + wire a hydration snapshot into SwiftData")
 @MainActor
 struct InitialHydratorTests {
-
-    private struct FakeHydrationSource: HydrationSource {
-        let snapshot: HydrationSnapshot
-        func fetchSnapshot() async throws -> HydrationSnapshot { snapshot }
-    }
 
     private func blockDTO(id: UUID, trackID: UUID, eventID: UUID, title: String) -> BlockDTO {
         BlockDTO(
@@ -51,8 +46,7 @@ struct InitialHydratorTests {
             )]
         )
 
-        let hydrator = InitialHydrator(source: FakeHydrationSource(snapshot: snapshot), context: context)
-        try await hydrator.hydrate()
+        try SnapshotMerger(context: context).apply(snapshot)
 
         let events = try context.fetch(FetchDescriptor<EventModel>())
         #expect(events.count == 1)
@@ -88,8 +82,7 @@ struct InitialHydratorTests {
         let snapshot = HydrationSnapshot(
             events: [EventDTO(id: eventID, ownerID: UUID(), title: "New", date: fixedPGTimestamp, status: "live")]
         )
-        let hydrator = InitialHydrator(source: FakeHydrationSource(snapshot: snapshot), context: context)
-        try await hydrator.hydrate()
+        try SnapshotMerger(context: context).apply(snapshot)
 
         let events = try context.fetch(FetchDescriptor<EventModel>())
         #expect(events.count == 1)              // updated in place, not duplicated
@@ -98,13 +91,33 @@ struct InitialHydratorTests {
         #expect(events.first?.status == .live)
     }
 
+    @Test("a tombstoned event in the snapshot is not resurrected")
+    func tombstonedEventNotResurrected() async throws {
+        let container = try PersistenceController.forTesting()
+        let context = container.mainContext
+        let liveID = UUID(), deletedID = UUID()
+
+        // Mirrors a snapshot where a soft-deleted row leaked past the source
+        // filter: the live event must hydrate, the tombstoned one must not.
+        let snapshot = HydrationSnapshot(
+            events: [
+                EventDTO(id: liveID, ownerID: UUID(), title: "Live", date: fixedPGTimestamp, status: "planning"),
+                EventDTO(id: deletedID, ownerID: UUID(), title: "Deleted", date: fixedPGTimestamp,
+                         status: "planning", deletedAt: fixedPGTimestamp),
+            ]
+        )
+        try SnapshotMerger(context: context).apply(snapshot)
+
+        let events = try context.fetch(FetchDescriptor<EventModel>())
+        #expect(events.map(\.id) == [liveID])
+    }
+
     @Test("an empty snapshot leaves the store empty without error")
     func emptySnapshot() async throws {
         let container = try PersistenceController.forTesting()
         let context = container.mainContext
-        let hydrator = InitialHydrator(source: FakeHydrationSource(snapshot: HydrationSnapshot()), context: context)
 
-        try await hydrator.hydrate()
+        try SnapshotMerger(context: context).apply(HydrationSnapshot())
 
         #expect(try context.fetch(FetchDescriptor<EventModel>()).isEmpty)
     }
