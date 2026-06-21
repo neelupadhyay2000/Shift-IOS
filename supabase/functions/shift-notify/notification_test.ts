@@ -5,6 +5,7 @@ import {
   goLiveBody,
   requestReceivedBody,
   requestResponseBody,
+  reviewReceivedBody,
   shiftBody,
   shouldNotify,
   truncateMessage,
@@ -40,6 +41,13 @@ Deno.test("requestResponseBody — accepted/declined with business-name fallback
   assertEquals(requestResponseBody("Golden Hour", "accepted"), "Golden Hour accepted your request.");
   assertEquals(requestResponseBody("Atlas Sound", "declined"), "Atlas Sound declined your request.");
   assertEquals(requestResponseBody("", "accepted"), "A vendor accepted your request.");
+});
+
+Deno.test("reviewReceivedBody — rating phrasing, clamped to 1..5", () => {
+  assertEquals(reviewReceivedBody(5), "You received a 5-star review.");
+  assertEquals(reviewReceivedBody(1), "You received a 1-star review.");
+  assertEquals(reviewReceivedBody(9), "You received a 5-star review."); // clamp high
+  assertEquals(reviewReceivedBody(0), "You received a 1-star review."); // clamp low
 });
 
 Deno.test("truncateMessage — passes short through, trims + ellipsizes long", () => {

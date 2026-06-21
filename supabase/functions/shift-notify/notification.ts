@@ -129,3 +129,20 @@ export function truncateMessage(body: string, max = 140): string {
   if (trimmed.length <= max) return trimmed;
   return trimmed.slice(0, max - 1).trimEnd() + "…";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Verified reviews (E17)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ReviewReceivedPayload {
+  type: "review_received";
+  review_id: string;
+  vendor_profile_id: string; // recipient (the reviewed vendor)
+  rating: number; // 1..5
+}
+
+/** Alert body for a vendor who just received a review. */
+export function reviewReceivedBody(rating: number): string {
+  const r = Math.max(1, Math.min(5, Math.round(Number(rating) || 0)));
+  return `You received a ${r}-star review.`;
+}
