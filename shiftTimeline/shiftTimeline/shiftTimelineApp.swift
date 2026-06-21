@@ -61,6 +61,10 @@ struct shiftTimelineApp: App {
     /// Online-only request chat (E12): paged fetch/send; realtime streaming is per
     /// open thread via RequestThreadLive (separate from the SwiftData sync stack).
     @State private var requestMessagingService: SupabaseRequestMessagingService?
+
+    /// Online-only verified reviews + stats (E17): gated submit RPC, reviewer-owned
+    /// edits, and the public reviews / vendor_public_stats reads.
+    @State private var vendorReviewService: SupabaseVendorReviewService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -197,6 +201,7 @@ struct shiftTimelineApp: App {
                 .environment(\.marketplaceService, marketplaceService)
                 .environment(\.serviceRequestService, serviceRequestService)
                 .environment(\.requestMessagingService, requestMessagingService)
+                .environment(\.vendorReviewService, vendorReviewService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -327,6 +332,11 @@ struct shiftTimelineApp: App {
             // Request chat (E12): online-only direct Supabase + per-thread realtime.
             if requestMessagingService == nil {
                 requestMessagingService = SupabaseRequestMessagingService(client: client)
+            }
+
+            // Verified reviews (E17): online-only direct Supabase + gated RPC.
+            if vendorReviewService == nil {
+                vendorReviewService = SupabaseVendorReviewService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session

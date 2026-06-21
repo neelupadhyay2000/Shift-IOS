@@ -145,6 +145,12 @@ enum AccessibilityID {
         static let searchResultsList  = "marketplace.search_results_list"
         static let profileHeader      = "marketplace.profile_header"
         static let requestButton      = "marketplace.request_button"
+        // Reviews (E17): composer + profile reviews section.
+        static let reviewStarPicker   = "marketplace.review_star_picker"
+        static let reviewBodyField    = "marketplace.review_body_field"
+        static let reviewSubmitButton = "marketplace.review_submit_button"
+        static let reviewsList        = "marketplace.reviews_list"
+        static let reviewVendorsList  = "marketplace.review_vendors_list"
     }
 
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)

@@ -33,6 +33,7 @@ struct EventDetailView: View {
     @State private var isShowingEditSheet = false
     @State private var isShowingSaveAsTemplate = false
     @State private var isShowingVendorSharing = false
+    @State private var isShowingReviewVendors = false
     @State private var isShowingSignIn = false
     /// Set when sign-in was prompted by a share attempt, so the share flow
     /// resumes automatically once the sign-in sheet dismisses.
@@ -87,6 +88,9 @@ struct EventDetailView: View {
         }
         .sheet(isPresented: $isShowingSignIn, onDismiss: resumeShareAfterSignIn) {
             SignInView()
+        }
+        .sheet(isPresented: $isShowingReviewVendors) {
+            ReviewVendorsSheet(eventID: eventID)
         }
         .sheet(isPresented: $isShowingVendorSharing) {
             NavigationStack {
@@ -433,6 +437,16 @@ struct EventDetailView: View {
                     .accessibilityIdentifier(AccessibilityID.Report.exportButton)
                     .accessibilityLabel(String(localized: "Export Post-Event Report"))
                     .accessibilityHint(String(localized: "Generates a post-event summary report"))
+
+                    // Review the vendors who worked this event (planner only).
+                    if isOwner, FeatureFlags.supabaseSync {
+                        rowDivider
+                        Button { isShowingReviewVendors = true } label: {
+                            actionRow(icon: "star.bubble", title: String(localized: "Review your vendors"))
+                        }
+                        .buttonStyle(.pressableCard)
+                        .accessibilityHint(String(localized: "Leave a review for each vendor who worked this event"))
+                    }
                 }
 
                 if isOwner, FeatureFlags.supabaseSync {

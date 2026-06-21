@@ -45,7 +45,7 @@ extension VendorModel {
 @MainActor
 extension EventVendorDTO {
     /// Builds a fresh `VendorModel` with this row's scalar fields (relationship unwired).
-    func makeModel() -> VendorModel {
+    nonisolated func makeModel() -> VendorModel {
         let model = VendorModel(name: displayName, role: VendorRole(rawValue: role) ?? .custom)
         apply(to: model)
         return model
@@ -54,7 +54,7 @@ extension EventVendorDTO {
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
     /// Includes the claim state (`profile_id` / `accepted_at`) so a row claimed
     /// server-side flips to `accepted` locally once it syncs back.
-    func apply(to model: VendorModel) {
+    nonisolated func apply(to model: VendorModel) {
         model.id = id
         model.name = displayName
         // An unrecognized role string is a user-entered custom vendor type:
@@ -74,7 +74,7 @@ extension EventVendorDTO {
     }
 
     /// Wires the parent relationship by resolving `event_id` against `events`.
-    func linkRelationships(_ model: VendorModel, events: [UUID: EventModel]) {
+    nonisolated func linkRelationships(_ model: VendorModel, events: [UUID: EventModel]) {
         model.event = events[eventID]
     }
 }

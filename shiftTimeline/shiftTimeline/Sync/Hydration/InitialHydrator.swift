@@ -87,10 +87,11 @@ actor BackgroundSnapshotApplier: SnapshotApplying {
 }
 
 /// The pure merge: upsert scalars by id (skipping tombstones), wire relationships
-/// by id, save. Nonisolated and context-injected so it runs on whatever executor
-/// calls it — the background applier in production, an in-memory context in tests.
-/// Idempotent: re-running updates existing rows in place rather than duplicating.
-struct SnapshotMerger {
+/// by id, save. `nonisolated` (the app module defaults to MainActor isolation) so
+/// it runs on whatever executor calls it — the background applier's actor in
+/// production, an in-memory context on MainActor in tests. Idempotent: re-running
+/// updates existing rows in place rather than duplicating.
+nonisolated struct SnapshotMerger {
     let context: ModelContext
 
     /// Merges a snapshot into SwiftData: upsert scalars by id, wire relationships, save.

@@ -29,14 +29,14 @@ extension TimelineTrack {
 @MainActor
 extension TrackDTO {
     /// Builds a fresh `TimelineTrack` with this row's scalar fields (relationship unwired).
-    func makeModel() -> TimelineTrack {
+    nonisolated func makeModel() -> TimelineTrack {
         let model = TimelineTrack(name: name, sortOrder: sortOrder)
         apply(to: model)
         return model
     }
 
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
-    func apply(to model: TimelineTrack) {
+    nonisolated func apply(to model: TimelineTrack) {
         model.id = id
         model.name = name
         model.sortOrder = sortOrder
@@ -45,7 +45,7 @@ extension TrackDTO {
     }
 
     /// Wires the parent relationship by resolving `event_id` against `events`.
-    func linkRelationships(_ model: TimelineTrack, events: [UUID: EventModel]) {
+    nonisolated func linkRelationships(_ model: TimelineTrack, events: [UUID: EventModel]) {
         model.event = events[eventID]
     }
 }

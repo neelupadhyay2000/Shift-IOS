@@ -74,6 +74,19 @@ begin
     end if;
     raise notice 'rating_count=2 rating_avg=3.00 OK';
 
+    -- ── get_vendor_reviews RPC (reviewer name + event date joined past RLS) ───
+    select count(*) into v_count from public.get_vendor_reviews(v_vendor, 20, 0);
+    if v_count <> 2 then
+        raise exception 'get_vendor_reviews expected 2 rows, got %', v_count;
+    end if;
+    if not exists (
+        select 1 from public.get_vendor_reviews(v_vendor, 20, 0)
+        where reviewer_name = 'Owner One' and event_title = 'Event 1' and event_date is not null
+    ) then
+        raise exception 'get_vendor_reviews did not join reviewer_name/event fields';
+    end if;
+    raise notice 'get_vendor_reviews returned 2 rows with joined fields OK';
+
     -- Soft-deleting a review recomputes down (count=1, avg=4.00).
     update public.vendor_reviews set deleted_at = now()
         where event_id = v_e2 and vendor_profile_id = v_vendor;

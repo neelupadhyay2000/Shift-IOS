@@ -32,7 +32,7 @@ extension ShiftRecord {
 @MainActor
 extension ShiftRecordDTO {
     /// Builds a fresh `ShiftRecord` with this row's scalar fields (relationships unwired).
-    func makeModel() -> ShiftRecord {
+    nonisolated func makeModel() -> ShiftRecord {
         let model = ShiftRecord(
             deltaMinutes: deltaMinutes,
             triggeredBy: ShiftSource(rawValue: triggeredBy) ?? .manual
@@ -42,7 +42,7 @@ extension ShiftRecordDTO {
     }
 
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
-    func apply(to model: ShiftRecord) {
+    nonisolated func apply(to model: ShiftRecord) {
         model.id = id
         model.timestamp = timestamp.value
         model.deltaMinutes = deltaMinutes
@@ -50,7 +50,7 @@ extension ShiftRecordDTO {
     }
 
     /// Wires the event and optional source-block relationships by id.
-    func linkRelationships(
+    nonisolated func linkRelationships(
         _ model: ShiftRecord,
         events: [UUID: EventModel],
         blocks: [UUID: TimeBlockModel]
