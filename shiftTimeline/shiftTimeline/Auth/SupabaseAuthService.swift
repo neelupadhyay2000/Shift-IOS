@@ -43,6 +43,23 @@ final class SupabaseAuthService {
         session?.user.id
     }
 
+    /// E19 gate: a signed-in user whose profile row exists but is not yet onboarded
+    /// must complete profile creation before reaching the app. Only forces the flow
+    /// when the profile has loaded AND explicitly reports `onboarded == false` — a
+    /// nil profile (still loading / offline) never blocks a returning user.
+    var needsOnboarding: Bool {
+        isAuthenticated && currentProfile?.onboarded == false
+    }
+
+    /// Re-reads the signed-in profile row (e.g. after onboarding completes) so
+    /// `needsOnboarding` re-evaluates and the gate dismisses.
+    func refreshProfile() async {
+        guard let repo = profileRepository, let uid = currentProfileID else { return }
+        if let fresh = try? await repo.fetch(profileID: uid) {
+            currentProfile = fresh
+        }
+    }
+
     // MARK: - Private deps
 
     @ObservationIgnored

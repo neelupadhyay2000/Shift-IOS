@@ -184,4 +184,15 @@ enum AccessibilityID {
     enum Report {
         static let exportButton = "report.export_button"
     }
+
+    // MARK: - Forced onboarding (ProfileSetupView)
+
+    enum Onboarding {
+        static let root              = "onboarding.root"
+        static let plannerCard       = "onboarding.planner_card"
+        static let vendorCard        = "onboarding.vendor_card"
+        static let plannerNameField  = "onboarding.planner_name_field"
+        static let vendorNameField   = "onboarding.vendor_name_field"
+        static let submitButton      = "onboarding.submit_button"
+    }
 }
