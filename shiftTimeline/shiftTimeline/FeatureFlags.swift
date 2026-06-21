@@ -9,11 +9,17 @@ enum FeatureFlags {
     /// is intentionally only one flag now, no half-on states.
     static let supabaseSync = true
 
-    /// Phone OTP sign-in. Off — requires a verified SMS provider (Twilio A2P etc.)
-    /// in Supabase Auth, which needs business/ID verification. Email OTP +
-    /// link-based invite claim cover vendor onboarding without SMS; flip this on
-    /// only if/when a verified SMS sender is in place.
+    /// Phone OTP sign-in. DEBUG-only (2026-06-21): on when run from Xcode for
+    /// dev/test against Supabase test numbers, but OFF in Release/TestFlight/App
+    /// Store so real users never see a phone button whose SMS can't yet deliver
+    /// (Twilio A2P 10DLC for the SHIFT-OTP service is still in carrier review).
+    /// To launch for real: confirm prod Supabase Phone provider + approved 10DLC,
+    /// then make this an unconditional `true`.
+    #if DEBUG
+    static let phoneSignIn = true
+    #else
     static let phoneSignIn = false
+    #endif
 
     /// Email OTP sign-in (6-digit code). ON as of 2026-06-08 — Resend SMTP
     /// (`shifttimeline.app`) configured in Supabase Auth and the Magic Link
