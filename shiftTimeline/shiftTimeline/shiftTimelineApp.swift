@@ -53,6 +53,10 @@ struct shiftTimelineApp: App {
     /// Like the other marketplace services, outside the sync stack and built in
     /// `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
     @State private var marketplaceService: SupabaseMarketplaceService?
+
+    /// Online-only service-request writer (E11). Bridges into the sync stack:
+    /// re-hydrates after an accept so the event lands in the vendor's Events tab.
+    @State private var serviceRequestService: ServiceRequestService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -187,6 +191,7 @@ struct shiftTimelineApp: App {
                 .environment(\.waitlistService, waitlistService)
                 .environment(\.contentReportService, contentReportService)
                 .environment(\.marketplaceService, marketplaceService)
+                .environment(\.serviceRequestService, serviceRequestService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -303,6 +308,15 @@ struct shiftTimelineApp: App {
             // Vendor marketplace (directory/profile/portfolio): direct-to-Supabase, online-only.
             if marketplaceService == nil {
                 marketplaceService = SupabaseMarketplaceService(client: client)
+            }
+
+            // Service requests (E11): online-only, but re-hydrates via syncStack on accept.
+            if serviceRequestService == nil {
+                serviceRequestService = ServiceRequestService(
+                    client: client,
+                    modelContainer: PersistenceController.shared.container,
+                    syncStack: syncStack
+                )
             }
 
             // Wire the APNs registrar before listening so a restored session
@@ -427,6 +441,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
            let eventID = UUID(uuidString: eventIDString) {
             Task { @MainActor in
                 DeepLinkRouter.shared.pendingDestination = .live(id: eventID)
+            }
+            completionHandler()
+            return
+        }
+
+        // Marketplace service-request push — deep-link to the Marketplace tab.
+        if let requestID = RemoteShiftPushHandler.parseRequestID(userInfo) {
+            Task { @MainActor in
+                DeepLinkRouter.shared.requestRemoteRefresh()
+                RemoteShiftPushHandler.routeRequestTap(requestID, router: .shared)
             }
             completionHandler()
             return

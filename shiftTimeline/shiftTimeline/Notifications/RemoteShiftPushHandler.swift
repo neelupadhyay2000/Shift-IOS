@@ -40,6 +40,22 @@ enum RemoteShiftPushHandler {
     /// `nonisolated` so the nonisolated `parse` can read them.
     private nonisolated static let eventVendorIDKey = "event_vendor_id"
     private nonisolated static let deltaKey = "pending_shift_delta"
+    /// Marketplace service-request pushes (request_received / request_response)
+    /// carry the request id here — must match the Edge Function's REQUEST_ID_KEY (E11).
+    nonisolated static let requestIDKey = "com.shift.requestID"
+
+    /// Returns the service-request id when `userInfo` is a marketplace request push,
+    /// else nil. `nonisolated` so the notification-tap delegate can extract it
+    /// before hopping to the MainActor router.
+    nonisolated static func parseRequestID(_ userInfo: [AnyHashable: Any]) -> UUID? {
+        (userInfo[requestIDKey] as? String).flatMap { UUID(uuidString: $0) }
+    }
+
+    /// Routes a tapped service-request push to the Marketplace tab via the router.
+    @MainActor
+    static func routeRequestTap(_ requestID: UUID, router: DeepLinkRouter) {
+        router.pendingDestination = .serviceRequest(id: requestID)
+    }
 
     /// Returns a parsed payload when `userInfo` is one of our shift pushes, else nil.
     /// `nonisolated` so the (nonisolated) notification-tap delegate can extract the

@@ -48,6 +48,20 @@ struct DeepLinkRouterTests {
         router.pendingDestination = nil
     }
 
+    // MARK: - Request URL
+
+    @Test func requestURLSetsServiceRequestDestination() {
+        let router = DeepLinkRouter.shared
+        let id = UUID()
+        let url = URL(string: "shift://request/\(id.uuidString)")!
+
+        let handled = router.handle(url: url)
+
+        #expect(handled == true)
+        #expect(router.pendingDestination == .serviceRequest(id: id))
+        router.pendingDestination = nil
+    }
+
     // MARK: - Unknown Host
 
     @Test func unknownHostReturnsFalse() {

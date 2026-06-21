@@ -74,3 +74,35 @@ export interface GoLivePayload {
 export function goLiveBody(): string {
   return "The event is now live — tap to follow the timeline.";
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marketplace service requests (E11)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RequestReceivedPayload {
+  type: "request_received";
+  request_id: string;
+  vendor_profile_id: string; // recipient (the targeted vendor)
+  event_title: string;
+}
+
+/** Alert body for a vendor receiving a new service request. */
+export function requestReceivedBody(eventTitle: string): string {
+  const title = (eventTitle ?? "").trim() || "an event";
+  return `New request for ${title}.`;
+}
+
+export interface RequestResponsePayload {
+  type: "request_response";
+  request_id: string;
+  planner_id: string; // recipient (the requesting planner)
+  vendor_profile_id: string; // responder — its business_name is resolved server-side
+  status: string; // "accepted" | "declined"
+}
+
+/** Alert body for a planner whose request was accepted/declined. */
+export function requestResponseBody(businessName: string, status: string): string {
+  const name = (businessName ?? "").trim() || "A vendor";
+  const verb = status === "accepted" ? "accepted" : "declined";
+  return `${name} ${verb} your request.`;
+}

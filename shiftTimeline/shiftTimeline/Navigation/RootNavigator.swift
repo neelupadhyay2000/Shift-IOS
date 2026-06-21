@@ -42,6 +42,8 @@ enum MarketplaceDestination: Hashable {
     case searchResults(query: String, category: VendorRole?)
     case myVendorProfile
     case portfolioEditor
+    case requestInbox      // vendor: requests for me
+    case myRequests        // planner: requests I've sent
 }
 
 /// Typed push destinations for the Templates stack.
@@ -66,6 +68,10 @@ struct RootNavigator: View {
 
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(\.serviceRequestService) private var serviceRequestService
+
+    /// Pending vendor request count — drives the Marketplace tab badge.
+    @State private var pendingRequestCount = 0
 
     // MARK: Shared selection state
 
@@ -131,6 +137,7 @@ struct RootNavigator: View {
                     }
             }
             .tabItem { Label(Tab.marketplace.rawValue, systemImage: Tab.marketplace.systemImage) }
+            .badge(pendingRequestCount)
             .tag(Tab.marketplace)
 
             // Templates tab
@@ -154,6 +161,20 @@ struct RootNavigator: View {
             guard let destination else { return }
             routeToDestination(destination)
         }
+        .task { await refreshPendingRequestCount() }
+        .onChange(of: deepLinkRouter.remoteRefreshToken) { _, _ in
+            Task { await refreshPendingRequestCount() }
+        }
+        .onChange(of: selectedTab) { _, _ in
+            Task { await refreshPendingRequestCount() }
+        }
+    }
+
+    /// Refreshes the Marketplace tab's pending-request badge from the vendor inbox.
+    private func refreshPendingRequestCount() async {
+        guard let serviceRequestService else { return }
+        let inbox = (try? await serviceRequestService.inbox(limit: 50, offset: 0)) ?? []
+        pendingRequestCount = inbox.filter { $0.status == ServiceRequestStatus.pending.rawValue }.count
     }
 
     // MARK: - iPad layout
@@ -267,6 +288,11 @@ struct RootNavigator: View {
             // shift://vendor/{id} → Marketplace tab, push the public profile.
             selectTab(.marketplace)
             marketplacePath = [.vendorProfile(profileID: id)]
+        case .serviceRequest:
+            // shift://request/{id} → Marketplace tab → vendor request inbox. (The
+            // id-specific thread opens from the inbox row; no fetch-by-id needed.)
+            selectTab(.marketplace)
+            marketplacePath = [.requestInbox]
         }
         deepLinkRouter.pendingDestination = nil
     }
@@ -308,6 +334,10 @@ struct RootNavigator: View {
             MyVendorProfileEditorView()
         case .portfolioEditor:
             PortfolioEditorView()
+        case .requestInbox:
+            RequestInboxView()
+        case .myRequests:
+            MyRequestsView()
         }
     }
 
