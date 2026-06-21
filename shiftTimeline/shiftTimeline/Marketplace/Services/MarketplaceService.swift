@@ -55,6 +55,21 @@ struct MarketplaceVendorProfile: Sendable, Equatable {
     let identity: PublicProfileDTO
 }
 
+/// Everything the profile editor needs to prefill: the existing vendor_profiles
+/// row + identity (nil for a first-time opt-in), and the profile's default_role
+/// as the initial category fallback.
+struct VendorEditorPrefill: Sendable {
+    let vendor: VendorProfileDTO?
+    let identity: PublicProfileDTO?
+    let defaultRole: VendorRole?
+}
+
+/// Minimal decode of `profiles.default_role` for the editor's category fallback.
+nonisolated struct DefaultRoleRow: Decodable {
+    let defaultRole: String?
+    enum CodingKeys: String, CodingKey { case defaultRole = "default_role" }
+}
+
 /// Typed `search_vendors` RPC parameters. Kept as a struct so param construction
 /// is pure and unit-testable, and the wire keys match the SQL arg names.
 /// `nonisolated` so the synthesized `Encodable` conformance isn't inferred as
@@ -103,6 +118,16 @@ protocol MarketplaceProviding: Sendable {
     /// The signed-in user's own vendor_profiles row (listed or not), or nil.
     func fetchMyVendorProfile() async throws -> VendorProfileDTO?
 
+    /// Prefill bundle for the editor: existing vendor row + identity + default role.
+    func fetchMyProfilePrefill() async throws -> VendorEditorPrefill
+
+    /// Completed events the caller may still add to their portfolio (RPC).
+    func claimablePortfolioEvents() async throws -> [PortfolioEventSummaryDTO]
+
+    /// Persists a new display order by writing each item's `sort_order` to its
+    /// index in `orderedIDs`.
+    func reorderPortfolio(orderedIDs: [UUID]) async throws
+
     /// Upserts the caller's vendor profile: writes the reserved identity columns
     /// on `profiles` and the marketplace columns on `vendor_profiles`, keeping
     /// `search_name` in sync with the business name.
@@ -134,6 +159,9 @@ protocol MarketplaceProviding: Sendable {
 
     /// Public CDN URL for a portfolio object path (the bucket is public).
     func portfolioImageURL(forPath path: String) -> URL?
+
+    /// The signed-in user's profile id (used to scope "my" portfolio writes).
+    func currentProfileID() async throws -> UUID
 }
 
 // MARK: - Supabase implementation
@@ -206,6 +234,44 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             .execute()
             .value
         return rows.first { $0.deletedAt == nil }
+    }
+
+    func fetchMyProfilePrefill() async throws -> VendorEditorPrefill {
+        let uid = try await client.auth.session.user.id
+
+        let vendors: [VendorProfileDTO] = try await client
+            .from("vendor_profiles").select().eq("profile_id", value: uid.uuidString)
+            .execute().value
+        let identities: [PublicProfileDTO] = try await client
+            .from("public_profiles").select().eq("id", value: uid.uuidString)
+            .execute().value
+        let roleRows: [DefaultRoleRow] = try await client
+            .from("profiles").select("default_role").eq("id", value: uid.uuidString)
+            .execute().value
+
+        let defaultRole = roleRows.first?.defaultRole.flatMap { VendorRole(rawValue: $0) }
+        return VendorEditorPrefill(
+            vendor: vendors.first { $0.deletedAt == nil },
+            identity: identities.first,
+            defaultRole: defaultRole
+        )
+    }
+
+    func claimablePortfolioEvents() async throws -> [PortfolioEventSummaryDTO] {
+        try await client
+            .rpc("get_claimable_portfolio_events")
+            .execute()
+            .value
+    }
+
+    func reorderPortfolio(orderedIDs: [UUID]) async throws {
+        for (index, id) in orderedIDs.enumerated() {
+            try await client
+                .from("portfolio_items")
+                .update(["sort_order": index])
+                .eq("id", value: id.uuidString)
+                .execute()
+        }
     }
 
     // MARK: Profile upsert
@@ -309,6 +375,10 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
 
     func portfolioImageURL(forPath path: String) -> URL? {
         try? client.storage.from(bucket).getPublicURL(path: path)
+    }
+
+    func currentProfileID() async throws -> UUID {
+        try await client.auth.session.user.id
     }
 
     // MARK: - Pure builders (unit-tested)

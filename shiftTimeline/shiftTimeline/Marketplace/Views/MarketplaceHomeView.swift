@@ -12,10 +12,12 @@ struct MarketplaceHomeView: View {
     @Binding var path: [MarketplaceDestination]
 
     @Environment(\.marketplaceService) private var service
+    @Environment(\.waitlistService) private var waitlistService
 
     @State private var searchText = ""
     @State private var featured: [VendorSearchResultDTO] = []
     @State private var hasVendorProfile = false
+    @State private var showVendorWaitlistBanner = false
     @State private var isLoading = true
 
     private let categories: [VendorRole] = [.photographer, .dj, .planner, .caterer, .florist]
@@ -23,6 +25,7 @@ struct MarketplaceHomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
+                if showVendorWaitlistBanner { vendorWaitlistBanner }
                 searchSection
                 categorySection
                 if hasVendorProfile { vendorToolsSection } else { becomeVendorCTA }
@@ -37,6 +40,31 @@ struct MarketplaceHomeView: View {
         .navigationBarTitleDisplayMode(.large)
         .task { await load() }
         .refreshable { await load() }
+    }
+
+    // MARK: Waitlist tie-in
+
+    private var vendorWaitlistBanner: some View {
+        NavigationLink(value: MarketplaceDestination.myVendorProfile) {
+            HStack(spacing: 14) {
+                Image(systemName: "sparkles")
+                    .font(.title3).foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(localized: "The marketplace is here"))
+                        .font(.subheadline.weight(.semibold))
+                    Text(String(localized: "You joined the vendor waitlist — complete your profile to get listed."))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .proCard()
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.pressableCard)
     }
 
     // MARK: Search
@@ -210,5 +238,14 @@ struct MarketplaceHomeView: View {
         )) ?? []
         let mine = try? await service.fetchMyVendorProfile()
         hasVendorProfile = (mine ?? nil) != nil
+
+        // Waitlist tie-in: prompt vendor-side waitlist joiners who haven't built a
+        // profile yet to complete one.
+        showVendorWaitlistBanner = false
+        if !hasVendorProfile, let waitlistService,
+           let entry = try? await waitlistService.currentEntry() {
+            let role = WaitlistInterestRole(rawValue: entry.interestRole)
+            showVendorWaitlistBanner = (role == .vendor || role == .both)
+        }
     }
 }

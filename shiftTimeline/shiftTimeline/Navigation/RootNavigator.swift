@@ -305,7 +305,7 @@ struct RootNavigator: View {
         case .searchResults(let query, let category):
             VendorSearchResultsView(initialQuery: query, initialCategory: category)
         case .myVendorProfile:
-            MyVendorProfileView()
+            MyVendorProfileEditorView()
         case .portfolioEditor:
             PortfolioEditorView()
         }

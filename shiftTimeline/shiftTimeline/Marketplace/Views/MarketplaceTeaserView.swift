@@ -11,6 +11,9 @@ import SwiftUI
 /// `marketplace_waitlist` row in Supabase remains the source of truth.
 enum MarketplaceDefaultsKey {
     static let waitlistJoined = "marketplaceWaitlistJoined"
+    /// Set once the user accepts the marketplace Terms while opting in as a vendor
+    /// (Guideline 1.2 — UGC acceptance gate before listing).
+    static let termsAccepted = "marketplaceTermsAccepted"
 }
 
 // MARK: - MarketplaceTeaserView
