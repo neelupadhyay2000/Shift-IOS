@@ -198,6 +198,7 @@ struct RequestComposerView: View {
                 blockIDs: Array(selectedBlockIDs),
                 note: note
             )
+            Haptics.success()
             dismiss()
         } catch {
             errorMessage = String(localized: "Couldn't send the request. You may already have a pending request for this vendor on this event.")

@@ -9,22 +9,24 @@ struct OnboardingTests {
 
     @Test("completion payload always sends onboarded=true; omits nil fields")
     func completionEncoding() throws {
-        let payload = OnboardingCompletionDTO(displayName: "Neel", defaultRole: "planner", bio: nil)
+        let payload = OnboardingCompletionDTO(displayName: "Neel", defaultRole: "planner", bio: nil, accountType: "planner")
         let json = try jsonObject(from: payload)
         #expect(json["onboarded"] as? Bool == true)
         #expect(json["display_name"] as? String == "Neel")
         #expect(json["default_role"] as? String == "planner")
+        #expect(json["account_type"] as? String == "planner")
         #expect(json["bio"] == nil)             // nil omitted, not clobbered
     }
 
     @Test("completion payload encodes bio when present")
     func completionEncodingBio() throws {
-        let payload = OnboardingCompletionDTO(displayName: nil, defaultRole: nil, bio: "Weddings")
+        let payload = OnboardingCompletionDTO(displayName: nil, defaultRole: nil, bio: "Weddings", accountType: nil)
         let json = try jsonObject(from: payload)
         #expect(json["onboarded"] as? Bool == true)
         #expect(json["bio"] as? String == "Weddings")
         #expect(json["display_name"] == nil)
         #expect(json["default_role"] == nil)
+        #expect(json["account_type"] == nil)    // nil omitted
     }
 
     // MARK: ProfileDTO.onboarded round-trips and is never encoded

@@ -124,7 +124,11 @@ struct MyVendorProfileEditorView: View {
                         .background(.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 if isExisting {
-                    NavigationLink(value: MarketplaceDestination.portfolioEditor) {
+                    // Plain (value-less) links so this editor works from whatever
+                    // stack hosts it — now the Settings tab, not the marketplace.
+                    NavigationLink {
+                        PortfolioEditorView()
+                    } label: {
                         Label(String(localized: "Manage portfolio"), systemImage: "photo.on.rectangle.angled")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -132,7 +136,9 @@ struct MyVendorProfileEditorView: View {
                     }
                     .buttonStyle(.pressableCard)
 
-                    NavigationLink(value: MarketplaceDestination.availabilityCalendar) {
+                    NavigationLink {
+                        AvailabilityCalendarView()
+                    } label: {
                         Label(String(localized: "Manage availability"), systemImage: "calendar")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 12)

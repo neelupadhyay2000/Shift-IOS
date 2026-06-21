@@ -1,25 +1,31 @@
 import Models
 import SwiftUI
 
-/// Paginated vendor directory results. Seeded from the home search field / a
-/// category chip, with its own search field + category filter so the query can be
-/// refined in place. Each row pushes the vendor's public profile.
+/// Paginated vendor directory results — photo-forward cards with a Filters & Sort
+/// sheet (category, available-on date, ordering). Planners can save vendors from
+/// each card. Each card pushes the vendor's public profile.
 struct VendorSearchResultsView: View {
 
     @Environment(\.marketplaceService) private var service
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var query: String
     @State private var selectedCategory: VendorRole?
     @State private var selectedDate: Date?
-    @State private var isPickingDate = false
+    @State private var sort: VendorSort = .rating
     @State private var results: [VendorSearchResultDTO] = []
+    @State private var savedIDs: Set<UUID> = []
     @State private var isLoading = false
     @State private var reachedEnd = false
     @State private var offset = 0
     @State private var didInitialLoad = false
+    @State private var isShowingFilters = false
 
     private let pageSize = 20
-    private let categories: [VendorRole] = [.photographer, .dj, .planner, .caterer, .florist]
+    private let columns = [GridItem(.adaptive(minimum: 320), spacing: 12)]
+
+    private var canSave: Bool { !authService.isVendorAccount }
+    private var activeFilterCount: Int { (selectedCategory != nil ? 1 : 0) + (selectedDate != nil ? 1 : 0) }
 
     init(initialQuery: String = "", initialCategory: VendorRole? = nil, initialDate: Date? = nil) {
         _query = State(initialValue: initialQuery)
@@ -31,12 +37,11 @@ struct VendorSearchResultsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 searchField
-                categoryFilter
-                dateFilter
+                filterBar
                 resultsList
             }
             .padding(20)
-            .frame(maxWidth: 640)
+            .frame(maxWidth: 760)
             .frame(maxWidth: .infinity)
         }
         .background { ProBackground() }
@@ -45,67 +50,10 @@ struct VendorSearchResultsView: View {
         .task {
             guard !didInitialLoad else { return }
             didInitialLoad = true
+            if canSave, let service { savedIDs = (try? await service.savedVendorIDs()) ?? [] }
             await runSearch(reset: true)
         }
-        .sheet(isPresented: $isPickingDate) { datePickerSheet }
-    }
-
-    // MARK: Date filter
-
-    private var dateFilter: some View {
-        HStack(spacing: 8) {
-            Button { isPickingDate = true } label: {
-                Label(
-                    selectedDate.map { String(localized: "Available on \($0.formatted(.dateTime.month().day()))") }
-                        ?? String(localized: "Any date"),
-                    systemImage: "calendar"
-                )
-                .font(.subheadline.weight(selectedDate == nil ? .medium : .semibold))
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .foregroundStyle(selectedDate == nil ? AnyShapeStyle(ShiftPalette.accent) : AnyShapeStyle(Color.white))
-                .background(
-                    selectedDate == nil ? AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)) : AnyShapeStyle(ShiftPalette.accent.gradient),
-                    in: Capsule()
-                )
-            }
-            .buttonStyle(.pressableCard)
-            .accessibilityIdentifier(AccessibilityID.Marketplace.searchDateChip)
-
-            if selectedDate != nil {
-                Button {
-                    selectedDate = nil
-                    Task { await runSearch(reset: true) }
-                } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Clear date filter"))
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var datePickerSheet: some View {
-        NavigationStack {
-            DatePicker(
-                String(localized: "Available on"),
-                selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
-                displayedComponents: .date
-            )
-            .datePickerStyle(.graphical)
-            .padding()
-            .navigationTitle(String(localized: "Filter by date"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(String(localized: "Done")) {
-                        isPickingDate = false
-                        Task { await runSearch(reset: true) }
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
+        .sheet(isPresented: $isShowingFilters) { filtersSheet }
     }
 
     // MARK: Search field
@@ -128,34 +76,80 @@ struct VendorSearchResultsView: View {
         .proCard(padding: 12)
     }
 
-    // MARK: Category filter
+    // MARK: Filter / sort bar
 
-    private var categoryFilter: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                filterChip(role: nil, label: String(localized: "All"))
-                ForEach(categories, id: \.self) { role in
-                    filterChip(role: role, label: role.displayName)
+    private var filterBar: some View {
+        HStack(spacing: 10) {
+            Button { isShowingFilters = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "slider.horizontal.3")
+                    Text(activeFilterCount > 0 ? String(localized: "Filters · \(activeFilterCount)") : String(localized: "Filters"))
+                        .font(.subheadline.weight(.medium))
                 }
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .foregroundStyle(activeFilterCount > 0 ? .white : ShiftPalette.accent)
+                .background(activeFilterCount > 0 ? AnyShapeStyle(ShiftPalette.accent.gradient) : AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)), in: Capsule())
             }
-            .padding(.vertical, 2)
+            .buttonStyle(.pressableCard)
+            .accessibilityIdentifier(AccessibilityID.Marketplace.filtersButton)
+
+            Menu {
+                Picker(String(localized: "Sort"), selection: $sort) {
+                    ForEach(VendorSort.allCases) { option in Text(option.label).tag(option) }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.up.arrow.down")
+                    Text(sort.label).font(.subheadline.weight(.medium))
+                }
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .foregroundStyle(ShiftPalette.accent)
+                .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
+            }
+            .onChange(of: sort) { _, _ in Task { await runSearch(reset: true) } }
+
+            Spacer(minLength: 0)
         }
     }
 
-    private func filterChip(role: VendorRole?, label: String) -> some View {
-        let isSelected = selectedCategory == role
-        let color = role.map { ShiftDesign.roleColor(for: $0) } ?? ShiftPalette.accent
-        return Button {
-            selectedCategory = role
-            Task { await runSearch(reset: true) }
-        } label: {
-            Text(label)
-                .font(.subheadline.weight(isSelected ? .semibold : .medium))
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .foregroundStyle(isSelected ? .white : color)
-                .background(isSelected ? AnyShapeStyle(color.gradient) : AnyShapeStyle(ShiftPalette.soft(color)), in: Capsule())
+    private var filtersSheet: some View {
+        NavigationStack {
+            Form {
+                Section(String(localized: "Category")) {
+                    Picker(String(localized: "Category"), selection: $selectedCategory) {
+                        Text(String(localized: "All")).tag(VendorRole?.none)
+                        ForEach([VendorRole.photographer, .dj, .planner, .caterer, .florist], id: \.self) { role in
+                            Text(role.displayName).tag(VendorRole?.some(role))
+                        }
+                    }
+                    .pickerStyle(.inline)
+                }
+                Section(String(localized: "Availability")) {
+                    Toggle(String(localized: "Filter by date"), isOn: Binding(
+                        get: { selectedDate != nil },
+                        set: { selectedDate = $0 ? (selectedDate ?? Date()) : nil }
+                    ))
+                    if selectedDate != nil {
+                        DatePicker(
+                            String(localized: "Available on"),
+                            selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
+                            displayedComponents: .date
+                        )
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "Filters"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(String(localized: "Clear")) { selectedCategory = nil; selectedDate = nil }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Apply")) { isShowingFilters = false; Task { await runSearch(reset: true) } }
+                }
+            }
         }
-        .buttonStyle(.pressableCard)
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: Results
@@ -163,31 +157,31 @@ struct VendorSearchResultsView: View {
     @ViewBuilder
     private var resultsList: some View {
         if isLoading, results.isEmpty {
-            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+            SkeletonGrid(columns: columns)
         } else if results.isEmpty {
             ContentUnavailableView(
                 String(localized: "No vendors found"),
                 systemImage: "magnifyingglass",
-                description: Text(String(localized: "Try a different search or category."))
+                description: Text(String(localized: "Try a different search, category, or date."))
             )
             .padding(.top, 24)
         } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(results) { result in
                     NavigationLink(value: MarketplaceDestination.vendorProfile(profileID: result.profileID)) {
-                        VendorCard(result: result)
+                        VendorCard(
+                            result: result,
+                            isSaved: savedIDs.contains(result.profileID),
+                            onToggleSave: canSave ? { toggleSave(result.profileID) } : nil
+                        )
                     }
                     .buttonStyle(.pressableCard)
-                    .onAppear {
-                        if result.id == results.last?.id { Task { await loadMore() } }
-                    }
+                    .onAppear { if result.id == results.last?.id { Task { await loadMore() } } }
                 }
             }
             .accessibilityIdentifier(AccessibilityID.Marketplace.searchResultsList)
 
-            if isLoading {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
-            }
+            if isLoading { ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12) }
         }
     }
 
@@ -204,7 +198,7 @@ struct VendorSearchResultsView: View {
             query: trimmed.isEmpty ? nil : trimmed,
             category: selectedCategory,
             latitude: nil, longitude: nil, radiusKm: nil,
-            limit: pageSize, offset: offset, onDate: selectedDate
+            limit: pageSize, offset: offset, onDate: selectedDate, sort: sort
         )) ?? []
         results.append(contentsOf: page)
         offset += page.count
@@ -214,5 +208,21 @@ struct VendorSearchResultsView: View {
     private func loadMore() async {
         guard !reachedEnd, !isLoading else { return }
         await runSearch(reset: false)
+    }
+
+    private func toggleSave(_ id: UUID) {
+        guard let service else { return }
+        let wasSaved = savedIDs.contains(id)
+        if wasSaved { savedIDs.remove(id) } else { savedIDs.insert(id) }
+        Haptics.tap()
+        Task {
+            do {
+                if wasSaved { try await service.unsaveVendor(profileID: id) }
+                else { try await service.saveVendor(profileID: id) }
+            } catch {
+                // Revert on failure.
+                if wasSaved { savedIDs.insert(id) } else { savedIDs.remove(id) }
+            }
+        }
     }
 }

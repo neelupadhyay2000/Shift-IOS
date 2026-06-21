@@ -200,6 +200,25 @@ nonisolated struct PortfolioItemDTO: Codable, Equatable, Identifiable {
     }
 }
 
+// MARK: - SavedVendorRowDTO
+//
+// Row in `saved_vendors` (E22). Insert posts both ids; the heart-state read
+// selects only `vendor_profile_id`, so `plannerID` decodes as nil there.
+nonisolated struct SavedVendorRowDTO: Codable, Equatable {
+    let plannerID: UUID?
+    let vendorProfileID: UUID
+
+    init(plannerID: UUID? = nil, vendorProfileID: UUID) {
+        self.plannerID = plannerID
+        self.vendorProfileID = vendorProfileID
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case plannerID = "planner_id"
+        case vendorProfileID = "vendor_profile_id"
+    }
+}
+
 // MARK: - PublicProfileDTO
 //
 // Read projection of the `public_profiles` view (marketplace-safe identity).

@@ -140,6 +140,11 @@ enum AccessibilityID {
         static let categoryChips      = "marketplace.category_chips"
         static let becomeVendorButton = "marketplace.become_vendor_button"
         static let requestsInbox      = "marketplace.requests_inbox"
+        static let inbox              = "marketplace.inbox"
+        static let listingStatusCard  = "marketplace.listing_status_card"
+        static let saveVendorButton   = "marketplace.save_vendor_button"
+        static let savedVendorsList    = "marketplace.saved_vendors_list"
+        static let filtersButton       = "marketplace.filters_button"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"
@@ -183,6 +188,15 @@ enum AccessibilityID {
 
     enum Report {
         static let exportButton = "report.export_button"
+    }
+
+    // MARK: - Vendor & marketplace settings (VendorSettingsView)
+
+    enum Settings {
+        static let vendorMarketplaceRow      = "settings.vendor_marketplace_row"
+        static let marketplaceListingToggle  = "settings.marketplace_listing_toggle"
+        static let setupVendorProfileButton  = "settings.setup_vendor_profile_button"
+        static let switchAccountButton       = "settings.switch_account_button"
     }
 
     // MARK: - Forced onboarding (ProfileSetupView)

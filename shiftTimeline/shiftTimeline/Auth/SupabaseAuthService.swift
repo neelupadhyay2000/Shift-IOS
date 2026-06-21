@@ -51,6 +51,14 @@ final class SupabaseAuthService {
         isAuthenticated && currentProfile?.onboarded == false
     }
 
+    /// E21 exclusive persona. The app hard-gates marketplace features on this:
+    /// a vendor account gets a listing + received requests and can't request
+    /// vendors; a planner account requests vendors and has no vendor tools.
+    /// Defaults to planner when the type is unknown (loading / legacy).
+    var isVendorAccount: Bool {
+        currentProfile?.accountType == "vendor"
+    }
+
     /// Re-reads the signed-in profile row (e.g. after onboarding completes) so
     /// `needsOnboarding` re-evaluates and the gate dismisses.
     func refreshProfile() async {

@@ -27,6 +27,9 @@ struct ProfileDTO: Sendable {
     /// by the generic upsert so a session-restore upsert can't reset it); the
     /// onboarding flow flips it via its own dedicated write.
     let onboarded: Bool?
+    /// E21 exclusive persona: "planner" or "vendor". Decoded only; written by the
+    /// onboarding / account-switch flows, never by the generic upsert.
+    let accountType: String?
 
     init(
         id: UUID,
@@ -34,7 +37,8 @@ struct ProfileDTO: Sendable {
         phone: String?,
         email: String?,
         compedUntil: PostgresTimestamp? = nil,
-        onboarded: Bool? = nil
+        onboarded: Bool? = nil,
+        accountType: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -42,6 +46,7 @@ struct ProfileDTO: Sendable {
         self.email = email
         self.compedUntil = compedUntil
         self.onboarded = onboarded
+        self.accountType = accountType
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -51,6 +56,7 @@ struct ProfileDTO: Sendable {
         case email
         case compedUntil = "comped_until"
         case onboarded
+        case accountType = "account_type"
     }
 }
 
@@ -78,6 +84,7 @@ extension ProfileDTO: Decodable {
         email = try container.decodeIfPresent(String.self, forKey: .email)
         compedUntil = try container.decodeIfPresent(PostgresTimestamp.self, forKey: .compedUntil)
         onboarded = try container.decodeIfPresent(Bool.self, forKey: .onboarded)
+        accountType = try container.decodeIfPresent(String.self, forKey: .accountType)
     }
 }
 
@@ -92,6 +99,7 @@ extension ProfileDTO: Equatable {
             && lhs.email == rhs.email
             && lhs.compedUntil == rhs.compedUntil
             && lhs.onboarded == rhs.onboarded
+            && lhs.accountType == rhs.accountType
     }
 }
 // swiftformat:enable all

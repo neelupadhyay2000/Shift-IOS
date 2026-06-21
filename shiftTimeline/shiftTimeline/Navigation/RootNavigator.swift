@@ -43,8 +43,9 @@ enum MarketplaceDestination: Hashable {
     case myVendorProfile
     case availabilityCalendar   // vendor: manage busy days
     case portfolioEditor
-    case requestInbox      // vendor: requests for me
-    case myRequests        // planner: requests I've sent
+    case inbox             // unified: requests + messages (received + sent)
+    case requestInbox      // vendor: requests for me (legacy/deep-link)
+    case myRequests        // planner: requests I've sent (legacy/deep-link)
 }
 
 /// Typed push destinations for the Templates stack.
@@ -132,7 +133,7 @@ struct RootNavigator: View {
 
             // Marketplace tab
             NavigationStack(path: $marketplacePath) {
-                MarketplaceHomeView(path: $marketplacePath)
+                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { selectTab(.settings) })
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -242,7 +243,7 @@ struct RootNavigator: View {
             }
         case .marketplace:
             NavigationStack(path: $marketplacePath) {
-                MarketplaceHomeView(path: $marketplacePath)
+                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { selectTab(.settings) })
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -290,10 +291,10 @@ struct RootNavigator: View {
             selectTab(.marketplace)
             marketplacePath = [.vendorProfile(profileID: id)]
         case .serviceRequest:
-            // shift://request/{id} → Marketplace tab → vendor request inbox. (The
+            // shift://request/{id} → Marketplace tab → unified inbox. (The
             // id-specific thread opens from the inbox row; no fetch-by-id needed.)
             selectTab(.marketplace)
-            marketplacePath = [.requestInbox]
+            marketplacePath = [.inbox]
         }
         deepLinkRouter.pendingDestination = nil
     }
@@ -337,6 +338,8 @@ struct RootNavigator: View {
             AvailabilityCalendarView()
         case .portfolioEditor:
             PortfolioEditorView()
+        case .inbox:
+            InboxView()
         case .requestInbox:
             RequestInboxView()
         case .myRequests:

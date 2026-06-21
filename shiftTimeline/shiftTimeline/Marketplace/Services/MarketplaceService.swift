@@ -84,6 +84,8 @@ nonisolated struct SearchVendorsParams: Encodable, Equatable, Sendable {
     let pOffset: Int
     /// E18 availability filter: "yyyy-MM-dd" or nil for no date filter.
     let pOnDate: String?
+    /// E22 sort: "rating" | "booked" | "nearest" or nil for the default order.
+    let pSort: String?
 
     enum CodingKeys: String, CodingKey {
         case pQuery = "p_query"
@@ -94,6 +96,24 @@ nonisolated struct SearchVendorsParams: Encodable, Equatable, Sendable {
         case pLimit = "p_limit"
         case pOffset = "p_offset"
         case pOnDate = "p_on_date"
+        case pSort = "p_sort"
+    }
+}
+
+/// Result ordering for the directory (maps to the search_vendors p_sort arg).
+enum VendorSort: String, CaseIterable, Identifiable, Sendable {
+    case rating
+    case booked
+    case nearest
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rating:  String(localized: "Top rated")
+        case .booked:  String(localized: "Most booked")
+        case .nearest: String(localized: "Nearest")
+        }
     }
 }
 
@@ -112,15 +132,30 @@ protocol MarketplaceProviding: Sendable {
         radiusKm: Double?,
         limit: Int,
         offset: Int,
-        onDate: Date?
+        onDate: Date?,
+        sort: VendorSort?
     ) async throws -> [VendorSearchResultDTO]
 
     /// A listed vendor's public profile (vendor_profiles ⋈ public_profiles), or
     /// nil if there is no visible profile for that id.
     func fetchVendorProfile(profileID: UUID) async throws -> MarketplaceVendorProfile?
 
+    /// The caller's saved (favourited) vendors as directory cards (newest first).
+    func savedVendors() async throws -> [VendorSearchResultDTO]
+
+    /// The ids the caller has saved — for rendering the heart state on cards.
+    func savedVendorIDs() async throws -> Set<UUID>
+
+    /// Save / unsave a vendor to the caller's shortlist.
+    func saveVendor(profileID: UUID) async throws
+    func unsaveVendor(profileID: UUID) async throws
+
     /// The signed-in user's own vendor_profiles row (listed or not), or nil.
     func fetchMyVendorProfile() async throws -> VendorProfileDTO?
+
+    /// Flips just the marketplace listing visibility on the caller's vendor row
+    /// (the Settings "Show me in the marketplace" toggle).
+    func setListed(_ listed: Bool) async throws
 
     /// Prefill bundle for the editor: existing vendor row + identity + default role.
     func fetchMyProfilePrefill() async throws -> VendorEditorPrefill
@@ -191,7 +226,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         radiusKm: Double?,
         limit: Int = 20,
         offset: Int = 0,
-        onDate: Date? = nil
+        onDate: Date? = nil,
+        sort: VendorSort? = nil
     ) async throws -> [VendorSearchResultDTO] {
         let params = Self.searchParams(
             query: query,
@@ -201,7 +237,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             radiusKm: radiusKm,
             limit: limit,
             offset: offset,
-            onDate: onDate
+            onDate: onDate,
+            sort: sort
         )
         return try await client
             .rpc("search_vendors", params: params)
@@ -231,6 +268,39 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         return MarketplaceVendorProfile(vendor: vendor, identity: identity)
     }
 
+    func savedVendors() async throws -> [VendorSearchResultDTO] {
+        try await client.rpc("get_saved_vendors").execute().value
+    }
+
+    func savedVendorIDs() async throws -> Set<UUID> {
+        let uid = try await client.auth.session.user.id
+        let rows: [SavedVendorRowDTO] = try await client
+            .from("saved_vendors")
+            .select("vendor_profile_id")
+            .eq("planner_id", value: uid.uuidString)
+            .execute()
+            .value
+        return Set(rows.map(\.vendorProfileID))
+    }
+
+    func saveVendor(profileID: UUID) async throws {
+        let uid = try await client.auth.session.user.id
+        try await client
+            .from("saved_vendors")
+            .upsert(SavedVendorRowDTO(plannerID: uid, vendorProfileID: profileID), onConflict: "planner_id,vendor_profile_id")
+            .execute()
+    }
+
+    func unsaveVendor(profileID: UUID) async throws {
+        let uid = try await client.auth.session.user.id
+        try await client
+            .from("saved_vendors")
+            .delete()
+            .eq("planner_id", value: uid.uuidString)
+            .eq("vendor_profile_id", value: profileID.uuidString)
+            .execute()
+    }
+
     func fetchMyVendorProfile() async throws -> VendorProfileDTO? {
         let uid = try await client.auth.session.user.id
         let rows: [VendorProfileDTO] = try await client
@@ -240,6 +310,15 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             .execute()
             .value
         return rows.first { $0.deletedAt == nil }
+    }
+
+    func setListed(_ listed: Bool) async throws {
+        let uid = try await client.auth.session.user.id
+        try await client
+            .from("vendor_profiles")
+            .update(["is_listed": listed])
+            .eq("profile_id", value: uid.uuidString)
+            .execute()
     }
 
     func fetchMyProfilePrefill() async throws -> VendorEditorPrefill {
@@ -363,7 +442,10 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
     func uploadPortfolioImage(data: Data, fileExtension: String) async throws -> String {
         let uid = try await client.auth.session.user.id
         let ext = Self.normalizedExtension(fileExtension)
-        let path = "\(uid.uuidString)/\(UUID().uuidString).\(ext)"
+        // Lowercased uid: the storage RLS owner check compares the first path
+        // segment to auth.uid()::text (lowercase). Swift's UUID.uuidString is
+        // uppercase, so without this every upload is denied by RLS.
+        let path = "\(uid.uuidString.lowercased())/\(UUID().uuidString.lowercased()).\(ext)"
         _ = try await client.storage
             .from(bucket)
             .upload(path, data: data, options: FileOptions(contentType: Self.mimeType(for: ext)))
@@ -372,7 +454,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
 
     func uploadAvatar(data: Data) async throws -> URL {
         let uid = try await client.auth.session.user.id
-        let path = "\(uid.uuidString)/avatar.jpg"
+        // Lowercased uid — see uploadPortfolioImage (storage RLS owner check).
+        let path = "\(uid.uuidString.lowercased())/avatar.jpg"
         _ = try await client.storage
             .from(bucket)
             .upload(path, data: data, options: FileOptions(contentType: "image/jpeg", upsert: true))
@@ -400,7 +483,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         radiusKm: Double?,
         limit: Int,
         offset: Int,
-        onDate: Date? = nil
+        onDate: Date? = nil,
+        sort: VendorSort? = nil
     ) -> SearchVendorsParams {
         let trimmedQuery = query?.trimmingCharacters(in: .whitespacesAndNewlines)
         return SearchVendorsParams(
@@ -411,7 +495,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             pRadiusKm: radiusKm,
             pLimit: limit,
             pOffset: max(0, offset),
-            pOnDate: onDate.map { CalendarDay.string(from: $0) }
+            pOnDate: onDate.map { CalendarDay.string(from: $0) },
+            pSort: sort?.rawValue
         )
     }
 
@@ -468,6 +553,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         case "png":  "image/png"
         case "heic": "image/heic"
         case "webp": "image/webp"
+        case "mp4":  "video/mp4"
+        case "mov":  "video/quicktime"
         default:     "image/jpeg"
         }
     }
