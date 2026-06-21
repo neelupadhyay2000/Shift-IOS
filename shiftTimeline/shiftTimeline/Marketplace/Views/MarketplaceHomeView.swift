@@ -29,6 +29,7 @@ struct MarketplaceHomeView: View {
                 searchSection
                 categorySection
                 if hasVendorProfile { vendorToolsSection } else { becomeVendorCTA }
+                myRequestsRow
                 featuredSection
             }
             .padding(20)
@@ -160,23 +161,25 @@ struct MarketplaceHomeView: View {
                 }
                 .buttonStyle(.pressableCard)
 
-                // Request inbox entry point — destination + badge land in E11.
-                toolRow(icon: "tray.full.fill", title: String(localized: "Event requests"),
-                        subtitle: String(localized: "Planners' requests will appear here"),
-                        showsChevron: false, trailing: soonTag)
-                    .accessibilityIdentifier(AccessibilityID.Marketplace.requestsInbox)
+                // Request inbox (vendor): requests addressed to me.
+                NavigationLink(value: MarketplaceDestination.requestInbox) {
+                    toolRow(icon: "tray.full.fill", title: String(localized: "Event requests"),
+                            subtitle: String(localized: "Requests for your services"), showsChevron: true)
+                }
+                .buttonStyle(.pressableCard)
+                .accessibilityIdentifier(AccessibilityID.Marketplace.requestsInbox)
             }
         }
     }
 
-    private var soonTag: AnyView {
-        AnyView(
-            Text(String(localized: "Soon"))
-                .font(.caption2.weight(.bold))
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .foregroundStyle(ShiftPalette.accent)
-                .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
-        )
+    // MARK: My requests (planner)
+
+    private var myRequestsRow: some View {
+        NavigationLink(value: MarketplaceDestination.myRequests) {
+            toolRow(icon: "paperplane.fill", title: String(localized: "My requests"),
+                    subtitle: String(localized: "Requests you've sent to vendors"), showsChevron: true)
+        }
+        .buttonStyle(.pressableCard)
     }
 
     private func toolRow(icon: String, title: String, subtitle: String, showsChevron: Bool, trailing: AnyView? = nil) -> some View {

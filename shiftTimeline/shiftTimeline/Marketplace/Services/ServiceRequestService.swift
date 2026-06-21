@@ -23,6 +23,9 @@ protocol ServiceRequesting: Sendable {
     /// Planner outbox: my requests for a given event (paginated, newest first).
     func outbox(eventID: UUID, limit: Int, offset: Int) async throws -> [ServiceRequestDTO]
 
+    /// Planner: ALL my sent requests across events (for the grouped MyRequests view).
+    func myRequests(limit: Int, offset: Int) async throws -> [ServiceRequestDTO]
+
     /// Vendor accept/decline via the respond RPC. On accept, re-hydrates so the
     /// event lands in the vendor's Events tab.
     @discardableResult
@@ -101,6 +104,19 @@ struct ServiceRequestService: ServiceRequesting {
             .from("service_requests")
             .select()
             .eq("event_id", value: eventID.uuidString)
+            .is("deleted_at", value: nil)
+            .order("created_at", ascending: false)
+            .range(from: max(0, offset), to: max(0, offset) + max(1, limit) - 1)
+            .execute()
+            .value
+    }
+
+    func myRequests(limit: Int = 50, offset: Int = 0) async throws -> [ServiceRequestDTO] {
+        let uid = try await client.auth.session.user.id
+        return try await client
+            .from("service_requests")
+            .select()
+            .eq("planner_id", value: uid.uuidString)
             .is("deleted_at", value: nil)
             .order("created_at", ascending: false)
             .range(from: max(0, offset), to: max(0, offset) + max(1, limit) - 1)

@@ -17,7 +17,7 @@ struct VendorPublicProfileView: View {
     @State private var portfolio: [PortfolioItemDTO] = []
     @State private var eventSummaries: [UUID: PortfolioEventSummaryDTO] = [:]
     @State private var isLoading = true
-    @State private var isPresentingRequestStub = false
+    @State private var isPresentingComposer = false
 
     private var title: String {
         if let name = profile?.identity.businessName, !name.isEmpty { return name }
@@ -54,10 +54,8 @@ struct VendorPublicProfileView: View {
             }
         }
         .task { await load() }
-        .alert(String(localized: "Requests open soon"), isPresented: $isPresentingRequestStub) {
-            Button(String(localized: "OK"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "You'll be able to request this vendor for an event in an upcoming update."))
+        .sheet(isPresented: $isPresentingComposer) {
+            RequestComposerView(vendorProfileID: profileID, vendorName: title)
         }
     }
 
@@ -158,7 +156,7 @@ struct VendorPublicProfileView: View {
 
     private var requestButton: some View {
         Button {
-            isPresentingRequestStub = true
+            isPresentingComposer = true
         } label: {
             Label(String(localized: "Request for an event…"), systemImage: "paperplane.fill")
                 .font(.headline)
