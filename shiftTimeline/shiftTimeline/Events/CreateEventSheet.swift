@@ -103,6 +103,10 @@ struct CreateEventSheet: View {
         // Evening-before briefing; re-stamped on every foreground so it picks
         // up blocks and sunset data added after creation.
         await DayBeforeBriefingNotifier.schedule(for: event)
+        // Golden-hour / sunset reminder, armed at planning time (sun times were
+        // just fetched above). No-ops when the event has no location or the
+        // 30-min lead has already passed.
+        await GoldenHourNotifier.schedule(for: event)
         dismiss()
     }
 }

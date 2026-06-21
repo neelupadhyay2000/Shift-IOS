@@ -1,4 +1,5 @@
 import Services
+import SwiftData
 import SwiftUI
 
 /// Auth gate for the whole app.
@@ -12,6 +13,7 @@ import SwiftUI
 /// directly.
 struct RootContainerView: View {
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(DemoSession.self) private var demoSession
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
 
     @State private var isShowingLaunchPromo = false
@@ -24,6 +26,9 @@ struct RootContainerView: View {
 
     var body: some View {
         content
+            // Cross-fade the sign-in screen into the seeded app when the
+            // reviewer enters demo mode, so the hand-off is smooth (not a cut).
+            .animation(.easeInOut(duration: 0.4), value: demoSession.isActive)
             // One brand accent everywhere: tab selection, links, toggles, and
             // controls all inherit the icon's indigo from this single tint.
             .tint(ShiftPalette.accent)
@@ -36,7 +41,9 @@ struct RootContainerView: View {
             // Unlocks only via Face ID or the app passcode; "Forgot passcode?"
             // signs out so identity is re-proven with email OTP.
             .fullScreenCover(isPresented: .init(
-                get: { appLock.isLocked },
+                // Demo Mode bypasses the access layer — there is no account
+                // passcode behind a local sandbox.
+                get: { appLock.isLocked && !demoSession.isActive },
                 set: { _ in }
             )) {
                 AppLockScreen(appLock: appLock) {
@@ -69,7 +76,23 @@ struct RootContainerView: View {
 
     @ViewBuilder
     private var content: some View {
-        if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
+        if demoSession.isActive, let demoContainer = demoSession.container {
+            // App Review Demo Mode: drive the full app against an empty, local
+            // in-memory store — the reviewer creates their own events. Override
+            // the model container + repositories so every read/write stays in
+            // the sandbox, and null the backend services so nothing reaches
+            // Supabase.
+            RootNavigator()
+                .modelContainer(demoContainer)
+                .repositories(SwiftDataRepositoryProvider(context: demoContainer.mainContext))
+                .environment(\.supabaseSyncStack, nil)
+                .environment(\.syncStatusMonitor, nil)
+                .environment(\.realtimeEchoSuppressor, nil)
+                .environment(\.waitlistService, nil)
+                .environment(\.contentReportService, nil)
+                .environment(\.marketplaceService, nil)
+                .transition(.opacity)
+        } else if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()
         } else if !authService.hasResolvedInitialSession {
             loadingView
@@ -89,6 +112,7 @@ struct RootContainerView: View {
             }
         } else {
             SignInView(isDismissible: false)
+                .transition(.opacity)
         }
     }
 

@@ -49,7 +49,7 @@ struct RainWarningBannerTests {
 
     // MARK: - Tests
 
-    /// AC: Only outdoor blocks above 0.5 threshold show a banner.
+    /// AC: Only outdoor blocks above the 0.3 threshold show a banner.
     @Test @MainActor func onlyOutdoorBlocksAboveThresholdAreAtRisk() async throws {
         let container = try PersistenceController.forTesting()
         let ctx = container.mainContext
@@ -57,7 +57,7 @@ struct RainWarningBannerTests {
         let event = try makeEventWithBlocks([
             (title: "Stage Set",   isOutdoor: true,  rainProbability: 0.72),  // at risk
             (title: "Indoor Prep", isOutdoor: false, rainProbability: 0.90),  // indoor — excluded
-            (title: "Sound Check", isOutdoor: true,  rainProbability: 0.50),  // exactly 0.5 — excluded
+            (title: "Sound Check", isOutdoor: true,  rainProbability: 0.30),  // exactly 0.3 (threshold) — excluded
             (title: "Show Time",   isOutdoor: true,  rainProbability: 0.51),  // at risk
         ], context: ctx)
 

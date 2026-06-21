@@ -30,6 +30,9 @@ struct shiftTimelineApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var authService = SupabaseAuthService()
+    /// App Review "Demo Mode" — a local, pre-seeded sandbox the reviewer enters
+    /// from the sign-in code screen. Never touches the backend. See `DemoSession`.
+    @State private var demoSession = DemoSession()
     @State private var watchSessionManager = WatchSessionManager()
     @State private var liveActivityManager = LiveActivityManager()
     /// The sync composition root. Built once in `bootstrap()`
@@ -40,6 +43,16 @@ struct shiftTimelineApp: App {
     /// part of the sync stack. Built in `bootstrap()` because touching
     /// `SupabaseClientProvider.shared` is unsafe in test modes.
     @State private var waitlistService: SupabaseWaitlistService?
+
+    /// Online-only UGC-safety writer (report + block, Apple Guideline 1.2).
+    /// Like the waitlist service, deliberately outside the sync stack and built
+    /// in `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
+    @State private var contentReportService: SupabaseContentReportService?
+
+    /// Online-only vendor marketplace reads/writes (directory, profile, portfolio).
+    /// Like the other marketplace services, outside the sync stack and built in
+    /// `bootstrap()` to avoid touching `SupabaseClientProvider` in test modes.
+    @State private var marketplaceService: SupabaseMarketplaceService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -164,6 +177,7 @@ struct shiftTimelineApp: App {
             RootContainerView()
                 .repositories(effectiveProvider)
                 .environment(authService)
+                .environment(demoSession)
                 .environment(watchSessionManager)
                 .environment(liveActivityManager)
                 .environment(deepLinkRouter)
@@ -171,6 +185,8 @@ struct shiftTimelineApp: App {
                 .environment(\.supabaseSyncStack, syncStack)
                 .environment(\.syncStatusMonitor, syncStack?.statusMonitor)
                 .environment(\.waitlistService, waitlistService)
+                .environment(\.contentReportService, contentReportService)
+                .environment(\.marketplaceService, marketplaceService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -206,9 +222,12 @@ struct shiftTimelineApp: App {
                 // reflect the latest blocks and sunset data (idempotent —
                 // deterministic identifiers replace pending requests).
                 Task { @MainActor in
-                    await DayBeforeBriefingNotifier.scheduleUpcoming(
-                        context: PersistenceController.shared.container.mainContext
-                    )
+                    let context = PersistenceController.shared.container.mainContext
+                    await DayBeforeBriefingNotifier.scheduleUpcoming(context: context)
+                    // Arm golden-hour/sunset reminders for upcoming events too,
+                    // fetching sun times first so the reminder fires during
+                    // planning — not only after go-live.
+                    await GoldenHourNotifier.scheduleUpcoming(context: context)
                 }
                 // Catch up on changes missed while realtime was disconnected, then
                 // drain any writes queued offline.
@@ -274,6 +293,16 @@ struct shiftTimelineApp: App {
             // Marketplace waitlist: direct-to-Supabase, online-only.
             if waitlistService == nil {
                 waitlistService = SupabaseWaitlistService(client: client)
+            }
+
+            // Marketplace UGC safety (report + block): direct-to-Supabase, online-only.
+            if contentReportService == nil {
+                contentReportService = SupabaseContentReportService(client: client)
+            }
+
+            // Vendor marketplace (directory/profile/portfolio): direct-to-Supabase, online-only.
+            if marketplaceService == nil {
+                marketplaceService = SupabaseMarketplaceService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session

@@ -154,6 +154,12 @@ struct CreateBlockSheet: View {
 
         try? await blockRepo.save()
 
+        // Planning heads-up: if rain is forecast for this block, or it overlaps
+        // golden hour, post an immediate notice. Fire-and-forget so it never
+        // blocks dismissing the sheet; the notifier snapshots primitives before
+        // any network await.
+        Task { await BlockPlanningNotifier.notifyForNewBlock(block, in: event) }
+
         dismiss()
     }
 

@@ -198,6 +198,10 @@ enum LegalContent {
                         "Misuse contact information or other data stored within the App."
                     ])
                 ]),
+                LegalSection(heading: "Objectionable Content and Conduct", blocks: [
+                    .paragraph("There is **zero tolerance** for objectionable content or abusive behavior. You agree not to create, upload, share, or transmit any content that is unlawful, harassing, threatening, abusive, defamatory, obscene, hateful, or that infringes the rights of others, and not to harass, abuse, or harm any other user or collaborator."),
+                    .paragraph("You may report objectionable content or an abusive user from within the App (see \"Report a Concern\" in Settings, or the report action on shared content and collaborators), and you may block a collaborator at any time. We review reports and act on them — typically within 24 hours — and may remove content and suspend or terminate the accounts of users who violate these Terms.")
+                ]),
                 LegalSection(heading: "Intellectual Property", blocks: [
                     .paragraph("The App, including its underlying technology and the \(appName) Ripple Engine, together with all associated designs, text, graphics, and trademarks, is owned by \(companyName) and is protected by intellectual-property laws. These Terms do not grant you any right, title, or interest in the App other than the limited license expressly set forth herein.")
                 ]),

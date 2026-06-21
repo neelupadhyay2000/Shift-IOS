@@ -19,6 +19,7 @@ struct VendorManagerView: View {
     @State private var vendorToEdit: VendorModel?
     @State private var vendorToDelete: VendorModel?
     @State private var showDeleteConfirmation = false
+    @State private var vendorToReport: VendorModel?
     @ScaledMetric private var phoneButtonSize: CGFloat = 38
 
     private var event: EventModel? { results.first }
@@ -64,6 +65,16 @@ struct VendorManagerView: View {
                                             VendorNotificationSettingsView(vendor: vendor)
                                         } label: {
                                             Label(String(localized: "Notification Settings"), systemImage: "bell.badge")
+                                        }
+                                        Button {
+                                            vendorToReport = vendor
+                                        } label: {
+                                            Label(String(localized: "Report a Concern"), systemImage: "exclamationmark.bubble")
+                                        }
+                                        Button(role: .destructive) {
+                                            blockVendor(vendor)
+                                        } label: {
+                                            Label(String(localized: "Block Contact"), systemImage: "hand.raised")
                                         }
                                         Button(role: .destructive) {
                                             requestDelete(vendor)
@@ -111,6 +122,9 @@ struct VendorManagerView: View {
         }
         .sheet(item: $vendorToEdit) { vendor in
             VendorFormSheet(eventID: eventID, vendor: vendor)
+        }
+        .sheet(item: $vendorToReport) { vendor in
+            ReportConcernSheet(context: String(localized: "Collaborator: \(vendor.name)"))
         }
         .alert(
             String(localized: "Delete Vendor"),
@@ -267,6 +281,13 @@ struct VendorManagerView: View {
     private func requestDelete(_ vendor: VendorModel) {
         vendorToDelete = vendor
         showDeleteConfirmation = true
+    }
+
+    /// Blocks the contact (so they can't be re-invited) and removes them from
+    /// the event — the "block an abusive user" path for Guideline 1.2.
+    private func blockVendor(_ vendor: VendorModel) {
+        BlockedContactsStore.shared.block(phone: vendor.phone, email: vendor.email)
+        deleteVendor(vendor)
     }
 
     private var vendorRepo: any VendorRepositing {

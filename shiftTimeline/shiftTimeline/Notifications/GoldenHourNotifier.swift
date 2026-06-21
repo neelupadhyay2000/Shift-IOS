@@ -1,6 +1,7 @@
 import Foundation
 import Models
 import Services
+import SwiftData
 import UserNotifications
 import os
 
@@ -24,6 +25,9 @@ enum GoldenHourNotifier {
 
     /// How far ahead of golden hour / sunset the reminder fires.
     static let leadTime: TimeInterval = 30 * 60
+
+    /// How far ahead `scheduleUpcoming` looks for events to arm.
+    nonisolated static let schedulingHorizon: TimeInterval = 7 * 24 * 3600
 
     /// Deterministic identifier per event so re-going-live replaces the pending
     /// reminder instead of stacking duplicates.
@@ -50,8 +54,38 @@ enum GoldenHourNotifier {
 
     // MARK: - Schedule
 
+    /// Re-arms golden-hour reminders for every upcoming planning-stage event,
+    /// fetching sunset enrichment first so the anchor (`goldenHourStart` /
+    /// `sunsetTime`) exists. Cache-first, so it only hits the network for events
+    /// missing sun times. Idempotent — deterministic identifiers replace pending
+    /// requests — so it's safe to call on every foreground.
+    ///
+    /// This is what makes the reminder fire for *planned* events: previously it
+    /// was only armed at go-live, so it never scheduled unless the user went
+    /// live before the 30-minute lead window.
+    @MainActor
+    static func scheduleUpcoming(context: ModelContext, now: Date = .now) async {
+        let horizon = now.addingTimeInterval(schedulingHorizon)
+        let descriptor = FetchDescriptor<EventModel>(
+            predicate: #Predicate { $0.date > now && $0.date < horizon },
+            sortBy: [SortDescriptor(\.date)]
+        )
+        let upcoming = ((try? context.fetch(descriptor)) ?? [])
+            .filter { $0.status == .planning }
+        let sunsetService = SunsetService()
+        for event in upcoming {
+            _ = await sunsetService.fetchIfNeeded(for: event)
+            // A concurrent purge (e.g. account switch) can delete the event at
+            // the await above — reading a detached model faults fatally.
+            guard !event.isDeleted, event.modelContext != nil else { continue }
+            await schedule(for: event, now: now)
+        }
+        try? context.save()
+    }
+
     /// Production entry — reads the cached values off the event and schedules
-    /// against the real notification center. Call from go-live.
+    /// against the real notification center. Call from go-live and after
+    /// create/edit.
     @MainActor
     static func schedule(for event: EventModel, now: Date = .now) async {
         await schedule(

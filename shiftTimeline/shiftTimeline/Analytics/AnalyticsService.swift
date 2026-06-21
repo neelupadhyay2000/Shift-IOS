@@ -47,6 +47,11 @@ nonisolated enum AnalyticsService {
         case marketplaceTeaserViewed = "marketplace.teaserViewed"
         case marketplaceWaitlistJoined = "marketplace.waitlistJoined"
 
+        // UGC safety funnel (Apple Guideline 1.2): report + block. Counts only —
+        // the `content`/`reason` dimensions are enum raw values, never free text.
+        case marketplaceContentReported = "marketplace.contentReported"
+        case marketplaceUserBlocked = "marketplace.userBlocked"
+
         // User template lifecycle + community tease funnel: lifecycle signals
         // carry only counts (never template names — user-entered, may be PII);
         // the teaser signal measures demand ahead of community templates.

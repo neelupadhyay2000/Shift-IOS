@@ -17,6 +17,7 @@ struct EmailSignInSheet: View {
     private let service: EmailAuthService
     let onSessionEstablished: () -> Void
 
+    @Environment(DemoSession.self) private var demoSession
     @State private var step: Step = .emailEntry
 
     init(service: EmailAuthService, onSessionEstablished: @escaping () -> Void) {
@@ -34,10 +35,32 @@ struct EmailSignInSheet: View {
             OTPVerificationView(
                 destination: email,
                 headline: String(localized: "Check your email"),
-                verifyToken: { token in _ = try await service.verifyOTP(email: email, token: token) },
+                verifyToken: { token in try await verify(email: email, token: token) },
                 resendCode: { try await service.resendOTP(email: email) },
                 onSessionEstablished: onSessionEstablished
             )
         }
+    }
+
+    /// Verifies the entered `token`. For the App Review demo account *only*, the
+    /// static code drops straight into the local demo sandbox (no Supabase call,
+    /// no real account) — for every other email the normal Supabase OTP
+    /// verification runs unchanged. Returning without throwing signals success,
+    /// so `OTPVerificationView` invokes `onSessionEstablished`.
+    @MainActor
+    private func verify(email: String, token: String) async throws {
+        if demoSession.isReviewer(email: email), token == DemoSession.reviewerStaticCode {
+            // Smooth hand-off into the seeded app: returning success makes the
+            // caller dismiss this sheet (slide-down). We defer the root swap
+            // until that finishes so the dismissal and the cross-fade don't
+            // overlap and look choppy — RootContainerView cross-fades on
+            // `demoSession.isActive`.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
+                demoSession.activate()
+            }
+            return
+        }
+        _ = try await service.verifyOTP(email: email, token: token)
     }
 }

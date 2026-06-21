@@ -122,6 +122,9 @@ struct EditEventSheet: View {
         // Re-stamp the evening-before briefing — a date change moves its fire
         // time, and the deterministic identifier replaces the pending one.
         await DayBeforeBriefingNotifier.schedule(for: event)
+        // Re-arm the golden-hour / sunset reminder too — a date/location change
+        // moves its fire time; the deterministic identifier replaces the pending one.
+        await GoldenHourNotifier.schedule(for: event)
 
         dismiss()
     }

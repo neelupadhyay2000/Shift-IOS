@@ -8,6 +8,7 @@ import SwiftUI
 /// Settings page to a single tappable account row.
 struct AccountView: View {
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(DemoSession.self) private var demoSession
 
     @State private var isRestoring = false
     @State private var showNoRestoreAlert = false
@@ -174,6 +175,13 @@ struct AccountView: View {
 
             if !SubscriptionManager.shared.isProUser {
                 Button(String(localized: "Upgrade to Pro")) {
+                    isShowingPaywall = true
+                }
+                .foregroundStyle(ShiftPalette.accent)
+            } else if demoSession.isActive {
+                // Demo mode auto-unlocks Pro, but the paywall must stay reachable
+                // so App Review can open it and test the Lifetime in-app purchase.
+                Button(String(localized: "View Pro Plans")) {
                     isShowingPaywall = true
                 }
                 .foregroundStyle(ShiftPalette.accent)
@@ -368,4 +376,5 @@ enum AccountIdentity {
         AccountView()
     }
     .environment(SupabaseAuthService())
+    .environment(DemoSession())
 }

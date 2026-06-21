@@ -13,6 +13,8 @@ enum DeepLinkDestination: Equatable {
     /// Used after a template is applied so Back takes the user to the event page,
     /// not back into the template browser.
     case newEventTimeline(id: UUID)
+    /// Navigate to a vendor's public marketplace profile (`shift://vendor/{id}`).
+    case vendorProfile(id: UUID)
 }
 
 /// Observable deep-link router that external systems (notification taps,
@@ -75,8 +77,9 @@ final class DeepLinkRouter {
 
     /// Custom URL scheme: `shift://`
     /// Supported paths:
-    ///   - `shift://event/{eventID}` → event detail / timeline
-    ///   - `shift://live/{eventID}`  → Live Dashboard
+    ///   - `shift://event/{eventID}`   → event detail / timeline
+    ///   - `shift://live/{eventID}`    → Live Dashboard
+    ///   - `shift://vendor/{profileID}` → vendor public marketplace profile
     ///
     /// Returns `true` if the URL was handled.
     @discardableResult
@@ -113,14 +116,19 @@ final class DeepLinkRouter {
             return false
         }
 
-        guard let eventID = UUID(uuidString: rawID) else { return false }
+        // Generic `{scheme}://{host}/{UUID}` (or `?id=UUID`) parse — the id is a
+        // vendor profile for the `vendor` host, an event for the others.
+        guard let parsedID = UUID(uuidString: rawID) else { return false }
 
         switch host {
         case "event":
-            pendingDestination = .event(id: eventID)
+            pendingDestination = .event(id: parsedID)
             return true
         case "live":
-            pendingDestination = .live(id: eventID)
+            pendingDestination = .live(id: parsedID)
+            return true
+        case "vendor":
+            pendingDestination = .vendorProfile(id: parsedID)
             return true
         default:
             return false

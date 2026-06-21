@@ -23,6 +23,37 @@ public struct WeatherService: Sendable {
 
     public init() {}
 
+    // MARK: - Attribution (WeatherKit / App Review Guideline 5.2.5)
+
+    /// The Apple Weather™ marks and legal-attribution link required wherever
+    /// WeatherKit-derived data is displayed. Value type so it can cross actor
+    /// boundaries into SwiftUI freely.
+    public struct Attribution: Sendable, Equatable {
+        /// Apple Weather combined mark for light backgrounds.
+        public let markLightURL: URL
+        /// Apple Weather combined mark for dark backgrounds.
+        public let markDarkURL: URL
+        /// Apple's legal attribution / data-sources page.
+        public let legalPageURL: URL
+    }
+
+    /// Fetches the Apple Weather attribution (logo marks + legal link). Returns
+    /// `nil` on failure so callers can omit the view rather than crash; the marks
+    /// are stable, so a successful result can be cached by the caller.
+    public func attribution() async -> Attribution? {
+        do {
+            let info = try await WKWeatherService.shared.attribution
+            return Attribution(
+                markLightURL: info.combinedMarkLightURL,
+                markDarkURL: info.combinedMarkDarkURL,
+                legalPageURL: info.legalPageURL
+            )
+        } catch {
+            Self.logger.error("WeatherKit attribution fetch failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
     // MARK: - Public API
 
     /// Cache-first fetch of weather data for an event.
@@ -120,11 +151,31 @@ public struct WeatherService: Sendable {
         let allEntries: [BlockRainEntry] = try await withThrowingTaskGroup(
             of: [BlockRainEntry].self
         ) { group in
+            let now = Date()
+            // WeatherKit's hourly forecast horizon (~10 days). Events further out
+            // have no forecast available.
+            let forecastHorizon = now.addingTimeInterval(10 * 24 * 3600)
+
             for (k, tokens) in groups {
                 guard let (lat, lng) = coordForKey[k], lat != 0 || lng != 0 else { continue }
                 group.addTask {
                     let location = CLLocation(latitude: lat, longitude: lng)
-                    let forecast = try await wk.weather(for: location, including: .hourly)
+
+                    // The default `.hourly` query only covers ~the next day, so
+                    // blocks further out return no match ("out of range"). Request
+                    // the hourly window that actually spans these blocks instead,
+                    // clamped to WeatherKit's forecast horizon.
+                    let starts = tokens.map(\.scheduledStart)
+                    guard let earliest = starts.min(), let latest = starts.max(),
+                          earliest < forecastHorizon else { return [] }
+                    let rangeStart = max(earliest.addingTimeInterval(-3600), now)
+                    let rangeEnd = min(latest.addingTimeInterval(3600), forecastHorizon)
+                    guard rangeStart < rangeEnd else { return [] }
+
+                    let forecast = try await wk.weather(
+                        for: location,
+                        including: .hourly(startDate: rangeStart, endDate: rangeEnd)
+                    )
 
                     return tokens.compactMap { token in
                         guard let match = forecast.forecast.min(by: {

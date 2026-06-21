@@ -135,6 +135,16 @@ enum AccessibilityID {
         static let joinWaitlistButton    = "marketplace.join_waitlist_button"
         static let joinedBadge           = "marketplace.joined_badge"
         static let updateInterestsButton = "marketplace.update_interests_button"
+        // Directory (MarketplaceHomeView / VendorSearchResultsView / VendorPublicProfileView)
+        static let searchField        = "marketplace.search_field"
+        static let categoryChips      = "marketplace.category_chips"
+        static let becomeVendorButton = "marketplace.become_vendor_button"
+        static let requestsInbox      = "marketplace.requests_inbox"
+        static let featuredList       = "marketplace.featured_list"
+        static let vendorCard         = "marketplace.vendor_card"
+        static let searchResultsList  = "marketplace.search_results_list"
+        static let profileHeader      = "marketplace.profile_header"
+        static let requestButton      = "marketplace.request_button"
     }
 
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
@@ -147,6 +157,16 @@ enum AccessibilityID {
         static let submitButton   = "waitlist.submit_button"
         static let cancelButton   = "waitlist.cancel_button"
         static let confirmedState = "waitlist.confirmed_state"
+    }
+
+    // MARK: - Marketplace UGC safety (VendorSafetyMenu / ReportReasonSheet)
+
+    enum Safety {
+        static let menu               = "safety.menu"
+        static let reportButton       = "safety.report_button"
+        static let blockButton        = "safety.block_button"
+        static let reportSheet        = "safety.report_sheet"
+        static let reportCancelButton = "safety.report_cancel_button"
     }
 
     // MARK: - Post-Event Report (PostEventReportPreviewView)

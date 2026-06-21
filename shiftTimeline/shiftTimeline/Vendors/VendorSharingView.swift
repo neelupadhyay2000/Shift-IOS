@@ -143,6 +143,10 @@ struct VendorSharingView: View {
     /// stays null until they claim) and then opens the phone-first composer to
     /// deliver the deep link. Re-sending refreshes `invited_at` and re-delivers.
     private func invite(_ vendor: VendorModel) {
+        guard !BlockedContactsStore.shared.isBlocked(phone: vendor.phone, email: vendor.email) else {
+            errorMessage = String(localized: "This contact is blocked. Unblock them in Settings → Report a Concern to send an invite.")
+            return
+        }
         let eventTitle = event?.title ?? ""
         Task { @MainActor in
             isWorking = true

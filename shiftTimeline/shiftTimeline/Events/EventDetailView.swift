@@ -13,6 +13,7 @@ struct EventDetailView: View {
     @Environment(WatchSessionManager.self) private var watchSessionManager
     @Environment(LiveActivityManager.self) private var liveActivityManager
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(DemoSession.self) private var demoSession
     @Environment(\.scenePhase) private var scenePhase
     /// The cutover's shared echo suppressor — non-nil only when the
     /// sync stack is live. Handed to the realtime applier so the planner's own
@@ -169,6 +170,14 @@ struct EventDetailView: View {
                 primaryAction(event)
                 statsRow(event)
                 detailsCard(event)
+                if eventUsesWeather(event) {
+                    // WeatherKit attribution (Guideline 5.2.5): the Apple Weather
+                    // mark + legal data-sources link, shown directly under the
+                    // details (where rain-forecast data is derived) so it's
+                    // clearly visible — not buried behind the floating tab bar.
+                    WeatherAttributionView()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 tracksCard(event)
                 actionsCard(event)
             }
@@ -202,6 +211,15 @@ struct EventDetailView: View {
             _ = await service.fetchIfNeeded(for: event)
             try? modelContext.save()
         }
+    }
+
+    /// Whether this event queries WeatherKit (has event- or block-level
+    /// coordinates), and therefore must display Apple Weather attribution.
+    private func eventUsesWeather(_ event: EventModel) -> Bool {
+        if event.latitude != 0 || event.longitude != 0 { return true }
+        return (event.tracks ?? [])
+            .flatMap { $0.blocks ?? [] }
+            .contains { $0.blockLatitude != 0 || $0.blockLongitude != 0 }
     }
 
     /// Returns the list of outdoor blocks with `rainProbability > 0.5` from a fresh snapshot.
@@ -419,7 +437,11 @@ struct EventDetailView: View {
 
                 if isOwner, FeatureFlags.supabaseSync {
                     rowDivider
-                    if authService.isAuthenticated {
+                    // Demo mode has no session but is fully local — let the
+                    // reviewer open the vendor-invite (iMessage) flow, which
+                    // composes entirely on-device, instead of dead-ending on
+                    // the sign-in lock they can't satisfy.
+                    if authService.isAuthenticated || demoSession.isActive {
                         Button { presentVendorSharing() } label: {
                             actionRow(icon: "square.and.arrow.up", title: String(localized: "Share with Vendors"))
                         }
