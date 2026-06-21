@@ -131,6 +131,15 @@ struct MyVendorProfileEditorView: View {
                             .proCard(padding: 6)
                     }
                     .buttonStyle(.pressableCard)
+
+                    NavigationLink(value: MarketplaceDestination.availabilityCalendar) {
+                        Label(String(localized: "Manage availability"), systemImage: "calendar")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .proCard(padding: 6)
+                    }
+                    .buttonStyle(.pressableCard)
+                    .accessibilityIdentifier(AccessibilityID.Marketplace.manageAvailabilityButton)
                 }
                 saveButton
             }

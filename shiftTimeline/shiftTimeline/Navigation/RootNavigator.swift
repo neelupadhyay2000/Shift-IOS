@@ -39,8 +39,9 @@ enum EventDestination: Hashable {
 /// teaser-only routing now that the directory is being built.
 enum MarketplaceDestination: Hashable {
     case vendorProfile(profileID: UUID)
-    case searchResults(query: String, category: VendorRole?)
+    case searchResults(query: String, category: VendorRole?, onDate: Date?)
     case myVendorProfile
+    case availabilityCalendar   // vendor: manage busy days
     case portfolioEditor
     case requestInbox      // vendor: requests for me
     case myRequests        // planner: requests I've sent
@@ -328,10 +329,12 @@ struct RootNavigator: View {
         switch destination {
         case .vendorProfile(let profileID):
             VendorPublicProfileView(profileID: profileID)
-        case .searchResults(let query, let category):
-            VendorSearchResultsView(initialQuery: query, initialCategory: category)
+        case .searchResults(let query, let category, let onDate):
+            VendorSearchResultsView(initialQuery: query, initialCategory: category, initialDate: onDate)
         case .myVendorProfile:
             MyVendorProfileEditorView()
+        case .availabilityCalendar:
+            AvailabilityCalendarView()
         case .portfolioEditor:
             PortfolioEditorView()
         case .requestInbox:

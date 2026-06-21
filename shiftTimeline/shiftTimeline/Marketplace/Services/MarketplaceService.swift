@@ -82,6 +82,8 @@ nonisolated struct SearchVendorsParams: Encodable, Equatable, Sendable {
     let pRadiusKm: Double?
     let pLimit: Int
     let pOffset: Int
+    /// E18 availability filter: "yyyy-MM-dd" or nil for no date filter.
+    let pOnDate: String?
 
     enum CodingKeys: String, CodingKey {
         case pQuery = "p_query"
@@ -91,6 +93,7 @@ nonisolated struct SearchVendorsParams: Encodable, Equatable, Sendable {
         case pRadiusKm = "p_radius_km"
         case pLimit = "p_limit"
         case pOffset = "p_offset"
+        case pOnDate = "p_on_date"
     }
 }
 
@@ -108,7 +111,8 @@ protocol MarketplaceProviding: Sendable {
         longitude: Double?,
         radiusKm: Double?,
         limit: Int,
-        offset: Int
+        offset: Int,
+        onDate: Date?
     ) async throws -> [VendorSearchResultDTO]
 
     /// A listed vendor's public profile (vendor_profiles ⋈ public_profiles), or
@@ -186,7 +190,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         longitude: Double?,
         radiusKm: Double?,
         limit: Int = 20,
-        offset: Int = 0
+        offset: Int = 0,
+        onDate: Date? = nil
     ) async throws -> [VendorSearchResultDTO] {
         let params = Self.searchParams(
             query: query,
@@ -195,7 +200,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             longitude: longitude,
             radiusKm: radiusKm,
             limit: limit,
-            offset: offset
+            offset: offset,
+            onDate: onDate
         )
         return try await client
             .rpc("search_vendors", params: params)
@@ -393,7 +399,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         longitude: Double?,
         radiusKm: Double?,
         limit: Int,
-        offset: Int
+        offset: Int,
+        onDate: Date? = nil
     ) -> SearchVendorsParams {
         let trimmedQuery = query?.trimmingCharacters(in: .whitespacesAndNewlines)
         return SearchVendorsParams(
@@ -403,7 +410,8 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             pLng: longitude,
             pRadiusKm: radiusKm,
             pLimit: limit,
-            pOffset: max(0, offset)
+            pOffset: max(0, offset),
+            pOnDate: onDate.map { CalendarDay.string(from: $0) }
         )
     }
 

@@ -10,6 +10,8 @@ struct VendorSearchResultsView: View {
 
     @State private var query: String
     @State private var selectedCategory: VendorRole?
+    @State private var selectedDate: Date?
+    @State private var isPickingDate = false
     @State private var results: [VendorSearchResultDTO] = []
     @State private var isLoading = false
     @State private var reachedEnd = false
@@ -19,9 +21,10 @@ struct VendorSearchResultsView: View {
     private let pageSize = 20
     private let categories: [VendorRole] = [.photographer, .dj, .planner, .caterer, .florist]
 
-    init(initialQuery: String = "", initialCategory: VendorRole? = nil) {
+    init(initialQuery: String = "", initialCategory: VendorRole? = nil, initialDate: Date? = nil) {
         _query = State(initialValue: initialQuery)
         _selectedCategory = State(initialValue: initialCategory)
+        _selectedDate = State(initialValue: initialDate)
     }
 
     var body: some View {
@@ -29,6 +32,7 @@ struct VendorSearchResultsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 searchField
                 categoryFilter
+                dateFilter
                 resultsList
             }
             .padding(20)
@@ -43,6 +47,65 @@ struct VendorSearchResultsView: View {
             didInitialLoad = true
             await runSearch(reset: true)
         }
+        .sheet(isPresented: $isPickingDate) { datePickerSheet }
+    }
+
+    // MARK: Date filter
+
+    private var dateFilter: some View {
+        HStack(spacing: 8) {
+            Button { isPickingDate = true } label: {
+                Label(
+                    selectedDate.map { String(localized: "Available on \($0.formatted(.dateTime.month().day()))") }
+                        ?? String(localized: "Any date"),
+                    systemImage: "calendar"
+                )
+                .font(.subheadline.weight(selectedDate == nil ? .medium : .semibold))
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .foregroundStyle(selectedDate == nil ? AnyShapeStyle(ShiftPalette.accent) : AnyShapeStyle(Color.white))
+                .background(
+                    selectedDate == nil ? AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)) : AnyShapeStyle(ShiftPalette.accent.gradient),
+                    in: Capsule()
+                )
+            }
+            .buttonStyle(.pressableCard)
+            .accessibilityIdentifier(AccessibilityID.Marketplace.searchDateChip)
+
+            if selectedDate != nil {
+                Button {
+                    selectedDate = nil
+                    Task { await runSearch(reset: true) }
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(localized: "Clear date filter"))
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var datePickerSheet: some View {
+        NavigationStack {
+            DatePicker(
+                String(localized: "Available on"),
+                selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
+                displayedComponents: .date
+            )
+            .datePickerStyle(.graphical)
+            .padding()
+            .navigationTitle(String(localized: "Filter by date"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "Done")) {
+                        isPickingDate = false
+                        Task { await runSearch(reset: true) }
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: Search field
@@ -141,7 +204,7 @@ struct VendorSearchResultsView: View {
             query: trimmed.isEmpty ? nil : trimmed,
             category: selectedCategory,
             latitude: nil, longitude: nil, radiusKm: nil,
-            limit: pageSize, offset: offset
+            limit: pageSize, offset: offset, onDate: selectedDate
         )) ?? []
         results.append(contentsOf: page)
         offset += page.count

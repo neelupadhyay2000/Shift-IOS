@@ -65,6 +65,9 @@ struct shiftTimelineApp: App {
     /// Online-only verified reviews + stats (E17): gated submit RPC, reviewer-owned
     /// edits, and the public reviews / vendor_public_stats reads.
     @State private var vendorReviewService: SupabaseVendorReviewService?
+
+    /// Online-only vendor availability (E18): get_my_calendar reads + busy-date toggles.
+    @State private var availabilityService: SupabaseAvailabilityService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -202,6 +205,7 @@ struct shiftTimelineApp: App {
                 .environment(\.serviceRequestService, serviceRequestService)
                 .environment(\.requestMessagingService, requestMessagingService)
                 .environment(\.vendorReviewService, vendorReviewService)
+                .environment(\.availabilityService, availabilityService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -337,6 +341,11 @@ struct shiftTimelineApp: App {
             // Verified reviews (E17): online-only direct Supabase + gated RPC.
             if vendorReviewService == nil {
                 vendorReviewService = SupabaseVendorReviewService(client: client)
+            }
+
+            // Vendor availability (E18): online-only direct Supabase + RPC.
+            if availabilityService == nil {
+                availabilityService = SupabaseAvailabilityService(client: client)
             }
 
             // Wire the APNs registrar before listening so a restored session

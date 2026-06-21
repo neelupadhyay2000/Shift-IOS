@@ -90,7 +90,7 @@ struct MarketplaceHomeView: View {
 
     private func runSearch() {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        path.append(.searchResults(query: trimmed, category: nil))
+        path.append(.searchResults(query: trimmed, category: nil, onDate: nil))
     }
 
     // MARK: Categories
@@ -101,7 +101,7 @@ struct MarketplaceHomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(categories, id: \.self) { role in
-                        NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: role)) {
+                        NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: role, onDate: nil)) {
                             let color = ShiftDesign.roleColor(for: role)
                             HStack(spacing: 6) {
                                 Image(systemName: role.systemImage).font(.caption)
@@ -237,7 +237,7 @@ struct MarketplaceHomeView: View {
         defer { isLoading = false }
         featured = (try? await service.searchVendors(
             query: nil, category: nil, latitude: nil, longitude: nil,
-            radiusKm: nil, limit: 10, offset: 0
+            radiusKm: nil, limit: 10, offset: 0, onDate: nil
         )) ?? []
         let mine = try? await service.fetchMyVendorProfile()
         hasVendorProfile = (mine ?? nil) != nil

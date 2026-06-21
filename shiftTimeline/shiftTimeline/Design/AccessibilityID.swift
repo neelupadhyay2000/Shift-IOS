@@ -151,6 +151,10 @@ enum AccessibilityID {
         static let reviewSubmitButton = "marketplace.review_submit_button"
         static let reviewsList        = "marketplace.reviews_list"
         static let reviewVendorsList  = "marketplace.review_vendors_list"
+        // Availability (E18): calendar editor + search date filter.
+        static let manageAvailabilityButton = "marketplace.manage_availability_button"
+        static let availabilityGrid         = "marketplace.availability_grid"
+        static let searchDateChip           = "marketplace.search_date_chip"
     }
 
     // MARK: - Marketplace Waitlist (WaitlistSignupSheet)
