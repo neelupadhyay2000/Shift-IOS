@@ -15,6 +15,9 @@ enum DeepLinkDestination: Equatable {
     case newEventTimeline(id: UUID)
     /// Navigate to a vendor's public marketplace profile (`shift://vendor/{id}`).
     case vendorProfile(id: UUID)
+    /// Open a marketplace service request (`shift://request/{id}`) — routes to the
+    /// Marketplace tab. The id is carried for the request inbox/detail (E11 UI).
+    case serviceRequest(id: UUID)
 }
 
 /// Observable deep-link router that external systems (notification taps,
@@ -80,6 +83,7 @@ final class DeepLinkRouter {
     ///   - `shift://event/{eventID}`   → event detail / timeline
     ///   - `shift://live/{eventID}`    → Live Dashboard
     ///   - `shift://vendor/{profileID}` → vendor public marketplace profile
+    ///   - `shift://request/{requestID}` → marketplace service request
     ///
     /// Returns `true` if the URL was handled.
     @discardableResult
@@ -129,6 +133,9 @@ final class DeepLinkRouter {
             return true
         case "vendor":
             pendingDestination = .vendorProfile(id: parsedID)
+            return true
+        case "request":
+            pendingDestination = .serviceRequest(id: parsedID)
             return true
         default:
             return false

@@ -432,6 +432,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
+        // Marketplace service-request push — deep-link to the Marketplace tab.
+        if let requestID = RemoteShiftPushHandler.parseRequestID(userInfo) {
+            Task { @MainActor in
+                DeepLinkRouter.shared.requestRemoteRefresh()
+                RemoteShiftPushHandler.routeRequestTap(requestID, router: .shared)
+            }
+            completionHandler()
+            return
+        }
+
         // Vendor shift notification — deep-link to event detail.
         // Parse off the MainActor (Sendable payload), then route on it.
         if let payload = RemoteShiftPushHandler.parse(userInfo) {

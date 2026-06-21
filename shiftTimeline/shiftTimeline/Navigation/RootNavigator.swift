@@ -267,6 +267,11 @@ struct RootNavigator: View {
             // shift://vendor/{id} → Marketplace tab, push the public profile.
             selectTab(.marketplace)
             marketplacePath = [.vendorProfile(profileID: id)]
+        case .serviceRequest:
+            // shift://request/{id} → Marketplace tab (request inbox/detail UI lands
+            // with the E11 inbox story; for now surface the Marketplace tab root).
+            selectTab(.marketplace)
+            marketplacePath = []
         }
         deepLinkRouter.pendingDestination = nil
     }

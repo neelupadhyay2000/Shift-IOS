@@ -22,6 +22,10 @@ import {
   type AssignmentPayload,
   goLiveBody,
   type GoLivePayload,
+  requestReceivedBody,
+  type RequestReceivedPayload,
+  requestResponseBody,
+  type RequestResponsePayload,
   shiftBody,
   type ShiftPayload,
   shouldNotify,
@@ -30,6 +34,8 @@ import { type ApnsConfig, sendApns } from "./apns.ts";
 
 // Must match VendorShiftNotificationContent.eventIDKey so the tap deep-links (SHIFT-639).
 const EVENT_ID_KEY = "com.shift.eventID";
+// Must match RemoteShiftPushHandler.requestIDKey so a service-request tap deep-links (E11).
+const REQUEST_ID_KEY = "com.shift.requestID";
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -236,6 +242,62 @@ async function handleGoLive(payload: GoLivePayload): Promise<Response> {
   }, ctx);
 }
 
+async function handleRequestReceived(payload: RequestReceivedPayload): Promise<Response> {
+  const ctx: FailureContext = { kind: "request_received", profileId: payload.vendor_profile_id };
+  const apns = loadApnsConfig();
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
+
+  // Alert push to the targeted vendor; tap deep-links via REQUEST_ID_KEY.
+  const apsPayload = {
+    aps: {
+      alert: { title: "New service request", body: requestReceivedBody(payload.event_title) },
+      sound: "default",
+    },
+    [REQUEST_ID_KEY]: payload.request_id,
+  };
+  return await sendToProfiles(makeSupabase(), apns, [payload.vendor_profile_id], apsPayload, {
+    pushType: "alert",
+    priority: "10",
+  }, ctx);
+}
+
+async function handleRequestResponse(payload: RequestResponsePayload): Promise<Response> {
+  const ctx: FailureContext = { kind: "request_response", profileId: payload.planner_id };
+  const apns = loadApnsConfig();
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
+
+  const supabase = makeSupabase();
+  // Resolve the responder's display identity for the body (service role → no RLS).
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("business_name, display_name")
+    .eq("id", payload.vendor_profile_id)
+    .maybeSingle();
+  const name = ((prof?.business_name ?? prof?.display_name) ?? "").trim();
+
+  const accepted = payload.status === "accepted";
+  const apsPayload = {
+    aps: {
+      alert: {
+        title: accepted ? "Request accepted" : "Request declined",
+        body: requestResponseBody(name, payload.status),
+      },
+      sound: "default",
+    },
+    [REQUEST_ID_KEY]: payload.request_id,
+  };
+  return await sendToProfiles(supabase, apns, [payload.planner_id], apsPayload, {
+    pushType: "alert",
+    priority: "10",
+  }, ctx);
+}
+
 Deno.serve(async (req) => {
   let kind = "unknown";
   try {
@@ -244,6 +306,8 @@ Deno.serve(async (req) => {
     if (payload.type === "shift") return await handleShift(payload as ShiftPayload);
     if (payload.type === "assignment") return await handleAssignment(payload as AssignmentPayload);
     if (payload.type === "golive") return await handleGoLive(payload as GoLivePayload);
+    if (payload.type === "request_received") return await handleRequestReceived(payload as RequestReceivedPayload);
+    if (payload.type === "request_response") return await handleRequestResponse(payload as RequestResponsePayload);
     return json({ skipped: "ignored_type", type: payload.type }, 200);
   } catch (e) {
     await recordFailure(makeSupabase(), { kind }, "exception", String(e));
