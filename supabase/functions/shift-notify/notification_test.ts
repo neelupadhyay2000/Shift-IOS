@@ -7,6 +7,7 @@ import {
   requestResponseBody,
   shiftBody,
   shouldNotify,
+  truncateMessage,
 } from "./notification.ts";
 
 Deno.test("shouldNotify gates on magnitude vs the stricter threshold", () => {
@@ -39,4 +40,13 @@ Deno.test("requestResponseBody — accepted/declined with business-name fallback
   assertEquals(requestResponseBody("Golden Hour", "accepted"), "Golden Hour accepted your request.");
   assertEquals(requestResponseBody("Atlas Sound", "declined"), "Atlas Sound declined your request.");
   assertEquals(requestResponseBody("", "accepted"), "A vendor accepted your request.");
+});
+
+Deno.test("truncateMessage — passes short through, trims + ellipsizes long", () => {
+  assertEquals(truncateMessage("  hi there  "), "hi there");
+  assertEquals(truncateMessage(""), "");
+  const long = String("a").repeat(200);
+  const out = truncateMessage(long, 140);
+  assertEquals(out.length, 140);
+  assertEquals(out.endsWith("…"), true);
 });

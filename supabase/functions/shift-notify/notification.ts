@@ -106,3 +106,26 @@ export function requestResponseBody(businessName: string, status: string): strin
   const verb = status === "accepted" ? "accepted" : "declined";
   return `${name} ${verb} your request.`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Request chat (E12)
+//
+// FUTURE WORK: push coalescing for chatty threads is deliberately out of v1 —
+// every message currently fires one push. A future iteration can debounce /
+// collapse rapid messages per (thread, recipient).
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RequestMessagePayload {
+  type: "request_message";
+  request_id: string;
+  recipient_id: string; // the OTHER participant (resolved by the trigger)
+  sender_id: string; // sender's display name is resolved server-side
+  body: string;
+}
+
+/** Truncates a chat message for the push body (whole message stays in-app). */
+export function truncateMessage(body: string, max = 140): string {
+  const trimmed = (body ?? "").trim();
+  if (trimmed.length <= max) return trimmed;
+  return trimmed.slice(0, max - 1).trimEnd() + "…";
+}

@@ -22,6 +22,7 @@ import {
   type AssignmentPayload,
   goLiveBody,
   type GoLivePayload,
+  type RequestMessagePayload,
   requestReceivedBody,
   type RequestReceivedPayload,
   requestResponseBody,
@@ -29,6 +30,7 @@ import {
   shiftBody,
   type ShiftPayload,
   shouldNotify,
+  truncateMessage,
 } from "./notification.ts";
 import { type ApnsConfig, sendApns } from "./apns.ts";
 
@@ -298,6 +300,38 @@ async function handleRequestResponse(payload: RequestResponsePayload): Promise<R
   }, ctx);
 }
 
+// Request chat (E12). The trigger resolves recipient_id (the OTHER participant);
+// here we resolve the sender's display name and push the truncated message.
+// FUTURE WORK: coalescing for chatty threads — every message pushes today.
+async function handleRequestMessage(payload: RequestMessagePayload): Promise<Response> {
+  const ctx: FailureContext = { kind: "request_message", profileId: payload.recipient_id };
+  const apns = loadApnsConfig();
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
+
+  const supabase = makeSupabase();
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("business_name, display_name")
+    .eq("id", payload.sender_id)
+    .maybeSingle();
+  const senderName = ((prof?.business_name ?? prof?.display_name) ?? "").trim() || "New message";
+
+  const apsPayload = {
+    aps: {
+      alert: { title: senderName, body: truncateMessage(payload.body) },
+      sound: "default",
+    },
+    [REQUEST_ID_KEY]: payload.request_id,
+  };
+  return await sendToProfiles(supabase, apns, [payload.recipient_id], apsPayload, {
+    pushType: "alert",
+    priority: "10",
+  }, ctx);
+}
+
 Deno.serve(async (req) => {
   let kind = "unknown";
   try {
@@ -308,6 +342,7 @@ Deno.serve(async (req) => {
     if (payload.type === "golive") return await handleGoLive(payload as GoLivePayload);
     if (payload.type === "request_received") return await handleRequestReceived(payload as RequestReceivedPayload);
     if (payload.type === "request_response") return await handleRequestResponse(payload as RequestResponsePayload);
+    if (payload.type === "request_message") return await handleRequestMessage(payload as RequestMessagePayload);
     return json({ skipped: "ignored_type", type: payload.type }, 200);
   } catch (e) {
     await recordFailure(makeSupabase(), { kind }, "exception", String(e));

@@ -92,6 +92,7 @@ struct RootContainerView: View {
                 .environment(\.contentReportService, nil)
                 .environment(\.marketplaceService, nil)
                 .environment(\.serviceRequestService, nil)
+                .environment(\.requestMessagingService, nil)
                 .transition(.opacity)
         } else if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()
