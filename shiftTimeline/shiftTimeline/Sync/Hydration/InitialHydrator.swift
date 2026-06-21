@@ -3,32 +3,35 @@ import Models
 import Services
 import SwiftData
 
-/// Reconstructs the local SwiftData cache from Supabase on login/launch.
+/// Reconstructs the local SwiftData cache from Supabase on login/launch and
+/// pull-to-refresh.
 ///
-/// Fetches every accessible row (RLS-scoped), upserts each into SwiftData **by
-/// id** (find-or-create + apply scalars), then wires relationships by id using
-/// the DTO mapping layer. Idempotent: re-running updates existing rows in place
-/// rather than duplicating, so it's safe to call on every launch.
+/// `hydrate()` fetches the accessible graph off the main actor (the source is
+/// `nonisolated`) and hands it to a ``SnapshotApplying`` importer. In production
+/// that importer is a `@ModelActor` running the bulk fetch/insert/wire/save on a
+/// **background** context, so a full hydrate never blocks the main thread — which
+/// is what kept pull-to-refresh from freezing the UI while the graph rebuilt.
 ///
 /// Upsert-only — rows deleted on the server (tombstones) and local-only rows are
 /// left untouched here; that reconciliation belongs to the Outbox/delta sync.
 @MainActor
 struct InitialHydrator {
     private let source: any HydrationSource
-    private let context: ModelContext
+    private let applier: any SnapshotApplying
     private let diagnostics: SyncDiagnosticsCenter
 
     init(
         source: any HydrationSource,
-        context: ModelContext,
+        applier: any SnapshotApplying,
         diagnostics: SyncDiagnosticsCenter = .shared
     ) {
         self.source = source
-        self.context = context
+        self.applier = applier
         self.diagnostics = diagnostics
     }
 
-    /// Fetches the accessible graph and merges it into the local store.
+    /// Fetches the accessible graph and merges it into the local store. Both the
+    /// fetch and the merge run off the main actor.
     func hydrate() async throws {
         let snapshot: HydrationSnapshot
         do {
@@ -42,7 +45,16 @@ struct InitialHydrator {
             throw error
         }
 
-        try apply(snapshot)
+        do {
+            try await applier.apply(snapshot)
+        } catch {
+            diagnostics.record(
+                .fetch, "hydrationApplyFailed",
+                params: ["error": String(describing: error)],
+                severity: .error
+            )
+            throw error
+        }
 
         diagnostics.record(
             .fetch, "hydrated",
@@ -53,6 +65,34 @@ struct InitialHydrator {
             ]
         )
     }
+}
+
+// MARK: - Applier
+
+/// Merges a fetched ``HydrationSnapshot`` into SwiftData. Abstracted so the
+/// production background importer and a test double share one entry point.
+protocol SnapshotApplying: Sendable {
+    func apply(_ snapshot: HydrationSnapshot) async throws
+}
+
+/// Production importer. `@ModelActor` binds it to its own `ModelContext` on a
+/// background executor, so the upsert/wire/save runs off the main thread; the
+/// main context's `@Query` picks up the merged changes after save (the standard
+/// SwiftData background-import pattern).
+@ModelActor
+actor BackgroundSnapshotApplier: SnapshotApplying {
+    func apply(_ snapshot: HydrationSnapshot) throws {
+        try SnapshotMerger(context: modelContext).apply(snapshot)
+    }
+}
+
+/// The pure merge: upsert scalars by id (skipping tombstones), wire relationships
+/// by id, save. `nonisolated` (the app module defaults to MainActor isolation) so
+/// it runs on whatever executor calls it — the background applier's actor in
+/// production, an in-memory context on MainActor in tests. Idempotent: re-running
+/// updates existing rows in place rather than duplicating.
+nonisolated struct SnapshotMerger {
+    let context: ModelContext
 
     /// Merges a snapshot into SwiftData: upsert scalars by id, wire relationships, save.
     func apply(_ snapshot: HydrationSnapshot) throws {
@@ -80,6 +120,10 @@ struct InitialHydrator {
         let existing = try context.fetch(FetchDescriptor<EventModel>())
         var byID = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for dto in dtos {
+            // Defense-in-depth: the source already filters tombstones, but never
+            // resurrect a soft-deleted row if one slips into the snapshot — the
+            // merge is upsert-only and would otherwise re-create it locally.
+            guard dto.deletedAt == nil else { continue }
             if let model = byID[dto.id] {
                 dto.apply(to: model)
             } else {
@@ -95,6 +139,7 @@ struct InitialHydrator {
         let existing = try context.fetch(FetchDescriptor<TimelineTrack>())
         var byID = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for dto in dtos {
+            guard dto.deletedAt == nil else { continue }   // never resurrect a tombstone
             if let model = byID[dto.id] {
                 dto.apply(to: model)
             } else {
@@ -110,6 +155,7 @@ struct InitialHydrator {
         let existing = try context.fetch(FetchDescriptor<TimeBlockModel>())
         var byID = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for dto in dtos {
+            guard dto.deletedAt == nil else { continue }   // never resurrect a tombstone
             if let model = byID[dto.id] {
                 dto.apply(to: model)
             } else {
@@ -125,6 +171,7 @@ struct InitialHydrator {
         let existing = try context.fetch(FetchDescriptor<VendorModel>())
         var byID = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for dto in dtos {
+            guard dto.deletedAt == nil else { continue }   // never resurrect a tombstone
             if let model = byID[dto.id] {
                 dto.apply(to: model)
             } else {
@@ -140,6 +187,7 @@ struct InitialHydrator {
         let existing = try context.fetch(FetchDescriptor<ShiftRecord>())
         var byID = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for dto in dtos {
+            guard dto.deletedAt == nil else { continue }   // never resurrect a tombstone
             if let model = byID[dto.id] {
                 dto.apply(to: model)
             } else {

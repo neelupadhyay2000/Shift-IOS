@@ -69,14 +69,14 @@ extension TimeBlockModel {
     }
 
     /// Wires assigned vendors from the `block_vendors` rows addressed to this block.
-    func linkVendors(_ junctions: [BlockVendorDTO], vendors: [UUID: VendorModel]) {
+    nonisolated func linkVendors(_ junctions: [BlockVendorDTO], vendors: [UUID: VendorModel]) {
         self.vendors = junctions
             .filter { $0.blockID == id }
             .compactMap { vendors[$0.eventVendorID] }
     }
 
     /// Wires dependency edges from the `block_dependencies` rows addressed to this block.
-    func linkDependencies(_ junctions: [BlockDependencyDTO], blocks: [UUID: TimeBlockModel]) {
+    nonisolated func linkDependencies(_ junctions: [BlockDependencyDTO], blocks: [UUID: TimeBlockModel]) {
         dependencies = junctions
             .filter { $0.blockID == id }
             .compactMap { blocks[$0.dependsOnBlockID] }
@@ -86,7 +86,7 @@ extension TimeBlockModel {
 @MainActor
 extension BlockDTO {
     /// Builds a fresh `TimeBlockModel` with this row's scalar fields (relationships unwired).
-    func makeModel() -> TimeBlockModel {
+    nonisolated func makeModel() -> TimeBlockModel {
         let model = TimeBlockModel(
             title: title,
             scheduledStart: scheduledStart.value,
@@ -98,7 +98,7 @@ extension BlockDTO {
     }
 
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
-    func apply(to model: TimeBlockModel) {
+    nonisolated func apply(to model: TimeBlockModel) {
         model.id = id
         model.title = title
         model.scheduledStart = scheduledStart.value
@@ -125,7 +125,7 @@ extension BlockDTO {
     }
 
     /// Wires the parent relationship by resolving `track_id` against `tracks`.
-    func linkParent(_ model: TimeBlockModel, tracks: [UUID: TimelineTrack]) {
+    nonisolated func linkParent(_ model: TimeBlockModel, tracks: [UUID: TimelineTrack]) {
         model.track = tracks[trackID]
     }
 }

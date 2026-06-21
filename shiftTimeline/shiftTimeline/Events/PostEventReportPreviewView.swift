@@ -25,6 +25,7 @@ struct PostEventReportPreviewView: View {
     @State private var pdfFileURL: URL?
     @State private var isGenerating = true
     @State private var shareError: String?
+    @State private var isShowingReviewVendors = false
 
     private var event: EventModel? { results.first }
 
@@ -52,6 +53,16 @@ struct PostEventReportPreviewView: View {
         .navigationTitle(String(localized: "Post-Event Report"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if FeatureFlags.supabaseSync {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isShowingReviewVendors = true
+                    } label: {
+                        Label(String(localized: "Review your vendors"), systemImage: "star.bubble")
+                    }
+                    .accessibilityLabel(String(localized: "Review your vendors"))
+                }
+            }
             if let pdfFileURL {
                 ToolbarItem(placement: .primaryAction) {
                     ShareLink(
@@ -65,6 +76,9 @@ struct PostEventReportPreviewView: View {
                     .accessibilityIdentifier(AccessibilityID.Report.exportButton)
                 }
             }
+        }
+        .sheet(isPresented: $isShowingReviewVendors) {
+            ReviewVendorsSheet(eventID: eventID)
         }
         .task {
             await generateReport()

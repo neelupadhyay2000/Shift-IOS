@@ -27,6 +27,8 @@ import {
   type RequestReceivedPayload,
   requestResponseBody,
   type RequestResponsePayload,
+  reviewReceivedBody,
+  type ReviewReceivedPayload,
   shiftBody,
   type ShiftPayload,
   shouldNotify,
@@ -38,6 +40,9 @@ import { type ApnsConfig, sendApns } from "./apns.ts";
 const EVENT_ID_KEY = "com.shift.eventID";
 // Must match RemoteShiftPushHandler.requestIDKey so a service-request tap deep-links (E11).
 const REQUEST_ID_KEY = "com.shift.requestID";
+// Carries the reviewed vendor's profile id so a review push can deep-link to the
+// vendor's own profile/reviews (client wiring is future work; harmless if unhandled).
+const REVIEW_VENDOR_ID_KEY = "com.shift.reviewVendorID";
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -332,6 +337,30 @@ async function handleRequestMessage(payload: RequestMessagePayload): Promise<Res
   }, ctx);
 }
 
+// Verified reviews (E17). The trigger forwards the reviewed vendor + rating;
+// here we push an alert with the rating-based body. Tap can deep-link to the
+// vendor's own profile via REVIEW_VENDOR_ID_KEY (client wiring is future work).
+async function handleReviewReceived(payload: ReviewReceivedPayload): Promise<Response> {
+  const ctx: FailureContext = { kind: "review_received", profileId: payload.vendor_profile_id };
+  const apns = loadApnsConfig();
+  if (!apns) {
+    await recordFailure(makeSupabase(), ctx, "secrets_missing", "APNS_KEY_ID/TEAM_ID/PRIVATE_KEY");
+    return json({ error: "APNs secrets missing (APNS_KEY_ID/TEAM_ID/PRIVATE_KEY)" }, 500);
+  }
+
+  const apsPayload = {
+    aps: {
+      alert: { title: "New review", body: reviewReceivedBody(payload.rating) },
+      sound: "default",
+    },
+    [REVIEW_VENDOR_ID_KEY]: payload.vendor_profile_id,
+  };
+  return await sendToProfiles(makeSupabase(), apns, [payload.vendor_profile_id], apsPayload, {
+    pushType: "alert",
+    priority: "10",
+  }, ctx);
+}
+
 Deno.serve(async (req) => {
   let kind = "unknown";
   try {
@@ -343,6 +372,7 @@ Deno.serve(async (req) => {
     if (payload.type === "request_received") return await handleRequestReceived(payload as RequestReceivedPayload);
     if (payload.type === "request_response") return await handleRequestResponse(payload as RequestResponsePayload);
     if (payload.type === "request_message") return await handleRequestMessage(payload as RequestMessagePayload);
+    if (payload.type === "review_received") return await handleReviewReceived(payload as ReviewReceivedPayload);
     return json({ skipped: "ignored_type", type: payload.type }, 200);
   } catch (e) {
     await recordFailure(makeSupabase(), { kind }, "exception", String(e));

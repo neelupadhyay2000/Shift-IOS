@@ -10,14 +10,21 @@ struct VendorPublicProfileView: View {
     let profileID: UUID
 
     @Environment(\.marketplaceService) private var service
+    @Environment(\.vendorReviewService) private var reviewService
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
 
     @State private var profile: MarketplaceVendorProfile?
     @State private var portfolio: [PortfolioItemDTO] = []
     @State private var eventSummaries: [UUID: PortfolioEventSummaryDTO] = [:]
+    @State private var stats: VendorPublicStatsDTO?
+    @State private var reviews: [VendorReviewDTO] = []
+    @State private var canLoadMoreReviews = true
+    @State private var isLoadingMoreReviews = false
     @State private var isLoading = true
     @State private var isPresentingComposer = false
+
+    private let reviewPageSize = 20
 
     private var title: String {
         if let name = profile?.identity.businessName, !name.isEmpty { return name }
@@ -68,6 +75,7 @@ struct VendorPublicProfileView: View {
             statsRow(profile.vendor)
             if !profile.identity.bio.isNilOrEmpty { bioSection(profile.identity.bio ?? "") }
             portfolioSection
+            reviewsSection
         }
         .padding(20)
         .frame(maxWidth: 640)
@@ -80,6 +88,9 @@ struct VendorPublicProfileView: View {
             Text(title)
                 .font(.title2.weight(.bold))
                 .multilineTextAlignment(.center)
+            if let avg = profile.vendor.ratingAvg, profile.vendor.ratingCount > 0 {
+                aggregateRating(avg: avg, count: profile.vendor.ratingCount)
+            }
             CategoryChip(category: profile.vendor.category)
             if let area = profile.vendor.serviceArea, !area.isEmpty {
                 Label(area, systemImage: "mappin.and.ellipse")
@@ -118,7 +129,7 @@ struct VendorPublicProfileView: View {
                 .foregroundStyle(ShiftPalette.accent)
             HStack(spacing: 0) {
                 statCell(
-                    value: "\(vendor.eventsCompletedCount)",
+                    value: "\(stats?.eventsCompleted ?? vendor.eventsCompletedCount)",
                     label: String(localized: "Events completed")
                 )
                 Divider().frame(height: 36)
@@ -128,9 +139,36 @@ struct VendorPublicProfileView: View {
                         ? String(localized: "\(vendor.ratingCount) ratings")
                         : String(localized: "Rating")
                 )
+                if let reliability = stats?.reliabilityPct {
+                    Divider().frame(height: 36)
+                    statCell(
+                        value: "\(reliability)%",
+                        label: String(localized: "On-time finish")
+                    )
+                }
+            }
+            if let repeatCount = stats?.repeatPlannerCount, repeatCount > 0 {
+                Label(
+                    String(localized: "\(repeatCount) repeat \(repeatCount == 1 ? "planner" : "planners")"),
+                    systemImage: "arrow.triangle.2.circlepath"
+                )
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
         }
         .proCard()
+    }
+
+    /// Compact header rating: a star, the average, and the count.
+    private func aggregateRating(avg: Double, count: Int) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "star.fill").foregroundStyle(ShiftPalette.accent)
+            Text(avg.formatted(.number.precision(.fractionLength(1))))
+                .font(.subheadline.weight(.semibold))
+            Text("(\(count))").font(.caption).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Rated \(avg.formatted(.number.precision(.fractionLength(1)))) from \(count) reviews"))
     }
 
     private func statCell(value: String, label: String) -> some View {
@@ -226,6 +264,88 @@ struct VendorPublicProfileView: View {
         .proCard(padding: 12)
     }
 
+    // MARK: Reviews
+
+    @ViewBuilder
+    private var reviewsSection: some View {
+        if !reviews.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(String(localized: "Reviews")).microLabel()
+                ForEach(reviews) { review in
+                    reviewCard(review)
+                }
+                if canLoadMoreReviews {
+                    Button {
+                        Task { await loadMoreReviews() }
+                    } label: {
+                        if isLoadingMoreReviews {
+                            ProgressView().frame(maxWidth: .infinity)
+                        } else {
+                            Text(String(localized: "Show more reviews"))
+                                .font(.subheadline.weight(.medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isLoadingMoreReviews)
+                }
+            }
+            .accessibilityIdentifier(AccessibilityID.Marketplace.reviewsList)
+        }
+    }
+
+    private func reviewCard(_ review: VendorReviewDTO) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(review.reviewerName).font(.subheadline.weight(.semibold))
+                    starsRow(review.rating)
+                }
+                Spacer()
+                // UGC safety: report/block the review's author (Apple 1.2).
+                VendorSafetyMenu(
+                    subjectProfileID: review.reviewerID,
+                    subjectName: review.reviewerName,
+                    contentType: .review,
+                    contentID: review.id
+                )
+            }
+            if !review.body.isEmpty {
+                Text(review.body)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let footer = eventFooter(title: review.eventTitle, date: review.eventDate?.value) {
+                Text(footer)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .proCard(padding: 14)
+    }
+
+    /// "Event Title · Jan 1, 2026", omitting whichever part is missing.
+    private func eventFooter(title: String?, date: Date?) -> String? {
+        let name = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let dateText = date.map { $0.formatted(date: .abbreviated, time: .omitted) }
+        let parts = [name?.isEmpty == false ? name : nil, dateText].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private func starsRow(_ rating: Int) -> some View {
+        HStack(spacing: 2) {
+            ForEach(1...5, id: \.self) { star in
+                Image(systemName: star <= rating ? "star.fill" : "star")
+                    .font(.caption2)
+                    .foregroundStyle(star <= rating ? ShiftPalette.accent : .secondary)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "\(rating) out of 5 stars"))
+    }
+
     // MARK: Data
 
     private func load() async {
@@ -237,6 +357,25 @@ struct VendorPublicProfileView: View {
         portfolio = (try? await service.portfolioItems(profileID: profileID)) ?? []
         let summaries = (try? await service.portfolioEventSummaries(profileID: profileID)) ?? []
         eventSummaries = Dictionary(summaries.map { ($0.eventID, $0) }, uniquingKeysWith: { first, _ in first })
+
+        // Verified stats + first page of reviews (best-effort; nil service = no-op).
+        if let reviewService {
+            stats = try? await reviewService.stats(profileID: profileID)
+        }
+        reviews = []
+        canLoadMoreReviews = true
+        await loadMoreReviews()
+    }
+
+    private func loadMoreReviews() async {
+        guard let reviewService, canLoadMoreReviews, !isLoadingMoreReviews else { return }
+        isLoadingMoreReviews = true
+        defer { isLoadingMoreReviews = false }
+        let page = (try? await reviewService.reviews(
+            vendorProfileID: profileID, limit: reviewPageSize, offset: reviews.count
+        )) ?? []
+        reviews.append(contentsOf: page)
+        canLoadMoreReviews = page.count == reviewPageSize
     }
 }
 

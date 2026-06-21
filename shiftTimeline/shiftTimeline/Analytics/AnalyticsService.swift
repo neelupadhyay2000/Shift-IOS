@@ -52,6 +52,10 @@ nonisolated enum AnalyticsService {
         case marketplaceContentReported = "marketplace.contentReported"
         case marketplaceUserBlocked = "marketplace.userBlocked"
 
+        // Verified reviews (E17): a planner submitted/edited a vendor review.
+        // Carries only the `rating` dimension — never the free-text body.
+        case marketplaceReviewSubmitted = "marketplace.reviewSubmitted"
+
         // User template lifecycle + community tease funnel: lifecycle signals
         // carry only counts (never template names — user-entered, may be PII);
         // the teaser signal measures demand ahead of community templates.

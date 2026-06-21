@@ -43,7 +43,7 @@ extension EventModel {
 extension EventDTO {
     /// Builds a fresh `EventModel` carrying this row's scalar fields.
     /// Relationships are wired separately (events are graph roots and have none).
-    func makeModel() -> EventModel {
+    nonisolated func makeModel() -> EventModel {
         let model = EventModel(
             title: title,
             date: date.value,
@@ -57,7 +57,7 @@ extension EventDTO {
     /// Overwrites `model`'s scalar fields from this row (upsert by id).
     /// `lastShiftedAt` and write-side sync metadata have no local column and are
     /// intentionally not applied.
-    func apply(to model: EventModel) {
+    nonisolated func apply(to model: EventModel) {
         model.id = id
         model.ownerId = ownerID
         model.title = title

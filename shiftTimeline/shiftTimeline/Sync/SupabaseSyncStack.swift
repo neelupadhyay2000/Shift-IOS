@@ -120,9 +120,11 @@ final class SupabaseSyncStack: SessionSyncing {
         )
 
         // Pull: full hydration on session establishment; foreground delta catch-up.
+        // The applier runs on a background ModelContext (same container) so a full
+        // hydrate never blocks the main thread — pull-to-refresh stays smooth.
         hydrator = InitialHydrator(
             source: SupabaseHydrationSource(client: client),
-            context: context,
+            applier: BackgroundSnapshotApplier(modelContainer: context.container),
             diagnostics: diagnostics
         )
         delta = DeltaReconciler(

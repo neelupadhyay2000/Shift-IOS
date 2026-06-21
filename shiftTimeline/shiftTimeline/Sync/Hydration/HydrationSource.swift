@@ -90,15 +90,24 @@ nonisolated struct SupabaseHydrationSource: HydrationSource {
         )
     }
 
-    /// Paginated `select *` over `table`, ordered by `first` (plus any `rest`
-    /// columns) to form a stable total order for range paging.
+    /// Paginated `select *` over `table`, restricted to live rows
+    /// (`deleted_at is null`) and ordered by `first` (plus any `rest` columns) to
+    /// form a stable total order for range paging.
+    ///
+    /// The tombstone filter is what separates a full hydrate from the delta pull:
+    /// the delta deliberately *includes* `deleted_at` rows so the applier can turn
+    /// them into local deletes, but the hydrator is upsert-only (it never deletes),
+    /// so a tombstone in its snapshot would resurrect a row the user just deleted.
     private func fetch<Row: Decodable>(
         _ table: String,
         orderBy first: String,
         _ rest: String...
     ) async throws -> [Row] {
         try await paginate(pageSize: pageSize) { from, to in
-            var query = self.client.from(table).select().order(first)
+            var query = self.client.from(table)
+                .select()
+                .is("deleted_at", value: nil)
+                .order(first)
             for column in rest {
                 query = query.order(column)
             }
