@@ -36,7 +36,8 @@ struct PasscodeField: View {
 ///
 /// Face-ID-first: when enabled, the scan prompts immediately and the keypad
 /// only appears if it fails or is cancelled. "Forgot passcode?" signs out —
-/// identity is then re-proven with email OTP and a fresh passcode is created.
+/// identity is then re-proven with an OTP code (via the account's own method —
+/// email or phone) and a fresh passcode is created.
 struct AppLockScreen: View {
     let appLock: AppLock
     /// Signs out to re-authenticate via OTP (the forgot-passcode escape hatch).
@@ -117,7 +118,24 @@ struct AppLockScreen: View {
             }
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
-            Text(String(localized: "You'll sign in again with an email code and create a new passcode. Events on this device are kept."))
+            Text(recoveryMessage)
+        }
+    }
+
+    /// Method-aware forgot-passcode copy — names the channel the account will
+    /// actually receive its code on. Defaults to email when unknown.
+    private var recoveryMessage: String {
+        switch AuthMethodStore.last ?? .email {
+        case .email:
+            String(localized: """
+            You'll sign in again with an email code and create a new passcode. \
+            Events on this device are kept.
+            """)
+        case .phone:
+            String(localized: """
+            You'll sign in again with a text-message code and create a new passcode. \
+            Events on this device are kept.
+            """)
         }
     }
 
@@ -203,7 +221,10 @@ struct PasscodeSetupView: View {
                 )
                 .font(.title.bold())
                 .foregroundStyle(.white)
-                Text(String(localized: "You'll use this 6-digit passcode to open SHIFT — no more email codes on this device."))
+                Text(String(localized: """
+                You'll use this 6-digit passcode to open SHIFT — \
+                no more sign-in codes on this device.
+                """))
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.75))
             }

@@ -85,6 +85,28 @@ struct SignInPrimaryButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Secondary CTA style
+
+/// Translucent secondary action used alongside ``SignInPrimaryButtonStyle`` —
+/// same shape and metrics as the primary CTA so the buttons stack as a
+/// consistent set, but quieter (white-on-glass) to preserve hierarchy.
+struct SignInSecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.white.opacity(isEnabled ? 1 : 0.5))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(
+                .white.opacity(0.14),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .opacity(configuration.isPressed ? 0.85 : 1)
+    }
+}
+
 // MARK: - Input field surface
 
 /// Translucent input surface that reads as a field against the indigo wash.

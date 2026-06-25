@@ -127,6 +127,14 @@ enum AccessibilityID {
         static let upgradeButton = "launch_promo.upgrade_button"
     }
 
+    // MARK: - Complete Profile (CompleteProfileView)
+
+    enum CompleteProfile {
+        static let nameField    = "complete_profile.name_field"
+        static let emailField   = "complete_profile.email_field"
+        static let submitButton = "complete_profile.submit_button"
+    }
+
     // MARK: - Marketplace (MarketplaceTeaserView)
 
     enum Marketplace {

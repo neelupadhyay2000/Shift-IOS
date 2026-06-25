@@ -22,6 +22,16 @@ final class AppLock {
     private let store = PasscodeStore()
     private var isAuthenticating = false
 
+    /// Quick-access grace window. Returning to the foreground within this many
+    /// seconds of backgrounding skips re-auth, so planners running an event can
+    /// pop in and out (camera, texts, notes) without a Face ID / passcode every
+    /// time. Cold launch has no recorded background time, so it always re-auths.
+    private static let graceInterval: TimeInterval = 300  // 5 minutes
+
+    /// When the app last entered the background, or `nil` on a fresh launch /
+    /// once a foreground transition has consumed it.
+    private var lastBackgroundedAt: Date?
+
     /// Locked from process start whenever a passcode exists, so content is
     /// never visible on cold launch. UI test runs skip the lock entirely.
     private(set) var isLocked: Bool
@@ -102,10 +112,28 @@ final class AppLock {
 
     // MARK: - Lock / unlock
 
-    /// Re-locks when the app leaves the foreground.
+    /// Re-locks when the app leaves the foreground (also hiding content in the
+    /// app switcher) and stamps the time so a quick return can skip re-auth.
     func lockOnBackground() {
         guard hasPasscode, !shiftTimelineApp.isUITestMode else { return }
+        // Arm the quick-return grace ONLY if the user was actually inside the
+        // app (already unlocked). Backgrounding from the lock screen — e.g. on a
+        // cold launch before authenticating — must NOT grant a grace unlock, or
+        // app-switching would bypass authentication entirely.
+        if !isLocked { lastBackgroundedAt = Date() }
         isLocked = true
+    }
+
+    /// Foreground transition: if the user returns within ``graceInterval`` of
+    /// backgrounding, unlock silently (no Face ID / passcode). Beyond the
+    /// window — or on cold launch, where there's no stamp — the lock stands and
+    /// the lock screen authenticates as usual. The stamp is consumed either way.
+    func unlockOnForegroundIfWithinGrace() {
+        defer { lastBackgroundedAt = nil }
+        guard hasPasscode, isLocked, let backgroundedAt = lastBackgroundedAt else { return }
+        if Date().timeIntervalSince(backgroundedAt) < Self.graceInterval {
+            isLocked = false
+        }
     }
 
     /// Keypad path. Returns `false` (and stays locked) on a wrong code.
