@@ -47,6 +47,42 @@ struct SignInBrandBackground: View {
     }
 }
 
+// MARK: - Brand mark (the production SHIFT logo)
+
+/// The production SHIFT logo — the app icon's staggered timeline blocks threaded
+/// by a glowing bar, in vector so it stays crisp at any size. This is the same
+/// mark shown on the sign-in / sign-up screen and is the **canonical in-app
+/// logo**: reuse it for every brand moment (sign-in, paywall, onboarding)
+/// instead of ad-hoc text or icons. The multi-colour blocks are the brand
+/// identity and are intentionally exempt from the single-accent UI rule.
+/// Purely decorative — hidden from accessibility.
+struct ShiftBrandmark: View {
+    /// Overall height; all metrics scale from the 112pt sign-in reference.
+    var height: CGFloat = 112
+
+    var body: some View {
+        let unit = height / 112
+        HStack(spacing: 10 * unit) {
+            ForEach(Array(SignInPalette.blocks.enumerated()), id: \.offset) { index, color in
+                RoundedRectangle(cornerRadius: 9 * unit, style: .continuous)
+                    .fill(color.gradient)
+                    .frame(width: 36 * unit, height: (index.isMultiple(of: 2) ? 62 : 82) * unit)
+                    .offset(y: (index.isMultiple(of: 2) ? -9 : 9) * unit)
+                    .shadow(color: color.opacity(0.5), radius: 10 * unit, y: 2 * unit)
+            }
+        }
+        .overlay {
+            Capsule()
+                .fill(.white.opacity(0.92))
+                .frame(height: 6 * unit)
+                .padding(.horizontal, -12 * unit)
+                .shadow(color: .white.opacity(0.7), radius: 7 * unit)
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Step badge
 
 /// Lavender circular glyph marking each step of the flow (envelope → key).

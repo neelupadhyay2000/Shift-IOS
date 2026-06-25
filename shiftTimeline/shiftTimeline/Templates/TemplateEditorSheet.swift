@@ -184,7 +184,7 @@ private struct EditableTemplateBlockRow: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
-                .background(Color(hex: block.colorTag).gradient, in: Circle())
+                .background(Color(hex: block.colorTag), in: Circle())
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {

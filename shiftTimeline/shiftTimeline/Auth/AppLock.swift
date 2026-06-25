@@ -36,6 +36,12 @@ final class AppLock {
     /// never visible on cold launch. UI test runs skip the lock entirely.
     private(set) var isLocked: Bool
 
+    /// Privacy cover shown *only* while the app is backgrounded, so the
+    /// app-switcher snapshot never exposes content. Unlike ``isLocked`` it needs
+    /// no authentication and is cleared the instant the app returns — it exists
+    /// purely so a quick return doesn't have to flash the passcode screen.
+    private(set) var isObscured = false
+
     /// Mirrors the Keychain so the root gate can observe the transition
     /// out of `PasscodeSetupView` after the first sign-in.
     private(set) var hasPasscode: Bool
@@ -112,27 +118,31 @@ final class AppLock {
 
     // MARK: - Lock / unlock
 
-    /// Re-locks when the app leaves the foreground (also hiding content in the
-    /// app switcher) and stamps the time so a quick return can skip re-auth.
-    func lockOnBackground() {
+    /// Leaving the foreground. We deliberately do **not** lock here — locking
+    /// eagerly is what made the passcode screen flash on every quick return.
+    /// Instead we obscure the app-switcher snapshot for privacy and stamp the
+    /// time so the next foreground transition can decide whether to re-auth.
+    func enterBackground() {
         guard hasPasscode, !shiftTimelineApp.isUITestMode else { return }
-        // Arm the quick-return grace ONLY if the user was actually inside the
-        // app (already unlocked). Backgrounding from the lock screen — e.g. on a
-        // cold launch before authenticating — must NOT grant a grace unlock, or
-        // app-switching would bypass authentication entirely.
-        if !isLocked { lastBackgroundedAt = Date() }
-        isLocked = true
+        // If the lock screen is already up (cold launch, not yet authenticated),
+        // leave it up and do NOT stamp — returning must never grant a grace
+        // unlock, or app-switching would bypass authentication entirely.
+        guard !isLocked else { return }
+        lastBackgroundedAt = Date()
+        isObscured = true
     }
 
-    /// Foreground transition: if the user returns within ``graceInterval`` of
-    /// backgrounding, unlock silently (no Face ID / passcode). Beyond the
-    /// window — or on cold launch, where there's no stamp — the lock stands and
-    /// the lock screen authenticates as usual. The stamp is consumed either way.
-    func unlockOnForegroundIfWithinGrace() {
-        defer { lastBackgroundedAt = nil }
-        guard hasPasscode, isLocked, let backgroundedAt = lastBackgroundedAt else { return }
-        if Date().timeIntervalSince(backgroundedAt) < Self.graceInterval {
-            isLocked = false
+    /// Returning to the foreground. Drop the privacy cover, and require the
+    /// passcode **only** if the app was backgrounded beyond ``graceInterval``.
+    /// A quick return (within grace) goes straight back to the app — the lock
+    /// screen never appears. Cold launch has no stamp, so ``isLocked`` (set at
+    /// init) simply stands. The stamp is consumed either way.
+    func enterForeground() {
+        isObscured = false
+        guard hasPasscode, let backgroundedAt = lastBackgroundedAt else { return }
+        lastBackgroundedAt = nil
+        if Date().timeIntervalSince(backgroundedAt) >= Self.graceInterval {
+            isLocked = true
         }
     }
 

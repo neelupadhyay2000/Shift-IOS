@@ -30,7 +30,7 @@ struct OvertimeNudgeBanner: View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(ShiftPalette.warm)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 1) {

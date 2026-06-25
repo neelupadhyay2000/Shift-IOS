@@ -110,10 +110,10 @@ struct VendorSharingView: View {
         switch status {
         case .accepted:
             Label(String(localized: "Accepted"), systemImage: "checkmark.seal.fill")
-                .font(.caption2).foregroundStyle(.green)
+                .font(.caption2).foregroundStyle(ShiftPalette.live)
         case .invited:
             Label(String(localized: "Invited"), systemImage: "clock.fill")
-                .font(.caption2).foregroundStyle(.orange)
+                .font(.caption2).foregroundStyle(ShiftPalette.warm)
         case .notInvited:
             Label(String(localized: "Not invited"), systemImage: "circle")
                 .font(.caption2).foregroundStyle(.secondary)

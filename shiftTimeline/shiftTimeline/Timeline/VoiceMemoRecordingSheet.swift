@@ -314,7 +314,7 @@ struct VoiceMemoRecordingSheet: View {
             VStack(spacing: 12) {
                 Image(systemName: "waveform.badge.checkmark")
                     .font(.system(size: 56))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(ShiftPalette.live)
                     .accessibilityHidden(true)
 
                 Text(block.title)

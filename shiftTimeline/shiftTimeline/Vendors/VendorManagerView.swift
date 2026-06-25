@@ -49,7 +49,7 @@ struct VendorManagerView: View {
                                     role: vendor.role, customLabel: vendor.customRoleLabel
                                 )
                                 vendorRow(vendor)
-                                    .premiumCard(padding: 12)
+                                    .proCard(padding: 14)
                                     .contentShape(Rectangle())
                                     .onTapGesture { vendorToEdit = vendor }
                                     .accessibilityLabel(
@@ -59,7 +59,6 @@ struct VendorManagerView: View {
                                     )
                                     .accessibilityHint(String(localized: "Double-tap to edit"))
                                     .accessibilityAddTraits(.isButton)
-                                    .scrollFade()
                                     .contextMenu {
                                         NavigationLink {
                                             VendorNotificationSettingsView(vendor: vendor)
@@ -93,6 +92,7 @@ struct VendorManagerView: View {
             }
         }
         .navigationTitle(String(localized: "Vendors"))
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -151,38 +151,27 @@ struct VendorManagerView: View {
 
     @ViewBuilder
     private func vendorRow(_ vendor: VendorModel) -> some View {
-        let roleColor = ShiftDesign.roleColor(for: vendor.role)
         let blockCount = assignedBlockCount(for: vendor)
 
         HStack(spacing: 14) {
-            // Role icon — decorative; role is conveyed via the text badge below
-            Image(systemName: vendor.role.systemImage)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 42, height: 42)
-                .background(roleColor.gradient, in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
-                .symbolEffect(.bounce, value: vendor.id)
-                .accessibilityHidden(true)
+            // Role identity reads from the SF Symbol + label, not hue (single accent).
+            ShiftIconTile(systemImage: vendor.role.systemImage, size: 42)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(vendor.name)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
+                    .font(.headline)
+                    .lineLimit(1)
 
                 HStack(spacing: 6) {
-                    Text(VendorRoleLabel.display(role: vendor.role, customLabel: vendor.customRoleLabel))
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(roleColor.opacity(0.12), in: Capsule())
-                        .foregroundStyle(roleColor)
+                    ShiftChip(
+                        VendorRoleLabel.display(role: vendor.role, customLabel: vendor.customRoleLabel),
+                        tint: ShiftPalette.neutral
+                    )
 
                     inviteStatusBadge(for: vendor)
 
                     if blockCount > 0 {
-                        Text("\(blockCount) blocks")
+                        Text(String(localized: "\(blockCount) blocks"))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
@@ -191,22 +180,7 @@ struct VendorManagerView: View {
 
             Spacer(minLength: 4)
 
-            // Contact info
-            VStack(alignment: .trailing, spacing: 3) {
-                if !vendor.phone.isEmpty {
-                    Label(vendor.phone, systemImage: "phone.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if !vendor.email.isEmpty {
-                    Label(vendor.email, systemImage: "envelope.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .lineLimit(1)
-
-            phoneButton(for: vendor)
+            contactButton(for: vendor)
         }
     }
 
@@ -216,41 +190,44 @@ struct VendorManagerView: View {
         case .accepted:
             Image(systemName: "checkmark.seal.fill")
                 .font(.caption2)
-                .foregroundStyle(.green)
+                .foregroundStyle(ShiftPalette.live)
                 .accessibilityLabel(String(localized: "Accepted invite"))
         case .invited:
             Image(systemName: "clock.fill")
                 .font(.caption2)
-                .foregroundStyle(.orange)
+                .foregroundStyle(ShiftPalette.warm)
                 .accessibilityLabel(String(localized: "Invite pending"))
         case .notInvited:
             EmptyView()
         }
     }
 
+    /// Single trailing contact action — calls the vendor when a phone number is
+    /// present (and the device can dial), otherwise emails them. Hidden entirely
+    /// when there's neither, so the row stays clean.
     @ViewBuilder
-    private func phoneButton(for vendor: VendorModel) -> some View {
+    private func contactButton(for vendor: VendorModel) -> some View {
         let canCall = canMakePhoneCalls && !vendor.phone.isEmpty
-        let roleColor = ShiftDesign.roleColor(for: vendor.role)
-        Button {
-            callVendor(vendor)
-        } label: {
-            Image(systemName: "phone.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(canCall ? roleColor : .gray)
-                .frame(width: phoneButtonSize, height: phoneButtonSize)
-                .background(
-                    canCall ? roleColor.opacity(0.12) : Color.gray.opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                )
-                .accessibilityHidden(true)
+        let canEmail = !vendor.email.isEmpty
+        if canCall || canEmail {
+            Button {
+                if canCall { callVendor(vendor) } else { emailVendor(vendor) }
+            } label: {
+                Image(systemName: canCall ? "phone.fill" : "envelope.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(canCall ? Color.white : ShiftPalette.accent)
+                    .frame(width: phoneButtonSize, height: phoneButtonSize)
+                    .background(
+                        canCall ? AnyShapeStyle(ShiftPalette.accent) : AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)),
+                        in: Circle()
+                    )
+                    .accessibilityHidden(true)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(canCall
+                ? String(localized: "Call \(vendor.name)")
+                : String(localized: "Email \(vendor.name)"))
         }
-        .buttonStyle(.plain)
-        .disabled(!canCall)
-        .accessibilityLabel(canCall
-            ? String(localized: "Call \(vendor.name)")
-            : String(localized: "Call unavailable"))
-        .accessibilityHint(canCall ? "" : String(localized: "No phone number on file or device cannot make calls"))
     }
 
     private var canMakePhoneCalls: Bool {
@@ -265,6 +242,12 @@ struct VendorManagerView: View {
     private func callVendor(_ vendor: VendorModel) {
         let digits = vendor.phone.filter { $0.isNumber || $0 == "+" }
         guard !digits.isEmpty, let url = URL(string: "tel://\(digits)") else { return }
+        openURL(url)
+    }
+
+    private func emailVendor(_ vendor: VendorModel) {
+        let address = vendor.email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.isEmpty, let url = URL(string: "mailto:\(address)") else { return }
         openURL(url)
     }
 

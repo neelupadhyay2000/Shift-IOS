@@ -125,7 +125,7 @@ struct TimeBlockRowView: View {
             .font(.system(size: glyphSize, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(accentColor.gradient, in: Circle())
+            .background(accentColor, in: Circle())
             .overlay(Circle().strokeBorder(.white.opacity(0.15), lineWidth: 0.5))
             .symbolEffect(.bounce, value: isPinned)
             .accessibilityHidden(true)

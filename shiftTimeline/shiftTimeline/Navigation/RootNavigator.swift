@@ -54,6 +54,12 @@ enum TemplateDestination: Hashable {
     case timelineBuilder(eventID: UUID)
 }
 
+/// Typed push destinations for the Settings stack — lets the Marketplace deep-link
+/// straight to the vendor / marketplace settings instead of the Settings root.
+enum SettingsDestination: Hashable {
+    case vendorSettings
+}
+
 // MARK: - RootNavigator
 
 /// Adaptive root navigator.
@@ -90,6 +96,7 @@ struct RootNavigator: View {
     @State private var eventPath: [EventDestination] = []
     @State private var marketplacePath: [MarketplaceDestination] = []
     @State private var templatePath: [TemplateDestination] = []
+    @State private var settingsPath: [SettingsDestination] = []
 
     // iPad detail stack path — driven by whichever sidebar tab is active.
     @State private var detailPath: [EventDestination] = []
@@ -133,7 +140,7 @@ struct RootNavigator: View {
 
             // Marketplace tab
             NavigationStack(path: $marketplacePath) {
-                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { selectTab(.settings) })
+                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { openVendorSettings() })
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -153,8 +160,11 @@ struct RootNavigator: View {
             .tag(Tab.templates)
 
             // Settings tab
-            NavigationStack {
+            NavigationStack(path: $settingsPath) {
                 SettingsView()
+                    .navigationDestination(for: SettingsDestination.self) { destination in
+                        settingsDestinationView(for: destination)
+                    }
             }
             .tabItem { Label(Tab.settings.rawValue, systemImage: Tab.settings.systemImage) }
             .tag(Tab.settings)
@@ -243,7 +253,7 @@ struct RootNavigator: View {
             }
         case .marketplace:
             NavigationStack(path: $marketplacePath) {
-                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { selectTab(.settings) })
+                MarketplaceHomeView(path: $marketplacePath, onOpenVendorSettings: { openVendorSettings() })
                     .navigationDestination(for: MarketplaceDestination.self) { destination in
                         marketplaceDestinationView(for: destination)
                     }
@@ -256,8 +266,11 @@ struct RootNavigator: View {
                     }
             }
         case .settings:
-            NavigationStack {
+            NavigationStack(path: $settingsPath) {
                 SettingsView()
+                    .navigationDestination(for: SettingsDestination.self) { destination in
+                        settingsDestinationView(for: destination)
+                    }
             }
         }
     }
@@ -303,6 +316,21 @@ struct RootNavigator: View {
     private func selectTab(_ tab: Tab) {
         selectedTab = tab
         sidebarSelection = tab
+    }
+
+    /// Deep-links to the vendor / marketplace settings (not the Settings root) —
+    /// used by the Marketplace's "become a vendor" nudge and the vendor dashboard.
+    private func openVendorSettings() {
+        selectTab(.settings)
+        settingsPath = [.vendorSettings]
+    }
+
+    @ViewBuilder
+    private func settingsDestinationView(for destination: SettingsDestination) -> some View {
+        switch destination {
+        case .vendorSettings:
+            VendorSettingsView()
+        }
     }
 
     // MARK: - Destination routing

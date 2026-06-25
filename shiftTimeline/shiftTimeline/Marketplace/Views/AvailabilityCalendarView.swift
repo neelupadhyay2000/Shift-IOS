@@ -116,7 +116,7 @@ struct AvailabilityCalendarView: View {
     }
 
     private func cellBackground(booked: Bool, manual: Bool) -> AnyShapeStyle {
-        if booked { return AnyShapeStyle(ShiftPalette.accent.gradient) }
+        if booked { return AnyShapeStyle(ShiftPalette.accent) }
         if manual { return AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)) }
         return AnyShapeStyle(ShiftPalette.soft(ShiftPalette.neutral))
     }
@@ -130,7 +130,7 @@ struct AvailabilityCalendarView: View {
     private var legend: some View {
         HStack(spacing: 16) {
             legendItem(color: ShiftPalette.soft(ShiftPalette.accent), label: String(localized: "Busy"))
-            legendItem(color: AnyShapeStyle(ShiftPalette.accent.gradient), label: String(localized: "Booked (locked)"))
+            legendItem(color: AnyShapeStyle(ShiftPalette.accent), label: String(localized: "Booked (locked)"))
             Spacer()
         }
         .font(.caption2)

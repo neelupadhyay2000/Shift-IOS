@@ -75,7 +75,7 @@ struct InboxView: View {
     }
 
     private func row(_ item: Item) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 RequestEventSnapshot(
                     title: item.request.eventTitle,
@@ -86,6 +86,7 @@ struct InboxView: View {
                 RequestStatusChip(status: item.request.status)
                 Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
             }
+            Divider().opacity(0.5)
             Label(
                 item.incoming ? String(localized: "Request for your services") : String(localized: "You requested a vendor"),
                 systemImage: item.incoming ? "tray.and.arrow.down" : "paperplane"

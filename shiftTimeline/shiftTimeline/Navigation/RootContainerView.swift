@@ -48,32 +48,47 @@ struct RootContainerView: View {
             .fullScreenCover(isPresented: .init(
                 // Demo Mode bypasses the access layer — there is no account
                 // passcode behind a local sandbox.
-                get: { appLock.isLocked && !demoSession.isActive },
+                get: { (appLock.isLocked || appLock.isObscured) && !demoSession.isActive },
                 set: { _ in }
             )) {
-                AppLockScreen(appLock: appLock) {
-                    Task {
-                        // Delete the account's passcode record first — the
-                        // session is still valid (only the UI is locked) —
-                        // so the post-OTP restore can't reinstall the
-                        // forgotten passcode. Then sign out to re-prove
-                        // identity by email.
-                        if let profileID = authService.currentProfileID {
-                            let sync = PasscodeSyncService(client: SupabaseClientProvider.shared.client)
-                            try? await sync.deleteRecord(profileID: profileID)
+                if appLock.isLocked {
+                    AppLockScreen(appLock: appLock) {
+                        Task {
+                            // Delete the account's passcode record first — the
+                            // session is still valid (only the UI is locked) —
+                            // so the post-OTP restore can't reinstall the
+                            // forgotten passcode. Then sign out to re-prove
+                            // identity by email.
+                            if let profileID = authService.currentProfileID {
+                                let sync = PasscodeSyncService(client: SupabaseClientProvider.shared.client)
+                                try? await sync.deleteRecord(profileID: profileID)
+                            }
+                            try? await authService.signOut()
                         }
-                        try? await authService.signOut()
                     }
+                    .interactiveDismissDisabled()
+                } else {
+                    // Backgrounded but still within the grace window: a brand
+                    // privacy cover for the app-switcher snapshot only. It needs
+                    // no auth and is removed without animation on return (see the
+                    // scenePhase handler) so a quick return never flashes a lock.
+                    AppLockPrivacyCover()
                 }
-                .interactiveDismissDisabled()
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background {
-                    appLock.lockOnBackground()
-                } else if phase == .active {
-                    // Quick-access grace: a fast return (within 5 min) skips
-                    // re-auth so planners aren't Face-ID'd every few seconds.
-                    appLock.unlockOnForegroundIfWithinGrace()
+                switch phase {
+                case .background:
+                    // Don't lock here — obscure the snapshot and stamp the time.
+                    appLock.enterBackground()
+                case .active:
+                    // Drop the privacy cover with animations disabled so a quick
+                    // return (within the 5-min grace) reveals the app instantly.
+                    // The passcode lock only appears when the grace was exceeded.
+                    var noAnimation = Transaction()
+                    noAnimation.disablesAnimations = true
+                    withTransaction(noAnimation) { appLock.enterForeground() }
+                default:
+                    break
                 }
             }
             // Foreground shift pushes are suppressed as system notifications and
@@ -198,5 +213,21 @@ struct RootContainerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { SignInBrandBackground() }
+    }
+}
+
+/// Brand privacy cover shown over everything (including any open sheets) while
+/// the app is backgrounded, so the app-switcher snapshot never exposes content.
+/// Reuses the sign-in brand wash + the production SHIFT mark so it reads as the
+/// app's own launch splash, not a passcode prompt. Removed without animation on
+/// return (see the ``RootContainerView`` scenePhase handler), so a quick return
+/// never flashes the lock screen.
+private struct AppLockPrivacyCover: View {
+    var body: some View {
+        ZStack {
+            SignInBrandBackground()
+            ShiftBrandmark(height: 84)
+        }
+        .accessibilityHidden(true)
     }
 }

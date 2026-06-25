@@ -158,7 +158,7 @@ struct WaitlistSignupSheet: View {
                             .foregroundStyle(isSelected ? .white : ShiftPalette.accent)
                             .frame(width: 44, height: 44)
                             .background(
-                                isSelected ? ShiftPalette.accent.gradient : Color.clear.gradient,
+                                isSelected ? ShiftPalette.accent : Color.clear,
                                 in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
                             )
                             .background(
@@ -220,7 +220,7 @@ struct WaitlistSignupSheet: View {
                     .frame(maxWidth: .infinity)
                     .foregroundStyle(isSelected ? .white : roleColor)
                     .background(
-                        isSelected ? roleColor.gradient : ShiftPalette.soft(roleColor).gradient,
+                        isSelected ? roleColor : ShiftPalette.soft(roleColor),
                         in: Capsule()
                     )
                     .overlay(
@@ -257,7 +257,7 @@ struct WaitlistSignupSheet: View {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.pressableCard)
         .disabled(phase == .submitting)
@@ -289,7 +289,7 @@ struct WaitlistSignupSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        ShiftPalette.accent.gradient,
+                        ShiftPalette.accent,
                         in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                     )
             }

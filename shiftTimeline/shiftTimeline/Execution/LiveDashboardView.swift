@@ -710,7 +710,7 @@ private struct _LiveDashboardContent: View {
 
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 72))
-                .foregroundStyle(.green)
+                .foregroundStyle(ShiftPalette.live)
                 .symbolEffect(.bounce, value: isEventComplete)
                 .accessibilityHidden(true)
 
@@ -756,7 +756,7 @@ private struct _LiveDashboardContent: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(.green, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(ShiftPalette.live, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 20)

@@ -180,7 +180,7 @@ struct RequestComposerView: View {
                 else { Text(String(localized: "Send request")).font(.headline) }
             }
             .foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
-            .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.pressableCard)
         .disabled(isSending || selectedEvent == nil || service == nil)

@@ -82,7 +82,7 @@ struct MyVendorProfileEditorView: View {
                     Text(String(localized: "I agree & continue"))
                         .font(.headline).foregroundStyle(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, 14)
-                        .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.pressableCard)
             }
@@ -208,7 +208,7 @@ struct MyVendorProfileEditorView: View {
                             .padding(.horizontal, 12).padding(.vertical, 9)
                             .frame(maxWidth: .infinity)
                             .foregroundStyle(isSelected ? .white : color)
-                            .background(isSelected ? AnyShapeStyle(color.gradient) : AnyShapeStyle(ShiftPalette.soft(color)), in: Capsule())
+                            .background(isSelected ? AnyShapeStyle(color) : AnyShapeStyle(ShiftPalette.soft(color)), in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
@@ -274,7 +274,7 @@ struct MyVendorProfileEditorView: View {
                 else { Text(String(localized: "Save")).font(.headline) }
             }
             .foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
-            .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.pressableCard)
         .disabled(phase == .saving)

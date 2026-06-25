@@ -107,13 +107,19 @@ struct RequestThreadView: View {
             if isMine { Spacer(minLength: 40) }
             VStack(alignment: isMine ? .trailing : .leading, spacing: 3) {
                 Text(message.body)
-                    .font(.subheadline)
-                    .foregroundStyle(isMine ? .white : .primary)
-                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .font(.callout)
+                    .foregroundStyle(isMine ? Color.white : Color.primary)
+                    .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(
-                        isMine ? AnyShapeStyle(ShiftPalette.accent.gradient)
-                               : AnyShapeStyle(ShiftPalette.soft(ShiftPalette.neutral)),
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        isMine ? AnyShapeStyle(ShiftPalette.accent)
+                               : AnyShapeStyle(Color.primary.opacity(0.08)),
+                        in: UnevenRoundedRectangle(
+                            topLeadingRadius: isMine ? 18 : 5,
+                            bottomLeadingRadius: 18,
+                            bottomTrailingRadius: 18,
+                            topTrailingRadius: isMine ? 5 : 18,
+                            style: .continuous
+                        )
                     )
                 Text(message.createdAt.value.formatted(date: .omitted, time: .shortened))
                     .font(.caption2).foregroundStyle(.tertiary)
@@ -156,14 +162,14 @@ struct RequestThreadView: View {
             HStack(spacing: 10) {
                 Button { Task { await respond(accept: false) } } label: {
                     Text(String(localized: "Decline")).font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .background(ShiftPalette.soft(ShiftPalette.neutral), in: Capsule())
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(ShiftPalette.soft(ShiftPalette.neutral), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.pressableCard)
                 Button { Task { await respond(accept: true) } } label: {
                     Text(String(localized: "Accept")).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .background(ShiftPalette.live.gradient, in: Capsule())
+                        .frame(maxWidth: .infinity).padding(.vertical, 12)
+                        .background(ShiftPalette.live, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.pressableCard)
             }
@@ -171,8 +177,8 @@ struct RequestThreadView: View {
         } else {
             Button(role: .destructive) { Task { await cancelRequest() } } label: {
                 Text(String(localized: "Cancel request")).font(.subheadline.weight(.semibold)).foregroundStyle(.red)
-                    .frame(maxWidth: .infinity).padding(.vertical, 10)
-                    .background(ShiftPalette.soft(.red), in: Capsule())
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
+                    .background(ShiftPalette.soft(.red), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.pressableCard)
             .disabled(isWorking)
@@ -180,16 +186,22 @@ struct RequestThreadView: View {
     }
 
     private var composer: some View {
-        HStack(spacing: 10) {
+        let canSend = !composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && messaging != nil
+        return HStack(spacing: 10) {
             TextField(String(localized: "Message"), text: $composerText, axis: .vertical)
                 .lineLimit(1...4)
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(ShiftPalette.soft(ShiftPalette.neutral), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .padding(.horizontal, 16).padding(.vertical, 9)
+                .background(Color.primary.opacity(0.06), in: Capsule())
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 1))
             Button { send() } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(ShiftPalette.accent.opacity(canSend ? 1 : 0.4), in: Circle())
             }
-            .disabled(composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || messaging == nil)
-            .tint(ShiftPalette.accent)
+            .buttonStyle(.plain)
+            .disabled(!canSend)
         }
     }
 

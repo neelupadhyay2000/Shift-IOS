@@ -92,7 +92,7 @@ struct VendorTeamEditorSheet: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 30, height: 30)
-                .background(roleColor.gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(roleColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
