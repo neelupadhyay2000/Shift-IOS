@@ -4,10 +4,9 @@ import SwiftData
 
 /// `RepositoryProviding` bundle that writes every mutation to the local
 /// SwiftData store and appends an ``OutboxEntry`` for the offline SyncEngine to
-/// replay. This is the offline-first production write path — the successor to
-/// `WriteThroughRepositoryProvider`, which mirrored to Supabase inline (online
-/// only). The remote half now lives in the flush, which drains the
-/// queue FIFO when connectivity returns.
+/// replay. This is the offline-first production write path: writes never touch
+/// the network synchronously. The remote half lives in the flush, which drains
+/// the queue FIFO when connectivity returns.
 ///
 /// Compose it from the local provider plus the current-profile resolver used to
 /// stamp `events.owner_id` into enqueued payloads:

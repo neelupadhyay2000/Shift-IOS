@@ -79,14 +79,27 @@ nonisolated struct SupabaseHydrationSource: HydrationSource {
     }
 
     func fetchSnapshot() async throws -> HydrationSnapshot {
-        HydrationSnapshot(
-            events: try await fetch("events", orderBy: "id"),
-            tracks: try await fetch("tracks", orderBy: "id"),
-            blocks: try await fetch("blocks", orderBy: "id"),
-            vendors: try await fetch("event_vendors", orderBy: "id"),
-            blockVendors: try await fetch("block_vendors", orderBy: "block_id", "event_vendor_id"),
-            blockDependencies: try await fetch("block_dependencies", orderBy: "block_id", "depends_on_block_id"),
-            shiftRecords: try await fetch("shift_records", orderBy: "id")
+        // The seven table reads are independent — issue them concurrently instead
+        // of serially. Latency drops from the sum of round-trips to the slowest
+        // single one (the dominant cost of a full hydrate on every sign-in /
+        // pull-to-refresh). The result is identical: each `try await` below still
+        // surfaces the first error and the snapshot is assembled the same way.
+        async let events = fetch("events", orderBy: "id") as [EventDTO]
+        async let tracks = fetch("tracks", orderBy: "id") as [TrackDTO]
+        async let blocks = fetch("blocks", orderBy: "id") as [BlockDTO]
+        async let vendors = fetch("event_vendors", orderBy: "id") as [EventVendorDTO]
+        async let blockVendors = fetch("block_vendors", orderBy: "block_id", "event_vendor_id") as [BlockVendorDTO]
+        async let blockDependencies = fetch("block_dependencies", orderBy: "block_id", "depends_on_block_id") as [BlockDependencyDTO]
+        async let shiftRecords = fetch("shift_records", orderBy: "id") as [ShiftRecordDTO]
+
+        return HydrationSnapshot(
+            events: try await events,
+            tracks: try await tracks,
+            blocks: try await blocks,
+            vendors: try await vendors,
+            blockVendors: try await blockVendors,
+            blockDependencies: try await blockDependencies,
+            shiftRecords: try await shiftRecords
         )
     }
 
