@@ -175,6 +175,8 @@ struct BlockInspectorView: View {
                     dependenciesSection
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { ProBackground() }
             .disabled(isReadOnly)
             .navigationTitle(isReadOnly ? String(localized: "Block Details") : String(localized: "Edit Block"))
             .navigationBarTitleDisplayMode(.inline)

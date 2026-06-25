@@ -6,8 +6,7 @@ import Services
 // (optimistic, local-first) and then appends an `OutboxEntry` via the shared
 // `OutboxCoordinator`. Reads come straight from the local cache (the runtime
 // source of truth that `@Query` observes). Nothing here touches the network —
-// the SyncEngine flush drains the queue to Supabase later. This is
-// the offline replacement for the write-through layer.
+// the SyncEngine flush drains the queue to Supabase later.
 
 @MainActor
 struct OutboxEventRepository: EventRepositing {
@@ -15,8 +14,7 @@ struct OutboxEventRepository: EventRepositing {
     let coordinator: OutboxCoordinator
 
     func insert(_ event: EventModel) async throws {
-        try await local.insert(event)
-        coordinator.enqueueWrite(.insert, event)
+        try await coordinator.write(.insert, event) { try await local.insert(event) }
     }
 
     func fetch(id: UUID) async throws -> EventModel? {
@@ -28,8 +26,7 @@ struct OutboxEventRepository: EventRepositing {
     }
 
     func delete(_ event: EventModel) async throws {
-        try await local.delete(event)
-        coordinator.enqueueWrite(.delete, event)
+        try await coordinator.write(.delete, event) { try await local.delete(event) }
     }
 
     func save() async throws {
@@ -43,8 +40,7 @@ struct OutboxTrackRepository: TrackRepositing {
     let coordinator: OutboxCoordinator
 
     func insert(_ track: TimelineTrack, into event: EventModel) async throws {
-        try await local.insert(track, into: event)
-        coordinator.enqueueWrite(.insert, track)
+        try await coordinator.write(.insert, track) { try await local.insert(track, into: event) }
     }
 
     func fetch(id: UUID) async throws -> TimelineTrack? {
@@ -56,8 +52,7 @@ struct OutboxTrackRepository: TrackRepositing {
     }
 
     func delete(_ track: TimelineTrack) async throws {
-        try await local.delete(track)
-        coordinator.enqueueWrite(.delete, track)
+        try await coordinator.write(.delete, track) { try await local.delete(track) }
     }
 
     func save() async throws {
@@ -71,8 +66,7 @@ struct OutboxBlockRepository: BlockRepositing {
     let coordinator: OutboxCoordinator
 
     func insert(_ block: TimeBlockModel, into track: TimelineTrack) async throws {
-        try await local.insert(block, into: track)
-        coordinator.enqueueWrite(.insert, block)
+        try await coordinator.write(.insert, block) { try await local.insert(block, into: track) }
     }
 
     func fetch(id: UUID) async throws -> TimeBlockModel? {
@@ -84,8 +78,7 @@ struct OutboxBlockRepository: BlockRepositing {
     }
 
     func delete(_ block: TimeBlockModel) async throws {
-        try await local.delete(block)
-        coordinator.enqueueWrite(.delete, block)
+        try await coordinator.write(.delete, block) { try await local.delete(block) }
     }
 
     func save() async throws {
@@ -109,8 +102,7 @@ struct OutboxVendorRepository: VendorRepositing {
     let coordinator: OutboxCoordinator
 
     func insert(_ vendor: VendorModel, into event: EventModel) async throws {
-        try await local.insert(vendor, into: event)
-        coordinator.enqueueWrite(.insert, vendor)
+        try await coordinator.write(.insert, vendor) { try await local.insert(vendor, into: event) }
     }
 
     func fetch(id: UUID) async throws -> VendorModel? {
@@ -122,8 +114,7 @@ struct OutboxVendorRepository: VendorRepositing {
     }
 
     func delete(_ vendor: VendorModel) async throws {
-        try await local.delete(vendor)
-        coordinator.enqueueWrite(.delete, vendor)
+        try await coordinator.write(.delete, vendor) { try await local.delete(vendor) }
     }
 
     func save() async throws {
@@ -147,8 +138,7 @@ struct OutboxShiftRecordRepository: ShiftRecordRepositing {
     let coordinator: OutboxCoordinator
 
     func insert(_ record: ShiftRecord, into event: EventModel) async throws {
-        try await local.insert(record, into: event)
-        coordinator.enqueueWrite(.insert, record)
+        try await coordinator.write(.insert, record) { try await local.insert(record, into: event) }
     }
 
     func fetch(id: UUID) async throws -> ShiftRecord? {
@@ -160,8 +150,7 @@ struct OutboxShiftRecordRepository: ShiftRecordRepositing {
     }
 
     func delete(_ record: ShiftRecord) async throws {
-        try await local.delete(record)
-        coordinator.enqueueWrite(.delete, record)
+        try await coordinator.write(.delete, record) { try await local.delete(record) }
     }
 
     func save() async throws {

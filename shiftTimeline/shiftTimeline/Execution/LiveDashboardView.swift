@@ -72,12 +72,19 @@ struct LiveDashboardView: View {
             .sorted(by: { $0.scheduledStart < $1.scheduledStart })
     }
 
-    private var activeBlock: TimeBlockModel? {
+    /// Pure derivation of the active block from an already-sorted set. Shared by
+    /// the `activeBlock` convenience property and `body`, so a single render sorts
+    /// the blocks once and reuses the result instead of re-sorting per access.
+    private static func activeBlock(in sortedBlocks: [TimeBlockModel]) -> TimeBlockModel? {
         sortedBlocks.first(where: { $0.status == .active })
             ?? sortedBlocks.first(where: { $0.status != .completed })
     }
 
-    private var nextBlock: TimeBlockModel? {
+    /// Pure derivation of the next block from an already-sorted set + active block.
+    private static func nextBlock(
+        in sortedBlocks: [TimeBlockModel],
+        after activeBlock: TimeBlockModel?
+    ) -> TimeBlockModel? {
         guard let activeBlock,
               let activeIndex = sortedBlocks.firstIndex(where: { $0.id == activeBlock.id })
         else {
@@ -87,13 +94,24 @@ struct LiveDashboardView: View {
         return tail.first(where: { $0.status != .completed })
     }
 
+    private var activeBlock: TimeBlockModel? { Self.activeBlock(in: sortedBlocks) }
+
+    private var nextBlock: TimeBlockModel? {
+        let blocks = sortedBlocks
+        return Self.nextBlock(in: blocks, after: Self.activeBlock(in: blocks))
+    }
+
     // MARK: Body
 
     var body: some View {
-        _LiveDashboardContent(
+        // Sort once per render, then derive active/next from that single pass.
+        let blocks = sortedBlocks
+        let active = Self.activeBlock(in: blocks)
+        let next = Self.nextBlock(in: blocks, after: active)
+        return _LiveDashboardContent(
             event: event,
-            activeBlock: activeBlock,
-            nextBlock: nextBlock,
+            activeBlock: active,
+            nextBlock: next,
             isEventComplete: isEventComplete,
             isOwner: isOwner,
             viewerProfileID: isOwner ? nil : authService.currentProfileID,
@@ -710,7 +728,7 @@ private struct _LiveDashboardContent: View {
 
             Image(systemName: "checkmark.seal.fill")
                 .font(.system(size: 72))
-                .foregroundStyle(.green)
+                .foregroundStyle(ShiftPalette.live)
                 .symbolEffect(.bounce, value: isEventComplete)
                 .accessibilityHidden(true)
 
@@ -756,7 +774,7 @@ private struct _LiveDashboardContent: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(.green, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(ShiftPalette.live, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .foregroundStyle(.white)
             }
             .padding(.horizontal, 20)

@@ -15,11 +15,11 @@ enum OutboxOperation: String {
 /// mutation, so the offline ``SyncEngine`` flush can replay them to
 /// Supabase FIFO once connectivity returns.
 ///
-/// This is the offline analogue of `WriteThroughCoordinator`: where the
-/// write-through layer mirrored each write to Supabase *inline*, this layer
-/// records a durable, self-contained entry (table + row id + op + a DTO-encoded
-/// payload snapshot) and returns immediately. The local SwiftData write has
-/// already happened (local-first); the network is never on the user's path.
+/// Rather than mirror each write to Supabase *inline* (which would put the
+/// network on the user's path and fail offline), this layer records a durable,
+/// self-contained entry (table + row id + op + a DTO-encoded payload snapshot)
+/// and returns immediately. The local SwiftData write has already happened
+/// (local-first); the flush replays the queue to Supabase later.
 ///
 /// **Ordering / causality.** Each entry is stamped with a monotonic, gap-free
 /// ``OutboxEntry/sequence`` assigned here in enqueue order. Because the app
@@ -112,6 +112,22 @@ final class OutboxCoordinator {
             payload = nil
         }
         enqueue(op: op, table: "block_dependencies", rowID: block.id, payload: payload)
+    }
+
+    // MARK: - Local-first write choreography
+
+    /// Runs a local-first aggregate write, then records its outbox entry — the
+    /// "mutate the local store first, enqueue for replay second" rule that every
+    /// repository decorator's `insert`/`delete` shares. Centralizing it keeps that
+    /// ordering in one place so the decorators can't drift apart, and inherits
+    /// `enqueueWrite`'s no-op for unsynced types.
+    func write<M: PersistentModel>(
+        _ op: OutboxOperation,
+        _ model: M,
+        _ localWrite: () async throws -> Void
+    ) async rethrows {
+        try await localWrite()
+        enqueueWrite(op, model)
     }
 
     // MARK: - Save (edits + bypass-inserts)

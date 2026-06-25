@@ -88,7 +88,7 @@ struct VendorSearchResultsView: View {
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)
                 .foregroundStyle(activeFilterCount > 0 ? .white : ShiftPalette.accent)
-                .background(activeFilterCount > 0 ? AnyShapeStyle(ShiftPalette.accent.gradient) : AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)), in: Capsule())
+                .background(activeFilterCount > 0 ? AnyShapeStyle(ShiftPalette.accent) : AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent)), in: Capsule())
             }
             .buttonStyle(.pressableCard)
             .accessibilityIdentifier(AccessibilityID.Marketplace.filtersButton)
@@ -114,30 +114,47 @@ struct VendorSearchResultsView: View {
 
     private var filtersSheet: some View {
         NavigationStack {
-            Form {
-                Section(String(localized: "Category")) {
-                    Picker(String(localized: "Category"), selection: $selectedCategory) {
-                        Text(String(localized: "All")).tag(VendorRole?.none)
-                        ForEach([VendorRole.photographer, .dj, .planner, .caterer, .florist], id: \.self) { role in
-                            Text(role.displayName).tag(VendorRole?.some(role))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Category — pill chips (matches the reference).
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(String(localized: "Category")).microLabel()
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                categoryChip(nil, label: String(localized: "All"), systemImage: nil)
+                                ForEach([VendorRole.photographer, .dj, .planner, .caterer, .florist], id: \.self) { role in
+                                    categoryChip(role, label: role.displayName, systemImage: role.systemImage)
+                                }
+                            }
+                            .padding(.vertical, 2)
                         }
                     }
-                    .pickerStyle(.inline)
-                }
-                Section(String(localized: "Availability")) {
-                    Toggle(String(localized: "Filter by date"), isOn: Binding(
-                        get: { selectedDate != nil },
-                        set: { selectedDate = $0 ? (selectedDate ?? Date()) : nil }
-                    ))
-                    if selectedDate != nil {
-                        DatePicker(
-                            String(localized: "Available on"),
-                            selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
-                            displayedComponents: .date
-                        )
+
+                    // Availability — toggle + a month calendar (single date; our
+                    // backend's `p_on_date` is a single day, not a range).
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle(isOn: Binding(
+                            get: { selectedDate != nil },
+                            set: { selectedDate = $0 ? (selectedDate ?? Date()) : nil }
+                        )) {
+                            Text(String(localized: "Available on a date")).microLabel()
+                        }
+                        if selectedDate != nil {
+                            DatePicker(
+                                String(localized: "Available on"),
+                                selection: Binding(get: { selectedDate ?? Date() }, set: { selectedDate = $0 }),
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.graphical)
+                            .tint(ShiftPalette.accent)
+                            .proCard(padding: 8)
+                        }
                     }
                 }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .background { ProBackground() }
             .navigationTitle(String(localized: "Filters"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -150,6 +167,27 @@ struct VendorSearchResultsView: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// Selectable category pill — indigo when selected, quiet neutral otherwise.
+    private func categoryChip(_ role: VendorRole?, label: String, systemImage: String?) -> some View {
+        let isSelected = selectedCategory == role
+        return Button {
+            selectedCategory = role
+        } label: {
+            HStack(spacing: 6) {
+                if let systemImage { Image(systemName: systemImage).font(.caption) }
+                Text(label).font(.subheadline.weight(.medium))
+            }
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .foregroundStyle(isSelected ? ShiftPalette.accent : .secondary)
+            .background(
+                isSelected ? ShiftPalette.soft(ShiftPalette.accent) : ShiftPalette.soft(ShiftPalette.neutral),
+                in: Capsule()
+            )
+            .overlay(Capsule().strokeBorder(isSelected ? ShiftPalette.accent : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Results

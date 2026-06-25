@@ -44,7 +44,7 @@ struct VendorDashboardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(String(localized: "Welcome back")).font(.caption).foregroundStyle(.secondary)
+            Text(String(localized: "Welcome back")).microLabel()
             Text(businessName).font(.title2.weight(.bold)).lineLimit(1)
         }
     }

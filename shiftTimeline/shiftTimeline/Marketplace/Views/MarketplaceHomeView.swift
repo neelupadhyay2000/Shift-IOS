@@ -1,21 +1,21 @@
 import Models
 import SwiftUI
 
-/// Root of the Marketplace tab — a clean discovery + comms hub. Search & filter
-/// the vendor directory, browse by category, and open your unified Inbox
-/// (requests + messages). Everything about *your* listing (vendor profile,
-/// availability, portfolio, "show me in the marketplace") lives in Settings; a
-/// subtle nudge here deep-links non-vendors there.
+/// Root of the Marketplace tab — a clean discovery hub matching the reference:
+/// a large title, a pill search with a filter affordance, and category sections
+/// of horizontal, photo-forward vendor carousels ("View All" per category). The
+/// unified Inbox is a toolbar action; everything about *your* listing lives in
+/// Settings (a nudge deep-links non-vendors there).
 struct MarketplaceHomeView: View {
 
-    /// The Marketplace stack path, so the search field can push results
-    /// programmatically (category chips / cards use NavigationLink(value:)).
+    /// The Marketplace stack path, so search / filters / inbox can push.
     @Binding var path: [MarketplaceDestination]
     /// Switches to the Settings tab (all vendor/listing controls live there).
     var onOpenVendorSettings: () -> Void
 
     @Environment(\.marketplaceService) private var service
     @Environment(SupabaseAuthService.self) private var authService
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var searchText = ""
     @State private var featured: [VendorSearchResultDTO] = []
@@ -25,106 +25,158 @@ struct MarketplaceHomeView: View {
 
     private var isVendor: Bool { authService.isVendorAccount }
 
-    private let categories: [VendorRole] = [.photographer, .dj, .planner, .caterer, .florist]
-
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                // Account-type aware: a vendor sees their pro dashboard then browse;
-                // a planner shops (search + saved + browse).
+            VStack(alignment: .leading, spacing: 24) {
+                // A vendor sees their pro dashboard then browses; a planner shops.
                 if isVendor {
                     VendorDashboardView(onOpenVendorSettings: onOpenVendorSettings)
-                    browseHeader
-                    searchSection
-                    categorySection
-                    featuredSection
+                    searchField
+                    categoryCarousels
                 } else {
-                    searchSection
-                    inboxRow
+                    searchField
+                    if !saved.isEmpty { savedSection }
+                    categoryCarousels
                     becomeVendorNudge
-                    savedSection
-                    categorySection
-                    featuredSection
                 }
             }
-            .padding(20)
-            .frame(maxWidth: 640)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 28)
+            .frame(maxWidth: 760)
             .frame(maxWidth: .infinity)
         }
         .background { ProBackground() }
         .navigationTitle(String(localized: "Marketplace"))
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            if !isVendor {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { path.append(.inbox) } label: {
+                        Image(systemName: "tray.full")
+                    }
+                    .accessibilityIdentifier(AccessibilityID.Marketplace.inbox)
+                    .accessibilityLabel(String(localized: "Inbox"))
+                }
+            }
+        }
         .task { await load() }
         .refreshable { await load() }
     }
 
-    private var browseHeader: some View {
-        Text(String(localized: "Browse vendors")).microLabel()
-            .padding(.top, 4)
-    }
+    // MARK: Search (pill + filter)
 
-    // MARK: Saved (planner accounts)
-
-    @ViewBuilder
-    private var savedSection: some View {
-        if !saved.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(String(localized: "Saved vendors")).microLabel()
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        ForEach(saved) { result in
-                            NavigationLink(value: MarketplaceDestination.vendorProfile(profileID: result.profileID)) {
-                                VendorCard(result: result, isSaved: true, onToggleSave: { toggleSave(result.profileID) })
-                                    .frame(width: 260)
-                            }
-                            .buttonStyle(.pressableCard)
-                        }
-                    }
-                    .padding(.bottom, 2)
-                }
-            }
-            .accessibilityIdentifier(AccessibilityID.Marketplace.savedVendorsList)
-        }
-    }
-
-    // MARK: Search
-
-    private var searchSection: some View {
+    private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField(String(localized: "Search vendors"), text: $searchText)
+            TextField(String(localized: "Find venues, services, experts…"), text: $searchText)
                 .textInputAutocapitalization(.never)
                 .submitLabel(.search)
                 .onSubmit { runSearch() }
                 .accessibilityIdentifier(AccessibilityID.Marketplace.searchField)
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
-                }
-                .buttonStyle(.plain)
+            Button {
+                // The filter affordance opens the results screen, where the
+                // Filters & Sort sheet (category / date / ordering) lives.
+                path.append(.searchResults(
+                    query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+                    category: nil, onDate: nil
+                ))
+            } label: {
+                Image(systemName: "slider.horizontal.3").foregroundStyle(ShiftPalette.accent)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Filters"))
         }
-        .proCard(padding: 14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(colorScheme == .dark ? Color.white.opacity(0.06) : Color.white, in: Capsule())
+        .overlay(
+            Capsule().strokeBorder(
+                colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.07),
+                lineWidth: 1
+            )
+        )
     }
 
     private func runSearch() {
-        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        path.append(.searchResults(query: trimmed, category: nil, onDate: nil))
+        path.append(.searchResults(
+            query: searchText.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: nil, onDate: nil
+        ))
     }
 
-    // MARK: Inbox (requests + messages)
+    // MARK: Saved (planner accounts)
 
-    private var inboxRow: some View {
-        NavigationLink(value: MarketplaceDestination.inbox) {
-            toolRow(
-                icon: "tray.full.fill",
-                title: String(localized: "Inbox"),
-                subtitle: String(localized: "Event requests & messages"),
-                showsChevron: true
-            )
+    private var savedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader(String(localized: "Saved"), category: nil)
+            carousel(saved)
         }
-        .buttonStyle(.pressableCard)
-        .accessibilityIdentifier(AccessibilityID.Marketplace.inbox)
+        .accessibilityIdentifier(AccessibilityID.Marketplace.savedVendorsList)
+    }
+
+    // MARK: Category carousels (the reference's main content)
+
+    /// Featured vendors grouped into per-category carousels, ordered by category
+    /// name so the sections are stable across reloads.
+    private var groupedByCategory: [(category: String, vendors: [VendorSearchResultDTO])] {
+        Dictionary(grouping: featured, by: { $0.category })
+            .map { (category: $0.key, vendors: $0.value) }
+            .sorted { MarketplaceCategory.label($0.category) < MarketplaceCategory.label($1.category) }
+    }
+
+    @ViewBuilder
+    private var categoryCarousels: some View {
+        if isLoading {
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+        } else if featured.isEmpty {
+            ContentUnavailableView(
+                String(localized: "No vendors yet"),
+                systemImage: "storefront",
+                description: Text(String(localized: "Be the first to list your business — set it up in Settings."))
+            )
+        } else {
+            ForEach(groupedByCategory, id: \.category) { group in
+                VStack(alignment: .leading, spacing: 12) {
+                    sectionHeader(MarketplaceCategory.label(group.category), category: MarketplaceCategory.role(group.category))
+                    carousel(group.vendors)
+                }
+            }
+            .accessibilityIdentifier(AccessibilityID.Marketplace.featuredList)
+        }
+    }
+
+    private func sectionHeader(_ title: String, category: VendorRole?) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).microLabel()
+            Spacer(minLength: 8)
+            if let category {
+                NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: category, onDate: nil)) {
+                    Text(String(localized: "View All"))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ShiftPalette.accent)
+                }
+            }
+        }
+    }
+
+    private func carousel(_ vendors: [VendorSearchResultDTO]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(vendors) { result in
+                    NavigationLink(value: MarketplaceDestination.vendorProfile(profileID: result.profileID)) {
+                        VendorCard(
+                            result: result,
+                            isSaved: savedIDs.contains(result.profileID),
+                            onToggleSave: isVendor ? nil : { toggleSave(result.profileID) }
+                        )
+                        .frame(width: 300)
+                    }
+                    .buttonStyle(.pressableCard)
+                }
+            }
+            .padding(.bottom, 2)
+        }
     }
 
     // MARK: Become-a-vendor nudge (deep-links to Settings)
@@ -132,10 +184,7 @@ struct MarketplaceHomeView: View {
     private var becomeVendorNudge: some View {
         Button { onOpenVendorSettings() } label: {
             HStack(spacing: 12) {
-                Image(systemName: "storefront.fill")
-                    .foregroundStyle(ShiftPalette.accent)
-                    .frame(width: 36, height: 36)
-                    .background(ShiftPalette.soft(ShiftPalette.accent), in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
+                ShiftIconTile(systemImage: "storefront.fill")
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Offer your services?")).font(.subheadline.weight(.semibold))
                     Text(String(localized: "Switch to a vendor account in Settings.")).font(.caption).foregroundStyle(.secondary)
@@ -150,84 +199,6 @@ struct MarketplaceHomeView: View {
         .accessibilityIdentifier(AccessibilityID.Marketplace.becomeVendorButton)
     }
 
-    // MARK: Categories
-
-    private var categorySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(String(localized: "Browse by category")).microLabel()
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(categories, id: \.self) { role in
-                        NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: role, onDate: nil)) {
-                            let color = ShiftDesign.roleColor(for: role)
-                            HStack(spacing: 6) {
-                                Image(systemName: role.systemImage).font(.caption)
-                                Text(role.displayName).font(.subheadline.weight(.medium))
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 9)
-                            .foregroundStyle(color)
-                            .background(ShiftPalette.soft(color), in: Capsule())
-                        }
-                        .buttonStyle(.pressableCard)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-            .accessibilityIdentifier(AccessibilityID.Marketplace.categoryChips)
-        }
-    }
-
-    // MARK: Featured
-
-    private var featuredSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "Featured vendors")).microLabel()
-            if isLoading {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
-            } else if featured.isEmpty {
-                ContentUnavailableView(
-                    String(localized: "No vendors yet"),
-                    systemImage: "storefront",
-                    description: Text(String(localized: "Be the first to list your business — set it up in Settings."))
-                )
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 12)], spacing: 12) {
-                    ForEach(featured) { result in
-                        NavigationLink(value: MarketplaceDestination.vendorProfile(profileID: result.profileID)) {
-                            VendorCard(
-                                result: result,
-                                isSaved: savedIDs.contains(result.profileID),
-                                onToggleSave: isVendor ? nil : { toggleSave(result.profileID) }
-                            )
-                        }
-                        .buttonStyle(.pressableCard)
-                    }
-                }
-                .accessibilityIdentifier(AccessibilityID.Marketplace.featuredList)
-            }
-        }
-    }
-
-    private func toolRow(icon: String, title: String, subtitle: String, showsChevron: Bool) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .foregroundStyle(ShiftPalette.accent)
-                .frame(width: 36, height: 36)
-                .background(ShiftPalette.soft(ShiftPalette.accent), in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.subheadline.weight(.semibold))
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if showsChevron {
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-            }
-        }
-        .proCard()
-        .contentShape(Rectangle())
-    }
-
     // MARK: Data
 
     private func load() async {
@@ -236,7 +207,7 @@ struct MarketplaceHomeView: View {
         defer { isLoading = false }
         featured = (try? await service.searchVendors(
             query: nil, category: nil, latitude: nil, longitude: nil,
-            radiusKm: nil, limit: 10, offset: 0, onDate: nil, sort: nil
+            radiusKm: nil, limit: 24, offset: 0, onDate: nil, sort: nil
         )) ?? []
         // Planners: load their saved shortlist + heart state. (Vendors don't save.)
         if !isVendor {

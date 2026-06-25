@@ -2,6 +2,7 @@ import CoreLocation
 import SwiftUI
 import SwiftData
 import TipKit
+import Engine
 import Models
 import Services
 
@@ -127,17 +128,17 @@ struct TimelineBuilderView: View {
         return sortedBlocks.filter { $0.track?.id == trackID }
     }
 
-    private var hasPinnedBlock: Bool {
-        sortedBlocks.contains { $0.isPinned }
-    }
-
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
+        // Derive every sorted/filtered collection once per render (see TimelineSnapshot)
+        // and thread it through the content builders, instead of recomputing each
+        // derived property independently on every access.
+        let snapshot = TimelineSnapshot(event: event, selectedTrackID: selectedTrackID)
+        return VStack(spacing: 0) {
             // iPhone compact: show track tab bar when multiple tracks
-            if sizeClass == .compact && sortedTracks.count > 1 {
-                TrackTabBar(tracks: sortedTracks, selectedTrackID: $selectedTrackID)
+            if sizeClass == .compact && snapshot.sortedTracks.count > 1 {
+                TrackTabBar(tracks: snapshot.sortedTracks, selectedTrackID: $selectedTrackID)
                     .accessibilityIdentifier(AccessibilityID.Timeline.trackTabBar)
             }
 
@@ -150,30 +151,30 @@ struct TimelineBuilderView: View {
             Group {
                 if sizeClass == .compact {
                     // iPhone: single-track filtered view
-                    if filteredBlocks.isEmpty {
+                    if snapshot.filteredBlocks.isEmpty {
                         emptyState
                     } else if isEditing {
                         // Edit mode swaps the proportional canvas for a uniform,
                         // scrollable, natively reorderable list — reordering stays
                         // predictable regardless of block durations or time gaps.
-                        reorderListContent
+                        reorderListContent(snapshot)
                     } else {
-                        timelineContent
+                        timelineContent(snapshot)
                     }
                 } else {
                     // iPad: side-by-side multi-column view
-                    if sortedBlocks.isEmpty {
+                    if snapshot.sortedBlocks.isEmpty {
                         emptyState
                     } else {
-                        iPadMultiColumnContent
+                        iPadMultiColumnContent(snapshot)
                     }
                 }
             }
         }
         .onAppear {
-            if hasPinnedBlock { PinnedBlockTip.hasPinnedBlock = true }
+            if snapshot.hasPinnedBlock { PinnedBlockTip.hasPinnedBlock = true }
         }
-        .onChange(of: hasPinnedBlock) { _, newValue in
+        .onChange(of: snapshot.hasPinnedBlock) { _, newValue in
             if newValue { PinnedBlockTip.hasPinnedBlock = true }
         }
         .navigationTitle(event?.title ?? String(localized: "Timeline"))
@@ -222,7 +223,7 @@ struct TimelineBuilderView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
-        .onChange(of: venueFingerprint) { _, _ in
+        .onChange(of: snapshot.venueFingerprint) { _, _ in
             scanForVenueSwitches()
         }
         // iPad: trailing inspector panel
@@ -363,22 +364,6 @@ struct TimelineBuilderView: View {
 
     // MARK: - Timeline Content
 
-    /// Layout computed from the currently visible (filtered) blocks — used by iPhone.
-    private var layout: TimeRulerLayout {
-        .adaptive(blocks: filteredBlocks)
-    }
-
-    /// Layout computed from ALL blocks across ALL tracks — used by iPad
-    /// so the shared ruler spans the full time range.
-    private var sharedLayout: TimeRulerLayout {
-        .adaptive(blocks: sortedBlocks)
-    }
-
-    /// Pinned blocks for anchor markers.
-    private var pinnedBlocks: [TimeBlockModel] {
-        sortedBlocks.filter(\.isPinned)
-    }
-
     /// The next available start time: the end of the last block across all tracks,
     /// kept on the same calendar date as the event. Falls back to `Date.now` when
     /// no blocks exist yet.
@@ -406,7 +391,7 @@ struct TimelineBuilderView: View {
     }
 
     /// iPhone: single-track timeline with filter tabs.
-    private var timelineContent: some View {
+    private func timelineContent(_ snapshot: TimelineSnapshot) -> some View {
         ScrollView {
             TipView(reorderTip)
                 .padding(.horizontal, 16)
@@ -418,14 +403,14 @@ struct TimelineBuilderView: View {
             TipView(pinnedTip)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 4)
-                .task(id: hasPinnedBlock) {
-                    guard hasPinnedBlock else { return }
+                .task(id: snapshot.hasPinnedBlock) {
+                    guard snapshot.hasPinnedBlock else { return }
                     try? await Task.sleep(for: .seconds(5))
                     pinnedTip.invalidate(reason: .tipClosed)
                 }
 
-            let currentLayout = layout
-            let blocks = filteredBlocks
+            let currentLayout = TimeRulerLayout.adaptive(blocks: snapshot.filteredBlocks)
+            let blocks = snapshot.filteredBlocks
             let maxYMap = nextBlockYMap(for: blocks, layout: currentLayout)
 
             ZStack(alignment: .topLeading) {
@@ -439,7 +424,7 @@ struct TimelineBuilderView: View {
                 }
 
                 // Pinned block anchor lines
-                PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                PinnedAnchorView(pinnedBlocks: snapshot.pinnedBlocks, layout: currentLayout)
                     .accessibilityHidden(true)
 
                 // Golden hour / sunset markers — accessible via VoiceOver
@@ -454,7 +439,7 @@ struct TimelineBuilderView: View {
                         layout: currentLayout,
                         suppressedDates: (
                             [event?.goldenHourStart, event?.sunsetTime].compactMap { $0 }
-                            + pinnedBlocks.map(\.scheduledStart)
+                            + snapshot.pinnedBlocks.map(\.scheduledStart)
                         )
                     )
                     .accessibilityHidden(true)
@@ -480,9 +465,9 @@ struct TimelineBuilderView: View {
     }
 
     /// iPad: multi-column layout with shared time ruler and side-by-side track columns.
-    private var iPadMultiColumnContent: some View {
+    private func iPadMultiColumnContent(_ snapshot: TimelineSnapshot) -> some View {
         ScrollView {
-            let currentLayout = sharedLayout
+            let currentLayout = TimeRulerLayout.adaptive(blocks: snapshot.sortedBlocks)
 
             ZStack(alignment: .topLeading) {
                 // Full-width hour guide lines — decorative only
@@ -495,7 +480,7 @@ struct TimelineBuilderView: View {
                 }
 
                 // Pinned block anchor lines
-                PinnedAnchorView(pinnedBlocks: pinnedBlocks, layout: currentLayout)
+                PinnedAnchorView(pinnedBlocks: snapshot.pinnedBlocks, layout: currentLayout)
                     .accessibilityHidden(true)
 
                 // Golden hour / sunset markers — accessible via VoiceOver
@@ -510,13 +495,13 @@ struct TimelineBuilderView: View {
                         layout: currentLayout,
                         suppressedDates: (
                             [event?.goldenHourStart, event?.sunsetTime].compactMap { $0 }
-                            + pinnedBlocks.map(\.scheduledStart)
+                            + snapshot.pinnedBlocks.map(\.scheduledStart)
                         )
                     )
                     .accessibilityHidden(true)
 
                     HStack(alignment: .top, spacing: 8) {
-                        ForEach(sortedTracks) { track in
+                        ForEach(snapshot.sortedTracks) { track in
                             TrackColumnView(
                                 track: track,
                                 layout: currentLayout,
@@ -556,9 +541,9 @@ struct TimelineBuilderView: View {
     /// across), the list scrolls and auto-scrolls during a drag, and SwiftUI's
     /// built-in move animation handles the reflow. Pinned blocks are shown for
     /// context but cannot be moved.
-    private var reorderListContent: some View {
+    private func reorderListContent(_ snapshot: TimelineSnapshot) -> some View {
         List {
-            ForEach(filteredBlocks) { block in
+            ForEach(snapshot.filteredBlocks) { block in
                 reorderRow(block)
                     .moveDisabled(block.isPinned || isReadOnly)
                     .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
@@ -573,7 +558,7 @@ struct TimelineBuilderView: View {
         .background { ProBackground() }
         // Smooths the reflow when a pinned anchor re-sorts a block after the drop,
         // on top of the List's native drag-and-drop move animation.
-        .animation(.snappy(duration: 0.28), value: filteredBlocks.map(\.id))
+        .animation(.snappy(duration: 0.28), value: snapshot.filteredBlocks.map(\.id))
         // A single confident tap confirms the drop landed.
         .sensoryFeedback(.impact(weight: .medium, intensity: 0.8), trigger: reorderTick)
     }
@@ -976,16 +961,10 @@ struct TimelineBuilderView: View {
 
         undoManager.recordShift(blocks: ordered)
 
+        // Pack the reordered sequence contiguously from the timeline's actual
+        // earliest start; pinned blocks stay anchored at their clock time.
         let anchor = ordered.map(\.scheduledStart).min() ?? ordered[0].scheduledStart
-        var cursor = anchor
-        for current in ordered {
-            if current.isPinned {
-                cursor = max(cursor, current.scheduledStart.addingTimeInterval(current.duration))
-            } else {
-                current.scheduledStart = cursor
-                cursor = cursor.addingTimeInterval(current.duration)
-            }
-        }
+        TimelinePacker().pack(ordered, origin: anchor)
 
         undoManager.commitShift(blocks: ordered)
 
@@ -1034,35 +1013,20 @@ struct TimelineBuilderView: View {
         let blocks = sortedBlocks.filter { $0.id != deletedID }
         guard let firstBlock = blocks.first else { return }
 
+        // Re-pack the survivors from the event's date (not the deleted slot).
+        // `syncOriginalStart` keeps the RippleEngine's backward-shift clamp aligned
+        // with each block's new position; `clearRequiresReview` drops stale
+        // collision flags — the timeline is gap-free after the removal.
         let origin = event?.date ?? firstBlock.scheduledStart
-        var cursor = firstBlock.isPinned ? firstBlock.scheduledStart : origin
-
-        for block in blocks {
-            if block.isPinned {
-                cursor = max(cursor, block.scheduledStart.addingTimeInterval(block.duration))
-            } else {
-                block.scheduledStart = cursor
-                // Sync originalStart so the RippleEngine's backward-shift clamp
-                // reflects the block's new position, not its pre-deletion slot.
-                block.originalStart = cursor
-                // A deletion resolves any collision that involved the removed block.
-                // Clear stale requiresReview flags — the timeline is now gap-free.
-                block.requiresReview = false
-                cursor = cursor.addingTimeInterval(block.duration)
-            }
-        }
+        TimelinePacker().pack(
+            blocks,
+            origin: origin,
+            syncOriginalStart: true,
+            clearRequiresReview: true
+        )
 
         // Order changed — invalidate session skips.
         skippedVenuePairs.removeAll()
-    }
-
-    /// Stable fingerprint of the timeline's venue layout. Used as the trigger key
-    /// for `.onChange` so the scan reactively re-runs whenever a block is added,
-    /// removed, reordered, or has its venue coordinates edited.
-    private var venueFingerprint: String {
-        sortedBlocks
-            .map { "\($0.id.uuidString):\($0.blockLatitude),\($0.blockLongitude):\(Int($0.scheduledStart.timeIntervalSinceReferenceDate))" }
-            .joined(separator: "|")
     }
 
     /// Scans consecutive block pairs for differing venue coordinates and presents
@@ -1155,6 +1119,45 @@ struct TimelineBuilderView: View {
         let originKey = String(format: "%.4f,%.4f", origin.blockLatitude, origin.blockLongitude)
         let destKey = String(format: "%.4f,%.4f", destination.blockLatitude, destination.blockLongitude)
         return "\(origin.id.uuidString)@\(originKey)→\(destination.id.uuidString)@\(destKey)"
+    }
+}
+
+// MARK: - Timeline Snapshot
+
+/// Derives every sorted/filtered collection the timeline render path needs in a
+/// single pass. `body` builds one of these per render and threads it into the
+/// content builders, so the view sorts/filters the block set **once** per render
+/// instead of re-running flatMap+sort for each derived property (previously 6–8×
+/// per render — on every keystroke, scroll, and live-timer tick).
+///
+/// The derivations are byte-for-byte equivalent to the view's individual computed
+/// properties (which remain for the toolbar and action methods); this type only
+/// changes *how often* they run, never *what* they produce.
+private struct TimelineSnapshot {
+    let sortedTracks: [TimelineTrack]
+    let sortedBlocks: [TimeBlockModel]
+    let filteredBlocks: [TimeBlockModel]
+    let pinnedBlocks: [TimeBlockModel]
+    let hasPinnedBlock: Bool
+    let venueFingerprint: String
+
+    init(event: EventModel?, selectedTrackID: UUID?) {
+        let allTracks = event?.tracks ?? []
+        sortedTracks = allTracks.sorted { $0.sortOrder < $1.sortOrder }
+        let blocks = allTracks
+            .flatMap { $0.blocks ?? [] }
+            .sorted { $0.scheduledStart < $1.scheduledStart }
+        sortedBlocks = blocks
+        if let selectedTrackID {
+            filteredBlocks = blocks.filter { $0.track?.id == selectedTrackID }
+        } else {
+            filteredBlocks = blocks
+        }
+        pinnedBlocks = blocks.filter(\.isPinned)
+        hasPinnedBlock = blocks.contains { $0.isPinned }
+        venueFingerprint = blocks
+            .map { "\($0.id.uuidString):\($0.blockLatitude),\($0.blockLongitude):\(Int($0.scheduledStart.timeIntervalSinceReferenceDate))" }
+            .joined(separator: "|")
     }
 }
 

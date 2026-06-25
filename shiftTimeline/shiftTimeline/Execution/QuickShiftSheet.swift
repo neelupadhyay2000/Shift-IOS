@@ -167,7 +167,7 @@ struct QuickShiftSheet: View {
                     Color.orange.opacity(0.2),
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(ShiftPalette.warm)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.Shift.applyShiftButton)

@@ -70,6 +70,7 @@ struct PaywallView: View {
     let trigger: PaywallTrigger
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var selectedProduct: Product?
     @State private var isPurchasing = false
@@ -94,7 +95,7 @@ struct PaywallView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 40)
             }
-            .background(Color(.systemGroupedBackground))
+            .background { ProBackground() }
             .navigationTitle(String(localized: "SHIFT Pro"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -146,18 +147,11 @@ struct PaywallView: View {
     // MARK: - Hero
 
     private var heroSection: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 54))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.yellow, .orange],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+        VStack(spacing: 16) {
+            ShiftBrandmark(height: 54)
                 .padding(.top, 28)
-                .accessibilityHidden(true)
+
+            ShiftChip(String(localized: "Pro"), tint: ShiftPalette.accent, filled: true, uppercase: false)
 
             Text(trigger.heroTitle)
                 .font(.title)
@@ -203,7 +197,7 @@ struct PaywallView: View {
                 freeIsNegative: true
             )
         }
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .proSurface(cornerRadius: 16)
     }
 
     private var tableHeader: some View {
@@ -245,7 +239,7 @@ struct PaywallView: View {
             Text(pro)
                 .font(.subheadline)
                 .fontWeight(.semibold)
-                .foregroundStyle(freeIsNegative ? Color.green : Color.primary)
+                .foregroundStyle(freeIsNegative ? ShiftPalette.live : Color.primary)
                 .frame(width: 72, alignment: .center)
         }
         .padding(.horizontal, 16)
@@ -313,13 +307,15 @@ struct PaywallView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .background(
-                isSelected ? Color.accentColor.opacity(0.08) : Color(.systemBackground),
+                isSelected
+                    ? AnyShapeStyle(ShiftPalette.soft(ShiftPalette.accent))
+                    : AnyShapeStyle(colorScheme == .dark ? Color.white.opacity(0.055) : Color.white),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(
-                        isSelected ? Color.accentColor : Color.secondary.opacity(0.2),
+                        isSelected ? ShiftPalette.accent : (colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.07)),
                         lineWidth: isSelected ? 2 : 1
                     )
             )
@@ -339,18 +335,13 @@ struct PaywallView: View {
         } label: {
             Group {
                 if isPurchasing {
-                    ProgressView()
-                        .tint(.white)
+                    ProgressView().tint(.white)
                 } else {
                     Text(ctaLabel)
-                        .fontWeight(.bold)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(.shiftFilled)
         .disabled(selectedProduct == nil || isPurchasing || isRestoring)
     }
 

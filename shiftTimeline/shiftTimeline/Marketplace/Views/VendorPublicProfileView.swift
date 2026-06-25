@@ -53,7 +53,7 @@ struct VendorPublicProfileView: View {
             }
         }
         .background { ProBackground() }
-        .navigationTitle(String(localized: "Vendor"))
+        .navigationTitle(String(localized: "Vendor Profile"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if canSave {
@@ -101,26 +101,71 @@ struct VendorPublicProfileView: View {
     }
 
     private func header(_ profile: MarketplaceVendorProfile) -> some View {
-        VStack(spacing: 12) {
-            VendorAvatar(urlString: profile.identity.avatarURL, category: profile.vendor.category, size: 88)
+        VStack(alignment: .leading, spacing: 12) {
+            heroBanner(profile)
+
+            HStack(spacing: 10) {
+                if (stats?.eventsCompleted ?? profile.vendor.eventsCompletedCount) > 0 {
+                    Label(String(localized: "Verified"), systemImage: "checkmark.seal.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ShiftPalette.accent)
+                }
+                if let avg = profile.vendor.ratingAvg, profile.vendor.ratingCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill").font(.caption2).foregroundStyle(ShiftPalette.warm)
+                        Text(avg.formatted(.number.precision(.fractionLength(1)))).font(.caption.weight(.semibold))
+                        Text(String(localized: "(\(profile.vendor.ratingCount) reviews)")).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Text(title)
-                .font(.title2.weight(.bold))
-                .multilineTextAlignment(.center)
-            if let avg = profile.vendor.ratingAvg, profile.vendor.ratingCount > 0 {
-                aggregateRating(avg: avg, count: profile.vendor.ratingCount)
+                .font(.largeTitle.weight(.bold))
+                .lineLimit(3)
+                .minimumScaleFactor(0.8)
+
+            HStack(spacing: 8) {
+                CategoryChip(category: profile.vendor.category)
+                if let area = profile.vendor.serviceArea, !area.isEmpty {
+                    Label(area, systemImage: "mappin.and.ellipse")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
-            CategoryChip(category: profile.vendor.category)
-            if let area = profile.vendor.serviceArea, !area.isEmpty {
-                Label(area, systemImage: "mappin.and.ellipse")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+
             if !profile.vendor.skills.isEmpty {
                 skillChips(profile.vendor.skills)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier(AccessibilityID.Marketplace.profileHeader)
+    }
+
+    /// Full-width hero image (the vendor's photo), rounded into the canvas — the
+    /// reference's banner. Falls back to a role-tinted gradient + glyph.
+    private func heroBanner(_ profile: MarketplaceVendorProfile) -> some View {
+        let color = MarketplaceCategory.color(profile.vendor.category)
+        return ZStack {
+            if let urlString = profile.identity.avatarURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                }
+            } else {
+                ZStack {
+                    LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Image(systemName: MarketplaceCategory.role(profile.vendor.category).systemImage)
+                        .font(.system(size: 48)).foregroundStyle(color.opacity(0.7))
+                }
+            }
+        }
+        .frame(height: 190)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 1))
+        .accessibilityHidden(true)
     }
 
     private func skillChips(_ skills: [String]) -> some View {
@@ -234,12 +279,12 @@ struct VendorPublicProfileView: View {
         Button {
             isPresentingComposer = true
         } label: {
-            Label(String(localized: "Request for an event…"), systemImage: "paperplane.fill")
+            Label(String(localized: "Request to Book"), systemImage: "paperplane.fill")
                 .font(.headline)
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.pressableCard)
         .accessibilityIdentifier(AccessibilityID.Marketplace.requestButton)

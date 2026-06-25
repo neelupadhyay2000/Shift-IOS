@@ -34,7 +34,7 @@ struct CreateEventSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
+                Section(String(localized: "General")) {
                     TextField(String(localized: "Title"), text: $title)
                         .accessibilityIdentifier(AccessibilityID.EventCreation.titleField)
                     DatePickerRow(String(localized: "Date"), selection: $date, components: .date)
@@ -50,6 +50,8 @@ struct CreateEventSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { ProBackground() }
             .navigationTitle(String(localized: "New Event"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

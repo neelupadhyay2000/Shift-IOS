@@ -101,7 +101,7 @@ struct VendorTeamsView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 38, height: 38)
-                .background(ShiftPalette.accent.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(ShiftPalette.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {

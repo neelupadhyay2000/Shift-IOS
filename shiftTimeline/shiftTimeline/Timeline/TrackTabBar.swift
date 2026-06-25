@@ -49,7 +49,7 @@ struct TrackTabBar: View {
                 .padding(.vertical, 9)
                 .background(
                     isSelected
-                        ? AnyShapeStyle(Color.accentColor.gradient)
+                        ? AnyShapeStyle(Color.accentColor)
                         : AnyShapeStyle(Color(.tertiarySystemFill))
                 )
                 .foregroundStyle(isSelected ? .white : .primary)

@@ -1,3 +1,6 @@
+# Local secrets — never commit (contains API keys)
+.mcp.json
+
 # Xcode
 *.xcuserstate
 xcuserdata/

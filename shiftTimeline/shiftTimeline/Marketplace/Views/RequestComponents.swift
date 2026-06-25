@@ -14,9 +14,9 @@ extension ServiceRequestStatus {
 
     var color: Color {
         switch self {
-        case .pending: ShiftPalette.accent
+        case .pending: ShiftPalette.warm
         case .accepted: ShiftPalette.live
-        case .declined: Color.red
+        case .declined: ShiftPalette.neutral
         case .cancelled: ShiftPalette.neutral
         }
     }
@@ -31,20 +31,21 @@ extension ServiceRequestStatus {
     }
 }
 
-/// Status pill for a request.
+/// Status tag for a request — uppercase, soft-tinted, small radius (matches the
+/// reference's `PENDING` / `ACCEPTED` / `DECLINED` chips).
 struct RequestStatusChip: View {
     let status: String
 
     var body: some View {
         let resolved = ServiceRequestStatus(rawValue: status)
         let color = resolved?.color ?? ShiftPalette.neutral
-        HStack(spacing: 4) {
-            Image(systemName: resolved?.systemImage ?? "circle").font(.caption2)
-            Text(resolved?.displayName ?? status.capitalized).font(.caption2.weight(.semibold))
-        }
-        .padding(.horizontal, 9).padding(.vertical, 4)
-        .foregroundStyle(color)
-        .background(ShiftPalette.soft(color), in: Capsule())
+        Text(resolved?.displayName ?? status.capitalized)
+            .font(.caption2.weight(.semibold))
+            .textCase(.uppercase)
+            .kerning(0.5)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .foregroundStyle(color)
+            .background(ShiftPalette.soft(color), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 
@@ -60,15 +61,18 @@ struct RequestEventSnapshot: View {
             Text(title.isEmpty ? String(localized: "Event") : title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(1)
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 if let date {
-                    Label(date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+                    Text(date.formatted(.dateTime.month(.abbreviated).day()))
+                }
+                if date != nil, requestedBlockCount > 0 {
+                    Circle().fill(.white.opacity(0.25)).frame(width: 3, height: 3)
                 }
                 if requestedBlockCount > 0 {
-                    Label(String(localized: "\(requestedBlockCount) blocks"), systemImage: "rectangle.stack")
+                    Text(String(localized: "\(requestedBlockCount) blocks requested"))
                 }
             }
-            .font(.caption2)
+            .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
         }
     }

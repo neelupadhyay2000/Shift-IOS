@@ -8,8 +8,8 @@ import Foundation
 /// clobbers a newer local edit the device made before the echo arrived.
 ///
 /// There's no `origin` column and the models don't carry a server `updated_at`,
-/// so we suppress by recency: the write-through records every row it writes
-/// (the `WriteThroughCoordinator` already knows the `table`+`id`), and the
+/// so we suppress by recency: the outbox flush records every row it writes
+/// (it already knows the `table`+`id`), and the
 /// realtime applier skips any change for a row this device wrote within the
 /// echo `window`. Once the window lapses, later changes (including a genuine
 /// edit from another device) apply normally.

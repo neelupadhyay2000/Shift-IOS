@@ -67,7 +67,7 @@ struct VendorFormSheet: View {
                                         .foregroundStyle(isSelected ? .white : roleColor)
                                         .frame(width: 44, height: 44)
                                         .background(
-                                            isSelected ? roleColor.gradient : Color.clear.gradient,
+                                            isSelected ? roleColor : Color.clear,
                                             in: RoundedRectangle(cornerRadius: ShiftDesign.iconRadius, style: .continuous)
                                         )
                                         .background(

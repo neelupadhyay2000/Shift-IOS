@@ -103,6 +103,20 @@ struct SettingsView: View {
         .background(ShiftPalette.soft(ShiftPalette.accent), in: Capsule())
     }
 
+    /// A standard settings row: a soft-indigo icon tile + title (+ optional
+    /// trailing value), matching the reference. The enclosing NavigationLink /
+    /// Picker supplies the chevron.
+    private func settingsRow(icon: String, title: String, value: String? = nil) -> some View {
+        HStack(spacing: 14) {
+            ShiftIconTile(systemImage: icon, size: 32)
+            Text(title)
+            if let value {
+                Spacer(minLength: 8)
+                Text(value).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }
+    }
+
     /// Primary line: display name when known, else the signed-in contact,
     /// else a generic "Account".
     private var accountPrimaryLabel: String {
@@ -132,7 +146,7 @@ struct SettingsView: View {
             NavigationLink {
                 VendorSettingsView()
             } label: {
-                Label(String(localized: "Account & Marketplace"), systemImage: "storefront")
+                settingsRow(icon: "storefront.fill", title: String(localized: "Account & Marketplace"))
             }
             .accessibilityIdentifier(AccessibilityID.Settings.vendorMarketplaceRow)
             .accessibilityHint(String(localized: "Your account type and marketplace listing"))
@@ -148,7 +162,7 @@ struct SettingsView: View {
             NavigationLink {
                 VendorTeamsView()
             } label: {
-                Label(String(localized: "Vendor Teams"), systemImage: "person.3")
+                settingsRow(icon: "person.3.fill", title: String(localized: "Vendor Teams"))
             }
             .accessibilityHint(String(localized: "Manage reusable groups of vendors"))
         } footer: {
@@ -160,14 +174,14 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         Section {
-            Picker(String(localized: "Appearance"), selection: $appearanceRawValue) {
+            Picker(selection: $appearanceRawValue) {
                 ForEach(AppearancePreference.allCases) { preference in
                     Text(preference.label).tag(preference.rawValue)
                 }
+            } label: {
+                settingsRow(icon: "paintpalette.fill", title: String(localized: "Appearance"))
             }
-            .pickerStyle(.segmented)
-        } header: {
-            Text(String(localized: "Appearance"))
+            .pickerStyle(.navigationLink)
         } footer: {
             Text(String(localized: "System follows your device setting."))
         }
