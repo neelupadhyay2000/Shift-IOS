@@ -31,6 +31,8 @@ struct RootContainerView: View {
             .animation(.easeInOut(duration: 0.4), value: demoSession.isActive)
             // Cross-fade profile-setup → app when onboarding completes.
             .animation(.easeInOut(duration: 0.3), value: authService.needsOnboarding)
+            // Same cross-fade when the complete-profile gate clears.
+            .animation(.easeInOut(duration: 0.3), value: authService.needsProfileCompletion)
             // One brand accent everywhere: tab selection, links, toggles, and
             // controls all inherit the icon's indigo from this single tint.
             .tint(ShiftPalette.accent)
@@ -41,7 +43,8 @@ struct RootContainerView: View {
             // Access layer: covers everything (including any open sheets) on
             // cold launch and after backgrounding while a passcode exists.
             // Unlocks only via Face ID or the app passcode; "Forgot passcode?"
-            // signs out so identity is re-proven with email OTP.
+            // signs out so identity is re-proven with an OTP code — routed back
+            // to the account's own method (email or phone) by SignInView.
             .fullScreenCover(isPresented: .init(
                 // Demo Mode bypasses the access layer — there is no account
                 // passcode behind a local sandbox.
@@ -65,7 +68,13 @@ struct RootContainerView: View {
                 .interactiveDismissDisabled()
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .background { appLock.lockOnBackground() }
+                if phase == .background {
+                    appLock.lockOnBackground()
+                } else if phase == .active {
+                    // Quick-access grace: a fast return (within 5 min) skips
+                    // re-auth so planners aren't Face-ID'd every few seconds.
+                    appLock.unlockOnForegroundIfWithinGrace()
+                }
             }
             // Foreground shift pushes are suppressed as system notifications and
             // surfaced here as an in-app banner instead.
@@ -104,27 +113,29 @@ struct RootContainerView: View {
         } else if !authService.hasResolvedInitialSession {
             loadingView
         } else if authService.isAuthenticated {
-            if appLock.hasPasscode {
-                // E19: a new account must create a profile (planner or vendor)
-                // before reaching the app. The passcode step above naturally
-                // covers the brief profile-load latency, so this never flashes for
-                // a returning (already-onboarded) user.
-                if authService.needsOnboarding {
-                    ProfileSetupView()
-                        .transition(.opacity)
-                } else {
-                    RootNavigator()
-                        .task { await maybeShowLaunchPromo() }
-                }
-            } else if appLock.isRestoringRecord {
-                // The account's passcode record is being fetched — hold the
-                // loading view rather than flash the setup UI at a user whose
-                // passcode is about to be restored.
+            // Identity is proven. Order (profile-before-passcode, 2026-06-25):
+            //   1. While the session is still establishing, hold the loading view
+            //      so the profile/passcode state has loaded before we branch —
+            //      this is what prevents flashing a setup screen at a returning
+            //      user (and a nil profile while offline falls through to the app
+            //      below, never trapping them here).
+            //   2. New account → create the profile (role + name, plus email for
+            //      phone-signups) and validate legacy accounts missing fields.
+            //   3. Secure it with a passcode.
+            //   4. App.
+            if appLock.isRestoringRecord {
                 loadingView
-            } else {
-                // Genuinely no passcode for this account: first sign-up, or
-                // an upgrade from a pre-passcode build.
+            } else if authService.needsOnboarding {
+                ProfileSetupView()
+                    .transition(.opacity)
+            } else if authService.needsProfileCompletion {
+                CompleteProfileView()
+                    .transition(.opacity)
+            } else if !appLock.hasPasscode {
                 PasscodeSetupView()
+            } else {
+                RootNavigator()
+                    .task { await maybeShowLaunchPromo() }
             }
         } else {
             SignInView(isDismissible: false)

@@ -23,7 +23,16 @@ final class SupabaseAuthService {
     /// server-granted comp window to `SubscriptionManager`, so sign-in
     /// applies a grant and sign-out / account deletion revokes it.
     private(set) var currentProfile: ProfileDTO? {
-        didSet { SubscriptionManager.shared.compedUntil = currentProfile?.compedUntil?.value }
+        didSet {
+            SubscriptionManager.shared.compedUntil = currentProfile?.compedUntil?.value
+            // Cache the name for the "Welcome back, <name>" landing a signed-out
+            // returning user sees. Only overwrite with a real name — never clear
+            // it on a transient nil profile (offline), so the greeting survives.
+            if let name = currentProfile?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !name.isEmpty {
+                AuthMethodStore.lastDisplayName = name
+            }
+        }
     }
 
     /// `true` once the SDK has emitted its initial (stored) session on launch.
@@ -57,6 +66,32 @@ final class SupabaseAuthService {
     /// Defaults to planner when the type is unknown (loading / legacy).
     var isVendorAccount: Bool {
         currentProfile?.accountType == "vendor"
+    }
+
+    /// Completion gate (2026-06-25): an already-onboarded account that is still
+    /// missing a required field — a name (all accounts) or a valid email (all
+    /// accounts; phone-signups must add one). Catches legacy accounts created
+    /// before the rule; new accounts satisfy it during onboarding. Only fires
+    /// once the profile has loaded and reports `onboarded == true`, so it never
+    /// blocks a still-loading or mid-onboarding user.
+    var needsProfileCompletion: Bool {
+        guard isAuthenticated, currentProfile?.onboarded == true else { return false }
+        return !ProfileCompleteness.isComplete(name: currentProfile?.displayName, email: accountEmail)
+    }
+
+    /// The account's email — the auth identity's address if present, otherwise
+    /// the `profiles` mirror. Exposed so views don't need to import the Supabase
+    /// `User` type just to read it.
+    ///
+    /// GoTrue serializes a phone-only user's `email` as an empty string `""`
+    /// (not nil), so a plain `??` would never fall back to the profiles value —
+    /// treat blank as absent so a phone-signup's saved email is what counts.
+    var accountEmail: String? {
+        if let sessionEmail = session?.user.email,
+           !sessionEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return sessionEmail
+        }
+        return currentProfile?.email
     }
 
     /// Re-reads the signed-in profile row (e.g. after onboarding completes) so
@@ -227,6 +262,31 @@ final class SupabaseAuthService {
         // authStateChanges fires .signedOut → clears session + currentProfile
     }
 
+    // MARK: - Profile completion
+
+    /// Fills in the account's missing required fields (the completion gate's
+    /// write). `profiles` is the single source of truth — `auth.users` stays a
+    /// thin identity layer, so we deliberately do NOT mirror name/email into it.
+    /// Trims and skips blanks, then refreshes the cached profile so
+    /// `needsProfileCompletion` flips false and the gate dismisses.
+    func completeProfile(name: String?, email: String?) async throws {
+        guard let client, let uid = currentProfileID else {
+            throw ProfileCompletionError.notSignedIn
+        }
+        let trimmedNameRaw = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmedName = trimmedNameRaw.isEmpty ? nil : trimmedNameRaw
+        let normalizedEmail = email.map(EmailAuthService.normalizeEmail) ?? ""
+        let trimmedEmail = normalizedEmail.isEmpty ? nil : normalizedEmail
+
+        var fields: [String: String] = [:]
+        if let trimmedName { fields["display_name"] = trimmedName }
+        if let trimmedEmail { fields["email"] = trimmedEmail }
+        guard !fields.isEmpty else { return }
+
+        try await client.from("profiles").update(fields).eq("id", value: uid.uuidString).execute()
+        await refreshProfile()
+    }
+
     // MARK: - Account deletion
 
     /// Permanently deletes the signed-in user's account and all server-side
@@ -248,6 +308,10 @@ final class SupabaseAuthService {
         // it still clears the Keychain session and fires .signedOut locally.
         try? await client.auth.signOut()
         clearSyncedCaches()
+        // The account no longer exists — forget the remembered method/name so
+        // the next person on this device sees a clean welcome, not "Welcome
+        // back, <deleted user>".
+        AuthMethodStore.clear()
     }
 
     // MARK: - Cache clearing
@@ -383,6 +447,10 @@ final class SupabaseAuthService {
         SyncDiagnosticsCenter.shared.record(
             .auth, "sessionEstablished", params: ["profile": user.id.uuidString]
         )
+        // Remember how this account proves identity so recovery flows
+        // (forgot-passcode) can route back to the right OTP screen. A phone
+        // sign-in carries a non-empty `phone`; everything else is email.
+        AuthMethodStore.last = (user.phone?.isEmpty == false) ? .phone : .email
         purgeOtherAccountDataIfSwitched(to: user.id)
         await performProfileUpsert(user: user, displayName: nil)
         await restorePasscode(for: user)

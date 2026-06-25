@@ -17,8 +17,32 @@ struct SignInView: View {
     @State private var isShowingEmailSignIn = false
     @State private var errorMessage: String?
 
+    /// Set when a remembered user taps "Use a different account" — reveals the
+    /// full method chooser instead of the personalized "Welcome back" landing.
+    @State private var showChooser = false
+
     init(isDismissible: Bool = true) {
         self.isDismissible = isDismissible
+    }
+
+    /// The remembered account's method, but only if that method is currently
+    /// available (phone is gated). `nil` → no usable remembered account.
+    private var rememberedMethod: AuthMethod? {
+        switch AuthMethodStore.last {
+        case .some(.email) where FeatureFlags.emailSignIn: .email
+        case .some(.phone) where FeatureFlags.phoneSignIn: .phone
+        default: nil
+        }
+    }
+
+    /// Show the personalized "Welcome back, <name>" landing when we have a
+    /// usable remembered method and a cached name, and the user hasn't asked
+    /// for the full chooser.
+    private var personalizedName: String? {
+        guard !showChooser, rememberedMethod != nil else { return nil }
+        guard let name = AuthMethodStore.lastDisplayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !name.isEmpty else { return nil }
+        return name
     }
 
     var body: some View {
@@ -29,7 +53,7 @@ struct SignInView: View {
                     Spacer()
                     header
                     Spacer()
-                    signInButtons
+                    actions
                     Spacer()
                 }
                 .padding(.horizontal, 28)
@@ -82,74 +106,98 @@ struct SignInView: View {
             TimelineMotif()
                 .accessibilityHidden(true)
             VStack(spacing: 8) {
-                Text(String(localized: "Welcome to SHIFT"))
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(.white)
-                Text(String(localized: "Share your timeline with vendors and collaborate in real time."))
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.75))
-                    .multilineTextAlignment(.center)
+                if let name = personalizedName {
+                    Text(String(localized: "Welcome back,"))
+                        .font(.title2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.85))
+                    Text(name)
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                } else {
+                    Text(String(localized: "Welcome to SHIFT"))
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(.white)
+                    Text(String(localized: "Share your timeline with vendors and collaborate in real time."))
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.75))
+                        .multilineTextAlignment(.center)
+                }
             }
         }
     }
 
-    // MARK: - Buttons
+    // MARK: - Actions
 
-    /// Both paths run the same email-OTP flow — the account layer. What
-    /// differs is what happens after: a successful session with no device
-    /// passcode lands on `PasscodeSetupView` (see `RootContainerView`), and
-    /// from then on entry is passcode / Face ID, never OTP.
-    private var signInButtons: some View {
+    /// A returning user (remembered method + name) gets a one-tap "Continue"
+    /// to their own method plus an escape hatch to the full chooser; everyone
+    /// else gets the method chooser. OTP has no password, so one tap both
+    /// creates the account and logs in — there's no separate sign-up / log-in.
+    @ViewBuilder
+    private var actions: some View {
+        if let name = personalizedName, let method = rememberedMethod {
+            VStack(spacing: 12) {
+                continueButton(for: method)
+                    .accessibilityLabel(String(localized: "Continue as \(name)"))
+                Button(String(localized: "Use a different account")) {
+                    showChooser = true
+                }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.8))
+                .padding(.top, 4)
+            }
+        } else {
+            chooserButtons
+        }
+    }
+
+    private var chooserButtons: some View {
         VStack(spacing: 12) {
-            signUpButton
-            logInButton
+            emailButton
             // Phone OTP is gated off until an SMS provider is configured
             // (FeatureFlags.phoneSignIn) — see PhoneAuthService / Supabase Auth.
             if FeatureFlags.phoneSignIn {
                 phoneButton
             }
+            Text(String(localized: "New or returning — we'll send you a one-time code."))
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.6))
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
         }
     }
 
-    private var signUpButton: some View {
+    @ViewBuilder
+    private func continueButton(for method: AuthMethod) -> some View {
+        switch method {
+        case .email: emailButton
+        case .phone:
+            Button { isShowingPhoneSignIn = true } label: {
+                Label(String(localized: "Continue with Phone"), systemImage: "phone.fill")
+            }
+            .buttonStyle(SignInPrimaryButtonStyle())
+        }
+    }
+
+    private var emailButton: some View {
         Button {
             isShowingEmailSignIn = true
         } label: {
-            Text(String(localized: "Create Account"))
+            Label(String(localized: "Continue with Email"), systemImage: "envelope.fill")
         }
         .buttonStyle(SignInPrimaryButtonStyle())
-        .accessibilityLabel(String(localized: "Create Account"))
-    }
-
-    private var logInButton: some View {
-        Button {
-            isShowingEmailSignIn = true
-        } label: {
-            Text(String(localized: "Log In"))
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(
-                    .white.opacity(0.14),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Log In"))
+        .accessibilityLabel(String(localized: "Continue with Email"))
     }
 
     private var phoneButton: some View {
         Button {
             isShowingPhoneSignIn = true
         } label: {
-            Text(String(localized: "Sign in with Phone"))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.white.opacity(0.8))
-                .frame(maxWidth: .infinity)
+            Label(String(localized: "Continue with Phone"), systemImage: "phone.fill")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Sign in with Phone"))
+        .buttonStyle(SignInSecondaryButtonStyle())
+        .accessibilityLabel(String(localized: "Continue with Phone"))
     }
 }
 

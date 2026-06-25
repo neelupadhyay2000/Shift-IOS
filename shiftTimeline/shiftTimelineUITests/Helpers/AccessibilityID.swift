@@ -95,6 +95,14 @@ enum AccessibilityID {
         static let templateList = "templates.template_list"
     }
 
+    // MARK: - Complete Profile (CompleteProfileView)
+
+    enum CompleteProfile {
+        static let nameField    = "complete_profile.name_field"
+        static let emailField   = "complete_profile.email_field"
+        static let submitButton = "complete_profile.submit_button"
+    }
+
     // MARK: - Marketplace (MarketplaceTeaserView)
 
     enum Marketplace {

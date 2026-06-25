@@ -29,30 +29,32 @@
 <body>
   <main>
     <h1>Privacy Policy</h1>
-    <p class="effective">Effective Date: June 12, 2026</p>
+    <p class="effective">Effective Date: June 25, 2026</p>
 
     <div class="summary">
       <p>This Privacy Policy describes how Neel Software Solutions Inc. handles information in connection with the SHIFT application and the related cloud services we operate. Please read it carefully to understand our practices.</p>
     </div>
 
     <h2>Introduction and Scope</h2>
-    <p>This Privacy Policy (the <strong>&ldquo;Policy&rdquo;</strong>) applies to the SHIFT mobile application for iOS and watchOS (the <strong>&ldquo;App&rdquo;</strong>) provided by Neel Software Solutions Inc. (<strong>&ldquo;we,&rdquo; &ldquo;us,&rdquo;</strong> or <strong>&ldquo;our&rdquo;</strong>), together with the cloud services we operate to enable account sign-in, synchronization, and sharing (the <strong>&ldquo;Services&rdquo;</strong>). It explains what information we process, how it is used, and the rights available to you. It does not apply to third-party services that maintain their own privacy policies, as described in the &ldquo;Third-Party Services&rdquo; section below.</p>
+    <p>This Privacy Policy (the <strong>&ldquo;Policy&rdquo;</strong>) applies to the SHIFT mobile application for iOS and watchOS (the <strong>&ldquo;App&rdquo;</strong>) provided by Neel Software Solutions Inc. (<strong>&ldquo;we,&rdquo; &ldquo;us,&rdquo;</strong> or <strong>&ldquo;our&rdquo;</strong>), together with the cloud services we operate to enable account sign-in, synchronization, sharing, and the vendor marketplace (the <strong>&ldquo;Services&rdquo;</strong>). It explains what information we process, how it is used, and the rights available to you. It does not apply to third-party services that maintain their own privacy policies, as described in the &ldquo;Third-Party Services&rdquo; section below.</p>
     <p>In this Policy, <strong>&ldquo;Personal Information&rdquo;</strong> means information that identifies, relates to, or could reasonably be linked to an identifiable individual. By using the App, you acknowledge that you have read and understood this Policy.</p>
 
     <h2>Information You Provide</h2>
     <p>You may provide the following information when you use the App:</p>
     <ul>
-      <li>Account information, such as the email address (or, where enabled, the phone number) you use to sign in, and an optional display name;</li>
+      <li>Account information, including the email address and/or phone number you use to sign in, your name, and the account type you choose (planner or vendor). A name is required for every account; if you sign in with a phone number, an email address is also required;</li>
       <li>Event details, such as titles, dates, venue names, and notes;</li>
       <li>Timeline data, such as blocks, durations, dependencies, and shift history;</li>
-      <li>Vendor contact details that you enter, such as names, roles, telephone numbers, and email addresses;</li>
+      <li>Vendor contact details that you enter for your own events, such as names, roles, telephone numbers, and email addresses;</li>
       <li>Venue selections that you search for and choose;</li>
-      <li>Voice recordings that you optionally create and attach to a block; and</li>
-      <li>If you choose to join a waitlist for an upcoming feature, the email address you submit.</li>
+      <li>Voice recordings that you optionally create and attach to a block;</li>
+      <li>If you offer your services as a vendor, the marketplace profile you create &mdash; such as your business name, service category, service area or region, biography, skills, availability (the dates you mark as busy), and any portfolio photographs you upload;</li>
+      <li>If you use the marketplace, the service requests you send or receive, the messages you exchange with another user about a request, the reviews and star ratings you write, and the vendors you save; and</li>
+      <li>If you join a waitlist for an upcoming feature, the interest you express (for example, whether you are a vendor, a planner, or both, your category, and your region).</li>
     </ul>
 
     <h2>Account and Authentication</h2>
-    <p>An account is required to use the App. To sign in, the App uses Supabase Auth, with one-time passcode emails delivered through Resend. You authenticate with a one-time passcode (OTP) sent to your email address; where this option is enabled, you may instead sign in with a one-time passcode sent by SMS to your phone number. We process your email address (and, if used, your phone number) to verify your identity, and we create a profile that stores your account identifier, the email or phone you signed in with, and your optional display name. We do not use passwords and do not store any.</p>
+    <p>An account is required to use the App. To sign in, the App uses Supabase Auth. You authenticate with a one-time passcode (OTP): if you sign in with an email address, the code is delivered by email through Resend; if you sign in with a phone number, the code is delivered by SMS through Twilio. We process your email address and/or phone number to verify your identity, and we create a profile that stores your account identifier, the email and/or phone you signed in with, your name, and your account type. Because we use your account as the single, complete record of who you are, a name is required for every account and, for accounts created with a phone number, an email address is also required so that we can reliably identify and contact you. We do not use passwords and do not store any.</p>
 
     <h2>App Passcode and Biometric Unlock</h2>
     <p>After your first sign-in, you create a numeric passcode used to unlock the App. We never store your passcode itself. Instead, the App stores only a salted, one-way cryptographic representation (a hash) of it, both in your device&rsquo;s Keychain and, so that your passcode is available when you sign in again, as an opaque record on our backend associated with your account. This representation cannot be used to recover your passcode.</p>
@@ -62,12 +64,22 @@
     <p>When you are signed in, the content described above &mdash; your events, timelines, vendor details, sharing and acknowledgment state, and your profile &mdash; is synchronized to and stored on our backend, which is provided by Supabase, Inc. and hosted on cloud infrastructure operated by Amazon Web Services. This allows your data to be available across your devices and to be shared with collaborators you invite. Unlike earlier versions of the App, your event content is processed and stored on servers we operate through Supabase, and is no longer confined to your device.</p>
     <p>When you invite a vendor or other collaborator to a timeline, we store the phone number or email address you addressed the invitation to, so that the invited person can claim the invitation when they sign in. A collaborator you invite receives read-only access to the timeline you shared, together with the contact and acknowledgment information necessary for that collaboration.</p>
 
+    <h2>The Vendor Marketplace</h2>
+    <p>The App includes a marketplace that connects event planners with vendors. Whether you use it as a planner, a vendor, or both is determined by the account type you choose, which you can change in Settings.</p>
+    <p>If you create a vendor profile, the information in that profile &mdash; such as your business name, service category, region or service area, biography, skills, availability, portfolio photographs, and aggregate statistics derived from events you have run through the App (for example, the number of completed events and your average rating) &mdash; is <strong>publicly visible</strong> to other signed-in users who browse or search the marketplace. You control whether your profile is listed, and you can unlist or delete it at any time. Please do not include information in your public profile that you do not wish to be seen by others.</p>
+    <p>When a planner sends a service request to a vendor, we process the details of that request and enable the two of you to exchange messages within the App to coordinate. These messages are visible to the planner and the vendor involved in the request, and are stored on our backend so the conversation is available to both of you. We may also process service requests and messages as necessary to operate, secure, and support the marketplace.</p>
+    <p>If you save a vendor, we store that association so your saved list is available to you. The marketplace operates online and is not available offline.</p>
+
+    <h2>Reviews, User Content, and Safety</h2>
+    <p>The marketplace lets planners leave reviews and star ratings for vendors they have worked with through the App. A review you submit, along with your name, is <strong>publicly visible</strong> on the relevant vendor&rsquo;s profile. Reviews are tied to events actually run through the App, which is central to our &ldquo;Verified by Shift&rdquo; approach.</p>
+    <p>Vendor profiles, portfolio photographs, reviews, service requests, and messages are forms of user-generated content. To keep the marketplace safe, the App lets you report content you believe is objectionable and block another user; when you block someone, we store that preference so we can hide their content and prevent further contact between you. We review reports of objectionable content and may remove content or restrict or remove accounts that violate our Terms of Service. We process reports, blocks, and related content for the purposes of moderation, safety, and abuse prevention.</p>
+
     <h2>Push Notifications</h2>
-    <p>If you enable notifications, the App registers a device push token with the Apple Push Notification service and stores that token on our backend. We use it, through a server function, to deliver timeline-change (&ldquo;shift&rdquo;) alerts to the devices of affected collaborators. You can disable notifications at any time in your device settings.</p>
+    <p>If you enable notifications, the App registers a device push token with the Apple Push Notification service and stores that token on our backend. We use it, through server functions, to deliver alerts that are relevant to you &mdash; including timeline-change (&ldquo;shift&rdquo;) alerts to affected collaborators, block-assignment and event-go-live alerts, and, for the marketplace, notifications about new service requests, responses, messages, and reviews. You can disable notifications at any time in your device settings.</p>
 
     <h2>Information Collected Automatically</h2>
     <p>To understand how the App is used and to improve its functionality, the App collects limited, anonymous usage information through TelemetryDeck, a privacy-focused analytics provider. This information is aggregated and is not used to identify you.</p>
-    <p>Such information may include the frequency of feature usage (for example, creating an event, applying a timeline shift, or exporting a document), non-identifying event parameters (such as the magnitude of a shift), and general diagnostic information used to detect and resolve errors.</p>
+    <p>Such information may include the frequency of feature usage (for example, creating an event, applying a timeline shift, exporting a document, viewing the marketplace, or joining the waitlist), non-identifying parameters (such as the magnitude of a shift, or whether a waitlist signup is for a vendor or planner and the general category), and general diagnostic information used to detect and resolve errors. These signals are aggregated and do not include your name, email, phone number, or the contents of your events, messages, or reviews.</p>
 
     <h2>Information We Do Not Collect</h2>
     <p>The App does not:</p>
@@ -86,7 +98,9 @@
       <li>Authenticate you and maintain your account;</li>
       <li>Synchronize your data across your devices through our backend;</li>
       <li>Enable read-only sharing of timelines with collaborators you invite, and deliver their acknowledgments back to you;</li>
-      <li>Send push notifications about timeline changes to affected collaborators;</li>
+      <li>Operate the vendor marketplace &mdash; display vendor profiles and reviews, power search and matching, and enable service requests and messaging between planners and vendors;</li>
+      <li>Moderate user-generated content and act on reports and blocks to keep the marketplace safe;</li>
+      <li>Send push notifications about timeline changes, block assignments, event go-live, and marketplace activity (requests, responses, messages, and reviews);</li>
       <li>Enrich timelines with sunset and weather information for venues you select;</li>
       <li>Analyze aggregate, anonymous usage in order to improve the App; and</li>
       <li>Comply with applicable legal obligations.</li>
@@ -107,6 +121,7 @@
     <ul>
       <li>Supabase, Inc. &mdash; our cloud backend for account authentication, database and file storage, real-time synchronization, server functions, and the delivery of push notifications, hosted on Amazon Web Services;</li>
       <li>Resend &mdash; delivery of one-time passcode and account-related emails;</li>
+      <li>Twilio &mdash; delivery of one-time passcode text messages (SMS) when you sign in with a phone number;</li>
       <li>Apple Push Notification service (APNs) &mdash; delivery of push notifications to your device;</li>
       <li>Apple WeatherKit &mdash; weather forecasts for selected venues;</li>
       <li>Apple MapKit &mdash; venue search and location results;</li>
@@ -120,7 +135,7 @@
     <p>We do not sell, rent, or trade Personal Information. We may disclose information only: (a) with your consent or at your direction, such as when you invite a collaborator to a timeline; (b) to service providers, such as Supabase, that process information on our behalf and under our instructions to provide the Services; (c) to comply with applicable law, legal process, or a governmental request; or (d) to protect the rights, property, or safety of Neel Software Solutions Inc., our users, or the public, as permitted by law.</p>
 
     <h2>Data Retention</h2>
-    <p>Content you store on our backend is retained until you delete it &mdash; for example, by deleting an event, removing a vendor, or deleting your account. You can permanently delete your account and its associated server-side data, including events, timelines, vendor details, voice recordings, and your profile, directly within the App, under Settings &rarr; Account &rarr; Delete Account. Deleting the App removes its locally stored data from that device. Aggregate, anonymous analytics cannot be associated with you and are retained only in de-identified form.</p>
+    <p>Content you store on our backend is retained until you delete it &mdash; for example, by deleting an event, removing a vendor, unlisting or deleting your vendor profile, or deleting your account. You can permanently delete your account and its associated server-side data &mdash; including events, timelines, vendor details, voice recordings, your vendor marketplace profile and portfolio photos, your service requests and messages, the reviews you have written, and your profile &mdash; directly within the App, under Settings &rarr; Account &rarr; Delete Account. Deleting the App removes its locally stored data from that device. Aggregate, anonymous analytics cannot be associated with you and are retained only in de-identified form.</p>
 
     <h2>Your Privacy Rights</h2>
     <p>Depending on your jurisdiction, you may have rights under data-protection laws such as the EU and UK General Data Protection Regulation (<strong>&ldquo;GDPR&rdquo;</strong>) and the California Consumer Privacy Act (<strong>&ldquo;CCPA&rdquo;</strong>), including the rights to access, correct, delete, and port your Personal Information, and to object to or restrict certain processing.</p>
@@ -137,10 +152,10 @@
     <p>We may update this Policy from time to time. When we do, we will revise the Effective Date shown above and, where the changes are material, provide notice within the App. Your continued use of the App after an update takes effect constitutes your acceptance of the revised Policy.</p>
 
     <h2>Contact Us</h2>
-    <p>If you have questions or requests regarding this Policy, you may contact Neel Software Solutions Inc. at <a href="mailto:privacy@shift.app">privacy@shift.app</a>.</p>
+    <p>If you have questions or requests regarding this Policy, you may contact Neel Software Solutions Inc. at <a href="mailto:privacy@shifttimeline.app">privacy@shifttimeline.app</a>.</p>
 
     <footer>
-      SHIFT &middot; Neel Software Solutions Inc. &middot; Effective Date: June 12, 2026
+      SHIFT &middot; Neel Software Solutions Inc. &middot; Effective Date: June 25, 2026
     </footer>
   </main>
 </body>
