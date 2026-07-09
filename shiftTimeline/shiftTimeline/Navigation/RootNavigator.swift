@@ -308,6 +308,21 @@ struct RootNavigator: View {
             // id-specific thread opens from the inbox row; no fetch-by-id needed.)
             selectTab(.marketplace)
             marketplacePath = [.inbox]
+        case .marketplaceLaunch(let role):
+            // Launch announcement (E24): seed supply first. A vendor-wave tap
+            // lands directly in the profile editor; a planner-wave tap lands on
+            // the live directory.
+            selectTab(.marketplace)
+            switch role {
+            case .vendor:
+                marketplacePath = [.myVendorProfile]
+            case .planner:
+                marketplacePath = []
+            }
+        case .vendorSettings:
+            // Become-a-vendor flow (account switch + listing) — same landing as
+            // the marketplace nudge's openVendorSettings().
+            openVendorSettings()
         }
         deepLinkRouter.pendingDestination = nil
     }

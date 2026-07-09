@@ -13,6 +13,49 @@ struct PortfolioMedia: Identifiable, Equatable {
     let isVideo: Bool
 }
 
+/// Identifiable wrapper so a `portfolio_items` row id can drive `.sheet(item:)`
+/// for the Guideline 1.2 report flow on portfolio media.
+struct ReportablePortfolioItem: Identifiable, Equatable {
+    let id: UUID
+}
+
+// MARK: - Audio session
+
+/// Audio routing for portfolio video playback.
+///
+/// Without this, portfolio videos play **silently**, for two compounding reasons:
+///
+/// 1. The process default category is `.soloAmbient`, which is silenced by the
+///    hardware Ring/Silent switch — so a muted phone (i.e. most phones) gets no
+///    video audio at all.
+/// 2. `VoiceMemoRecordingSheet` switches the shared session to `.record` and only
+///    calls `setActive(false)` afterwards. Deactivating does **not** restore the
+///    category, so once a user records a voice memo the session stays
+///    record-oriented and video audio is dead for the rest of the launch.
+///
+/// A full-screen video the user explicitly tapped is "playback" media, so
+/// `.playback` + `.moviePlayback` is the correct category (matching Photos and
+/// every other media viewer): it plays through the Silent switch and reclaims the
+/// session from whatever the voice-memo flow left behind.
+enum MediaAudioSession {
+    /// Claim the session for movie playback. Idempotent — safe to call per page.
+    static func activatePlayback() {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        try? session.setCategory(.playback, mode: .moviePlayback)
+        try? session.setActive(true)
+        #endif
+    }
+
+    /// Hand the session back so other audio (voice memos, music) resumes.
+    static func deactivate() {
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance()
+            .setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
+    }
+}
+
 /// A video's first frame with a play badge — used for portfolio grid tiles and
 /// the editor row, so videos read like Instagram (poster + play) instead of a
 /// blank async image.
@@ -79,6 +122,12 @@ struct MediaGalleryView: View {
             .ignoresSafeArea()
         }
         .overlay(alignment: .top) { topBar }
+        // Own the audio session for the whole gallery, not per page: swiping
+        // between two videos must not tear the session down and back up.
+        .onAppear {
+            if items.contains(where: \.isVideo) { MediaAudioSession.activatePlayback() }
+        }
+        .onDisappear { MediaAudioSession.deactivate() }
     }
 
     private var topBar: some View {
@@ -116,12 +165,21 @@ private struct MediaPage: View {
             if media.isVideo {
                 VideoPlayer(player: player)
                     .onAppear {
+                        // Covers swiping into a video from a photo-only gallery,
+                        // where the gallery's onAppear didn't claim the session.
+                        MediaAudioSession.activatePlayback()
                         let p = player ?? AVPlayer(url: media.url)
+                        p.isMuted = false
                         player = p
                         if isActive { p.play() }
                     }
                     .onChange(of: isActive) { _, active in
-                        if active { player?.play() } else { player?.pause() }
+                        if active {
+                            MediaAudioSession.activatePlayback()
+                            player?.play()
+                        } else {
+                            player?.pause()
+                        }
                     }
                     .onDisappear { player?.pause() }
             } else {

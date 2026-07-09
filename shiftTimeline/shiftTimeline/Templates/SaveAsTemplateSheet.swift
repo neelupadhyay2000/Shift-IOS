@@ -14,10 +14,12 @@ struct SaveAsTemplateSheet: View {
     let event: EventModel
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.communityTemplateService) private var communityService
 
     @State private var name: String
     @State private var details: String = ""
     @State private var category: TemplateCategory = .social
+    @State private var shareToCommunity = false
     @State private var saveError: String?
 
     init(event: EventModel) {
@@ -65,6 +67,18 @@ struct SaveAsTemplateSheet: View {
                         """))
                     }
                 }
+
+                if communityService != nil && !blocks.isEmpty {
+                    Section {
+                        Toggle(String(localized: "Also share to Community"), isOn: $shareToCommunity)
+                    } footer: {
+                        Text(String(localized: """
+                        Publishes this run-sheet to the community library for anyone to use. \
+                        Don’t include private client names. A template saved from a completed \
+                        event earns a “Verified — run in Shift” badge.
+                        """))
+                    }
+                }
             }
             .scrollContentBackground(.hidden)
             .background { ProBackground() }
@@ -108,6 +122,20 @@ struct SaveAsTemplateSheet: View {
         do {
             try UserTemplateStore().save(template)
             AnalyticsService.send(.templateSavedFromEvent, parameters: ["blockCount": "\(template.blocks.count)"])
+            // Optionally publish to the community library. Pass the source event so a
+            // completed event earns the verified badge (the RPC validates ownership +
+            // completion). Best-effort: the local save already succeeded.
+            if shareToCommunity, let communityService {
+                let eventID = event.id
+                Task {
+                    if (try? await communityService.publish(template, sourceEventID: eventID)) != nil {
+                        AnalyticsService.send(.communityTemplatePublished, parameters: [
+                            "verifiedSource": "true",
+                            "blockCount": "\(template.blocks.count)",
+                        ])
+                    }
+                }
+            }
             dismiss()
         } catch {
             saveError = error.localizedDescription

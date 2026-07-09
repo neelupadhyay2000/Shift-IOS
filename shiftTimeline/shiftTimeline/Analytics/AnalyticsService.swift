@@ -47,6 +47,20 @@ nonisolated enum AnalyticsService {
         case marketplaceTeaserViewed = "marketplace.teaserViewed"
         case marketplaceWaitlistJoined = "marketplace.waitlistJoined"
 
+        // Marketplace launch (E24): announcement-push conversion. Carries only
+        // the `role` dimension (vendor|planner) — the wave the member was in.
+        case marketplaceLaunchPushTapped = "marketplace.launchPushTapped"
+        case marketplaceLaunchBannerTapped = "marketplace.launchBannerTapped"
+
+        // Cold-start seeding flywheel (E24 Task 2): shown/accepted pairs measure
+        // conversion. seedInvite = post-event "invite your vendors" prompt
+        // (carries `unclaimedCount`); vendorOptIn = one-time "create your vendor
+        // profile" prompt for claimed-invite users (carries `workedEvents`).
+        case marketplaceSeedInviteShown = "marketplace.seedInviteShown"
+        case marketplaceSeedInviteAccepted = "marketplace.seedInviteAccepted"
+        case marketplaceVendorOptInShown = "marketplace.vendorOptInShown"
+        case marketplaceVendorOptInAccepted = "marketplace.vendorOptInAccepted"
+
         // UGC safety funnel (Apple Guideline 1.2): report + block. Counts only —
         // the `content`/`reason` dimensions are enum raw values, never free text.
         case marketplaceContentReported = "marketplace.contentReported"
@@ -70,6 +84,9 @@ nonisolated enum AnalyticsService {
         case templateEdited = "template.edited"
         case templateDeleted = "template.deleted"
         case communityTemplatesTeaserViewed = "templates.communityTeaserViewed"
+        // Community templates (E23): publish funnel. Counts + verified-source flag
+        // only; template names are public but kept out of the event for consistency.
+        case communityTemplatePublished = "templates.communityPublished"
 
         // 1.0 launch features: first-run demo seeding, reusable vendor teams,
         // and the launch promo interstitial. Counts only — no names or titles.

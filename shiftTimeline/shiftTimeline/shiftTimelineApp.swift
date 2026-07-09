@@ -71,6 +71,11 @@ struct shiftTimelineApp: App {
 
     /// Forced profile onboarding (E19): planner/vendor profile creation + onboarded flip.
     @State private var onboardingService: SupabaseOnboardingService?
+
+    /// Community templates (E23): browse / publish / apply shared run-sheets.
+    /// Online-only direct Supabase, outside the sync stack like the other
+    /// marketplace services.
+    @State private var communityTemplateService: SupabaseCommunityTemplateService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -210,6 +215,7 @@ struct shiftTimelineApp: App {
                 .environment(\.vendorReviewService, vendorReviewService)
                 .environment(\.availabilityService, availabilityService)
                 .environment(\.onboardingService, onboardingService)
+                .environment(\.communityTemplateService, communityTemplateService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -358,6 +364,11 @@ struct shiftTimelineApp: App {
                 onboardingService = SupabaseOnboardingService(client: client, marketplace: marketplaceService)
             }
 
+            // Community templates (E23): online-only direct Supabase.
+            if communityTemplateService == nil {
+                communityTemplateService = SupabaseCommunityTemplateService(client: client)
+            }
+
             // Wire the APNs registrar before listening so a restored session
             // immediately registers the device token.
             await DeviceTokenRegistrar.shared.configure(
@@ -480,6 +491,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
            let eventID = UUID(uuidString: eventIDString) {
             Task { @MainActor in
                 DeepLinkRouter.shared.pendingDestination = .live(id: eventID)
+            }
+            completionHandler()
+            return
+        }
+
+        // Marketplace launch announcement (E24) — vendors deep-link into the
+        // vendor profile editor, planners into Marketplace home.
+        if let launchRole = RemoteShiftPushHandler.parseMarketplaceLaunchRole(userInfo) {
+            Task { @MainActor in
+                AnalyticsService.send(.marketplaceLaunchPushTapped, parameters: ["role": launchRole.rawValue])
+                RemoteShiftPushHandler.routeMarketplaceLaunchTap(launchRole, router: .shared)
             }
             completionHandler()
             return

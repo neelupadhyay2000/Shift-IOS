@@ -10,6 +10,29 @@ enum ContentSafety {
     static let abuseEmail = "abuse@shifttimeline.app"
 }
 
+// MARK: - Marketplace terms
+
+/// Affirmative Terms acceptance for the publishing side of the marketplace
+/// (Apple Guideline 1.2). Vendors publish UGC — profiles and portfolio photos —
+/// so they must agree to a no-tolerance policy for objectionable content before
+/// opting in. Recorded server-side by `accept_marketplace_terms(p_version)`,
+/// which the client cannot forge (the columns are not client-writable).
+enum MarketplaceTerms {
+    /// Bump when the marketplace Terms change materially; a future revision can
+    /// then re-prompt only users whose recorded version is stale.
+    static let currentVersion = "2026-07-09"
+
+    /// The agreement shown at every vendor opt-in choke point.
+    static var agreementText: String {
+        String(localized: """
+        By creating a vendor profile you agree to the Terms of Service and to our \
+        no-tolerance policy for objectionable content and abusive behaviour. \
+        Content you publish can be reported, and we remove violating content and \
+        eject offending users — typically within 24 hours.
+        """)
+    }
+}
+
 // MARK: - Block list
 
 /// Locally-persisted set of blocked contacts, keyed by normalized phone/email.

@@ -11,6 +11,7 @@ enum ReportableContentType: String, Codable, CaseIterable, Sendable {
     case portfolioItem = "portfolio_item"
     case review
     case message
+    case communityTemplate = "community_template"
 }
 
 // MARK: - Report reason

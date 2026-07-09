@@ -25,11 +25,17 @@ struct VendorPublicProfileView: View {
     @State private var isPresentingComposer = false
     @State private var isSaved = false
     @State private var selectedMedia: PortfolioMedia?
+    /// Non-nil presents the report sheet for one portfolio item (Guideline 1.2 —
+    /// portfolio photos/videos are UGC and must be reportable in place).
+    @State private var reportingPortfolioItemID: ReportablePortfolioItem?
 
     private let reviewPageSize = 20
 
     /// Planners can save vendors; vendors and self-views can't.
     private var canSave: Bool { !authService.isVendorAccount && profileID != authService.currentProfileID }
+
+    /// You can't report your own portfolio.
+    private var isSelfView: Bool { profileID == authService.currentProfileID }
 
     private var title: String {
         if let name = profile?.identity.businessName, !name.isEmpty { return name }
@@ -78,6 +84,9 @@ struct VendorPublicProfileView: View {
         .task { await load() }
         .sheet(isPresented: $isPresentingComposer) {
             RequestComposerView(vendorProfileID: profileID, vendorName: title)
+        }
+        .sheet(item: $reportingPortfolioItemID) { target in
+            ReportReasonSheet(contentType: .portfolioItem, contentID: target.id)
         }
         .fullScreenCover(item: $selectedMedia) { media in
             MediaGalleryView(items: mediaItems, initial: media)
@@ -344,6 +353,24 @@ struct VendorPublicProfileView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            // Guideline 1.2: every UGC surface is reportable in place. Portfolio
+            // photos/videos are the vendor's uploaded media — report the item;
+            // blocking the author lives on the profile's safety menu above.
+            .contextMenu {
+                if !isSelfView {
+                    Button(role: .destructive) {
+                        reportingPortfolioItemID = ReportablePortfolioItem(id: item.id)
+                    } label: {
+                        Label(
+                            item.kind == "video"
+                                ? String(localized: "Report Video")
+                                : String(localized: "Report Photo"),
+                            systemImage: "flag"
+                        )
+                    }
+                }
+            }
+            .accessibilityIdentifier(AccessibilityID.Marketplace.portfolioTile)
         }
     }
 

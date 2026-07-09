@@ -14,6 +14,7 @@ struct MarketplaceHomeView: View {
     var onOpenVendorSettings: () -> Void
 
     @Environment(\.marketplaceService) private var service
+    @Environment(\.waitlistService) private var waitlistService
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -23,7 +24,21 @@ struct MarketplaceHomeView: View {
     @State private var savedIDs: Set<UUID> = []
     @State private var isLoading = true
 
+    /// True when the signed-in user joined the waitlist as vendor/both but has
+    /// not yet become a vendor — the launch banner's audience (E24 Task 1: the
+    /// waitlist-joined banner converts to "Marketplace is live — set up your
+    /// profile"). Planner-role members need no banner: the live directory they
+    /// are looking at IS the launch.
+    @State private var isUnconvertedVendorWaitlister = false
+    /// Sticky dismissal so the banner doesn't nag forever; it also disappears
+    /// permanently once the user becomes a vendor (the `isVendor` branch).
+    @AppStorage("marketplaceLaunchBannerDismissed") private var launchBannerDismissed = false
+
     private var isVendor: Bool { authService.isVendorAccount }
+
+    private var showsLaunchBanner: Bool {
+        isUnconvertedVendorWaitlister && !launchBannerDismissed
+    }
 
     var body: some View {
         ScrollView {
@@ -34,6 +49,7 @@ struct MarketplaceHomeView: View {
                     searchField
                     categoryCarousels
                 } else {
+                    if showsLaunchBanner { launchBanner }
                     searchField
                     if !saved.isEmpty { savedSection }
                     categoryCarousels
@@ -199,6 +215,54 @@ struct MarketplaceHomeView: View {
         .accessibilityIdentifier(AccessibilityID.Marketplace.becomeVendorButton)
     }
 
+    // MARK: Launch banner (E24 Task 1)
+
+    /// The waitlist-joined banner, converted: "The Marketplace is live — set up
+    /// your profile". Shown only to vendor/both waitlisters who haven't become
+    /// vendors yet; the CTA is the same vendor-settings deep-link as the nudge.
+    private var launchBanner: some View {
+        HStack(alignment: .top, spacing: 12) {
+            ShiftIconTile(systemImage: "megaphone.fill")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "The Marketplace is live 🎉"))
+                    .font(.subheadline.weight(.semibold))
+                Text(String(localized: """
+                You're off the waitlist. Set up your vendor profile now and be \
+                there when planners start searching.
+                """))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    AnalyticsService.send(.marketplaceLaunchBannerTapped)
+                    onOpenVendorSettings()
+                } label: {
+                    Text(String(localized: "Set Up Profile"))
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(ShiftPalette.accent, in: Capsule())
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
+            Spacer(minLength: 0)
+            Button {
+                launchBannerDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Dismiss"))
+        }
+        .proCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityID.Marketplace.launchBanner)
+    }
+
     // MARK: Data
 
     private func load() async {
@@ -213,7 +277,17 @@ struct MarketplaceHomeView: View {
         if !isVendor {
             saved = (try? await service.savedVendors()) ?? []
             savedIDs = (try? await service.savedVendorIDs()) ?? []
+            await refreshLaunchBannerAudience()
         }
+    }
+
+    /// One cheap self-row read: the banner targets waitlist vendor/both members
+    /// who haven't converted. Skipped entirely once dismissed.
+    private func refreshLaunchBannerAudience() async {
+        guard !launchBannerDismissed, let waitlistService else { return }
+        let entry = try? await waitlistService.currentEntry()
+        let role = entry.flatMap { WaitlistInterestRole(rawValue: $0.interestRole) }
+        isUnconvertedVendorWaitlister = (role == .vendor || role == .both)
     }
 
     private func toggleSave(_ id: UUID) {

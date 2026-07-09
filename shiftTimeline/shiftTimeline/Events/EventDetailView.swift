@@ -49,6 +49,9 @@ struct EventDetailView: View {
     /// an event — a vendor's shared timeline or the planner watching
     /// vendor acknowledgments land in the ack grid. Lazily created.
     @State private var realtime: RealtimeLifecycleManager?
+    /// Mirrors `PostEventInvitePromptStore` so dismissing the seeding prompt
+    /// re-renders immediately (UserDefaults isn't observable). Seeded on appear.
+    @State private var seedPromptDismissed = false
 
     private let eventID: UUID
 
@@ -109,7 +112,10 @@ struct EventDetailView: View {
                     }
             }
         }
-        .onAppear { configureRealtime() }
+        .onAppear {
+            configureRealtime()
+            seedPromptDismissed = PostEventInvitePromptStore().isDismissed(eventID: eventID)
+        }
         .onChange(of: authService.currentProfileID) { _, _ in configureRealtime() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -181,6 +187,7 @@ struct EventDetailView: View {
                 summaryCard(event)
                 primaryAction(event)
                 managementSection(event)
+                seedInvitePrompt(event)
                 reportsSection(event)
                 if eventUsesWeather(event) {
                     // WeatherKit attribution (Guideline 5.2.5): the Apple Weather
@@ -469,6 +476,44 @@ struct EventDetailView: View {
             return String(localized: "\(accepted) Accepted • \(pending) Pending")
         }
         return String(localized: "\(vendors.count) added")
+    }
+
+    // MARK: - Seeding prompt (E24 Task 2)
+
+    /// Post-event flywheel prompt: the owner of a completed event with vendors
+    /// who never claimed a Shift profile is nudged to invite them — the CTA
+    /// reuses the existing identity-locked invite flow (`VendorSharingView`,
+    /// paywall-gated by `presentVendorSharing`).
+    @ViewBuilder
+    private func seedInvitePrompt(_ event: EventModel) -> some View {
+        let unclaimed = PostEventInvitePrompt.unclaimedVendors(event.vendors ?? [])
+        if PostEventInvitePrompt.isEligible(
+            isCompleted: event.status == .completed,
+            isOwner: isOwner,
+            unclaimedCount: unclaimed.count,
+            isDismissed: seedPromptDismissed
+        ) {
+            PostEventInvitePromptCard(
+                unclaimed: unclaimed,
+                onInvite: {
+                    AnalyticsService.send(.marketplaceSeedInviteAccepted, parameters: [
+                        "unclaimedCount": "\(unclaimed.count)",
+                    ])
+                    presentVendorSharing()
+                },
+                onDismiss: {
+                    PostEventInvitePromptStore().dismiss(eventID: eventID)
+                    seedPromptDismissed = true
+                }
+            )
+            .onAppear {
+                guard !SeedInviteSignalGuard.fired.contains(eventID) else { return }
+                SeedInviteSignalGuard.fired.insert(eventID)
+                AnalyticsService.send(.marketplaceSeedInviteShown, parameters: [
+                    "unclaimedCount": "\(unclaimed.count)",
+                ])
+            }
+        }
     }
 
     // MARK: - Reports (Export PDF · Post-Event Report · Reviews)

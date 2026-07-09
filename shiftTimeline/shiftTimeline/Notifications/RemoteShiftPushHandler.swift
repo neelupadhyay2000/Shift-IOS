@@ -57,6 +57,27 @@ enum RemoteShiftPushHandler {
         router.pendingDestination = .serviceRequest(id: requestID)
     }
 
+    /// Marketplace launch announcement (E24 Task 1) carries its audience role
+    /// here — must match the marketplace-launch-notify Edge Function's
+    /// MARKETPLACE_LAUNCH_KEY.
+    nonisolated static let marketplaceLaunchKey = "com.shift.marketplaceLaunch"
+
+    /// Returns the launch audience when `userInfo` is a marketplace-launch push,
+    /// else nil. Unknown role strings parse as nil (forward-compatible: an old
+    /// build receiving a future role falls through to the default tap handling).
+    nonisolated static func parseMarketplaceLaunchRole(
+        _ userInfo: [AnyHashable: Any]
+    ) -> MarketplaceLaunchRole? {
+        (userInfo[marketplaceLaunchKey] as? String).flatMap(MarketplaceLaunchRole.init(rawValue:))
+    }
+
+    /// Routes a tapped launch push: vendors into the vendor profile editor
+    /// (seed supply first), planners into Marketplace home.
+    @MainActor
+    static func routeMarketplaceLaunchTap(_ role: MarketplaceLaunchRole, router: DeepLinkRouter) {
+        router.pendingDestination = .marketplaceLaunch(role: role)
+    }
+
     /// Returns a parsed payload when `userInfo` is one of our shift pushes, else nil.
     /// `nonisolated` so the (nonisolated) notification-tap delegate can extract the
     /// Sendable payload before hopping to the MainActor router.
