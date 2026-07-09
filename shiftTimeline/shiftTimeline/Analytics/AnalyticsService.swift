@@ -52,6 +52,15 @@ nonisolated enum AnalyticsService {
         case marketplaceLaunchPushTapped = "marketplace.launchPushTapped"
         case marketplaceLaunchBannerTapped = "marketplace.launchBannerTapped"
 
+        // Cold-start seeding flywheel (E24 Task 2): shown/accepted pairs measure
+        // conversion. seedInvite = post-event "invite your vendors" prompt
+        // (carries `unclaimedCount`); vendorOptIn = one-time "create your vendor
+        // profile" prompt for claimed-invite users (carries `workedEvents`).
+        case marketplaceSeedInviteShown = "marketplace.seedInviteShown"
+        case marketplaceSeedInviteAccepted = "marketplace.seedInviteAccepted"
+        case marketplaceVendorOptInShown = "marketplace.vendorOptInShown"
+        case marketplaceVendorOptInAccepted = "marketplace.vendorOptInAccepted"
+
         // UGC safety funnel (Apple Guideline 1.2): report + block. Counts only —
         // the `content`/`reason` dimensions are enum raw values, never free text.
         case marketplaceContentReported = "marketplace.contentReported"

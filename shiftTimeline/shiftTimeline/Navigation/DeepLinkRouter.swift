@@ -21,6 +21,10 @@ enum DeepLinkDestination: Equatable {
     /// Marketplace launch announcement push (E24 Task 1): vendors deep-link into
     /// the vendor profile editor (seed supply first), planners into Marketplace home.
     case marketplaceLaunch(role: MarketplaceLaunchRole)
+    /// Settings → vendor/marketplace settings — the become-a-vendor flow
+    /// (handles the planner→vendor account switch). Used by the vendor opt-in
+    /// seeding prompt (E24 Task 2).
+    case vendorSettings
 }
 
 /// The audience of a marketplace-launch push — raw values mirror the Edge

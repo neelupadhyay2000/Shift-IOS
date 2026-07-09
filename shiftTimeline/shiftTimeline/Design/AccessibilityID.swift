@@ -49,6 +49,12 @@ enum AccessibilityID {
         static let shareButton    = "event_detail.share_button"
     }
 
+    // MARK: - Seeding prompts (E24 Task 2)
+
+    enum Events {
+        static let postEventInvitePrompt = "event_detail.post_event_invite_prompt"
+    }
+
     // MARK: - Timeline Builder (TimelineBuilderView)
 
     enum Timeline {
@@ -155,6 +161,8 @@ enum AccessibilityID {
         static let filtersButton       = "marketplace.filters_button"
         // Launch announcement (E24 Task 1)
         static let launchBanner        = "marketplace.launch_banner"
+        // Vendor opt-in seeding prompt (E24 Task 2)
+        static let vendorOptInPrompt   = "marketplace.vendor_opt_in_prompt"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"

@@ -15,8 +15,12 @@ struct RootContainerView: View {
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(DemoSession.self) private var demoSession
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(\.marketplaceService) private var marketplaceService
 
     @State private var isShowingLaunchPromo = false
+    /// Non-nil presents the one-time vendor opt-in sheet (E24 Task 2) with the
+    /// user's verified worked-event count.
+    @State private var vendorOptInContext: VendorOptInContext?
     @Environment(\.scenePhase) private var scenePhase
 
     private let appLock = AppLock.shared
@@ -98,6 +102,13 @@ struct RootContainerView: View {
             .fullScreenCover(isPresented: $isShowingLaunchPromo) {
                 LaunchPromoView()
             }
+            // One-time vendor opt-in (E24 Task 2): claimed-invite users with no
+            // vendor profile are the marketplace's warmest supply.
+            .sheet(item: $vendorOptInContext) { context in
+                VendorOptInPromptView(workedEventCount: context.workedEventCount) {
+                    deepLinkRouter.pendingDestination = .vendorSettings
+                }
+            }
     }
 
     @ViewBuilder
@@ -151,6 +162,7 @@ struct RootContainerView: View {
             } else {
                 RootNavigator()
                     .task { await maybeShowLaunchPromo() }
+                    .task { await maybeShowVendorOptIn() }
             }
         } else {
             SignInView(isDismissible: false)
@@ -176,6 +188,43 @@ struct RootContainerView: View {
         else { return }
         defaults.set(Date.now, forKey: LaunchPromoSchedule.defaultsKey)
         isShowingLaunchPromo = true
+    }
+
+    /// One-time vendor opt-in (E24 Task 2): a user with ≥1 claimed
+    /// `event_vendors` row (they've verifiably worked events) and no vendor
+    /// profile is prompted — exactly once per install — to create one. Waits
+    /// out the launch-promo window and stands down when the launch is already
+    /// routed somewhere intentional, mirroring `maybeShowLaunchPromo`.
+    private func maybeShowVendorOptIn() async {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: VendorOptInPrompt.shownDefaultsKey),
+              !authService.isVendorAccount,
+              let marketplaceService else { return }
+
+        // Let the (higher-frequency) launch promo resolve first; never stack.
+        try? await Task.sleep(for: .seconds(2.5))
+        guard !Task.isCancelled,
+              !isShowingLaunchPromo,
+              deepLinkRouter.pendingDestination == nil,
+              deepLinkRouter.pendingInviteVendorID == nil
+        else { return }
+
+        // Verified history: events this profile claimed (accepted invites).
+        let workedEvents = (try? await marketplaceService.claimablePortfolioEvents()) ?? []
+        let hasProfile = ((try? await marketplaceService.fetchMyVendorProfile()) ?? nil) != nil
+        guard VendorOptInPrompt.isEligible(
+            workedEventCount: workedEvents.count,
+            hasVendorProfile: hasProfile,
+            isVendorAccount: authService.isVendorAccount,
+            alreadyShown: defaults.bool(forKey: VendorOptInPrompt.shownDefaultsKey)
+        ) else { return }
+
+        // Stamp before presenting — one-shot regardless of the user's choice.
+        defaults.set(true, forKey: VendorOptInPrompt.shownDefaultsKey)
+        AnalyticsService.send(.marketplaceVendorOptInShown, parameters: [
+            "workedEvents": "\(workedEvents.count)",
+        ])
+        vendorOptInContext = VendorOptInContext(workedEventCount: workedEvents.count)
     }
 
     @ViewBuilder
@@ -214,6 +263,12 @@ struct RootContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { SignInBrandBackground() }
     }
+}
+
+/// Sheet-presentation payload for the one-time vendor opt-in prompt.
+private struct VendorOptInContext: Identifiable {
+    let id = UUID()
+    let workedEventCount: Int
 }
 
 /// Brand privacy cover shown over everything (including any open sheets) while

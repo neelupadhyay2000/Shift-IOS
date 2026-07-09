@@ -319,6 +319,10 @@ struct RootNavigator: View {
             case .planner:
                 marketplacePath = []
             }
+        case .vendorSettings:
+            // Become-a-vendor flow (account switch + listing) — same landing as
+            // the marketplace nudge's openVendorSettings().
+            openVendorSettings()
         }
         deepLinkRouter.pendingDestination = nil
     }
