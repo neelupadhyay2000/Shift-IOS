@@ -1,5 +1,14 @@
 // marketplace-launch-notify Edge Function — ONE-SHOT launch announcement (E24 Task 1).
 //
+// ⚠️ RETIRED 2026-07-09 — UNDEPLOYED FROM DEV AND PROD. DO NOT REDEPLOY.
+//
+// An announcement push is marketing under App Store Guideline 4.5.4, which
+// requires BOTH in-UI consent language AND an in-app opt-out. We have consent
+// (the waitlist sheet) but no opt-out — and the waitlist screen is now dead code
+// anyway, since MarketplaceHomeView replaced the teaser. The launch is announced
+// by the in-app banner instead. Source is kept so this can be revived once a
+// "leave the waitlist" control ships. See docs/marketplace-launch-runbook.md.
+//
 // Fans out "The Shift Marketplace is live" to marketplace_waitlist members'
 // devices, in two admin-triggered waves:
 //
