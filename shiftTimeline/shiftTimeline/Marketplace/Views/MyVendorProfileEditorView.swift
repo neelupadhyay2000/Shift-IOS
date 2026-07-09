@@ -2,6 +2,9 @@ import CoreLocation
 import Models
 import PhotosUI
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Vendor opt-in / profile editor. New vendors pass through a Terms-acceptance
 /// gate (Guideline 1.2) before the form; returning vendors land straight on it,
@@ -22,6 +25,8 @@ struct MyVendorProfileEditorView: View {
     @State private var isExisting = false
     @State private var newSkill = ""
     @State private var avatarItem: PhotosPickerItem?
+    /// Non-nil presents the pan/zoom crop sheet for the freshly picked photo.
+    @State private var avatarToCrop: CroppableAvatar?
     @State private var isUploadingAvatar = false
     @State private var errorMessage: String?
 
@@ -42,9 +47,16 @@ struct MyVendorProfileEditorView: View {
         .navigationTitle(String(localized: "Vendor profile"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
+        // A picked photo goes through the crop sheet first, so the vendor chooses
+        // which region survives the hero banner's aspect-fill crop.
         .onChange(of: avatarItem) { _, item in
             guard let item else { return }
-            Task { await uploadAvatar(item) }
+            Task { await presentCropper(for: item) }
+        }
+        .sheet(item: $avatarToCrop) { croppable in
+            AvatarCropView(image: croppable.image) { jpeg in
+                Task { await uploadAvatar(jpeg) }
+            }
         }
     }
 
@@ -316,14 +328,35 @@ struct MyVendorProfileEditorView: View {
         }
     }
 
-    private func uploadAvatar(_ item: PhotosPickerItem) async {
+    /// Loads the picked asset and hands it to the crop sheet. `avatarItem` is
+    /// cleared so re-picking the *same* photo fires `onChange` again.
+    private func presentCropper(for item: PhotosPickerItem) async {
+        defer { avatarItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+        avatarToCrop = CroppableAvatar(image: image)
+    }
+
+    /// Uploads the already-cropped JPEG produced by `AvatarCropView`.
+    private func uploadAvatar(_ data: Data) async {
         guard let service else { return }
         isUploadingAvatar = true
         defer { isUploadingAvatar = false }
-        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
         if let url = try? await service.uploadAvatar(data: data) {
-            input.avatarURL = url.absoluteString
+            // Bust the AsyncImage cache: the storage path is fixed (`avatar.jpg`,
+            // upserted), so the URL is unchanged and the old image would persist.
+            input.avatarURL = Self.cacheBusted(url).absoluteString
         }
+    }
+
+    /// Appends a changing query item so `AsyncImage` refetches after a re-crop.
+    private static func cacheBusted(_ url: URL) -> URL {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        var items = components.queryItems ?? []
+        items.removeAll { $0.name == "v" }
+        items.append(URLQueryItem(name: "v", value: String(Int(Date().timeIntervalSince1970))))
+        components.queryItems = items
+        return components.url ?? url
     }
 
     private func save() async {

@@ -165,6 +165,8 @@ enum AccessibilityID {
         static let vendorOptInPrompt   = "marketplace.vendor_opt_in_prompt"
         // Portfolio tile — long-press exposes Report (E24 Task 3, Guideline 1.2)
         static let portfolioTile       = "marketplace.portfolio_tile"
+        // Avatar pan/zoom crop sheet
+        static let avatarCrop          = "marketplace.avatar_crop"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"
