@@ -70,6 +70,9 @@ nonisolated enum AnalyticsService {
         case templateEdited = "template.edited"
         case templateDeleted = "template.deleted"
         case communityTemplatesTeaserViewed = "templates.communityTeaserViewed"
+        // Community templates (E23): publish funnel. Counts + verified-source flag
+        // only; template names are public but kept out of the event for consistency.
+        case communityTemplatePublished = "templates.communityPublished"
 
         // 1.0 launch features: first-run demo seeding, reusable vendor teams,
         // and the launch promo interstitial. Counts only — no names or titles.

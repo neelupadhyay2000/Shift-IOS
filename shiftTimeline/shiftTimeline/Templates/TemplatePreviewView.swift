@@ -103,7 +103,7 @@ struct TemplatePreviewView: View {
             }
         }) {
             if let template {
-                UseTemplateSheet(template: template, isUserTemplate: isUserTemplate) { eventID in
+                UseTemplateSheet(template: template, source: isUserTemplate ? .user : .starter) { eventID in
                     createdEventID = eventID
                 }
             }
@@ -223,14 +223,23 @@ struct TemplatePreviewView: View {
 
 // MARK: - Use Template Sheet
 
+/// Where a template-applied event originated, for the `.templateUsed` analytics
+/// source. User template names are user-entered (often client names) so they are
+/// never logged; starter and community names are public and safe to log.
+enum TemplateUseSource: String, Sendable {
+    case user
+    case starter
+    case community
+}
+
 /// Sheet that collects event name, date, and start time, then creates the event
-/// with all template blocks pre-populated.
-private struct UseTemplateSheet: View {
+/// with all template blocks pre-populated. Internal (not private) so the community
+/// templates flow reuses the same proven event-creation path.
+struct UseTemplateSheet: View {
 
     let template: Template
-    /// True when applying a user-saved template. User template names are
-    /// user-entered (often client names), so they are never sent to analytics.
-    let isUserTemplate: Bool
+    /// Origin of the template, for analytics.
+    let source: TemplateUseSource
     let onEventCreated: (UUID) -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -333,10 +342,13 @@ private struct UseTemplateSheet: View {
             venueNames: venueNames
         )
         try? await eventRepo.insert(event)
-        if isUserTemplate {
+        switch source {
+        case .user:
             AnalyticsService.send(.templateUsed, parameters: ["source": "user"])
-        } else {
+        case .starter:
             AnalyticsService.send(.templateUsed, parameters: ["source": "starter", "templateName": template.name])
+        case .community:
+            AnalyticsService.send(.templateUsed, parameters: ["source": "community", "templateName": template.name])
         }
 
         let mainTrack = TimelineTrack(name: "Main", sortOrder: 0, isDefault: true, event: event)

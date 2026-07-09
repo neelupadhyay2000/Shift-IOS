@@ -33,6 +33,9 @@ struct TemplateBrowserView: View {
     @State private var isLoading = true
     @State private var editingTemplate: Template?
     @State private var templatePendingDeletion: Template?
+    @State private var templateToPublish: Template?
+
+    @Environment(\.communityTemplateService) private var communityService
 
     private let userStore = UserTemplateStore()
 
@@ -58,7 +61,7 @@ struct TemplateBrowserView: View {
                 case .library:
                     libraryContent
                 case .community:
-                    CommunityTemplatesTeaserView()
+                    CommunityTemplatesView()
                 }
             }
         }
@@ -80,6 +83,9 @@ struct TemplateBrowserView: View {
             TemplateEditorSheet(template: template) { updated in
                 persistEdits(updated)
             }
+        }
+        .sheet(item: $templateToPublish) { template in
+            PublishTemplateSheet(template: template)
         }
         .confirmationDialog(
             String(localized: "Delete Template?"),
@@ -147,6 +153,13 @@ struct TemplateBrowserView: View {
                             editingTemplate = template
                         } label: {
                             Label(String(localized: "Edit"), systemImage: "pencil")
+                        }
+                        if communityService != nil {
+                            Button {
+                                templateToPublish = template
+                            } label: {
+                                Label(String(localized: "Publish to Community"), systemImage: "square.and.arrow.up")
+                            }
                         }
                         Button(role: .destructive) {
                             templatePendingDeletion = template
