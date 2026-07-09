@@ -47,6 +47,11 @@ nonisolated enum AnalyticsService {
         case marketplaceTeaserViewed = "marketplace.teaserViewed"
         case marketplaceWaitlistJoined = "marketplace.waitlistJoined"
 
+        // Marketplace launch (E24): announcement-push conversion. Carries only
+        // the `role` dimension (vendor|planner) — the wave the member was in.
+        case marketplaceLaunchPushTapped = "marketplace.launchPushTapped"
+        case marketplaceLaunchBannerTapped = "marketplace.launchBannerTapped"
+
         // UGC safety funnel (Apple Guideline 1.2): report + block. Counts only —
         // the `content`/`reason` dimensions are enum raw values, never free text.
         case marketplaceContentReported = "marketplace.contentReported"

@@ -18,6 +18,16 @@ enum DeepLinkDestination: Equatable {
     /// Open a marketplace service request (`shift://request/{id}`) — routes to the
     /// Marketplace tab. The id is carried for the request inbox/detail (E11 UI).
     case serviceRequest(id: UUID)
+    /// Marketplace launch announcement push (E24 Task 1): vendors deep-link into
+    /// the vendor profile editor (seed supply first), planners into Marketplace home.
+    case marketplaceLaunch(role: MarketplaceLaunchRole)
+}
+
+/// The audience of a marketplace-launch push — raw values mirror the Edge
+/// Function's `com.shift.marketplaceLaunch` payload value exactly.
+enum MarketplaceLaunchRole: String, Sendable {
+    case vendor
+    case planner
 }
 
 /// Observable deep-link router that external systems (notification taps,

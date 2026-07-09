@@ -496,6 +496,17 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
+        // Marketplace launch announcement (E24) — vendors deep-link into the
+        // vendor profile editor, planners into Marketplace home.
+        if let launchRole = RemoteShiftPushHandler.parseMarketplaceLaunchRole(userInfo) {
+            Task { @MainActor in
+                AnalyticsService.send(.marketplaceLaunchPushTapped, parameters: ["role": launchRole.rawValue])
+                RemoteShiftPushHandler.routeMarketplaceLaunchTap(launchRole, router: .shared)
+            }
+            completionHandler()
+            return
+        }
+
         // Marketplace service-request push — deep-link to the Marketplace tab.
         if let requestID = RemoteShiftPushHandler.parseRequestID(userInfo) {
             Task { @MainActor in

@@ -153,6 +153,8 @@ enum AccessibilityID {
         static let saveVendorButton   = "marketplace.save_vendor_button"
         static let savedVendorsList    = "marketplace.saved_vendors_list"
         static let filtersButton       = "marketplace.filters_button"
+        // Launch announcement (E24 Task 1)
+        static let launchBanner        = "marketplace.launch_banner"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"
