@@ -57,10 +57,13 @@ struct VendorSettingsView: View {
             isPresented: $confirmSwitchToVendor,
             titleVisibility: .visible
         ) {
-            Button(String(localized: "Switch to Vendor")) { Task { await switchToVendor() } }
+            // Affirmative acceptance (Guideline 1.2): the confirming button names
+            // the agreement, and `switchToVendor()` records it server-side before
+            // the account flips.
+            Button(String(localized: "Agree & Switch to Vendor")) { Task { await switchToVendor() } }
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
-            Text(String(localized: "You'll get a vendor profile and can be booked for events. As a vendor you can't request other vendors — that's a planner feature."))
+            Text(String(localized: "You'll get a vendor profile and can be booked for events. As a vendor you can't request other vendors — that's a planner feature.\n\n\(MarketplaceTerms.agreementText)"))
         }
         // Switch → planner (with the 30-day deletion warning)
         .confirmationDialog(

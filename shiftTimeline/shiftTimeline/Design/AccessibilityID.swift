@@ -163,6 +163,8 @@ enum AccessibilityID {
         static let launchBanner        = "marketplace.launch_banner"
         // Vendor opt-in seeding prompt (E24 Task 2)
         static let vendorOptInPrompt   = "marketplace.vendor_opt_in_prompt"
+        // Portfolio tile — long-press exposes Report (E24 Task 3, Guideline 1.2)
+        static let portfolioTile       = "marketplace.portfolio_tile"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"
@@ -226,5 +228,7 @@ enum AccessibilityID {
         static let plannerNameField  = "onboarding.planner_name_field"
         static let vendorNameField   = "onboarding.vendor_name_field"
         static let submitButton      = "onboarding.submit_button"
+        // Guideline 1.2 affirmative agreement shown at vendor opt-in
+        static let termsNotice       = "onboarding.terms_notice"
     }
 }

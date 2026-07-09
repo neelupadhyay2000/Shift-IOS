@@ -13,6 +13,12 @@ struct PortfolioMedia: Identifiable, Equatable {
     let isVideo: Bool
 }
 
+/// Identifiable wrapper so a `portfolio_items` row id can drive `.sheet(item:)`
+/// for the Guideline 1.2 report flow on portfolio media.
+struct ReportablePortfolioItem: Identifiable, Equatable {
+    let id: UUID
+}
+
 /// A video's first frame with a play badge — used for portfolio grid tiles and
 /// the editor row, so videos read like Instagram (poster + play) instead of a
 /// blank async image.

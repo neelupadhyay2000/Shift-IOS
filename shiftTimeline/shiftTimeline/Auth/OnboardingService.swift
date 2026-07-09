@@ -74,6 +74,12 @@ protocol OnboardingProviding: Sendable {
     /// and schedules it for permanent deletion after a 30-day grace.
     func switchToPlanner() async throws
 
+    /// Records the caller's affirmative acceptance of the marketplace Terms
+    /// (Guideline 1.2). Server-stamped and idempotent per version. Called by the
+    /// vendor opt-in paths before the account flips, so a vendor can never exist
+    /// without a recorded acceptance.
+    func acceptMarketplaceTerms(version: String) async throws
+
     /// Days of grace before a hidden vendor profile is permanently deleted.
     var purgeGraceDays: Int { get }
 }
@@ -103,7 +109,17 @@ struct SupabaseOnboardingService: OnboardingProviding {
         try await client.from("profiles").update(payload).eq("id", value: uid.uuidString).execute()
     }
 
+    func acceptMarketplaceTerms(version: String) async throws {
+        try await client
+            .rpc("accept_marketplace_terms", params: ["p_version": version])
+            .execute()
+    }
+
     func completeVendor(_ input: VendorProfileInput) async throws {
+        // 0) Guideline 1.2: record the affirmative Terms acceptance BEFORE any
+        //    vendor content exists. If this throws, no vendor profile is created.
+        try await acceptMarketplaceTerms(version: MarketplaceTerms.currentVersion)
+
         // 1) Identity (profiles reserved columns) + vendor_profiles row.
         try await marketplace.upsertMyVendorProfile(input)
 
@@ -122,6 +138,10 @@ struct SupabaseOnboardingService: OnboardingProviding {
     }
 
     func switchToVendor() async throws {
+        // Guideline 1.2: acceptance is recorded before the account becomes a
+        // vendor, so every publishing account has one on file.
+        try await acceptMarketplaceTerms(version: MarketplaceTerms.currentVersion)
+
         let uid = try await client.auth.session.user.id
         try await client.from("profiles")
             .update(["account_type": "vendor"])

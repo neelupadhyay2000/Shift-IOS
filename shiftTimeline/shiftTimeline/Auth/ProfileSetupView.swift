@@ -278,7 +278,9 @@ private struct VendorSetupForm: View {
         OnboardingFormScaffold(
             title: String(localized: "Your business"),
             subtitle: String(localized: "Create your marketplace profile so planners can find and book you."),
-            actionTitle: String(localized: "Create profile"),
+            // Affirmative acceptance (Guideline 1.2): the CTA names the agreement,
+            // and `completeVendor` records it server-side before the profile exists.
+            actionTitle: String(localized: "Agree & Create profile"),
             canSubmit: canSubmit,
             onBack: onBack,
             onSubmit: submit
@@ -292,6 +294,7 @@ private struct VendorSetupForm: View {
             field(String(localized: "Service area (optional)"), text: $serviceArea, placeholder: String(localized: "e.g. San Francisco Bay Area"))
             skillsField
             field(String(localized: "Short bio (optional)"), text: $bio, placeholder: String(localized: "What makes your work great?"))
+            termsNotice
             Toggle(isOn: $isListed) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "List me in the marketplace")).font(.subheadline.weight(.semibold)).foregroundStyle(.white)
@@ -364,6 +367,17 @@ private struct VendorSetupForm: View {
                 }
             }
         }
+    }
+
+    /// Guideline 1.2: the no-tolerance agreement, shown inline above the CTA so
+    /// tapping "Agree & Create profile" is an informed, affirmative act.
+    private var termsNotice: some View {
+        Text(MarketplaceTerms.agreementText)
+            .font(.caption2)
+            .foregroundStyle(.white.opacity(0.75))
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityIdentifier(AccessibilityID.Onboarding.termsNotice)
     }
 
     private func addSkill() {
