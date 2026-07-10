@@ -129,13 +129,17 @@ struct EventDetailView: View {
 
     // MARK: - Sharing flow
 
-    /// Presents vendor sharing, gating behind the Pro paywall first.
+    /// Presents vendor sharing. **Deliberately not paywalled.**
+    ///
+    /// Inviting a vendor is how a planner turns their photographer into a claimed
+    /// Shift profile — the marketplace's only organic supply-acquisition channel.
+    /// Charging for it taxed exactly the behaviour the marketplace needs, and it
+    /// dead-ended the post-event seeding prompt (which routes here). Never gate
+    /// the viral loop; Pro earns its keep on individual utility (PDF export,
+    /// widgets, Live Activities) instead.
+    ///
     /// Shared by the signed-in button tap and the post-sign-in continuation.
     private func presentVendorSharing() {
-        guard SubscriptionManager.shared.isProUser else {
-            paywallTrigger = .vendorSharing
-            return
-        }
         isShowingVendorSharing = true
     }
 

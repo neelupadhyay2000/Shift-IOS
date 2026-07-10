@@ -167,6 +167,8 @@ enum AccessibilityID {
         static let portfolioTile       = "marketplace.portfolio_tile"
         // Avatar pan/zoom crop sheet
         static let avatarCrop          = "marketplace.avatar_crop"
+        // Endless "Browse all" grid on the marketplace home
+        static let browseAllGrid       = "marketplace.browse_all_grid"
         static let featuredList       = "marketplace.featured_list"
         static let vendorCard         = "marketplace.vendor_card"
         static let searchResultsList  = "marketplace.search_results_list"

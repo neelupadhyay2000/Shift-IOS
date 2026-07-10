@@ -59,13 +59,19 @@ final class PhoneAuthService {
     /// Supabase returns `AuthResponse`; the session is unwrapped or
     /// `PhoneAuthError.sessionMissing` is thrown — which is a defensive guard
     /// since phone OTP verification always yields a session when successful.
+    ///
+    /// `phone` is normalized here as well as in `requestOTP`. `PhoneSignInSheet`
+    /// already hands us the E.164 form, and `normalizePhone` is idempotent on it
+    /// (rule 1: a `+` prefix is preserved), so this changes nothing today — it just
+    /// removes the footgun where a future caller passes the raw typed number and
+    /// GoTrue silently fails to match the number the code was actually sent to.
     @discardableResult
     func verifyOTP(phone: String, token: String) async throws -> Session {
         guard Self.isValidOTPToken(token) else {
             throw PhoneAuthError.invalidOTPToken
         }
         let response = try await client.auth.verifyOTP(
-            phone: phone,
+            phone: Self.normalizePhone(phone),
             token: token,
             type: .sms
         )

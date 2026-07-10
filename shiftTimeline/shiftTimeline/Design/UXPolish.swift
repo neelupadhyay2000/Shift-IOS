@@ -82,9 +82,10 @@ struct SkeletonVendorCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Square hero, matching the 2-up browse/search grid it stands in for.
             Rectangle()
                 .fill(colorScheme == .dark ? Color.white.opacity(0.08) : Color.black.opacity(0.06))
-                .frame(height: 150)
+                .aspectRatio(1, contentMode: .fit)
                 .shimmering()
             VStack(alignment: .leading, spacing: 8) {
                 SkeletonBlock(height: 16).frame(maxWidth: 160)

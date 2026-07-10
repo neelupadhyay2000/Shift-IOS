@@ -105,14 +105,21 @@ enum VendorSort: String, CaseIterable, Identifiable, Sendable {
     case rating
     case booked
     case nearest
+    /// Bayesian shrunk rating — the marketplace home's "Featured" shelf. Editorial
+    /// ordering, deliberately **not** offered as a user-selectable sort.
+    case featured
 
     var id: String { rawValue }
 
+    /// The sorts a user may pick in the Filters & Sort control.
+    static let userSelectable: [VendorSort] = [.rating, .booked, .nearest]
+
     var label: String {
         switch self {
-        case .rating:  String(localized: "Top rated")
-        case .booked:  String(localized: "Most booked")
-        case .nearest: String(localized: "Nearest")
+        case .rating:   String(localized: "Top rated")
+        case .booked:   String(localized: "Most booked")
+        case .nearest:  String(localized: "Nearest")
+        case .featured: String(localized: "Featured")
         }
     }
 }

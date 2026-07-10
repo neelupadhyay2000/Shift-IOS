@@ -1,3 +1,4 @@
+import CoreLocation
 import Models
 import SwiftUI
 
@@ -15,6 +16,7 @@ struct MarketplaceHomeView: View {
 
     @Environment(\.marketplaceService) private var service
     @Environment(\.waitlistService) private var waitlistService
+    @Environment(\.marketplaceLocation) private var location
     @Environment(SupabaseAuthService.self) private var authService
     @Environment(\.colorScheme) private var colorScheme
 
@@ -23,6 +25,29 @@ struct MarketplaceHomeView: View {
     @State private var saved: [VendorSearchResultDTO] = []
     @State private var savedIDs: Set<UUID> = []
     @State private var isLoading = true
+
+    /// "Browse all" — the endless grid beneath the merchandised carousels, the way
+    /// Facebook Marketplace and Instagram Explore let you just keep scrolling.
+    @State private var browse: [VendorSearchResultDTO] = []
+    @State private var browseOffset = 0
+    @State private var browseReachedEnd = false
+    @State private var isLoadingBrowse = false
+
+    private let browsePageSize = 20
+    /// How many vendors sit on the Featured shelf. Short on purpose — a shelf of
+    /// everything is not a shelf.
+    private let featuredCount = 6
+    /// Two square cells per row on iPhone; more on iPad.
+    private let browseColumns = [GridItem(.adaptive(minimum: 158), spacing: 12)]
+
+    private var coordinate: CLLocationCoordinate2D? { location?.coordinate }
+
+    /// The grid, minus anyone already on the Featured shelf, so a vendor never
+    /// appears twice on one screen. Paging still advances on the server's list.
+    private var browseVisible: [VendorSearchResultDTO] {
+        let featuredIDs = Set(featured.map(\.profileID))
+        return browse.filter { !featuredIDs.contains($0.profileID) }
+    }
 
     /// True when the signed-in user joined the waitlist as vendor/both but has
     /// not yet become a vendor — the launch banner's audience (E24 Task 1: the
@@ -47,12 +72,16 @@ struct MarketplaceHomeView: View {
                 if isVendor {
                     VendorDashboardView(onOpenVendorSettings: onOpenVendorSettings)
                     searchField
-                    categoryCarousels
+                    categoryShortcuts
+                    featuredSection
+                    browseAllSection
                 } else {
                     if showsLaunchBanner { launchBanner }
                     searchField
+                    categoryShortcuts
                     if !saved.isEmpty { savedSection }
-                    categoryCarousels
+                    featuredSection
+                    browseAllSection
                     becomeVendorNudge
                 }
             }
@@ -78,6 +107,8 @@ struct MarketplaceHomeView: View {
         }
         .task { await load() }
         .refreshable { await load() }
+        // A location fix arriving turns on distances and re-sorts by proximity.
+        .onChange(of: coordinate?.latitude) { _, _ in Task { await load() } }
     }
 
     // MARK: Search (pill + filter)
@@ -125,55 +156,59 @@ struct MarketplaceHomeView: View {
 
     private var savedSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader(String(localized: "Saved"), category: nil)
+            sectionHeader(String(localized: "Saved"))
             carousel(saved)
         }
         .accessibilityIdentifier(AccessibilityID.Marketplace.savedVendorsList)
     }
 
-    // MARK: Category carousels (the reference's main content)
+    // MARK: Category shortcuts
 
-    /// Featured vendors grouped into per-category carousels, ordered by category
-    /// name so the sections are stable across reloads.
-    private var groupedByCategory: [(category: String, vendors: [VendorSearchResultDTO])] {
-        Dictionary(grouping: featured, by: { $0.category })
-            .map { (category: $0.key, vendors: $0.value) }
-            .sorted { MarketplaceCategory.label($0.category) < MarketplaceCategory.label($1.category) }
+    /// A quick way into a single vendor type — without letting the *type* dictate
+    /// how the page is ordered. (This replaces the old per-category carousels,
+    /// which grouped the whole home page by vendor type.)
+    private var categoryShortcuts: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach([VendorRole.photographer, .dj, .planner, .caterer, .florist], id: \.self) { role in
+                    NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: role, onDate: nil)) {
+                        HStack(spacing: 6) {
+                            Image(systemName: role.systemImage).font(.caption)
+                            Text(role.displayName).font(.subheadline.weight(.medium))
+                        }
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .foregroundStyle(MarketplaceCategory.color(role.rawValue))
+                        .background(ShiftPalette.soft(MarketplaceCategory.color(role.rawValue)), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .accessibilityIdentifier(AccessibilityID.Marketplace.categoryChips)
     }
 
+    // MARK: Featured
+
+    /// A short editorial shelf at the top of the page, ranked server-side by a
+    /// **Bayesian shrunk rating** (`p_sort = 'featured'`) so a single 5-star review
+    /// can't outrank a vendor with a long, strong record. Before anyone has reviews
+    /// it degrades to most-booked, which is the same trust signal.
     @ViewBuilder
-    private var categoryCarousels: some View {
-        if isLoading {
+    private var featuredSection: some View {
+        if isLoading && featured.isEmpty {
             ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
-        } else if featured.isEmpty {
-            ContentUnavailableView(
-                String(localized: "No vendors yet"),
-                systemImage: "storefront",
-                description: Text(String(localized: "Be the first to list your business — set it up in Settings."))
-            )
-        } else {
-            ForEach(groupedByCategory, id: \.category) { group in
-                VStack(alignment: .leading, spacing: 12) {
-                    sectionHeader(MarketplaceCategory.label(group.category), category: MarketplaceCategory.role(group.category))
-                    carousel(group.vendors)
-                }
+        } else if !featured.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionHeader(String(localized: "Featured"))
+                carousel(featured)
             }
             .accessibilityIdentifier(AccessibilityID.Marketplace.featuredList)
         }
     }
 
-    private func sectionHeader(_ title: String, category: VendorRole?) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title).microLabel()
-            Spacer(minLength: 8)
-            if let category {
-                NavigationLink(value: MarketplaceDestination.searchResults(query: "", category: category, onDate: nil)) {
-                    Text(String(localized: "View All"))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(ShiftPalette.accent)
-                }
-            }
-        }
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title).microLabel()
     }
 
     private func carousel(_ vendors: [VendorSearchResultDTO]) -> some View {
@@ -192,6 +227,67 @@ struct MarketplaceHomeView: View {
                 }
             }
             .padding(.bottom, 2)
+        }
+    }
+
+    // MARK: All vendors — the endless grid (Facebook Marketplace / IG Explore)
+
+    /// Everything else, paged, ordered by **completed events** — the app's own
+    /// earned trust signal, not a self-declared one. Each cell promotes the
+    /// vendor's service so the grid is scannable without reading names.
+    @ViewBuilder
+    private var browseAllSection: some View {
+        if !browseVisible.isEmpty || isLoadingBrowse {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "All vendors")).microLabel()
+                        Text(String(localized: "Most events completed first"))
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer(minLength: 8)
+                    // Location adds distance labels; it no longer reorders the page.
+                    if coordinate == nil, location?.isDenied == false {
+                        Button { location?.requestLocation() } label: {
+                            Label(String(localized: "Show distances"), systemImage: "location")
+                                .font(.caption2.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(ShiftPalette.accent)
+                    }
+                }
+
+                LazyVGrid(columns: browseColumns, spacing: 12) {
+                    ForEach(browseVisible) { result in
+                        NavigationLink(value: MarketplaceDestination.vendorProfile(profileID: result.profileID)) {
+                            VendorCard(
+                                result: result,
+                                isSaved: savedIDs.contains(result.profileID),
+                                onToggleSave: isVendor ? nil : { toggleSave(result.profileID) },
+                                style: .grid
+                            )
+                        }
+                        .buttonStyle(.pressableCard)
+                        // Page off the last *rendered* cell — the featured filter can
+                        // remove the server's last row, which would never appear.
+                        .onAppear {
+                            if result.id == browseVisible.last?.id { Task { await loadMoreBrowse() } }
+                        }
+                    }
+                }
+
+                if isLoadingBrowse {
+                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, 12)
+                }
+            }
+            .accessibilityIdentifier(AccessibilityID.Marketplace.browseAllGrid)
+        } else if !isLoading {
+            ContentUnavailableView(
+                String(localized: "No vendors yet"),
+                systemImage: "storefront",
+                description: Text(String(localized: "Be the first to list your business — set it up in Settings."))
+            )
         }
     }
 
@@ -269,9 +365,14 @@ struct MarketplaceHomeView: View {
         guard let service else { isLoading = false; return }
         isLoading = true
         defer { isLoading = false }
+        let point = coordinate
+        // A short editorial shelf, ranked by the Bayesian shrunk rating. The point
+        // is passed only so the cards can show distance — it doesn't reorder.
         featured = (try? await service.searchVendors(
-            query: nil, category: nil, latitude: nil, longitude: nil,
-            radiusKm: nil, limit: 24, offset: 0, onDate: nil, sort: nil
+            query: nil, category: nil,
+            latitude: point?.latitude, longitude: point?.longitude,
+            radiusKm: nil, limit: featuredCount, offset: 0, onDate: nil,
+            sort: .featured
         )) ?? []
         // Planners: load their saved shortlist + heart state. (Vendors don't save.)
         if !isVendor {
@@ -279,6 +380,35 @@ struct MarketplaceHomeView: View {
             savedIDs = (try? await service.savedVendorIDs()) ?? []
             await refreshLaunchBannerAudience()
         }
+        await reloadBrowse()
+    }
+
+    /// Resets and refills the endless grid (first page).
+    private func reloadBrowse() async {
+        browse = []
+        browseOffset = 0
+        browseReachedEnd = false
+        await loadMoreBrowse()
+    }
+
+    private func loadMoreBrowse() async {
+        guard let service, !browseReachedEnd, !isLoadingBrowse else { return }
+        isLoadingBrowse = true
+        defer { isLoadingBrowse = false }
+        let point = coordinate
+        // Everything else, ranked by completed events — the app's own trust signal.
+        // The point rides along only to populate distance labels.
+        let page = (try? await service.searchVendors(
+            query: nil, category: nil,
+            latitude: point?.latitude, longitude: point?.longitude,
+            radiusKm: nil, limit: browsePageSize, offset: browseOffset, onDate: nil,
+            sort: .booked
+        )) ?? []
+        browse.append(contentsOf: page)
+        // `offset` must count what the *server* returned, not what we display —
+        // the featured de-duplication below is a view concern only.
+        browseOffset += page.count
+        if page.count < browsePageSize { browseReachedEnd = true }
     }
 
     /// One cheap self-row read: the banner targets waitlist vendor/both members

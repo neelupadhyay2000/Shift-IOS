@@ -2,13 +2,72 @@ import Foundation
 import os
 import StoreKit
 
-/// Centralized free-tier gate limits referenced by both UI gates and the paywall feature table.
+/// The numbers behind the free plan. Decoded straight from the `free_tier` row of
+/// the backend's `app_config` table (keys match these property names exactly).
+public struct FreeTierLimits: Codable, Sendable, Equatable {
+    public let maxActiveEvents: Int
+    public let maxBlocksPerEvent: Int
+    public let maxTemplates: Int
+
+    public init(maxActiveEvents: Int, maxBlocksPerEvent: Int, maxTemplates: Int) {
+        self.maxActiveEvents = maxActiveEvents
+        self.maxBlocksPerEvent = maxBlocksPerEvent
+        self.maxTemplates = maxTemplates
+    }
+
+    /// Compiled fallback: used offline, in tests, in previews, and on the very
+    /// first launch before remote config resolves. Kept generous on purpose — if
+    /// the network is down, err toward letting people use the app.
+    public static let fallback = FreeTierLimits(
+        maxActiveEvents: 5,
+        maxBlocksPerEvent: 40,
+        maxTemplates: 10
+    )
+}
+
+/// Centralized free-tier gate limits referenced by both UI gates and the paywall
+/// feature table. Single source of truth — never hardcode these values at call sites.
 ///
-/// Single source of truth — never hardcode these values at call sites.
+/// **Remote-configurable.** These were compile-time constants, which meant widening
+/// or tightening the free plan cost an App Store release each way — the wrong
+/// property for numbers you want to tune while finding product-market fit. They now
+/// come from `app_config.free_tier`, fetched at launch, cached to `UserDefaults` so
+/// the last-known values survive a cold offline start, and backed by
+/// ``FreeTierLimits/fallback`` if nothing has ever been fetched.
+///
+/// `@MainActor` because every read is a UI gate and every write happens on the main
+/// actor after a config fetch — no locking needed.
+@MainActor
 public enum FreeTier {
-    public static let maxActiveEvents = 1
-    public static let maxBlocksPerEvent = 15
-    public static let maxTemplates = 2
+    private static let defaultsKey = "freeTier.limits"
+
+    /// The limits currently in force.
+    public private(set) static var limits: FreeTierLimits = Self.loadCached()
+
+    public static var maxActiveEvents: Int { limits.maxActiveEvents }
+    public static var maxBlocksPerEvent: Int { limits.maxBlocksPerEvent }
+    public static var maxTemplates: Int { limits.maxTemplates }
+
+    /// Adopts freshly fetched limits and caches them for the next cold launch.
+    public static func apply(_ newLimits: FreeTierLimits) {
+        limits = newLimits
+        if let data = try? JSONEncoder().encode(newLimits) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+        }
+    }
+
+    /// Drops any cached remote values (tests, sign-out).
+    public static func resetToFallback() {
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
+        limits = .fallback
+    }
+
+    private static func loadCached() -> FreeTierLimits {
+        guard let data = UserDefaults.standard.data(forKey: defaultsKey),
+              let cached = try? JSONDecoder().decode(FreeTierLimits.self, from: data)
+        else { return .fallback }
+        return cached
+    }
 }
 
 /// Result of a `SubscriptionManager.purchase(_:)` call.

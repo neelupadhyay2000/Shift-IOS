@@ -162,6 +162,12 @@ struct AccountView: View {
             let formatted = renewal.formatted(.dateTime.month(.abbreviated).day().year())
             return String(localized: "SHIFT Pro — renews \(formatted)")
         }
+        // Founding cohort + hand-granted comps. Show the expiry: the window is a
+        // gift, not a silent trap — people should know when it ends.
+        if manager.isComped, let until = manager.compedUntil {
+            let formatted = until.formatted(.dateTime.month(.abbreviated).day().year())
+            return String(localized: "SHIFT Pro — Complimentary through \(formatted)")
+        }
         if manager.isComped { return String(localized: "SHIFT Pro — Complimentary") }
         return String(localized: "SHIFT Pro — Active")
     }

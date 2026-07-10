@@ -5,21 +5,19 @@ import UIKit
 
 // MARK: - Constants
 
-/// Geometry of the marketplace profile picture.
+/// Geometry of the marketplace profile picture — **square, shown in a circle**,
+/// exactly like Instagram.
 ///
-/// The avatar's dominant surface is the **hero banner** — full width by 190pt on
-/// `VendorPublicProfileView` and 150pt on `VendorCard` — not the small circles.
-/// Every surface renders it with `.scaledToFill()`, which hard centre-crops, so a
-/// subject that isn't dead-centre gets cut off. Cropping to the banner's aspect
-/// lets the vendor choose the region that survives.
-///
-/// 16:9 is the canonical target: it sits between the profile banner (~1.9:1 on
-/// iPhone) and the card hero, and a subject centred here still reads correctly in
-/// the 48pt/72pt circles, which take the middle of the frame.
+/// The avatar used to double as a wide hero banner (`VendorPublicProfileView`,
+/// `VendorCard`), which forced a 16:9 crop and meant the circular avatars re-cropped
+/// it horizontally. Now the heroes render the vendor's *portfolio*, so the avatar is
+/// only ever a circle — and a 1:1 crop with a circular mask is the correct, honest
+/// shape: what the vendor frames inside the circle is exactly what everyone sees.
 enum AvatarCrop {
-    static let aspectRatio: CGFloat = 16.0 / 9.0
-    /// Exported pixel size. Retina-safe for a full-width banner on any device.
-    static let outputSize = CGSize(width: 1600, height: 900)
+    /// Square viewport. The circle is inscribed in it (Instagram's "Move and Scale").
+    static let aspectRatio: CGFloat = 1
+    /// Exported pixel size — comfortably retina for the largest circle we draw.
+    static let outputSize = CGSize(width: 1024, height: 1024)
     static let jpegQuality: CGFloat = 0.9
     static let maxZoom: CGFloat = 5
 }
@@ -145,9 +143,9 @@ struct AvatarCropView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 GeometryReader { geo in
-                    let windowWidth = geo.size.width
-                    let windowHeight = windowWidth / AvatarCrop.aspectRatio
-                    let windowSize = CGSize(width: windowWidth, height: windowHeight)
+                    // Square viewport, inset so it always fits the shorter axis.
+                    let side = min(geo.size.width - 32, geo.size.height - 140)
+                    let windowSize = CGSize(width: side, height: side / AvatarCrop.aspectRatio)
 
                     VStack(spacing: 20) {
                         Spacer(minLength: 0)
@@ -193,22 +191,32 @@ struct AvatarCropView: View {
             .resizable()
             .frame(width: image.size.width * scale, height: image.size.height * scale)
             .offset(x: current.width, y: current.height)
-            // Collapse the oversized image down to the crop window, then clip.
+            // Collapse the oversized image down to the square crop window, then clip.
             .frame(width: windowSize.width, height: windowSize.height)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            // Border sits *after* the clip so the stroke isn't shaved at the corners.
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(.white.opacity(0.85), lineWidth: 2)
-            }
+            .clipped()
+            // Instagram's shaping: dim everything outside the inscribed circle, so
+            // the vendor frames the subject in exactly the shape everyone will see.
+            .overlay { circularMask }
             // Gestures target the window, not the (much larger) image.
             .contentShape(Rectangle())
             .gesture(panGesture(windowSize).simultaneously(with: zoomGesture(windowSize)))
             .accessibilityLabel(String(localized: "Drag to reposition, pinch to zoom"))
     }
 
+    /// Punches a circular hole in a dim layer: `destinationOut` inside a
+    /// `compositingGroup` subtracts the circle from the rectangle above it.
+    private var circularMask: some View {
+        ZStack {
+            Rectangle().fill(.black.opacity(0.6))
+            Circle().blendMode(.destinationOut)
+        }
+        .compositingGroup()
+        .overlay { Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2) }
+        .allowsHitTesting(false)
+    }
+
     private var hint: some View {
-        Text(String(localized: "Drag to reposition · Pinch to zoom"))
+        Text(String(localized: "Move and scale"))
             .font(.footnote)
             .foregroundStyle(.white.opacity(0.7))
     }

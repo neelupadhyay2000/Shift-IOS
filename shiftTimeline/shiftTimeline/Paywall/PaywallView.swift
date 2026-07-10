@@ -7,7 +7,9 @@ import Services
 enum PaywallTrigger: String, Identifiable, Sendable {
     case eventLimit
     case blockLimit
-    case vendorSharing
+    // NOTE: there is deliberately no `vendorSharing` trigger. Inviting a vendor is
+    // the marketplace's supply-acquisition loop and is free for everyone —
+    // see `EventDetailView.presentVendorSharing()`.
     case liveActivity
     case pdfExport
     case templates
@@ -24,9 +26,8 @@ enum PaywallTrigger: String, Identifiable, Sendable {
     /// Localized via `String(localized:)` so the catalog auto-extracts these strings.
     var heroTitle: String {
         switch self {
-        case .eventLimit:    return String(localized: "Plan more than one event")
+        case .eventLimit:    return String(localized: "Plan more events")
         case .blockLimit:    return String(localized: "Build longer timelines")
-        case .vendorSharing: return String(localized: "Share with your vendors")
         case .liveActivity:  return String(localized: "Stay live on the Lock Screen")
         case .pdfExport:     return String(localized: "Export polished PDFs")
         case .templates:     return String(localized: "Unlock every template")
@@ -39,11 +40,9 @@ enum PaywallTrigger: String, Identifiable, Sendable {
     var heroSubtitle: String {
         switch self {
         case .eventLimit:
-            return String(localized: "The free plan includes one active event. Upgrade to plan as many as you need.")
+            return String(localized: "The free plan includes \(FreeTier.maxActiveEvents) active events. Upgrade to plan as many as you need.")
         case .blockLimit:
             return String(localized: "The free plan caps each event at \(FreeTier.maxBlocksPerEvent) blocks. Pro removes the limit.")
-        case .vendorSharing:
-            return String(localized: "Send a read-only timeline to photographers, planners, and coordinators.")
         case .liveActivity:
             return String(localized: "Live Activities and Dynamic Island updates are a Pro feature.")
         case .pdfExport:
@@ -53,9 +52,9 @@ enum PaywallTrigger: String, Identifiable, Sendable {
         case .widgets:
             return String(localized: "Glance at your active block straight from the Home Screen.")
         case .settings:
-            return String(localized: "Unlock unlimited events, vendor sharing, PDF exports, Live Activities, widgets, and every template.")
+            return String(localized: "Unlock unlimited events and timeline length, PDF exports, Live Activities, widgets, and every template.")
         case .launchPromo:
-            return String(localized: "Unlock unlimited events, vendor sharing, PDF exports, Live Activities, widgets, and every template.")
+            return String(localized: "Unlock unlimited events and timeline length, PDF exports, Live Activities, widgets, and every template.")
         }
     }
 }
@@ -183,11 +182,13 @@ struct PaywallView: View {
                 pro: String(localized: "Unlimited")
             )
             Divider().padding(.leading, 16)
+            // Vendor sharing is free for everyone — it's the marketplace's supply
+            // loop. Shown here as a checkmark on both sides rather than removed,
+            // so the table reads honestly instead of hiding a free feature.
             tableRow(
                 String(localized: "Vendor Sharing"),
-                free: "✗",
-                pro: "✓",
-                freeIsNegative: true
+                free: "✓",
+                pro: "✓"
             )
             Divider().padding(.leading, 16)
             tableRow(
@@ -468,5 +469,4 @@ struct PaywallView: View {
 
 #Preview("Event Limit") { PaywallView(trigger: .eventLimit) }
 #Preview("Block Limit") { PaywallView(trigger: .blockLimit) }
-#Preview("Vendor Sharing") { PaywallView(trigger: .vendorSharing) }
 #Preview("Live Activity") { PaywallView(trigger: .liveActivity) }
