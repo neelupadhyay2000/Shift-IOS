@@ -16,6 +16,9 @@ struct VendorSettingsView: View {
     @State private var isLoading = true
     @State private var isUpdatingListing = false
     @State private var listingError = false
+    /// A vendor with no `vendor_contacts` row cannot be listed — the server rejects
+    /// it. Mirror that here so the toggle is disabled rather than bouncing back.
+    @State private var hasContact = false
 
     @State private var confirmSwitchToVendor = false
     @State private var confirmSwitchToPlanner = false
@@ -80,18 +83,28 @@ struct VendorSettingsView: View {
 
     // MARK: Vendor — listing + management
 
+    /// Explains *why* the toggle is off, rather than just showing it off. Without a
+    /// contact the vendor would otherwise flip it, watch it bounce back, and see a
+    /// generic connection error.
+    private var listingCaption: String {
+        if !hasContact {
+            return String(localized: "Add a business email and phone in your profile so planners can reach you.")
+        }
+        return isListed
+            ? String(localized: "Planners can find and book you.")
+            : String(localized: "You're hidden from search and browse.")
+    }
+
     private var listingSection: some View {
         Section {
             Toggle(isOn: Binding(get: { isListed }, set: { setListed($0) })) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Show me in the marketplace")).font(.body.weight(.medium))
-                    Text(isListed
-                         ? String(localized: "Planners can find and book you.")
-                         : String(localized: "You're hidden from search and browse."))
+                    Text(listingCaption)
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .disabled(isUpdatingListing)
+            .disabled(isUpdatingListing || !hasContact)
             .accessibilityIdentifier(AccessibilityID.Settings.marketplaceListingToggle)
         } footer: {
             if listingError {
@@ -167,8 +180,10 @@ struct VendorSettingsView: View {
         if isVendorAccount {
             vendor = (try? await service.fetchMyVendorProfile()) ?? nil
             isListed = vendor?.isListed ?? false
+            hasContact = ((try? await service.fetchMyVendorContact()) ?? nil) != nil
         } else {
             vendor = nil
+            hasContact = false
         }
     }
 

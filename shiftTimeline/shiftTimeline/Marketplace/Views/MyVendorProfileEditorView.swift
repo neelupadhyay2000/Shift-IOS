@@ -127,6 +127,7 @@ struct MyVendorProfileEditorView: View {
                         .textInputAutocapitalization(.words)
                         .proCard(padding: 14)
                 }
+                contactSection
                 listingSection
                 if let errorMessage {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
@@ -267,15 +268,56 @@ struct MyVendorProfileEditorView: View {
         }
     }
 
+    /// Whether the vendor may switch the listing on. Mirrors the server's trigger +
+    /// CHECK constraints so the toggle disables rather than the save failing with a
+    /// raw `23514`.
+    private var hasCompleteContact: Bool {
+        VendorContactValidation.isComplete(email: input.contactEmail, phone: input.contactPhone)
+    }
+
+    /// Business contact. Never shown in the directory — a planner only ever sees it
+    /// after this vendor accepts their request. That promise is enforced in the
+    /// schema (`vendor_contacts` has no public select policy), and stated here so
+    /// the vendor knows what they're publishing and to whom.
+    private var contactSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "Contact")).microLabel()
+
+            TextField(String(localized: "Business email"), text: $input.contactEmail)
+                .textInputAutocapitalization(.never)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .autocorrectionDisabled()
+                .proCard(padding: 14)
+
+            TextField(String(localized: "Business phone"), text: $input.contactPhone)
+                .textContentType(.telephoneNumber)
+                .keyboardType(.phonePad)
+                .proCard(padding: 14)
+
+            Text(String(localized: "Shared only with planners whose requests you accept — never shown in the directory. Required to be listed."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var listingSection: some View {
         Toggle(isOn: $input.isListed) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(String(localized: "List in the marketplace")).font(.subheadline.weight(.semibold))
-                Text(String(localized: "Visible to other Shift users. Requires a business name."))
+                Text(hasCompleteContact
+                     ? String(localized: "Visible to other Shift users. Requires a business name.")
+                     : String(localized: "Add a business email and phone above so planners can reach you."))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .tint(ShiftPalette.accent)
+        .disabled(!hasCompleteContact)
+        // A vendor who clears their contact can't stay listed — the server would
+        // reject the write anyway, so reflect it here instead of failing on save.
+        .onChange(of: hasCompleteContact) { _, complete in
+            if !complete { input.isListed = false }
+        }
         .proCard(padding: 14)
     }
 
@@ -318,7 +360,9 @@ struct MyVendorProfileEditorView: View {
                 latitude: vendor.latitude,
                 longitude: vendor.longitude,
                 serviceRadiusKm: vendor.serviceRadiusKm ?? 80,
-                isListed: vendor.isListed
+                isListed: vendor.isListed,
+                contactEmail: prefill.contact?.contactEmail ?? "",
+                contactPhone: prefill.contact?.contactPhone ?? ""
             )
             phase = .form
         } else {
@@ -364,6 +408,16 @@ struct MyVendorProfileEditorView: View {
         let trimmedName = input.businessName.trimmingCharacters(in: .whitespacesAndNewlines)
         if input.isListed, trimmedName.isEmpty {
             errorMessage = String(localized: "Add a business name before listing.")
+            return
+        }
+        // Partial contact is worse than none: it would be silently dropped by
+        // `upsertMyVendorProfile` (which only writes a complete pair), leaving the
+        // vendor thinking they'd saved a phone number planners can't see.
+        let hasAnyContact = !input.contactEmail.isEmpty || !input.contactPhone.isEmpty
+        if hasAnyContact, !hasCompleteContact {
+            errorMessage = VendorContactValidation.isValidEmail(input.contactEmail)
+                ? String(localized: "Enter a valid business phone number.")
+                : String(localized: "Enter a valid business email address.")
             return
         }
         phase = .saving

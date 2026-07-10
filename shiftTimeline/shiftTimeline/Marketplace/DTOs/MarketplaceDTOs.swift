@@ -1,5 +1,28 @@
 import Foundation
 
+// MARK: - VendorContactDTO
+//
+// Row in `vendor_contacts` — a vendor's **business** contact, deliberately separate
+// from their auth identity (`profiles.email` / `profiles.phone`).
+//
+// The table has no public select policy and is revoked from anon: nobody browsing
+// the directory can read it. It reaches a planner exactly once, when the vendor
+// accepts their service request and `respond_to_service_request` copies it into
+// that event's `event_vendors` row. A vendor cannot list without one — a trigger on
+// `vendor_profiles.is_listed` enforces it server-side, because `is_listed` is
+// written directly by the client.
+nonisolated struct VendorContactDTO: Codable, Equatable, Sendable {
+    let profileID: UUID
+    let contactEmail: String
+    let contactPhone: String
+
+    enum CodingKeys: String, CodingKey {
+        case profileID = "profile_id"
+        case contactEmail = "contact_email"
+        case contactPhone = "contact_phone"
+    }
+}
+
 // MARK: - VendorProfileDTO
 //
 // Row in `vendor_profiles`. Decoding reads the full row (a `select *`); encoding

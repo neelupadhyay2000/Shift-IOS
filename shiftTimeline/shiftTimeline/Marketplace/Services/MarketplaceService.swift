@@ -21,6 +21,13 @@ struct VendorProfileInput: Sendable, Equatable {
     var serviceRadiusKm: Double?
     var isListed: Bool
 
+    /// Business contact, shown to a planner the moment this vendor accepts their
+    /// request. Required to list — the server enforces it too (a trigger on
+    /// `vendor_profiles.is_listed`), so the UI gate below is a courtesy, not the
+    /// guarantee.
+    var contactEmail: String
+    var contactPhone: String
+
     init(
         businessName: String = "",
         bio: String = "",
@@ -32,7 +39,9 @@ struct VendorProfileInput: Sendable, Equatable {
         latitude: Double? = nil,
         longitude: Double? = nil,
         serviceRadiusKm: Double? = 80,
-        isListed: Bool = false
+        isListed: Bool = false,
+        contactEmail: String = "",
+        contactPhone: String = ""
     ) {
         self.businessName = businessName
         self.bio = bio
@@ -45,6 +54,29 @@ struct VendorProfileInput: Sendable, Equatable {
         self.longitude = longitude
         self.serviceRadiusKm = serviceRadiusKm
         self.isListed = isListed
+        self.contactEmail = contactEmail
+        self.contactPhone = contactPhone
+    }
+}
+
+/// Mirrors the `vendor_contacts` CHECK constraints, so the editor can disable
+/// "List in marketplace" instead of letting the write fail with a `23514`.
+enum VendorContactValidation {
+    /// The server checks `position('@' in contact_email) > 1`.
+    static func isValidEmail(_ email: String) -> Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let at = trimmed.firstIndex(of: "@") else { return false }
+        return at > trimmed.startIndex && trimmed.index(after: at) < trimmed.endIndex
+    }
+
+    /// The server counts digits only, 7...15 — the E.164 range, matching
+    /// `PhoneAuthService.isValidE164`. Formatting is the vendor's business.
+    static func isValidPhone(_ phone: String) -> Bool {
+        (7...15).contains(phone.filter(\.isNumber).count)
+    }
+
+    static func isComplete(email: String, phone: String) -> Bool {
+        isValidEmail(email) && isValidPhone(phone)
     }
 }
 
@@ -62,6 +94,9 @@ struct VendorEditorPrefill: Sendable {
     let vendor: VendorProfileDTO?
     let identity: PublicProfileDTO?
     let defaultRole: VendorRole?
+    /// nil until the vendor has saved a business contact. Its absence is what makes
+    /// them unlistable.
+    let contact: VendorContactDTO?
 }
 
 /// Minimal decode of `profiles.default_role` for the editor's category fallback.
@@ -160,8 +195,14 @@ protocol MarketplaceProviding: Sendable {
     /// The signed-in user's own vendor_profiles row (listed or not), or nil.
     func fetchMyVendorProfile() async throws -> VendorProfileDTO?
 
+    /// The caller's own business contact, or nil if they haven't saved one. Only
+    /// ever readable by the vendor themselves — `vendor_contacts` has no public
+    /// select policy.
+    func fetchMyVendorContact() async throws -> VendorContactDTO?
+
     /// Flips just the marketplace listing visibility on the caller's vendor row
-    /// (the Settings "Show me in the marketplace" toggle).
+    /// (the Settings "Show me in the marketplace" toggle). Throws `23514` when
+    /// listing without a `vendor_contacts` row — a listed vendor must be reachable.
     func setListed(_ listed: Bool) async throws
 
     /// Prefill bundle for the editor: existing vendor row + identity + default role.
@@ -340,12 +381,16 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
         let roleRows: [DefaultRoleRow] = try await client
             .from("profiles").select("default_role").eq("id", value: uid.uuidString)
             .execute().value
+        let contacts: [VendorContactDTO] = try await client
+            .from("vendor_contacts").select().eq("profile_id", value: uid.uuidString)
+            .execute().value
 
         let defaultRole = roleRows.first?.defaultRole.flatMap { VendorRole(rawValue: $0) }
         return VendorEditorPrefill(
             vendor: vendors.first { $0.deletedAt == nil },
             identity: identities.first,
-            defaultRole: defaultRole
+            defaultRole: defaultRole,
+            contact: contacts.first
         )
     }
 
@@ -372,7 +417,24 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
     func upsertMyVendorProfile(_ input: VendorProfileInput) async throws -> VendorProfileDTO {
         let uid = try await client.auth.session.user.id
 
-        // 1) Identity → profiles reserved columns (UPDATE: no INSERT grant, and the
+        // 1) Business contact → vendor_contacts, FIRST. `vendor_profiles` carries a
+        //    BEFORE trigger rejecting `is_listed` without a contact row, so writing
+        //    the profile before the contact would fail for every new vendor who
+        //    lists on creation. Skipped when incomplete, which leaves the vendor
+        //    unlistable rather than half-registered.
+        if VendorContactValidation.isComplete(email: input.contactEmail, phone: input.contactPhone) {
+            let contact = VendorContactDTO(
+                profileID: uid,
+                contactEmail: input.contactEmail.trimmingCharacters(in: .whitespacesAndNewlines),
+                contactPhone: input.contactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            try await client
+                .from("vendor_contacts")
+                .upsert(contact, onConflict: "profile_id")
+                .execute()
+        }
+
+        // 2) Identity → profiles reserved columns (UPDATE: no INSERT grant, and the
         //    row already exists for any signed-in user).
         let identity = Self.identityPayload(input)
         try await client
@@ -381,7 +443,7 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             .eq("id", value: uid.uuidString)
             .execute()
 
-        // 2) Marketplace columns → vendor_profiles (upsert on profile_id), with
+        // 3) Marketplace columns → vendor_profiles (upsert on profile_id), with
         //    search_name kept in sync with the business name.
         let payload = Self.vendorProfilePayload(profileID: uid, input: input)
         return try await client
@@ -391,6 +453,17 @@ struct SupabaseMarketplaceService: MarketplaceProviding {
             .single()
             .execute()
             .value
+    }
+
+    func fetchMyVendorContact() async throws -> VendorContactDTO? {
+        let uid = try await client.auth.session.user.id
+        let rows: [VendorContactDTO] = try await client
+            .from("vendor_contacts")
+            .select()
+            .eq("profile_id", value: uid.uuidString)
+            .execute()
+            .value
+        return rows.first
     }
 
     // MARK: Portfolio

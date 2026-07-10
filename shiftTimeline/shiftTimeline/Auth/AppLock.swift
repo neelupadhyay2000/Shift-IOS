@@ -65,12 +65,122 @@ final class AppLock {
         UserDefaults.standard.object(forKey: Self.faceIDEnabledKey) as? Bool ?? true
     }
 
-    /// `true` when the device offers Face ID / Touch ID (the Settings toggle
-    /// and the post-setup offer are hidden otherwise).
-    nonisolated static var isBiometricsAvailable: Bool {
-        var error: NSError?
-        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    /// Why biometrics can or can't be used right now.
+    ///
+    /// `canEvaluatePolicy` answers `false` for four very different reasons, and
+    /// collapsing them into one Bool is what made a denied permission prompt look
+    /// like a broken app: the Settings toggle greyed out and the lock screen fell
+    /// straight through to the keypad, with nothing on screen explaining either.
+    /// Two of the four are recoverable by the user, so the reason has to survive.
+    /// `nonisolated` because ``biometryStatus()`` is, and a nested type would
+    /// otherwise infer `AppLock`'s `@MainActor` isolation and fail to cross back.
+    nonisolated enum BiometryStatus: Equatable {
+        /// Ready to use.
+        case available(LABiometryType)
+        /// Hardware exists, but the user has no face/finger enrolled.
+        case notEnrolled(LABiometryType)
+        /// The user answered "Don't Allow" to our `NSFaceIDUsageDescription`
+        /// prompt. Recoverable in iOS Settings → SHIFT.
+        case denied(LABiometryType)
+        /// Too many failed scans. Recoverable by unlocking the device with its
+        /// passcode once.
+        case lockedOut(LABiometryType)
+        /// No biometric hardware, or an error we don't model.
+        case unsupported
+
+        var isAvailable: Bool { if case .available = self { return true } else { return false } }
+
+        private var biometryType: LABiometryType? {
+            switch self {
+            case .available(let type), .notEnrolled(let type),
+                 .denied(let type), .lockedOut(let type):
+                return type
+            case .unsupported:
+                return nil
+            }
+        }
+
+        /// What to call it on screen. Never hard-code "Face ID": iPhone SE and
+        /// several iPads are Touch ID.
+        var name: String {
+            switch biometryType {
+            case .faceID: String(localized: "Face ID")
+            case .touchID: String(localized: "Touch ID")
+            case .opticID: String(localized: "Optic ID")
+            default: String(localized: "Biometrics")
+            }
+        }
+
+        /// Derived from the hardware type, not from `name` — a localized build
+        /// must not fall back to the wrong glyph.
+        var symbolName: String {
+            switch biometryType {
+            case .faceID: "faceid"
+            case .touchID: "touchid"
+            case .opticID: "opticid"
+            default: "lock.shield"
+            }
+        }
+
+        /// Whether iOS Settings can fix it — drives the "Open Settings" affordance.
+        var isResolvableInSettings: Bool {
+            switch self {
+            case .denied, .notEnrolled: return true
+            case .available, .lockedOut, .unsupported: return false
+            }
+        }
+
+        /// Why the toggle is off, in the user's terms. `nil` when available.
+        var explanation: String? {
+            switch self {
+            case .available:
+                return nil
+            case .denied:
+                return String(localized: "\(name) is turned off for SHIFT. Turn it on in iOS Settings to unlock without typing your passcode.")
+            case .notEnrolled:
+                return String(localized: "\(name) isn't set up on this device yet. Add it in iOS Settings.")
+            case .lockedOut:
+                return String(localized: "\(name) is locked after too many failed attempts. Unlock this iPhone with its passcode once to re-enable it.")
+            case .unsupported:
+                return String(localized: "This device doesn't support biometric unlock.")
+            }
+        }
     }
+
+    /// The live biometric state. Cheap enough to call on every scene activation,
+    /// which is what lets the toggle recover the moment the user returns from iOS
+    /// Settings having granted permission.
+    ///
+    /// `LAContext.biometryType` is only populated *after* `canEvaluatePolicy` runs
+    /// on that same context, so the order here matters.
+    nonisolated static func biometryStatus() -> BiometryStatus {
+        let context = LAContext()
+        var error: NSError?
+        let canEvaluate = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+        let type = context.biometryType
+
+        if canEvaluate { return .available(type) }
+
+        guard let error, error.domain == LAErrorDomain else { return .unsupported }
+
+        switch LAError.Code(rawValue: error.code) {
+        case .biometryNotEnrolled:
+            return .notEnrolled(type)
+        case .biometryLockout:
+            return .lockedOut(type)
+        case .biometryNotAvailable:
+            // iOS returns -6 for BOTH "this device has no biometric hardware" and
+            // "the user tapped Don't Allow on our usage prompt". The only thing
+            // separating them is biometryType, which stays `.none` when hardware
+            // is absent but still reports the real sensor when the app was merely
+            // denied. Get this wrong and an iPhone with no Face ID tells its owner
+            // to go re-enable Face ID.
+            return type == .none ? .unsupported : .denied(type)
+        default:
+            return .unsupported
+        }
+    }
+
 
     // MARK: - Setup / teardown
 
