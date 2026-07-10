@@ -1,33 +1,36 @@
 import SwiftUI
 
-/// Completion gate (2026-06-25): collects whatever required fields an account
-/// is still missing — a name (all accounts) and/or an email (phone-signups,
-/// who must add one). Shown by `RootContainerView` after onboarding whenever
-/// `SupabaseAuthService.needsProfileCompletion` is true, so it both finishes a
-/// new phone-signup and validates legacy accounts created before the rule.
+/// Completion gate: collects whatever required fields an account is still missing.
+/// As of 2026-07-10 that is a name, an email, AND a phone — every account carries
+/// both credentials (one-person-one-account). Shown by `RootContainerView` after
+/// onboarding whenever `SupabaseAuthService.needsProfileCompletion` is true, so it
+/// finishes a new signup and carries every legacy single-credential account through
+/// on its next launch.
 ///
-/// Writes through `completeProfile`: the `profiles` mirror (the app's source of
-/// truth) plus a best-effort auth-identity write so the Supabase Users table
-/// fills in. On success the cached profile refreshes, the flag flips, and the
-/// gate dismisses to the app.
+/// Writes through `completeProfile`, which refuses a credential already used by
+/// another account (the uniqueness gate) and stores the rest on `profiles`. On
+/// success the cached profile refreshes, the flag flips, and the gate dismisses.
 struct CompleteProfileView: View {
 
     @Environment(SupabaseAuthService.self) private var authService
 
     @State private var name = ""
     @State private var email = ""
+    @State private var phone = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
 
     private var missing: Set<ProfileField> {
         ProfileCompleteness.missingFields(
             name: authService.currentProfile?.displayName,
-            email: authService.accountEmail
+            email: authService.accountEmail,
+            phone: authService.accountPhone
         )
     }
 
     private var needsName: Bool { missing.contains(.name) }
     private var needsEmail: Bool { missing.contains(.email) }
+    private var needsPhone: Bool { missing.contains(.phone) }
 
     var body: some View {
         ZStack {
@@ -38,6 +41,7 @@ struct CompleteProfileView: View {
                         header
                         if needsName { nameField }
                         if needsEmail { emailField }
+                        if needsPhone { phoneField }
                         if let errorMessage {
                             Text(errorMessage)
                                 .font(.footnote)
@@ -73,16 +77,13 @@ struct CompleteProfileView: View {
     }
 
     private var subtitle: String {
-        if needsName && needsEmail {
-            String(localized: "Add your name and email so collaborators can recognize you and we can reach you.")
-        } else if needsEmail {
-            String(localized: """
-            Add an email to your account — it keeps your account recoverable \
-            and lets us reach you.
-            """)
-        } else {
-            String(localized: "Add your name so collaborators and vendors can recognize you.")
+        // Both credentials are now required, so the common phrasing covers "we need
+        // the rest of your account". Keep the name-only case warmer.
+        let onlyName = needsName && !needsEmail && !needsPhone
+        if onlyName {
+            return String(localized: "Add your name so collaborators and vendors can recognize you.")
         }
+        return String(localized: "Every account needs a name, an email, and a phone — it keeps your account recoverable and is how collaborators reach you. Each can belong to only one account.")
     }
 
     private var nameField: some View {
@@ -106,6 +107,16 @@ struct CompleteProfileView: View {
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
         .accessibilityIdentifier(AccessibilityID.CompleteProfile.emailField)
+    }
+
+    private var phoneField: some View {
+        field(
+            label: String(localized: "Phone number"),
+            text: $phone,
+            placeholder: String(localized: "(555) 123-4567")
+        )
+        .keyboardType(.phonePad)
+        .textContentType(.telephoneNumber)
     }
 
     private func field(label: String, text: Binding<String>, placeholder: String) -> some View {
@@ -160,13 +171,18 @@ struct CompleteProfileView: View {
             errorMessage = String(localized: "Please enter a valid email address.")
             return
         }
+        if needsPhone, !PhoneAuthService.isValidE164(PhoneAuthService.normalizePhone(phone)) {
+            errorMessage = String(localized: "Please enter a valid phone number, including the country code.")
+            return
+        }
         errorMessage = nil
         isSaving = true
         defer { isSaving = false }
         do {
             try await authService.completeProfile(
                 name: needsName ? name : nil,
-                email: needsEmail ? email : nil
+                email: needsEmail ? email : nil,
+                phone: needsPhone ? phone : nil
             )
             // completeProfile refreshes the cached profile, flipping
             // needsProfileCompletion false so the gate dismisses to the app.

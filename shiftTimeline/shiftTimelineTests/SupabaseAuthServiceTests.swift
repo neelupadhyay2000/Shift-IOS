@@ -158,6 +158,66 @@ struct SupabaseAuthServiceUpsertProfileTests {
         #expect(profile.email == "ada@example.com")
     }
 
+    /// Regression. GoTrue serializes a phone-only user's `email` as `""`, not nil,
+    /// and `ProfileDTO.encode` writes any non-nil value. So this upsert — which
+    /// runs on *every* session establishment — used to overwrite `profiles.email`
+    /// with an empty string, destroying the address a phone signup had just given
+    /// in `CompleteProfileView` and flipping `needsProfileCompletion` back to true.
+    /// The account was re-gated on every launch, and its saved email was gone.
+    ///
+    /// A blank identity field means "this account has no such credential", never
+    /// "clear the stored one".
+    @Test("a phone-only user's empty email is never written over the profiles mirror")
+    func upsertProfileStripsBlankEmail() async throws {
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        let repo = FakeProfileRepository()
+        let svc = SupabaseAuthService(client: provider.client, profileRepository: repo)
+
+        // Exactly what GoTrue returns for a phone signup: email is "", not nil.
+        let user = try makeUser(id: UUID(), phone: "+14155550101", email: "")
+        await svc.upsertProfile(from: user, displayName: nil)
+
+        let profile = try #require(repo.upsertedProfiles.first)
+        #expect(profile.email == nil, "a blank email must not be encoded — it would blank the mirror")
+        #expect(profile.phone == "+14155550101")
+    }
+
+    /// The symmetric case: an email-only account reports `phone: ""`. Blanking the
+    /// mirror matters here too — `comp_account` matches complimentary grants on
+    /// `profiles.phone` digits.
+    @Test("an email-only user's empty phone is never written over the profiles mirror")
+    func upsertProfileStripsBlankPhone() async throws {
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        let repo = FakeProfileRepository()
+        let svc = SupabaseAuthService(client: provider.client, profileRepository: repo)
+
+        let user = try makeUser(id: UUID(), phone: "", email: "ada@example.com")
+        await svc.upsertProfile(from: user, displayName: nil)
+
+        let profile = try #require(repo.upsertedProfiles.first)
+        #expect(profile.phone == nil)
+        #expect(profile.email == "ada@example.com")
+    }
+
+    /// Whitespace counts as blank — a padded value would encode and clobber too.
+    @Test("whitespace-only identity fields are treated as absent")
+    func upsertProfileStripsWhitespaceOnlyFields() async throws {
+        let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))
+        let provider = SupabaseClientProvider(supabaseURL: url, supabaseKey: "test-anon-key")
+        let repo = FakeProfileRepository()
+        let svc = SupabaseAuthService(client: provider.client, profileRepository: repo)
+
+        let user = try makeUser(id: UUID(), phone: "   ", email: "  ")
+        await svc.upsertProfile(from: user, displayName: "Ada")
+
+        let profile = try #require(repo.upsertedProfiles.first)
+        #expect(profile.phone == nil)
+        #expect(profile.email == nil)
+        #expect(profile.displayName == "Ada")
+    }
+
     @Test("upsertProfile updates currentProfile on success")
     func upsertProfileUpdatesCurrent() async throws {
         let url = try #require(URL(string: "https://wrhrpyinkcopqsibmkrf.supabase.co"))

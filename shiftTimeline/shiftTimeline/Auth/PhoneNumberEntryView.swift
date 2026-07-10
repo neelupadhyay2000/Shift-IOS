@@ -12,6 +12,7 @@ struct PhoneNumberEntryView: View {
     let onOTPRequested: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var rawPhone = ""
     @State private var isSendingOTP = false
@@ -121,6 +122,18 @@ struct PhoneNumberEntryView: View {
     private func sendOTP() async {
         isSendingOTP = true
         defer { isSendingOTP = false }
+
+        // One-account-per-identifier. Block only when this number is used *solely*
+        // as another account's stored second credential — no login reaches it, so
+        // an OTP would mint a duplicate. A verified login is a normal sign-in; a
+        // free number is a new signup. Fail-open if the check itself errors.
+        if let status = try? await authService.identifierStatus(email: nil, phone: normalizedPhone),
+           status.phoneBlocksSignup {
+            errorMessage = String(localized: "That phone number is already linked to an account. Sign in with that account's email instead.")
+            showErrorAlert = true
+            return
+        }
+
         do {
             try await service.requestOTP(phone: rawPhone)
             onOTPRequested(normalizedPhone)

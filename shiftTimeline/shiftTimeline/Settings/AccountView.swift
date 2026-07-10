@@ -19,8 +19,7 @@ struct AccountView: View {
     @State private var isShowingPaywall = false
     @State private var isManagingSubscriptions = false
     @State private var isShowingSignIn = false
-    @State private var isEditingName = false
-    @State private var nameDraft = ""
+    @State private var isEditingAccount = false
     @State private var isChangingPasscode = false
 
     @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = true
@@ -71,15 +70,8 @@ struct AccountView: View {
         } message: {
             Text(String(localized: "Restore failed. Please check your connection and try again."))
         }
-        .alert(String(localized: "Your Name"), isPresented: $isEditingName) {
-            TextField(String(localized: "Name"), text: $nameDraft)
-                .textInputAutocapitalization(.words)
-            Button(String(localized: "Save")) {
-                Task { await saveName() }
-            }
-            Button(String(localized: "Cancel"), role: .cancel) {}
-        } message: {
-            Text(String(localized: "This is the name vendors and collaborators see."))
+        .sheet(isPresented: $isEditingAccount) {
+            EditAccountView()
         }
         .confirmationDialog(
             String(localized: "Delete your account?"),
@@ -106,13 +98,17 @@ struct AccountView: View {
         Section {
             if authService.isAuthenticated {
                 profileHeader
+                // Both, not either. These were an `if / else if`, so an account with
+                // an email *and* a phone only ever showed the email — which is every
+                // phone signup, since CompleteProfileView requires them to add one.
                 if let email = AccountIdentity.nonEmpty(authService.currentUser?.email) {
                     LabeledContent(String(localized: "Email")) {
                         Text(email)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                     }
-                } else if let phone = AccountIdentity.nonEmpty(authService.currentUser?.phone) {
+                }
+                if let phone = AccountIdentity.nonEmpty(authService.currentUser?.phone) {
                     LabeledContent(String(localized: "Phone")) {
                         Text(phone)
                             .foregroundStyle(.secondary)
@@ -136,8 +132,7 @@ struct AccountView: View {
     /// vendors and collaborators see).
     private var profileHeader: some View {
         Button {
-            nameDraft = AccountIdentity.nonEmpty(authService.currentProfile?.displayName) ?? ""
-            isEditingName = true
+            isEditingAccount = true
         } label: {
             HStack(spacing: 14) {
                 AccountAvatarView(initials: initials, size: 46)
@@ -145,20 +140,20 @@ struct AccountView: View {
                     Text(primaryLabel)
                         .font(.headline)
                         .lineLimit(1)
-                    Text(String(localized: "Tap to edit your name"))
+                    Text(String(localized: "Name, email, and phone"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "pencil")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "Edit your name"))
+        .accessibilityLabel(String(localized: "Edit your account"))
     }
 
     // MARK: - Subscription
@@ -348,12 +343,6 @@ struct AccountView: View {
     /// Writes the edited display name to `profiles.display_name` and refreshes
     /// `currentProfile` so the header updates. No-ops on an empty value — the
     /// nil-omitting DTO encode can't null out an already-stored name anyway.
-    private func saveName() async {
-        guard let user = authService.currentUser else { return }
-        let trimmed = nameDraft.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        await authService.upsertProfile(from: user, displayName: trimmed)
-    }
 
     private func restore() async {
         isRestoring = true
@@ -395,14 +384,9 @@ struct AccountAvatarView: View {
 }
 
 /// Pure helpers for deriving the displayed identity, shared by Settings + Account.
-enum AccountIdentity {
-    static func nonEmpty(_ value: String?) -> String? {
-        guard let trimmed = value?.trimmingCharacters(in: .whitespaces), !trimmed.isEmpty else {
-            return nil
-        }
-        return trimmed
-    }
-
+/// `nonEmpty` lives in `Auth/ProfileCompleteness.swift` — `SupabaseAuthService`
+/// depends on it to strip GoTrue's `""` identity fields.
+extension AccountIdentity {
     /// Up to two uppercase initials from the name, else the first letter of the email.
     static func initials(name: String?, email: String?) -> String? {
         if let name = nonEmpty(name) {
