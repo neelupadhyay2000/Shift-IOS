@@ -20,7 +20,12 @@ enum ContentSafety {
 enum MarketplaceTerms {
     /// Bump when the marketplace Terms change materially; a future revision can
     /// then re-prompt only users whose recorded version is stale.
-    static let currentVersion = "2026-07-09"
+    ///
+    /// Must match the Effective Date on the hosted TOS. Bumped 2026-07-10 for the
+    /// vendor business-contact clause: accepting a service request now discloses
+    /// the vendor's business email and phone to that planner, and the version we
+    /// record as accepted has to point at a document that actually says so.
+    static let currentVersion = "2026-07-10"
 
     /// The agreement shown at every vendor opt-in choke point.
     static var agreementText: String {
@@ -28,7 +33,8 @@ enum MarketplaceTerms {
         By creating a vendor profile you agree to the Terms of Service and to our \
         no-tolerance policy for objectionable content and abusive behaviour. \
         Content you publish can be reported, and we remove violating content and \
-        eject offending users — typically within 24 hours.
+        eject offending users — typically within 24 hours. Planners whose requests \
+        you accept will see your business email and phone.
         """)
     }
 }

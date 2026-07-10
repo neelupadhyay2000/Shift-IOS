@@ -76,7 +76,11 @@ final class SupabaseAuthService {
     /// blocks a still-loading or mid-onboarding user.
     var needsProfileCompletion: Bool {
         guard isAuthenticated, currentProfile?.onboarded == true else { return false }
-        return !ProfileCompleteness.isComplete(name: currentProfile?.displayName, email: accountEmail)
+        return !ProfileCompleteness.isComplete(
+            name: currentProfile?.displayName,
+            email: accountEmail,
+            phone: accountPhone
+        )
     }
 
     /// The account's email — the auth identity's address if present, otherwise
@@ -92,6 +96,17 @@ final class SupabaseAuthService {
             return sessionEmail
         }
         return currentProfile?.email
+    }
+
+    /// The account's phone — the verified auth identity if present, else the
+    /// `profiles` mirror (where an email-signup's added phone is stored, unverified
+    /// in the soft model). Same blank-as-absent handling as ``accountEmail``.
+    var accountPhone: String? {
+        if let sessionPhone = session?.user.phone,
+           !sessionPhone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return sessionPhone
+        }
+        return currentProfile?.phone
     }
 
     /// Re-reads the signed-in profile row (e.g. after onboarding completes) so
@@ -262,14 +277,170 @@ final class SupabaseAuthService {
         // authStateChanges fires .signedOut → clears session + currentProfile
     }
 
+    // MARK: - Identifier uniqueness
+
+    /// Asks the backend whether an email and/or phone already belongs to an
+    /// account — checking both verified identities (`auth.users`) and stored second
+    /// credentials (`profiles`), in both directions. This is the one-person-one-
+    /// account gate: a signup whose identifier is already in use is refused, and
+    /// the Edit screen uses `*_is_mine` to avoid flagging a user's own credential.
+    ///
+    /// Fail-open on a network error: a false "it's free" is caught by the DB's
+    /// unique-index backstop at write time, whereas a false "it's taken" would
+    /// block a legitimate signup. So the caller treats a throw as "couldn't check"
+    /// and proceeds, rather than as a collision.
+    func identifierStatus(email: String?, phone: String?) async throws -> IdentifierStatus {
+        guard let client else { throw AccountIdentityError.notSignedIn }
+        let rows: [IdentifierStatus] = try await client
+            .rpc("identifier_status", params: IdentifierStatusParams(email: email, phone: phone))
+            .execute()
+            .value
+        return rows.first ?? .free
+    }
+
+    // MARK: - Account identity editing
+
+    /// Renames the account. `display_name` lives only on `profiles`, so this is a
+    /// plain write — no re-verification, unlike an email or phone change.
+    func updateDisplayName(_ name: String) async throws {
+        guard let client, let uid = currentProfileID else {
+            throw AccountIdentityError.notSignedIn
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw AccountIdentityError.blankName }
+
+        try await client.from("profiles")
+            .update(["display_name": trimmed])
+            .eq("id", value: uid.uuidString)
+            .execute()
+        await refreshProfile()
+    }
+
+    /// Starts an email change. GoTrue mails a 6-digit code to the **new** address
+    /// and — because `double_confirm_changes` is on — a second, different code to
+    /// the **current** one. Both must be verified before the change commits, which
+    /// is what stops someone holding a live session on an unlocked phone from
+    /// silently moving the account to their own address.
+    ///
+    /// Returns the addresses that were sent a code, in the order the UI should ask
+    /// for them: the new address first (the user is looking at that inbox), then
+    /// the old. An account with no email yet has only the one.
+    @discardableResult
+    func beginEmailChange(to newEmail: String) async throws -> [String] {
+        guard let client else { throw AccountIdentityError.notSignedIn }
+        let normalized = EmailAuthService.normalizeEmail(newEmail)
+        guard EmailAuthService.isValidEmail(normalized) else {
+            throw AccountIdentityError.invalidEmail
+        }
+        let current = AccountIdentity.nonEmpty(currentUser?.email)
+        guard current?.lowercased() != normalized else {
+            throw AccountIdentityError.unchanged
+        }
+
+        // Refuse an address already on another account, with a clean message.
+        // GoTrue enforces this too, but its error is opaque. Fail-open on a check
+        // error — GoTrue is still the hard gate.
+        if let status = try? await identifierStatus(email: normalized, phone: nil),
+           status.emailTakenByOther {
+            throw AccountIdentityError.emailInUse
+        }
+
+        try await client.auth.update(user: UserAttributes(email: normalized))
+
+        // New address first: that's the inbox the user is already looking at. The
+        // old address only appears when double confirmation is on and there is one.
+        var legs = [normalized]
+        if let current { legs.append(current) }
+        return legs
+    }
+
+    /// Verifies one leg of an email change. Returns `true` once the change has
+    /// fully committed — i.e. `auth.users.email` is the new address and no pending
+    /// change remains. With double confirmation the first call returns `false`;
+    /// the caller then collects the code sent to the other address.
+    ///
+    /// The completion test reads the *server's* user, never a local guess: GoTrue
+    /// is the only thing that knows whether both legs landed.
+    func confirmEmailChange(address: String, token: String) async throws -> Bool {
+        guard let client else { throw AccountIdentityError.notSignedIn }
+        _ = try await client.auth.verifyOTP(
+            email: EmailAuthService.normalizeEmail(address),
+            token: token,
+            type: .emailChange
+        )
+        let user = try await client.auth.user()
+        let committed = user.newEmail == nil
+        if committed { try await mirrorIdentityToProfile(user) }
+        return committed
+    }
+
+    /// Starts a phone change (or adds a phone to an email-only account). GoTrue
+    /// texts a 6-digit code to the new number via Twilio Verify. There is no
+    /// double-confirm equivalent for SMS, so this is a single leg.
+    func beginPhoneChange(to newPhone: String) async throws {
+        guard let client else { throw AccountIdentityError.notSignedIn }
+        let normalized = PhoneAuthService.normalizePhone(newPhone)
+        guard PhoneAuthService.isValidE164(normalized) else {
+            throw AccountIdentityError.invalidPhone
+        }
+        // GoTrue stores `auth.users.phone` without the leading '+', so compare on
+        // digits rather than on the formatted string.
+        let currentDigits = (currentUser?.phone ?? "").filter(\.isNumber)
+        guard currentDigits != normalized.filter(\.isNumber) else {
+            throw AccountIdentityError.unchanged
+        }
+
+        if let status = try? await identifierStatus(email: nil, phone: normalized),
+           status.phoneTakenByOther {
+            throw AccountIdentityError.phoneInUse
+        }
+
+        try await client.auth.update(user: UserAttributes(phone: normalized))
+    }
+
+    /// Verifies the code texted to the new number and commits the change.
+    func confirmPhoneChange(phone: String, token: String) async throws {
+        guard let client else { throw AccountIdentityError.notSignedIn }
+        _ = try await client.auth.verifyOTP(
+            phone: PhoneAuthService.normalizePhone(phone),
+            token: token,
+            type: .phoneChange
+        )
+        let user = try await client.auth.user()
+        try await mirrorIdentityToProfile(user)
+    }
+
+    /// Copies the committed credential down into `profiles`, the app's source of
+    /// truth for identity display. Without this the Account screen would keep
+    /// showing the old address until the next cold launch, and every server-side
+    /// lookup keyed on `profiles.email` (comp grants, moderation contact) would
+    /// still point at an address the user no longer controls.
+    private func mirrorIdentityToProfile(_ user: User) async throws {
+        guard let client, let uid = currentProfileID else { return }
+        var fields: [String: String] = [:]
+        if let email = AccountIdentity.nonEmpty(user.email) { fields["email"] = email }
+        if let phone = AccountIdentity.nonEmpty(user.phone) { fields["phone"] = phone }
+        guard !fields.isEmpty else { return }
+
+        try await client.from("profiles")
+            .update(fields)
+            .eq("id", value: uid.uuidString)
+            .execute()
+        await refreshProfile()
+    }
+
     // MARK: - Profile completion
 
     /// Fills in the account's missing required fields (the completion gate's
-    /// write). `profiles` is the single source of truth — `auth.users` stays a
-    /// thin identity layer, so we deliberately do NOT mirror name/email into it.
-    /// Trims and skips blanks, then refreshes the cached profile so
-    /// `needsProfileCompletion` flips false and the gate dismisses.
-    func completeProfile(name: String?, email: String?) async throws {
+    /// write): name, email, and — since 2026-07-10 — phone. `profiles` is the
+    /// single source of truth; in the soft uniqueness model the second credential
+    /// is stored here unverified, not attached to the GoTrue identity.
+    ///
+    /// Rejects a credential already used by another account. The DB's unique
+    /// indexes are the hard backstop (a racing write fails 23505), but checking
+    /// first lets us return a clean, specific message instead of a raw constraint
+    /// error. Skips the check for a credential the account already owns.
+    func completeProfile(name: String?, email: String?, phone: String?) async throws {
         guard let client, let uid = currentProfileID else {
             throw ProfileCompletionError.notSignedIn
         }
@@ -277,14 +448,44 @@ final class SupabaseAuthService {
         let trimmedName = trimmedNameRaw.isEmpty ? nil : trimmedNameRaw
         let normalizedEmail = email.map(EmailAuthService.normalizeEmail) ?? ""
         let trimmedEmail = normalizedEmail.isEmpty ? nil : normalizedEmail
+        let normalizedPhone = phone.map(PhoneAuthService.normalizePhone) ?? ""
+        let trimmedPhone = PhoneAuthService.isValidE164(normalizedPhone) ? normalizedPhone : nil
+
+        // One-account-per-identifier: refuse a credential that belongs to someone
+        // else before writing it. Fail-open on a check error — the unique index
+        // still guards the write.
+        if trimmedEmail != nil || trimmedPhone != nil {
+            let status = try? await identifierStatus(email: trimmedEmail, phone: trimmedPhone)
+            if let status {
+                if status.emailTakenByOther { throw ProfileCompletionError.emailInUse }
+                if status.phoneTakenByOther { throw ProfileCompletionError.phoneInUse }
+            }
+        }
 
         var fields: [String: String] = [:]
         if let trimmedName { fields["display_name"] = trimmedName }
         if let trimmedEmail { fields["email"] = trimmedEmail }
+        if let trimmedPhone { fields["phone"] = trimmedPhone }
         guard !fields.isEmpty else { return }
 
-        try await client.from("profiles").update(fields).eq("id", value: uid.uuidString).execute()
+        do {
+            try await client.from("profiles").update(fields).eq("id", value: uid.uuidString).execute()
+        } catch {
+            // The unique-index backstop fired: a concurrent write claimed it first.
+            throw Self.mapIdentifierConflict(error) ?? error
+        }
         await refreshProfile()
+    }
+
+    /// Maps a Postgres 23505 on the identifier indexes to a friendly error, so a
+    /// lost race surfaces the same message as the pre-check. Returns nil for any
+    /// other error (the caller rethrows it unchanged).
+    private static func mapIdentifierConflict(_ error: Error) -> ProfileCompletionError? {
+        let text = String(describing: error).lowercased()
+        guard text.contains("23505") || text.contains("duplicate key") else { return nil }
+        if text.contains("phone") { return .phoneInUse }
+        if text.contains("email") { return .emailInUse }
+        return nil
     }
 
     // MARK: - Account deletion
@@ -482,13 +683,27 @@ final class SupabaseAuthService {
         }
     }
 
+    /// Mirrors the auth identity into `profiles` on every session establishment.
+    ///
+    /// Blanks are stripped, and that is load-bearing. GoTrue serializes a
+    /// phone-only user's `email` as `""` rather than nil (see ``accountEmail``),
+    /// and `ProfileDTO.encode` writes any non-nil value — including `""`. So this
+    /// used to overwrite `profiles.email` with an empty string on every launch,
+    /// destroying the address a phone signup had just supplied in
+    /// `CompleteProfileView` and flipping `needsProfileCompletion` back to true.
+    /// The account was re-gated forever, one launch at a time. The same applies to
+    /// `phone` on an email-only account, which `comp_account` now matches on.
+    ///
+    /// A blank here always means "this identity has no such field", never "clear
+    /// the stored one" — the only path that clears a credential is a verified
+    /// change (see ``mirrorIdentityToProfile(_:)``).
     private func performProfileUpsert(user: User, displayName: String?) async {
         guard let repo = profileRepository else { return }
         let dto = ProfileDTO(
             id: user.id,
             displayName: displayName,
-            phone: user.phone,
-            email: user.email
+            phone: AccountIdentity.nonEmpty(user.phone),
+            email: AccountIdentity.nonEmpty(user.email)
         )
         do {
             // Use the returned row so the stored display name (set on first

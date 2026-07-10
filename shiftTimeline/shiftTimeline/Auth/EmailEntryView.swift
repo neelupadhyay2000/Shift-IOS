@@ -14,6 +14,7 @@ struct EmailEntryView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(DemoSession.self) private var demoSession
+    @Environment(SupabaseAuthService.self) private var authService
 
     @State private var rawEmail = ""
     @State private var isSendingOTP = false
@@ -132,6 +133,19 @@ struct EmailEntryView: View {
         }
         isSendingOTP = true
         defer { isSendingOTP = false }
+
+        // One-account-per-identifier. Block only when this email is used *solely*
+        // as another account's stored second credential — there's no login to reach
+        // it by, so sending an OTP would mint a duplicate. A verified login falls
+        // through to a normal sign-in; a free address is a new signup. Fail-open:
+        // if the check errors, proceed (the profiles unique index still guards).
+        if let status = try? await authService.identifierStatus(email: normalizedEmail, phone: nil),
+           status.emailBlocksSignup {
+            errorMessage = String(localized: "That email is already linked to an account. Sign in with that account's phone number instead.")
+            showErrorAlert = true
+            return
+        }
+
         do {
             try await service.requestOTP(email: rawEmail)
             onOTPRequested(normalizedEmail)
