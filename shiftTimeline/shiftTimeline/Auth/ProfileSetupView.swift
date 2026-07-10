@@ -263,15 +263,25 @@ private struct VendorSetupForm: View {
     @State private var bio = ""
     @State private var skillInput = ""
     @State private var skills: [String] = []
+    @State private var contactEmail = ""
+    @State private var contactPhone = ""
     @State private var isListed = true
     @State private var errorMessage: String?
 
     private let categories: [VendorRole] = [.photographer, .dj, .caterer, .florist, .custom]
 
+    private var hasCompleteContact: Bool {
+        VendorContactValidation.isComplete(email: contactEmail, phone: contactPhone)
+    }
+
+    /// Contact is mandatory here, not optional-with-a-toggle: this screen defaults
+    /// `isListed` to true, and the server refuses to list a vendor with no
+    /// `vendor_contacts` row. Requiring it up front is simpler than explaining why
+    /// the listing silently didn't happen.
     private var canSubmit: Bool {
         let nameOK = !businessName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let categoryOK = category != .custom || !customCategory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return nameOK && categoryOK && onboarding != nil
+        return nameOK && categoryOK && hasCompleteContact && onboarding != nil
     }
 
     var body: some View {
@@ -294,6 +304,7 @@ private struct VendorSetupForm: View {
             field(String(localized: "Service area (optional)"), text: $serviceArea, placeholder: String(localized: "e.g. San Francisco Bay Area"))
             skillsField
             field(String(localized: "Short bio (optional)"), text: $bio, placeholder: String(localized: "What makes your work great?"))
+            contactFields
             termsNotice
             Toggle(isOn: $isListed) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -306,6 +317,22 @@ private struct VendorSetupForm: View {
                 Text(errorMessage).font(.footnote).foregroundStyle(.white).opacity(0.9)
             }
         }
+    }
+
+    /// Business contact. Never appears in the directory — it reaches a planner only
+    /// when this vendor accepts their request. Say so, because we're asking for a
+    /// phone number on a signup screen.
+    @ViewBuilder
+    private var contactFields: some View {
+        field(String(localized: "Business email"), text: $contactEmail, placeholder: String(localized: "bookings@yourbusiness.com"))
+            .textInputAutocapitalization(.never)
+            .keyboardType(.emailAddress)
+            .autocorrectionDisabled()
+        field(String(localized: "Business phone"), text: $contactPhone, placeholder: String(localized: "(555) 123-4567"))
+            .keyboardType(.phonePad)
+        Text(String(localized: "Planners see these only after you accept their request. They're never shown in the directory."))
+            .font(.caption2)
+            .foregroundStyle(.white.opacity(0.7))
     }
 
     private func field(_ label: String, text: Binding<String>, placeholder: String) -> some View {
@@ -396,7 +423,9 @@ private struct VendorSetupForm: View {
             customCategoryLabel: customCategory,
             skills: skills,
             serviceArea: serviceArea,
-            isListed: isListed
+            isListed: isListed,
+            contactEmail: contactEmail,
+            contactPhone: contactPhone
         )
         do {
             try await onboarding.completeVendor(input)

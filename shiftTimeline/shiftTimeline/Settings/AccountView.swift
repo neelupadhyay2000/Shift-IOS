@@ -2,6 +2,9 @@ import Services
 import StoreKit
 import Supabase
 import SwiftUI
+// `UIApplication.openSettingsURLString` is the only supported way to deep-link
+// into the app's iOS Settings page (same use as VendorManagerView / UXPolish).
+import UIKit
 
 /// Dedicated account screen pushed from Settings: identity (name + email),
 /// subscription status and management, and sign in/out. Keeps the main
@@ -21,6 +24,12 @@ struct AccountView: View {
     @State private var isChangingPasscode = false
 
     @AppStorage(AppLock.faceIDEnabledKey) private var faceIDEnabled = true
+    /// Re-read whenever the scene reactivates. Reading `AppLock.biometryStatus()`
+    /// straight from `body` looked fine but never refreshed: a user who fixed the
+    /// permission in iOS Settings came back to a still-greyed toggle and concluded
+    /// biometric unlock was broken.
+    @State private var biometry = AppLock.biometryStatus()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var isConfirmingDeleteAccount = false
     @State private var isDeletingAccount = false
     @State private var showDeleteAccountErrorAlert = false
@@ -235,9 +244,26 @@ struct AccountView: View {
     private var privacySection: some View {
         Section {
             Toggle(isOn: $faceIDEnabled) {
-                Label(String(localized: "Unlock with Face ID"), systemImage: "faceid")
+                Label(String(localized: "Unlock with \(biometry.name)"), systemImage: biometry.symbolName)
             }
-            .disabled(!AppLock.isBiometricsAvailable)
+            .disabled(!biometry.isAvailable)
+
+            // A disabled toggle with no explanation is a dead end. When iOS can fix
+            // it, take the user there rather than describing where to tap.
+            if let explanation = biometry.explanation {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(explanation)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if biometry.isResolvableInSettings, let url = URL(string: UIApplication.openSettingsURLString) {
+                        Link(String(localized: "Open Settings"), destination: url)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(ShiftPalette.accent)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+
             Button {
                 isChangingPasscode = true
             } label: {
@@ -247,7 +273,12 @@ struct AccountView: View {
         } header: {
             Text(String(localized: "Privacy & Security"))
         } footer: {
-            Text(String(localized: "SHIFT locks every time you leave the app. Unlock with Face ID or your passcode — you stay signed in."))
+            Text(String(localized: "SHIFT locks every time you leave the app. Unlock with \(biometry.name) or your passcode — you stay signed in."))
+        }
+        // Returning from iOS Settings reactivates the scene; re-read so a granted
+        // permission takes effect immediately instead of on the next cold launch.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { biometry = AppLock.biometryStatus() }
         }
     }
 

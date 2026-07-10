@@ -49,6 +49,9 @@ struct AppLockScreen: View {
     @State private var showKeypad = false
     @State private var wrongCode = false
     @State private var showForgotConfirm = false
+    /// Names the button after the actual sensor. Re-read on each attempt, since a
+    /// user can grant the permission in iOS Settings and come straight back.
+    @State private var biometry = AppLock.biometryStatus()
 
     var body: some View {
         ZStack {
@@ -78,8 +81,8 @@ struct AppLockScreen: View {
                         Task { await attemptBiometrics() }
                     } label: {
                         HStack(spacing: 8) {
-                            Image(systemName: "faceid")
-                            Text(String(localized: "Unlock with Face ID"))
+                            Image(systemName: biometry.symbolName)
+                            Text(String(localized: "Unlock with \(biometry.name)"))
                         }
                     }
                     .buttonStyle(SignInPrimaryButtonStyle())
@@ -140,7 +143,10 @@ struct AppLockScreen: View {
     }
 
     private func attemptBiometrics() async {
-        guard appLock.isFaceIDEnabled, AppLock.isBiometricsAvailable else {
+        // Re-read rather than trusting the value captured at init: the user may
+        // have granted the permission in iOS Settings since this screen appeared.
+        biometry = AppLock.biometryStatus()
+        guard appLock.isFaceIDEnabled, biometry.isAvailable else {
             showKeypad = true
             return
         }
