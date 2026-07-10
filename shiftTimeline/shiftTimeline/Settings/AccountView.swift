@@ -198,6 +198,19 @@ struct AccountView: View {
                     isManagingSubscriptions = true
                 }
                 .foregroundStyle(ShiftPalette.accent)
+            } else if SubscriptionManager.shared.isComped,
+                      SubscriptionManager.shared.entitlementState != .pro,
+                      !SubscriptionManager.shared.isLifetimePro {
+                // A comped account (founding cohort, press, testers) reads as Pro
+                // without owning anything, so the two branches above both skip it —
+                // which hid the paywall from *everyone* during the founding window.
+                // Keep it reachable: App Review must be able to open the in-app
+                // purchase, and a founding member should be able to buy before
+                // their complimentary window lapses.
+                Button(String(localized: "View Pro Plans")) {
+                    isShowingPaywall = true
+                }
+                .foregroundStyle(ShiftPalette.accent)
             }
 
             Button {
