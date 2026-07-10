@@ -133,6 +133,11 @@ struct RootContainerView: View {
                 .environment(\.vendorReviewService, nil)
                 .environment(\.availabilityService, nil)
                 .environment(\.onboardingService, nil)
+                // Without this the Community tab would call Supabase while the
+                // demo session is unauthenticated, and App Review would be shown
+                // "Couldn't Load Templates". Nil falls back to the coming-soon
+                // teaser, which is the correct demo-mode surface.
+                .environment(\.communityTemplateService, nil)
                 .transition(.opacity)
         } else if shiftTimelineApp.isUITestMode || shiftTimelineApp.isUnitTestMode {
             RootNavigator()
