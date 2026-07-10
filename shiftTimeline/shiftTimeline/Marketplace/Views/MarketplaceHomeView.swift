@@ -235,6 +235,13 @@ struct MarketplaceHomeView: View {
     /// Everything else, paged, ordered by **completed events** — the app's own
     /// earned trust signal, not a self-declared one. Each cell promotes the
     /// vendor's service so the grid is scannable without reading names.
+    ///
+    /// Renders nothing when the grid is empty. That covers two cases: a directory
+    /// small enough that Featured holds every vendor (`browseVisible` filters them
+    /// out), and a directory with no vendors at all. Neither warrants an empty
+    /// state here — the "Offer your services?" bar below already carries the
+    /// listing prompt, and a "No vendors yet" caption under a populated Featured
+    /// shelf contradicts what the user is looking at.
     @ViewBuilder
     private var browseAllSection: some View {
         if !browseVisible.isEmpty || isLoadingBrowse {
@@ -282,12 +289,6 @@ struct MarketplaceHomeView: View {
                 }
             }
             .accessibilityIdentifier(AccessibilityID.Marketplace.browseAllGrid)
-        } else if !isLoading {
-            ContentUnavailableView(
-                String(localized: "No vendors yet"),
-                systemImage: "storefront",
-                description: Text(String(localized: "Be the first to list your business — set it up in Settings."))
-            )
         }
     }
 

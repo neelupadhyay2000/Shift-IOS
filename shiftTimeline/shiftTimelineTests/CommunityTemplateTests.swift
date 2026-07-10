@@ -53,6 +53,79 @@ struct CommunityTemplateTests {
         #expect(dto.asTemplate.id == id)
         #expect(dto.asTemplate.name == "Coastal Elopement")
         #expect(dto.asTemplate.blocks.count == 2)
+
+        // No `is_official` key in this payload — a project that hasn't run the
+        // 20260709210000 migration must still decode, reading as not-official.
+        #expect(dto.isOfficial == false)
+        #expect(dto.hasApplies)
+    }
+
+    // MARK: - Official flag
+
+    /// `is_official` (authorship: SHIFT wrote it) and `source_event_completed`
+    /// (provenance: it came from an event actually run) are independent claims.
+    /// A seeded first-party template asserts the first and not the second, so the
+    /// two must never be conflated in the decode.
+    @Test("an official template decodes as official without claiming verified")
+    func officialIsIndependentOfVerified() throws {
+        let json = officialTemplateJSON(isOfficial: true, verified: false, timesApplied: 0)
+        let dto = try decoder.decode(CommunityTemplateDTO.self, from: Data(json.utf8))
+
+        #expect(dto.isOfficial)
+        #expect(dto.sourceEventCompleted == false)
+    }
+
+    @Test("an official template published from a completed event carries both")
+    func officialCanAlsoBeVerified() throws {
+        let json = officialTemplateJSON(isOfficial: true, verified: true, timesApplied: 5)
+        let dto = try decoder.decode(CommunityTemplateDTO.self, from: Data(json.utf8))
+
+        #expect(dto.isOfficial)
+        #expect(dto.sourceEventCompleted)
+    }
+
+    /// The apply counter is suppressed at zero: a never-applied template shows
+    /// nothing rather than a bare "0", which reads as a failure state. This is the
+    /// reason the seed script can honestly leave `times_applied` at its default
+    /// instead of fabricating a number.
+    @Test("the apply counter is hidden until a template is actually applied")
+    func applyCounterHiddenAtZero() throws {
+        let unused = try decoder.decode(
+            CommunityTemplateDTO.self,
+            from: Data(officialTemplateJSON(isOfficial: true, verified: false, timesApplied: 0).utf8)
+        )
+        let used = try decoder.decode(
+            CommunityTemplateDTO.self,
+            from: Data(officialTemplateJSON(isOfficial: true, verified: false, timesApplied: 1).utf8)
+        )
+
+        #expect(unused.hasApplies == false)
+        #expect(used.hasApplies)
+    }
+
+    private func officialTemplateJSON(
+        isOfficial: Bool,
+        verified: Bool,
+        timesApplied: Int
+    ) -> String {
+        """
+        {
+          "id": "\(UUID().uuidString)",
+          "author_id": "\(UUID().uuidString)",
+          "author_name": "SHIFT",
+          "name": "Charity Gala & Live Auction",
+          "description": "A fundraising dinner",
+          "category": "social",
+          "blocks": [
+            {"title":"Live Auction","relativeStartOffset":0,"duration":2700,"isPinned":true,"colorTag":"#FF3B30","icon":"dollarsign.circle.fill"}
+          ],
+          "block_count": 1,
+          "source_event_completed": \(verified),
+          "is_official": \(isOfficial),
+          "times_applied": \(timesApplied),
+          "created_at": "2026-07-09T12:00:00Z"
+        }
+        """
     }
 
     @Test func unknownCategoryFallsBackToSocial() throws {

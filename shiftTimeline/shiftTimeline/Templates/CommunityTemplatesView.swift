@@ -212,6 +212,14 @@ private struct CommunityTemplateCard: View {
             HStack(spacing: 6) {
                 Text(template.templateCategory.displayName).microLabel()
                 Spacer(minLength: 0)
+                // Two independent signals, so both can show: "Official" is who
+                // wrote it, the seal is whether it came from an event actually run.
+                if template.isOfficial {
+                    Image(systemName: "rosette")
+                        .font(.caption2)
+                        .foregroundStyle(ShiftPalette.warm)
+                        .accessibilityLabel(String(localized: "Official, by Shift"))
+                }
                 if template.sourceEventCompleted {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.caption2)
@@ -239,10 +247,15 @@ private struct CommunityTemplateCard: View {
                 } icon: {
                     Image(systemName: "rectangle.stack")
                 }
-                Label {
-                    Text("\(template.timesApplied)").monospacedDigit()
-                } icon: {
-                    Image(systemName: "square.and.arrow.down")
+                // Hidden at zero: a bare "0" reads as a failure state, and a
+                // never-applied template should say nothing rather than boast of
+                // nothing. The counter appears the first time someone applies it.
+                if template.hasApplies {
+                    Label {
+                        Text("\(template.timesApplied)").monospacedDigit()
+                    } icon: {
+                        Image(systemName: "square.and.arrow.down")
+                    }
                 }
             }
             .font(.caption2.weight(.medium))
