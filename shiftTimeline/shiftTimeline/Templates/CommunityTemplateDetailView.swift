@@ -113,6 +113,14 @@ struct CommunityTemplateDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(template.templateCategory.displayName).microLabel()
+                // Authorship and provenance are separate claims. "Official" says
+                // SHIFT wrote it; the seal says it came from an event actually run
+                // in the app. A template can carry either, both, or neither.
+                if template.isOfficial {
+                    Label(String(localized: "Official"), systemImage: "rosette")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ShiftPalette.warm)
+                }
                 if template.sourceEventCompleted {
                     Label(String(localized: "Verified · run in Shift"), systemImage: "checkmark.seal.fill")
                         .font(.caption.weight(.semibold))
@@ -138,10 +146,13 @@ struct CommunityTemplateDetailView: View {
                 Image(systemName: "clock")
             }
             Spacer()
-            Label {
-                Text("\(template.timesApplied)").monospacedDigit()
-            } icon: {
-                Image(systemName: "square.and.arrow.down")
+            // Suppressed at zero — see `CommunityTemplateDTO.hasApplies`.
+            if template.hasApplies {
+                Label {
+                    Text("\(template.timesApplied)").monospacedDigit()
+                } icon: {
+                    Image(systemName: "square.and.arrow.down")
+                }
             }
         }
         .font(.subheadline)

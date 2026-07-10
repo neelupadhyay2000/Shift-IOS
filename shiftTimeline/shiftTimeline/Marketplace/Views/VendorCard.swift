@@ -218,7 +218,14 @@ struct VendorCard: View {
             }
 
         if isGrid {
-            content.aspectRatio(1, contentMode: .fill).clipped()
+            // `.fit`, not `.fill`. On a *view* (unlike on an Image), `.fill` sizes
+            // to the larger dimension of the proposal, and the proposal's height
+            // resolves to the cover photo's ideal height — so a portrait poster
+            // produced a square as tall as the photo and the cell spilled out of
+            // its grid column on both sides. `.fit` takes the smaller dimension,
+            // which is the column width. The inner `scaledToFill()` still fills
+            // that square; `.clipped()` crops the overflow.
+            content.aspectRatio(1, contentMode: .fit).clipped()
         } else {
             content.frame(height: 150).clipped()
         }

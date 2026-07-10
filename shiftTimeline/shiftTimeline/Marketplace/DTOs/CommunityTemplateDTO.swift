@@ -41,6 +41,12 @@ nonisolated struct CommunityTemplateDTO: Decodable, Identifiable, Equatable, Sen
     let timesApplied: Int
     let createdAt: PostgresTimestamp
 
+    /// Optional so a build can still decode rows from a project where the
+    /// `is_official` migration hasn't been applied — the synthesized initializer
+    /// uses `decodeIfPresent` for optionals, and a missing column reads as `false`
+    /// rather than failing the whole browse. Read through ``isOfficial``.
+    private let officialFlag: Bool?
+
     enum CodingKeys: String, CodingKey {
         case id
         case authorID = "author_id"
@@ -51,6 +57,7 @@ nonisolated struct CommunityTemplateDTO: Decodable, Identifiable, Equatable, Sen
         case blocks
         case blockCount = "block_count"
         case sourceEventCompleted = "source_event_completed"
+        case officialFlag = "is_official"
         case timesApplied = "times_applied"
         case createdAt = "created_at"
     }
@@ -64,6 +71,17 @@ extension CommunityTemplateDTO {
     var templateCategory: TemplateCategory {
         TemplateCategory(rawValue: category) ?? .social
     }
+
+    /// First-party template authored by SHIFT. An **authorship** claim, and
+    /// deliberately orthogonal to ``sourceEventCompleted``, which is a
+    /// **provenance** claim ("run in Shift"). A seeded official template carries
+    /// this and not the seal; an official template published from a real completed
+    /// event would carry both. No client path can set it — see the column comment.
+    var isOfficial: Bool { officialFlag ?? false }
+
+    /// Whether to surface the apply counter at all. A template nobody has applied
+    /// yet shows nothing rather than a bare "0", which reads as a failure state.
+    var hasApplies: Bool { timesApplied > 0 }
 
     /// Bridges to the shared `Template` so the existing `TemplatePreviewView` and
     /// the event-creation flow render / instantiate a community template unchanged.
