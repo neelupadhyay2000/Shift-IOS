@@ -3,25 +3,41 @@ import Foundation
 import Testing
 @testable import shiftTimeline
 
-/// Locks the pan/zoom crop maths behind the marketplace profile picture. The
+/// Locks the pan/zoom crop maths behind the marketplace profile picture.
+///
+/// The viewport is **square** (Instagram: a 1:1 crop shown in a circle). The
 /// critical invariant: for any clamped transform, the exported canvas is fully
 /// covered by the source image — a crop can never bake in empty pixels.
 @Suite("Avatar crop geometry")
 struct AvatarCropGeometryTests {
 
-    /// A 4:3 photo positioned inside the 16:9 hero window.
-    private let image = CGSize(width: 4000, height: 3000)
-    private let window = CGSize(width: 320, height: 180)
+    /// A square viewport, matching the square export canvas. `drawRect` maps the
+    /// window onto the canvas by a single factor, so the two must share an aspect.
+    private let window = CGSize(width: 320, height: 320)
+
+    private let landscape = CGSize(width: 4000, height: 3000)
+    private let portrait  = CGSize(width: 1080, height: 1920)
+    private let square    = CGSize(width: 2000, height: 2000)
+
+    // MARK: - Shape contract
+
+    @Test("the profile picture is square, and the canvas matches the viewport")
+    func shapeIsSquare() {
+        #expect(AvatarCrop.aspectRatio == 1)
+        #expect(AvatarCrop.outputSize.width == AvatarCrop.outputSize.height)
+        // window aspect == output aspect, or drawRect's single scale factor lies.
+        #expect(window.width / window.height == AvatarCrop.outputSize.width / AvatarCrop.outputSize.height)
+    }
 
     // MARK: - baseScale
 
     @Test("baseScale aspect-fills: the image always covers the window")
     func baseScaleFills() {
-        let scale = AvatarCropGeometry.baseScale(imageSize: image, windowSize: window)
-        // max(320/4000, 180/3000) = max(0.08, 0.06) = 0.08
-        #expect(abs(scale - 0.08) < 0.0001)
+        let scale = AvatarCropGeometry.baseScale(imageSize: landscape, windowSize: window)
+        // max(320/4000, 320/3000) = max(0.08, 0.1067) = 0.1067 — driven by the short edge.
+        #expect(abs(scale - (320.0 / 3000.0)) < 0.0001)
 
-        let scaled = CGSize(width: image.width * scale, height: image.height * scale)
+        let scaled = CGSize(width: landscape.width * scale, height: landscape.height * scale)
         #expect(scaled.width >= window.width - 0.001)
         #expect(scaled.height >= window.height - 0.001)
     }
@@ -40,68 +56,74 @@ struct AvatarCropGeometryTests {
         #expect(AvatarCropGeometry.clampZoom(99) == AvatarCrop.maxZoom)
     }
 
-    @Test("maxOffset is zero on the axis the image only just covers")
-    func maxOffsetAxes() {
-        let limit = AvatarCropGeometry.maxOffset(imageSize: image, windowSize: window, zoom: 1)
-        // Width covers exactly (4000*0.08 = 320) → no horizontal travel.
-        #expect(abs(limit.width) < 0.001)
-        // Height overflows (3000*0.08 = 240) → (240-180)/2 = 30pt of travel.
-        #expect(abs(limit.height - 30) < 0.001)
+    @Test("a landscape photo pans horizontally only; a portrait one vertically only")
+    func travelAxesFollowOrientation() {
+        let wide = AvatarCropGeometry.maxOffset(imageSize: landscape, windowSize: window, zoom: 1)
+        #expect(wide.width > 0)                 // (4000*0.1067 - 320)/2 ≈ 53.3
+        #expect(abs(wide.height) < 0.001)       // short edge exactly fills
+
+        let tall = AvatarCropGeometry.maxOffset(imageSize: portrait, windowSize: window, zoom: 1)
+        #expect(abs(tall.width) < 0.001)
+        #expect(tall.height > 0)                // ≈ 124.4 — pick the head or the feet
     }
 
     @Test("pan is clamped so the window never shows empty space")
     func offsetClamped() {
         let clamped = AvatarCropGeometry.clampOffset(
-            CGSize(width: 500, height: 500), imageSize: image, windowSize: window, zoom: 1
+            CGSize(width: 0, height: 9999), imageSize: portrait, windowSize: window, zoom: 1
         )
-        #expect(abs(clamped.width) < 0.001)
-        #expect(abs(clamped.height - 30) < 0.001)
+        let limit = AvatarCropGeometry.maxOffset(imageSize: portrait, windowSize: window, zoom: 1)
+        #expect(abs(clamped.height - limit.height) < 0.001)
 
         let negative = AvatarCropGeometry.clampOffset(
-            CGSize(width: -500, height: -500), imageSize: image, windowSize: window, zoom: 1
+            CGSize(width: 0, height: -9999), imageSize: portrait, windowSize: window, zoom: 1
         )
-        #expect(abs(negative.height + 30) < 0.001)
+        #expect(abs(negative.height + limit.height) < 0.001)
     }
 
-    @Test("zooming in unlocks horizontal travel that didn't exist at 1x")
+    @Test("a square photo has no travel at 1x, and gains it on zoom")
     func zoomUnlocksPan() {
-        let atOne = AvatarCropGeometry.maxOffset(imageSize: image, windowSize: window, zoom: 1)
-        let atTwo = AvatarCropGeometry.maxOffset(imageSize: image, windowSize: window, zoom: 2)
-        #expect(atOne.width == 0)
+        let atOne = AvatarCropGeometry.maxOffset(imageSize: square, windowSize: window, zoom: 1)
+        #expect(abs(atOne.width) < 0.001)
+        #expect(abs(atOne.height) < 0.001)
+
+        let atTwo = AvatarCropGeometry.maxOffset(imageSize: square, windowSize: window, zoom: 2)
         #expect(atTwo.width > 0)
-        #expect(atTwo.height > atOne.height)
+        #expect(atTwo.height > 0)
     }
 
     // MARK: - drawRect
 
-    @Test("centred, unzoomed draw is horizontally exact and vertically overflowing")
+    @Test("centred, unzoomed landscape overflows horizontally and fits vertically")
     func drawRectCentered() {
+        let output = AvatarCrop.outputSize
         let rect = AvatarCropGeometry.drawRect(
-            imageSize: image, windowSize: window, zoom: 1, offset: .zero,
-            outputSize: AvatarCrop.outputSize
+            imageSize: landscape, windowSize: window, zoom: 1, offset: .zero, outputSize: output
         )
-        // k = 1600/320 = 5; scale = 0.08 → 4000*0.08*5 = 1600 wide, 3000*0.08*5 = 1200 tall
-        #expect(abs(rect.width - 1600) < 0.01)
-        #expect(abs(rect.height - 1200) < 0.01)
-        #expect(abs(rect.origin.x) < 0.01)
-        #expect(abs(rect.origin.y - (-150)) < 0.01)   // (900-1200)/2
+        let k = output.width / window.width                       // 3.2
+        let scale = 320.0 / 3000.0                                // baseScale
+        #expect(abs(rect.width - landscape.width * scale * k) < 0.01)
+        #expect(abs(rect.height - output.height) < 0.01)          // short edge fills exactly
+        #expect(rect.origin.x < 0)                                // cropped left+right
+        #expect(abs(rect.origin.y) < 0.01)
     }
 
-    @Test("panning down by the max offset reveals the top of the source image")
+    @Test("panning a portrait photo to its max reveals the top of the source")
     func drawRectHonoursOffset() {
+        let output = AvatarCrop.outputSize
+        let limit = AvatarCropGeometry.maxOffset(imageSize: portrait, windowSize: window, zoom: 1)
         let rect = AvatarCropGeometry.drawRect(
-            imageSize: image, windowSize: window, zoom: 1,
-            offset: CGSize(width: 0, height: 30),      // the clamped maximum
-            outputSize: AvatarCrop.outputSize
+            imageSize: portrait, windowSize: window, zoom: 1,
+            offset: CGSize(width: 0, height: limit.height), outputSize: output
         )
-        // -150 + 30*5 = 0 → the image's top edge lands on the canvas top edge.
+        // The image's top edge lands exactly on the canvas top edge.
         #expect(abs(rect.origin.y) < 0.01)
     }
 
     @Test("degenerate window falls back to filling the canvas")
     func drawRectGuardsZeroWindow() {
         let rect = AvatarCropGeometry.drawRect(
-            imageSize: image, windowSize: .zero, zoom: 1, offset: .zero,
+            imageSize: landscape, windowSize: .zero, zoom: 1, offset: .zero,
             outputSize: AvatarCrop.outputSize
         )
         #expect(rect.size == AvatarCrop.outputSize)
@@ -112,13 +134,7 @@ struct AvatarCropGeometryTests {
     @Test("INVARIANT: any clamped transform fully covers the export canvas")
     func exportIsAlwaysFullyCovered() {
         let output = AvatarCrop.outputSize
-        // Portrait, landscape, and square sources across the zoom range.
-        let sources = [
-            CGSize(width: 4000, height: 3000),
-            CGSize(width: 1080, height: 1920),
-            CGSize(width: 2000, height: 2000),
-            CGSize(width: 6000, height: 1000),
-        ]
+        let sources = [landscape, portrait, square, CGSize(width: 6000, height: 1000)]
         let zooms: [CGFloat] = [1, 1.3, 2, 3.7, AvatarCrop.maxZoom]
         let pans = [
             CGSize(width: 0, height: 0),

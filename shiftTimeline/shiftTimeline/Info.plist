@@ -23,6 +23,8 @@
 	<string>SHIFT uses Face ID to unlock the app when the privacy lock is enabled.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SHIFT uses the microphone to record voice memos attached to timeline blocks.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SHIFT uses your location to show how far marketplace vendors are from you and to sort them by distance. You can browse the marketplace without sharing your location.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

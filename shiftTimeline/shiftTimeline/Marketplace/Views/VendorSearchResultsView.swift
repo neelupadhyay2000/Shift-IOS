@@ -1,3 +1,4 @@
+import CoreLocation
 import Models
 import SwiftUI
 
@@ -7,12 +8,14 @@ import SwiftUI
 struct VendorSearchResultsView: View {
 
     @Environment(\.marketplaceService) private var service
+    @Environment(\.marketplaceLocation) private var location
     @Environment(SupabaseAuthService.self) private var authService
 
     @State private var query: String
     @State private var selectedCategory: VendorRole?
     @State private var selectedDate: Date?
     @State private var sort: VendorSort = .rating
+    @State private var radiusKm: Double?
     @State private var results: [VendorSearchResultDTO] = []
     @State private var savedIDs: Set<UUID> = []
     @State private var isLoading = false
@@ -22,10 +25,25 @@ struct VendorSearchResultsView: View {
     @State private var isShowingFilters = false
 
     private let pageSize = 20
-    private let columns = [GridItem(.adaptive(minimum: 320), spacing: 12)]
+    /// Facebook-Marketplace density: two square cells per row on iPhone, more on
+    /// iPad. (Was `.adaptive(minimum: 320)`, which collapsed to a single column.)
+    private let columns = [GridItem(.adaptive(minimum: 158), spacing: 12)]
 
     private var canSave: Bool { !authService.isVendorAccount }
-    private var activeFilterCount: Int { (selectedCategory != nil ? 1 : 0) + (selectedDate != nil ? 1 : 0) }
+    private var activeFilterCount: Int {
+        (selectedCategory != nil ? 1 : 0) + (selectedDate != nil ? 1 : 0) + (radiusKm != nil ? 1 : 0)
+    }
+
+    /// The caller's point, when they've opted in. Nil keeps `distance_km` NULL
+    /// server-side — the pre-location behaviour.
+    private var coordinate: CLLocationCoordinate2D? { location?.coordinate }
+
+    /// Sorting by distance is meaningless without a point, so the option is only
+    /// offered once we have one. (It used to be selectable and silently no-op.)
+    /// `.featured` is editorial, not a user preference — never listed here.
+    private var availableSorts: [VendorSort] {
+        coordinate == nil ? VendorSort.userSelectable.filter { $0 != .nearest } : VendorSort.userSelectable
+    }
 
     init(initialQuery: String = "", initialCategory: VendorRole? = nil, initialDate: Date? = nil) {
         _query = State(initialValue: initialQuery)
@@ -95,7 +113,15 @@ struct VendorSearchResultsView: View {
 
             Menu {
                 Picker(String(localized: "Sort"), selection: $sort) {
-                    ForEach(VendorSort.allCases) { option in Text(option.label).tag(option) }
+                    ForEach(availableSorts) { option in Text(option.label).tag(option) }
+                }
+                if coordinate == nil, location?.isDenied == false {
+                    Divider()
+                    Button {
+                        location?.requestLocation()
+                    } label: {
+                        Label(String(localized: "Use my location"), systemImage: "location")
+                    }
                 }
             } label: {
                 HStack(spacing: 6) {
@@ -109,6 +135,11 @@ struct VendorSearchResultsView: View {
             .onChange(of: sort) { _, _ in Task { await runSearch(reset: true) } }
 
             Spacer(minLength: 0)
+        }
+        // A fix arriving (or being revoked) changes distances and ordering.
+        .onChange(of: coordinate?.latitude) { _, _ in
+            if coordinate == nil, sort == .nearest { sort = .rating }
+            Task { await runSearch(reset: true) }
         }
     }
 
@@ -150,6 +181,40 @@ struct VendorSearchResultsView: View {
                             .proCard(padding: 8)
                         }
                     }
+
+                    // Distance — the Facebook-Marketplace "within N km" filter.
+                    // Only meaningful once we have the caller's point.
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(String(localized: "Distance")).microLabel()
+                        if coordinate == nil {
+                            Button {
+                                location?.requestLocation()
+                            } label: {
+                                Label(
+                                    location?.isDenied == true
+                                        ? String(localized: "Location is off — enable it in Settings")
+                                        : String(localized: "Use my location to filter by distance"),
+                                    systemImage: "location"
+                                )
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(location?.isDenied == true)
+                            .foregroundStyle(location?.isDenied == true ? Color.secondary : ShiftPalette.accent)
+                            .proCard(padding: 12)
+                        } else {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    radiusChip(nil, label: String(localized: "Any"))
+                                    ForEach([10.0, 25.0, 50.0, 100.0], id: \.self) { km in
+                                        radiusChip(km, label: String(localized: "\(Int(km)) km"))
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+                    }
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,7 +224,7 @@ struct VendorSearchResultsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Clear")) { selectedCategory = nil; selectedDate = nil }
+                    Button(String(localized: "Clear")) { selectedCategory = nil; selectedDate = nil; radiusKm = nil }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Apply")) { isShowingFilters = false; Task { await runSearch(reset: true) } }
@@ -167,6 +232,25 @@ struct VendorSearchResultsView: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// Selectable radius pill. `nil` means "Any distance" (no radius filter).
+    private func radiusChip(_ km: Double?, label: String) -> some View {
+        let isSelected = radiusKm == km
+        return Button {
+            radiusKm = km
+        } label: {
+            Text(label)
+                .font(.subheadline.weight(.medium))
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .foregroundStyle(isSelected ? ShiftPalette.accent : .secondary)
+                .background(
+                    isSelected ? ShiftPalette.soft(ShiftPalette.accent) : ShiftPalette.soft(ShiftPalette.neutral),
+                    in: Capsule()
+                )
+                .overlay(Capsule().strokeBorder(isSelected ? ShiftPalette.accent : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Selectable category pill — indigo when selected, quiet neutral otherwise.
@@ -210,7 +294,8 @@ struct VendorSearchResultsView: View {
                         VendorCard(
                             result: result,
                             isSaved: savedIDs.contains(result.profileID),
-                            onToggleSave: canSave ? { toggleSave(result.profileID) } : nil
+                            onToggleSave: canSave ? { toggleSave(result.profileID) } : nil,
+                            style: .grid
                         )
                     }
                     .buttonStyle(.pressableCard)
@@ -232,10 +317,15 @@ struct VendorSearchResultsView: View {
         isLoading = true
         defer { isLoading = false }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Supplying the point is what populates `distance_km` server-side and makes
+        // both the distance label and the "Nearest" sort real.
+        let point = coordinate
         let page = (try? await service.searchVendors(
             query: trimmed.isEmpty ? nil : trimmed,
             category: selectedCategory,
-            latitude: nil, longitude: nil, radiusKm: nil,
+            latitude: point?.latitude,
+            longitude: point?.longitude,
+            radiusKm: point == nil ? nil : radiusKm,
             limit: pageSize, offset: offset, onDate: selectedDate, sort: sort
         )) ?? []
         results.append(contentsOf: page)

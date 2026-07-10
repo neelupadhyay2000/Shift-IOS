@@ -112,8 +112,16 @@ nonisolated struct VendorSearchResultDTO: Decodable, Equatable, Identifiable {
     let ratingAvg: Double?
     let ratingCount: Int
     let distanceKm: Double?
+    /// Storage path of the vendor's first portfolio item — the card hero. The
+    /// vendor's own `sort_order` decides which one; nil when they have no media.
+    let coverPath: String?
+    /// `"photo"` or `"video"`, so the card can render a video poster frame.
+    let coverKind: String?
 
     var id: UUID { profileID }
+
+    /// True when the cover is a video and the card should draw a poster + play glyph.
+    var coverIsVideo: Bool { coverKind == "video" }
 
     enum CodingKeys: String, CodingKey {
         case profileID = "profile_id"
@@ -131,6 +139,8 @@ nonisolated struct VendorSearchResultDTO: Decodable, Equatable, Identifiable {
         case ratingAvg = "rating_avg"
         case ratingCount = "rating_count"
         case distanceKm = "distance_km"
+        case coverPath = "cover_path"
+        case coverKind = "cover_kind"
     }
 }
 

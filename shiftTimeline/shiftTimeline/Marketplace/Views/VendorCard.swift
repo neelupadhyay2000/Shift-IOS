@@ -110,15 +110,36 @@ struct VendorStatsBadges: View {
 
 // MARK: - Vendor card
 
-/// Directory grid card for a vendor — photo-forward (hero image + overlaid
-/// rating/save), with name, category, distance, and verified stats below.
+/// How a `VendorCard` is being laid out. The two directory surfaces want the same
+/// card with different proportions: a wide, short hero in a horizontal carousel,
+/// and a square, dense hero in the browse grid.
+enum VendorCardStyle {
+    /// Home carousels — fixed-height hero, roomier meta.
+    case carousel
+    /// Facebook-Marketplace-style browse grid — square hero, compact meta.
+    case grid
+}
+
+/// Directory card for a vendor.
+///
+/// The hero is the vendor's **work** — their first portfolio photo/video
+/// (`cover_path`), not their face. That's the whole point: for event vendors the
+/// portfolio *is* the product. The avatar is demoted to a small circular
+/// attribution mark beside the name, the way an Instagram post credits its author.
+/// Falls back to the avatar, then to a role-tinted gradient, when a vendor has no
+/// portfolio yet.
+///
+/// The **service** is promoted onto the image as a coloured chip, so a planner
+/// scanning a grid can tell a photographer from a florist without reading.
 struct VendorCard: View {
     let result: VendorSearchResultDTO
     /// Planner-only save affordance; nil hides the heart (e.g. vendor viewers).
     var isSaved: Bool = false
     var onToggleSave: (() -> Void)?
+    var style: VendorCardStyle = .carousel
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.marketplaceService) private var service
 
     private var cardFill: Color { colorScheme == .dark ? .white.opacity(0.055) : .white }
     private var hairline: Color { colorScheme == .dark ? .white.opacity(0.10) : .black.opacity(0.07) }
@@ -131,26 +152,18 @@ struct VendorCard: View {
     }
 
     private var color: Color { MarketplaceCategory.color(result.category) }
+    private var isGrid: Bool { style == .grid }
+
+    /// The vendor's own first portfolio item, resolved to a CDN URL.
+    private var coverURL: URL? {
+        guard let path = result.coverPath else { return nil }
+        return service?.portfolioImageURL(forPath: path)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             hero
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title).font(.headline).lineLimit(1)
-                HStack(spacing: 8) {
-                    CategoryChip(category: result.category, compact: true)
-                    if let area = result.serviceArea, !area.isEmpty {
-                        Label(area, systemImage: "mappin.and.ellipse")
-                            .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                }
-                VendorStatsBadges(
-                    eventsCompleted: result.eventsCompletedCount,
-                    ratingAvg: result.ratingAvg,
-                    ratingCount: result.ratingCount
-                )
-            }
-            .padding(14)
+            meta
         }
         .background(cardFill, in: cardShape)
         .clipShape(cardShape)
@@ -158,31 +171,97 @@ struct VendorCard: View {
         .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.05), radius: 8, y: 3)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityDescription)
         .accessibilityIdentifier(AccessibilityID.Marketplace.vendorCard)
     }
 
-    private var hero: some View {
-        ZStack {
-            if let urlString = result.avatarURL, let url = URL(string: urlString) {
-                AsyncImage(url: url) { image in
+    // MARK: Hero — the vendor's work
+
+    @ViewBuilder
+    private var heroContent: some View {
+        if let coverURL {
+            if result.coverIsVideo {
+                VideoThumbnailView(url: coverURL, playGlyphSize: isGrid ? .title3 : .title)
+            } else {
+                AsyncImage(url: coverURL) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
-            } else {
-                ZStack {
-                    LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Image(systemName: MarketplaceCategory.role(result.category).systemImage)
-                        .font(.system(size: 40)).foregroundStyle(color.opacity(0.7))
-                }
+            }
+        } else if let urlString = result.avatarURL, let url = URL(string: urlString) {
+            // No portfolio yet — fall back to their profile photo.
+            AsyncImage(url: url) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
+        } else {
+            ZStack {
+                LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                Image(systemName: MarketplaceCategory.role(result.category).systemImage)
+                    .font(.system(size: isGrid ? 32 : 40)).foregroundStyle(color.opacity(0.7))
             }
         }
-        .frame(height: 150)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .overlay(alignment: .topTrailing) { if onToggleSave != nil { saveButton } }
-        .overlay(alignment: .bottomLeading) { ratingPill }
     }
+
+    @ViewBuilder
+    private var hero: some View {
+        let content = ZStack { heroContent }
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .topLeading) { ratingPill }
+            .overlay(alignment: .topTrailing) { if onToggleSave != nil { saveButton } }
+            // The service, promoted onto the image so it's readable at a glance.
+            .overlay(alignment: .bottomLeading) {
+                CategoryChip(category: result.category, compact: isGrid)
+                    .padding(10)
+            }
+
+        if isGrid {
+            content.aspectRatio(1, contentMode: .fill).clipped()
+        } else {
+            content.frame(height: 150).clipped()
+        }
+    }
+
+    // MARK: Meta
+
+    private var meta: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 7) {
+                VendorAvatar(urlString: result.avatarURL, category: result.category, size: isGrid ? 22 : 26)
+                Text(title)
+                    .font(isGrid ? .subheadline.weight(.semibold) : .headline)
+                    .lineLimit(1)
+            }
+
+            locationLine
+
+            VendorStatsBadges(
+                eventsCompleted: result.eventsCompletedCount,
+                ratingAvg: result.ratingAvg,
+                ratingCount: result.ratingCount
+            )
+            .lineLimit(1)
+        }
+        .padding(isGrid ? 10 : 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Distance wins when we have the caller's location; otherwise the vendor's
+    /// own service-area text.
+    @ViewBuilder
+    private var locationLine: some View {
+        if let km = result.distanceKm {
+            Label(VendorDistance.label(km: km), systemImage: "location.fill")
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        } else if let area = result.serviceArea, !area.isEmpty {
+            Label(area, systemImage: "mappin.and.ellipse")
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }
+    }
+
+    // MARK: Overlays
 
     @ViewBuilder
     private var ratingPill: some View {
@@ -210,5 +289,16 @@ struct VendorCard: View {
         .buttonStyle(.plain)
         .accessibilityLabel(isSaved ? String(localized: "Unsave vendor") : String(localized: "Save vendor"))
         .accessibilityIdentifier(AccessibilityID.Marketplace.saveVendorButton)
+    }
+
+    /// One spoken sentence instead of a pile of fragments.
+    private var accessibilityDescription: String {
+        var parts = [title, MarketplaceCategory.label(result.category)]
+        if let km = result.distanceKm { parts.append(VendorDistance.label(km: km)) }
+        else if let area = result.serviceArea, !area.isEmpty { parts.append(area) }
+        if let avg = result.ratingAvg, result.ratingCount > 0 {
+            parts.append(String(localized: "rated \(avg.formatted(.number.precision(.fractionLength(1)))) from \(result.ratingCount) reviews"))
+        }
+        return parts.joined(separator: ", ")
     }
 }

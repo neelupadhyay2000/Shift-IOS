@@ -76,6 +76,14 @@ struct shiftTimelineApp: App {
     /// Online-only direct Supabase, outside the sync stack like the other
     /// marketplace services.
     @State private var communityTemplateService: SupabaseCommunityTemplateService?
+
+    /// Opt-in coarse location for marketplace distance + "Nearest" sort. Never
+    /// prompts on its own — the directory asks only when the user requests it.
+    @State private var marketplaceLocation = MarketplaceLocationProvider()
+
+    /// Remote app configuration (free-tier limits). Best-effort: a failed fetch
+    /// leaves the cached/compiled limits in force.
+    @State private var appConfigService: SupabaseAppConfigService?
     private let deepLinkRouter = DeepLinkRouter.shared
 
     // MARK: - UI Test Mode
@@ -216,6 +224,8 @@ struct shiftTimelineApp: App {
                 .environment(\.availabilityService, availabilityService)
                 .environment(\.onboardingService, onboardingService)
                 .environment(\.communityTemplateService, communityTemplateService)
+                .environment(\.marketplaceLocation, marketplaceLocation)
+                .environment(\.appConfigService, appConfigService)
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
                     // A tapped invite link claims the specific row by id
@@ -228,6 +238,9 @@ struct shiftTimelineApp: App {
                     // right after they sign in.
                     if isAuthenticated {
                         Task { await claimLinkInviteIfPending() }
+                        // `app_config` is authenticated-only, so a cold launch may
+                        // have fetched before the session resolved. Try again now.
+                        Task { await appConfigService?.refreshFreeTierLimits() }
                     }
                 }
                 .onChange(of: deepLinkRouter.remoteRefreshToken) { _, _ in
@@ -368,6 +381,14 @@ struct shiftTimelineApp: App {
             if communityTemplateService == nil {
                 communityTemplateService = SupabaseCommunityTemplateService(client: client)
             }
+
+            // Remote free-tier limits. Fetched here for a restored session, and
+            // again on sign-in (app_config is authenticated-only). Never blocks
+            // launch — the cached/compiled limits already applied.
+            if appConfigService == nil {
+                appConfigService = SupabaseAppConfigService(client: client)
+            }
+            await appConfigService?.refreshFreeTierLimits()
 
             // Wire the APNs registrar before listening so a restored session
             // immediately registers the device token.

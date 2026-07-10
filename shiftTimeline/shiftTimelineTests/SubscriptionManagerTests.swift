@@ -2,7 +2,10 @@ import Services
 import StoreKit
 import Testing
 
-@Suite("SubscriptionManager")
+/// `.serialized` because several tests mutate `SubscriptionManager.shared` — a
+/// singleton — across `await` points. Run in parallel, one test's save/restore of
+/// `compedUntil` would be observed by another mid-flight.
+@Suite("SubscriptionManager", .serialized)
 struct SubscriptionManagerTests {
 
     // MARK: - Singleton
@@ -17,10 +20,55 @@ struct SubscriptionManagerTests {
 
     // MARK: - Default state
 
+    /// `isProUser` is `entitlementState == .pro || isComped || isDemoPro`, so this
+    /// test is really about the *StoreKit* default. It must neutralise the other
+    /// two inputs first, because `SubscriptionManager.shared` is a singleton that
+    /// rehydrates `compedUntil` from `UserDefaults` in `init()`.
+    ///
+    /// That bit us once the founding-cohort comp shipped: any simulator where the
+    /// app has been run and signed in carries a live comp in the shared defaults,
+    /// which leaked straight into the test host. The test wasn't hermetic — it
+    /// only ever passed because no account had a comp.
     @Test("defaults to non-pro until entitlement resolves")
     @MainActor
     func defaultsToNonPro() {
-        #expect(SubscriptionManager.shared.isProUser == false)
+        let manager = SubscriptionManager.shared
+        let savedComp = manager.compedUntil
+        let savedDemo = manager.isDemoPro
+        defer {
+            // Restore, so a later run against this simulator still sees its comp.
+            manager.compedUntil = savedComp
+            manager.isDemoPro = savedDemo
+        }
+
+        manager.compedUntil = nil
+        manager.isDemoPro = false
+
+        // Deliberately not asserting on `entitlementState`: a simulator with an
+        // active sandbox purchase legitimately reads `.pro` (see
+        // `checkEntitlementInCleanEnvironment`).
+        #expect(manager.isProUser == false)
+    }
+
+    /// The other half of the contract: a live comp *does* grant Pro through the
+    /// same property, independent of StoreKit. (This is the path the founding
+    /// cohort takes; the failure above proved it works end-to-end.)
+    @Test("a live comp grants pro without a StoreKit entitlement")
+    @MainActor
+    func liveCompGrantsPro() {
+        let manager = SubscriptionManager.shared
+        let savedComp = manager.compedUntil
+        let savedDemo = manager.isDemoPro
+        defer {
+            manager.compedUntil = savedComp
+            manager.isDemoPro = savedDemo
+        }
+
+        manager.isDemoPro = false
+        manager.compedUntil = Date.now.addingTimeInterval(60 * 60 * 24)
+
+        #expect(manager.isComped == true)
+        #expect(manager.isProUser == true)
     }
 
     // MARK: - Complimentary access
@@ -78,11 +126,23 @@ struct SubscriptionManagerTests {
         #expect(states.count == 3)
     }
 
-    @Test("isProUser is true only for .pro state")
+    /// With comp and demo neutralised, `isProUser` tracks the StoreKit entitlement
+    /// exactly. (Its full definition is `.pro || isComped || isDemoPro` — the other
+    /// two inputs are covered by `liveCompGrantsPro` and the `isCompActive` tests.)
+    @Test("with no comp or demo override, isProUser tracks the StoreKit entitlement")
     @MainActor
     func isProUserDerivation() async {
-        await SubscriptionManager.shared.checkCurrentEntitlement()
         let manager = SubscriptionManager.shared
+        let savedComp = manager.compedUntil
+        let savedDemo = manager.isDemoPro
+        defer {
+            manager.compedUntil = savedComp
+            manager.isDemoPro = savedDemo
+        }
+        manager.compedUntil = nil
+        manager.isDemoPro = false
+
+        await manager.checkCurrentEntitlement()
         switch manager.entitlementState {
         case .pro:
             #expect(manager.isProUser == true)
@@ -110,22 +170,71 @@ struct SubscriptionManagerTests {
     }
 }
 
-@Suite("FreeTier limits")
+/// `FreeTier` is now remote-configurable (`app_config.free_tier`), cached to
+/// `UserDefaults`, and backed by a compiled fallback. These tests pin the
+/// fallback, the apply/cache round-trip, and the gate predicates — the last of
+/// which are written against `FreeTier.*` so they stay correct at any limits.
+@Suite("FreeTier limits", .serialized)
+@MainActor
 struct FreeTierTests {
 
-    @Test("Active event cap is 1")
-    func activeEventCap() {
-        #expect(FreeTier.maxActiveEvents == 1)
+    /// Every test starts from the compiled fallback, and leaves it that way.
+    init() { FreeTier.resetToFallback() }
+
+    // MARK: - Fallback
+
+    @Test("the compiled fallback is the widened free plan")
+    func fallbackIsWidened() {
+        #expect(FreeTierLimits.fallback.maxActiveEvents == 5)
+        #expect(FreeTierLimits.fallback.maxBlocksPerEvent == 40)
+        #expect(FreeTierLimits.fallback.maxTemplates == 10)
     }
 
-    @Test("Blocks per event cap is 15")
-    func blocksPerEventCap() {
-        #expect(FreeTier.maxBlocksPerEvent == 15)
+    @Test("with no cached config, the limits are the fallback")
+    func limitsDefaultToFallback() {
+        #expect(FreeTier.limits == .fallback)
+        #expect(FreeTier.maxActiveEvents == FreeTierLimits.fallback.maxActiveEvents)
+        #expect(FreeTier.maxBlocksPerEvent == FreeTierLimits.fallback.maxBlocksPerEvent)
+        #expect(FreeTier.maxTemplates == FreeTierLimits.fallback.maxTemplates)
     }
 
-    @Test("Templates cap is 2")
-    func templatesCap() {
-        #expect(FreeTier.maxTemplates == 2)
+    // MARK: - Remote apply + cache
+
+    @Test("applying remote limits takes effect immediately")
+    func applyTakesEffect() {
+        defer { FreeTier.resetToFallback() }
+        FreeTier.apply(FreeTierLimits(maxActiveEvents: 2, maxBlocksPerEvent: 20, maxTemplates: 3))
+        #expect(FreeTier.maxActiveEvents == 2)
+        #expect(FreeTier.maxBlocksPerEvent == 20)
+        #expect(FreeTier.maxTemplates == 3)
+    }
+
+    @Test("applied limits are cached so a cold offline launch keeps them")
+    func applyIsCached() throws {
+        defer { FreeTier.resetToFallback() }
+        let remote = FreeTierLimits(maxActiveEvents: 7, maxBlocksPerEvent: 70, maxTemplates: 7)
+        FreeTier.apply(remote)
+
+        // Simulate the next cold launch reading the cache.
+        let data = try #require(UserDefaults.standard.data(forKey: "freeTier.limits"))
+        let decoded = try JSONDecoder().decode(FreeTierLimits.self, from: data)
+        #expect(decoded == remote)
+    }
+
+    @Test("reset clears the cache and returns to the fallback")
+    func resetClearsCache() {
+        FreeTier.apply(FreeTierLimits(maxActiveEvents: 9, maxBlocksPerEvent: 9, maxTemplates: 9))
+        FreeTier.resetToFallback()
+        #expect(FreeTier.limits == .fallback)
+        #expect(UserDefaults.standard.data(forKey: "freeTier.limits") == nil)
+    }
+
+    @Test("the backend's jsonb keys decode into FreeTierLimits")
+    func decodesBackendPayload() throws {
+        // Exactly the value seeded into app_config.free_tier.
+        let json = #"{"maxActiveEvents": 5, "maxBlocksPerEvent": 40, "maxTemplates": 10}"#
+        let decoded = try JSONDecoder().decode(FreeTierLimits.self, from: Data(json.utf8))
+        #expect(decoded == .fallback)
     }
 
     // MARK: - Gate predicate behavior

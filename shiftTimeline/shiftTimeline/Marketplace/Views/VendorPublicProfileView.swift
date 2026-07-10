@@ -25,6 +25,10 @@ struct VendorPublicProfileView: View {
     @State private var isPresentingComposer = false
     @State private var isSaved = false
     @State private var selectedMedia: PortfolioMedia?
+    /// Which portfolio item the hero carousel is showing. Non-optional to match the
+    /// `UUID` tags; seeded to the vendor's first item once the portfolio loads
+    /// (the carousel only renders when media exists, so the placeholder never shows).
+    @State private var heroSelection: UUID = UUID()
     /// Non-nil presents the report sheet for one portfolio item (Guideline 1.2 —
     /// portfolio photos/videos are UGC and must be reportable in place).
     @State private var reportingPortfolioItemID: ReportablePortfolioItem?
@@ -110,8 +114,10 @@ struct VendorPublicProfileView: View {
     }
 
     private func header(_ profile: MarketplaceVendorProfile) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             heroBanner(profile)
+
+            identityRow(profile)
 
             HStack(spacing: 10) {
                 if (stats?.eventsCompleted ?? profile.vendor.eventsCompletedCount) > 0 {
@@ -128,21 +134,6 @@ struct VendorPublicProfileView: View {
                 }
             }
 
-            Text(title)
-                .font(.largeTitle.weight(.bold))
-                .lineLimit(3)
-                .minimumScaleFactor(0.8)
-
-            HStack(spacing: 8) {
-                CategoryChip(category: profile.vendor.category)
-                if let area = profile.vendor.serviceArea, !area.isEmpty {
-                    Label(area, systemImage: "mappin.and.ellipse")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
             if !profile.vendor.skills.isEmpty {
                 skillChips(profile.vendor.skills)
             }
@@ -153,28 +144,97 @@ struct VendorPublicProfileView: View {
 
     /// Full-width hero image (the vendor's photo), rounded into the canvas — the
     /// reference's banner. Falls back to a role-tinted gradient + glyph.
+    /// Hero — the vendor's **work**, swipeable like a Facebook Marketplace listing.
+    ///
+    /// Was a 190pt banner of the avatar, which both duplicated the circular avatar
+    /// and buried the portfolio below the fold. Now it pages through the portfolio
+    /// (tap → the same full-screen gallery the grid opens), with page dots. Falls
+    /// back to the avatar, then a role-tinted gradient, for vendors with no media.
+    @ViewBuilder
     private func heroBanner(_ profile: MarketplaceVendorProfile) -> some View {
         let color = MarketplaceCategory.color(profile.vendor.category)
-        return ZStack {
-            if let urlString = profile.identity.avatarURL, let url = URL(string: urlString) {
+        let media = mediaItems
+
+        Group {
+            if !media.isEmpty {
+                TabView(selection: $heroSelection) {
+                    ForEach(media) { item in
+                        Button {
+                            selectedMedia = item
+                        } label: {
+                            ZStack {
+                                if item.isVideo {
+                                    VideoThumbnailView(url: item.url)
+                                } else {
+                                    AsyncImage(url: item.url) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .tag(item.id)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: media.count > 1 ? .always : .never))
+                .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+                .accessibilityLabel(String(localized: "Portfolio, \(media.count) items. Swipe to browse, tap to open."))
+            } else if let urlString = profile.identity.avatarURL, let url = URL(string: urlString) {
                 AsyncImage(url: url) { image in
                     image.resizable().scaledToFill()
                 } placeholder: {
                     LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.25)], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
+                .accessibilityHidden(true)
             } else {
                 ZStack {
                     LinearGradient(colors: [ShiftPalette.soft(color), color.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     Image(systemName: MarketplaceCategory.role(profile.vendor.category).systemImage)
                         .font(.system(size: 48)).foregroundStyle(color.opacity(0.7))
                 }
+                .accessibilityHidden(true)
             }
         }
-        .frame(height: 190)
+        .frame(height: 260)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(.white.opacity(0.10), lineWidth: 1))
-        .accessibilityHidden(true)
+    }
+
+    /// Identity row beneath the hero: the avatar is now purely a circular
+    /// attribution mark (Instagram), not the banner.
+    private func identityRow(_ profile: MarketplaceVendorProfile) -> some View {
+        HStack(spacing: 12) {
+            VendorAvatar(
+                urlString: profile.identity.avatarURL,
+                category: profile.vendor.category,
+                size: 56
+            )
+            .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 2))
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.title2.weight(.bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                HStack(spacing: 8) {
+                    CategoryChip(category: profile.vendor.category)
+                    if let area = profile.vendor.serviceArea, !area.isEmpty {
+                        Label(area, systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
     }
 
     private func skillChips(_ skills: [String]) -> some View {
@@ -488,6 +548,9 @@ struct VendorPublicProfileView: View {
         profile = try? await service.fetchVendorProfile(profileID: profileID)
         guard profile != nil else { return }
         portfolio = (try? await service.portfolioItems(profileID: profileID)) ?? []
+        // Seed the hero carousel on the vendor's own first item (TabView needs a
+        // selection matching a tag, or paging state is lost).
+        if let first = mediaItems.first?.id { heroSelection = first }
         let summaries = (try? await service.portfolioEventSummaries(profileID: profileID)) ?? []
         eventSummaries = Dictionary(summaries.map { ($0.eventID, $0) }, uniquingKeysWith: { first, _ in first })
 

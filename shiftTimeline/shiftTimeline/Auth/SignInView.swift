@@ -1,7 +1,7 @@
 import Supabase
 import SwiftUI
 
-/// Unified sign-in sheet presenting Email OTP (primary) and Phone OTP (gated).
+/// Unified sign-in sheet presenting Email OTP (primary) and Phone OTP.
 ///
 /// Present this modally whenever a sharing or sync feature requires auth.
 /// Each sign-in path calls `dismiss()` on completion so the caller only
@@ -26,7 +26,8 @@ struct SignInView: View {
     }
 
     /// The remembered account's method, but only if that method is currently
-    /// available (phone is gated). `nil` → no usable remembered account.
+    /// available (either method can be killed by a flag). `nil` → no usable
+    /// remembered account.
     private var rememberedMethod: AuthMethod? {
         switch AuthMethodStore.last {
         case .some(.email) where FeatureFlags.emailSignIn: .email
@@ -155,8 +156,8 @@ struct SignInView: View {
     private var chooserButtons: some View {
         VStack(spacing: 12) {
             emailButton
-            // Phone OTP is gated off until an SMS provider is configured
-            // (FeatureFlags.phoneSignIn) — see PhoneAuthService / Supabase Auth.
+            // Phone OTP is live (Twilio Verify). `FeatureFlags.phoneSignIn` is
+            // retained purely as a kill switch if SMS delivery degrades.
             if FeatureFlags.phoneSignIn {
                 phoneButton
             }
